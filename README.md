@@ -27,23 +27,38 @@ Twelve-label knee-MRI classification, macro-AUROC. Final submission **2026-10-22
 
 ## Does our extractor actually beat the free one?
 
-Yes, on both independent references. This is the week-2 decision gate (`PLAN.md` §7), and it
-is reproducible with `python extractor/compare_methods.py`:
+Yes, on both references. This is the week-2 decision gate (`PLAN.md` §7), and it is
+reproducible with `python extractor/compare_methods.py`:
 
 | label source | vs gold (n=58) | vs hand labels (n=83) |
 |---|---|---|
-| **rules (ours)** | **0.775 AUC / 0.744 bal-acc** | **0.864 / 0.850** |
+| **rules (ours)** | **0.777 AUC / 0.749 bal-acc** | **0.864 / 0.862** |
 | public (`nekkon`) | 0.672 / 0.672 | 0.757 / 0.757 |
 
 Both metrics are reported because the public set is binary: with a single operating point its
 AUC collapses to balanced accuracy, so an AUC-only table would flatter our graded targets for
 free. The gap survives both metrics and both references.
 
-The same table re-prioritises `IMPROVEMENTS.md` by measurement. Hand-labelled reading scores
-**0.838** on the gold studies it covers, so the headroom is ~0.094 — and it is concentrated:
+**The two references are not independent, and that had to be checked.** The hand labels are
+read from the *reports* — same modality the extractor works from, same person, and the
+labelling UI highlights terms from the same `glossary.json` that drives the rules. So the
+right question is whether switching reference gold→hand preferentially flatters *us*:
 
-- **Medial OA 0.720 → 0.957 by hand.** Compartment attribution (§2.2) is worth more than
-  every other extractor fix combined.
+| source | vs gold | vs hand | lift |
+|---|---:|---:|---:|
+| rules | 0.775 | 0.864 | **+0.089** |
+| public | 0.672 | 0.757 | **+0.085** |
+
+Near-identical. Both sources are report-derived and both gain the same amount from a
+report-derived reference, so the gap is not an artefact of shared vocabulary. *(Measured on
+the pre-§2.2 extractor, which is the version the concern was raised against.)*
+
+The table also re-prioritises `IMPROVEMENTS.md` by measurement. Hand-labelled reading scores
+**0.838** on the gold studies it covers, so the headroom is ~0.06 — and it is concentrated:
+
+- **Medial OA 0.720 → 0.957 by hand.** Compartment attribution (§2.2) was worth more than
+  every other extractor fix combined; the first pass of it is now done and took Medial OA
+  bal-acc 0.720 → 0.787.
 - **Synovitis 0.621 rules / 0.639 public / 0.652 by hand.** Careful human reading barely beats
   a regex, so this is the report-only ceiling, not a bug — §2.1 is overweighted. Let the vision
   model learn it off the Effusion correlation instead.
@@ -62,6 +77,7 @@ extractor/             report -> 12-label extraction, method A and method B
   verify_claim.py        stress-tests the "labels aren't report-derived" claim
 labeling/              hand-labelling workflow
   glossary.json          multilingual terms for 12 findings + negation/uncertainty/severity
+  compartment_patch.py   adds _side_* / _compartment_struct. IMPROVEMENTS.md 2.2
   build_labeler.py       generates the offline labelling UI
   model_labels.csv       labels produced so far (86/303, all 30 blind gold done)
   item_id_map.csv        item_id -> StudyInstanceUID. the durable fingerprint, no report text
@@ -140,7 +156,9 @@ decode is the bottleneck and this will not complete in one session.
 ## Status
 
 - [x] Data logistics, language ID, series structure
-- [x] Rule extractor v1 — macro AUC **0.775** on gold, 95% CI [0.72, 0.81]
+- [x] Rule extractor v1 — macro AUC **0.777** on gold, 95% CI [0.74, 0.82]
+- [x] Compartment attribution (`IMPROVEMENTS.md` §2.2) — ~1,000 studies off the flat 0.45.
+      Invisible in gold macro (±0.038 CI); justified on corpus evidence, per §0
 - [x] Hand-labelling UI + all 30 blind gold studies labelled
 - [x] **Our labels beat the public weak labels** on gold and on hand labels — the moat is real
 - [x] Series-metadata shortcut tested and rejected (0.471, below chance)

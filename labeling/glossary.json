@@ -229,7 +229,7 @@
         "osteophyt",
         "joint space narrowing",
         "cartilage loss",
-        "chondral"
+        "^chondral"
       ],
       "turkish": [
         "osteoartr",
@@ -907,6 +907,164 @@
         "tricompartimental",
         "trois compartiments",
         "les trois compartiments"
+      ]
+    },
+    "_side_medial": {
+      "english": [
+        "medial"
+      ],
+      "german": [
+        "medial"
+      ],
+      "dutch": [
+        "mediaal",
+        "mediale"
+      ],
+      "turkish": [
+        "medial"
+      ],
+      "croatian": [
+        "medijaln"
+      ],
+      "spanish": [
+        "interna",
+        "interno",
+        "medial"
+      ],
+      "french": [
+        "interne",
+        "médial"
+      ],
+      "greek": [
+        "έσω"
+      ],
+      "bulgarian": [
+        "медиал"
+      ]
+    },
+    "_side_lateral": {
+      "english": [
+        "lateral"
+      ],
+      "german": [
+        "lateral"
+      ],
+      "dutch": [
+        "lateraal",
+        "laterale"
+      ],
+      "turkish": [
+        "lateral"
+      ],
+      "croatian": [
+        "lateraln"
+      ],
+      "spanish": [
+        "externa",
+        "externo",
+        "lateral"
+      ],
+      "french": [
+        "externe",
+        "latéral"
+      ],
+      "greek": [
+        "έξω"
+      ],
+      "bulgarian": [
+        "латерал"
+      ]
+    },
+    "_compartment_struct": {
+      "english": [
+        "compartment",
+        "condyle",
+        "femoral condyle",
+        "femorotibial",
+        "joint line",
+        "joint space",
+        "plateau",
+        "tibial plateau",
+        "tibiofemoral"
+      ],
+      "german": [
+        "condyl",
+        "femorotibial",
+        "femurcondyl",
+        "femurkondyl",
+        "gelenkspalt",
+        "kompartiment",
+        "kondyl",
+        "plateau",
+        "tibiaplateau",
+        "tibiofemoral"
+      ],
+      "dutch": [
+        "compartiment",
+        "condyl",
+        "femorotibia",
+        "femurcondyl",
+        "gewrichtsspleet",
+        "plateau",
+        "tibiaplateau",
+        "tibiofemora"
+      ],
+      "turkish": [
+        "eklem araliğ",
+        "eklem aralığ",
+        "femoral kondil",
+        "femorotibial",
+        "kompartman",
+        "kondil",
+        "plato",
+        "tibiofemoral"
+      ],
+      "croatian": [
+        "femorotibijaln",
+        "ft zglob",
+        "kompartm",
+        "kondil",
+        "plato",
+        "tibiofemoraln",
+        "zglobn prostor"
+      ],
+      "spanish": [
+        "compartimento",
+        "cóndilo",
+        "cóndilo femoral",
+        "espacio articular",
+        "femorotibial",
+        "interlínea",
+        "meseta tibial",
+        "platillo",
+        "tibiofemoral"
+      ],
+      "french": [
+        "compartiment",
+        "condyle",
+        "condyle fémoral",
+        "femorotibial",
+        "fémoro-tibial",
+        "interligne",
+        "plateau",
+        "plateau tibial"
+      ],
+      "greek": [
+        "διαμέρισμα",
+        "διαμερίσματ",
+        "κόνδυλ",
+        "μεσάρθρι",
+        "μηροκνημιαί",
+        "πλατώ"
+      ],
+      "bulgarian": [
+        "компартм",
+        "кондил",
+        "плато",
+        "ставна цепка",
+        "ставно пространство",
+        "тибиофеморал",
+        "феморотибиал"
       ]
     }
   },

@@ -3,9 +3,13 @@
 Running record of known weaknesses, open decisions, and things to re-check. Updated as work
 proceeds. **Read this before touching the extractor** — most of it is already diagnosed.
 
-**Status 2026-08-06:** rule-based extractor v1 running over all 4,407 reports.
-Macro AUC **0.775** on the 58 gold studies, 95% CI **[0.72, 0.81]**.
+**Status 2026-08-07:** rule-based extractor running over all 4,407 reports.
+Macro AUC **0.777** on the 58 gold studies, 95% CI **[0.74, 0.82]** (±0.038).
 Outputs: `data/pseudo_labels.csv` (soft targets), `extract_states.csv`, `extract_evidence.csv`.
+
+Latest change is §2.2 (compartment attribution) + R10. It moved ~1,000 studies off the flat
+0.45 `weak` score but is **invisible in gold macro AUC** (0.775 → 0.777, against a ±0.038 CI).
+That is the expected shape of a real improvement at n=58, not a disappointment — read §0.
 
 ---
 
@@ -90,13 +94,57 @@ Options: (a) let the LLM infer it; (b) accept it and let the vision model learn 
 Effusion↔Synovitis correlation (φ = 0.40 in `FINDINGS.md` §4); (c) derive it as a function of
 effusion volume + synovial-thickening terms. **Probably (a) + (b).**
 
-### 2.2 OA compartment attribution is mostly guesswork `HIGH`
-1,415 studies land in the `weak` state for Medial OA and 1,582 for Lateral OA — i.e. OA is
-mentioned but **no compartment is named**, so all three labels get a flat 0.45. A flat score
-across ~1,500 studies contributes nothing to ranking, which is why both sit near 0.71.
+### 2.2 OA compartment attribution `PARTLY FIXED 2026-08-07` — was `HIGH`
+1,415 studies landed in the `weak` state for Medial OA and 1,582 for Lateral OA — i.e. OA was
+mentioned but **no compartment named**, so all three labels got a flat 0.45. A flat score
+across ~1,500 studies contributes nothing to ranking, which is why both sat near 0.71.
 
-Ideas: parse severity/grade per compartment; exploit that medial OA is far more common than
-lateral; use the vision model's own compartment predictions to disambiguate (self-training).
+**§2c's diagnosis was wrong, and the way it was wrong is the point.** It read this as a
+*scope* problem and proposed propagating the compartment from an enclosing section header.
+Measured against the corpus, there is usually nothing to propagate: in 6 of 9 languages the
+formal phrase (`medial compartment`) appears **nowhere in the report** — Dutch 0.0%,
+Turkish 0.8%, German 7.9%, Greek 8.2%, Spanish 10.3% of weak studies. It was §3's pattern
+yet again — **the vocabulary was wrong, not the logic.** The compartment is named in the
+*same clause*, through anatomy the glossary did not know:
+
+```
+german     'Knorpelirregularitäten an der medialen Femurcondyle'      condyle, not compartment
+turkish    'Medial tibiofemoral eklem düzeyinde'                      word order flipped
+croatian   'degenerativne promjene FT zgloba'                         abbreviated
+dutch      'Mediaal femorotibiaal gewrichtscompartiment'              different inflection
+turkish    'Lateral eklem aralığında kıkırdakta %50'den fazla kayıp'  joint space
+```
+
+**Fix** (`labeling/compartment_patch.py`, `rule_extractor._near`): a compartment is a
+laterality adjective (`_side_medial` / `_side_lateral`) within **25 characters** of a
+structure belonging to exactly one compartment (`_compartment_struct`: condyle, tibial
+plateau, joint space, the femorotibial joint, the compartment itself).
+
+- **Menisci are deliberately excluded** from `_compartment_struct`. The medial meniscus does
+  sit in the medial compartment, but a *degenerative meniscal tear is not OA* and
+  `_OA_generic` contains `degenerativ` — including it would fire Medial OA on every
+  degenerative medial meniscal tear in the corpus.
+- **The 25-char window was chosen from the gap distribution and by reading, before looking at
+  gold.** Over the 299 studies the rule newly resolves the gap is 3 at the median and 22 at
+  p90, then a long tail to 188 that is ~80% false positives — `Patellofemoral compartment
+  cartilage: … medial patellar facet` (the medial *patellar* facet is in the patellofemoral
+  compartment, not the medial tibiofemoral one), impaction fractures, meniscal degeneration.
+  Bare clause co-occurrence is too loose; the side has to actually modify the structure.
+
+| | before | after |
+|---|---:|---:|
+| Medial OA `weak` | 1,415 | **989** |
+| Lateral OA `weak` | 1,582 | **1,176** |
+| PF OA `weak` | 1,126 | **933** |
+
+~1,000 studies moved off the flat 0.45. **Gold cannot certify this and was not used to
+justify it:** macro went 0.775 → 0.777 AUC / 0.744 → 0.749 bal-acc, and Medial OA's own CI is
+[0.611, 0.902]. Per §0 the justification is corpus-level. On the 83 hand labels — the largest
+reference — macro bal-acc went 0.850 → **0.862**.
+
+**Still open:** Spanish barely moved (+2 of 213), but see §2.11 — that is a true absence plus
+a different bug, not a compartment gap. Self-training the ~1,000 remaining `weak` studies off
+the vision model's compartment predictions (§5) is still the endgame.
 
 ### 2.3 Bulgarian Baker's may now be over-corrected `MED`
 Went 62.7% → **2.3%** after requiring `киста~поплитеал` in one clause. But `поплитеал` appears
@@ -138,6 +186,42 @@ Terms came from domain knowledge plus inspection of a handful of reports, not a 
 lexicon. Croatian and Bulgarian have already been caught using entirely different words than
 guessed (§3). **Assume the others have similar gaps.** The per-language positive-rate table in
 `run_extract.py` is the detector — a row that is flat or wildly off the others is a bug.
+
+### 2.11 Spanish `_OA_generic` is too loose — the per-language table is flagging it `MED`
+After the §2.2 fix, Spanish Medial OA sits at **5.1%** positive against 13–35% in every other
+language, and Lateral OA at 4.5%. That is the §3 detector firing. It is *not* a compartment
+gap. Of the 210 Spanish studies still `weak`, the OA clause contains:
+
+```
+cartílago 146   femorotibial 74   compartiment 44   menisc 40   troclea 36   cóndilo 2
+```
+
+Reading them, two distinct faults:
+
+1. **`cartílago` alone is in `_OA_generic`.** It matches every normal report —
+   *"Cartílagos de los compartimentos femorotibiales y de la tróclea femoral **sin
+   alteraciones**"*. Same class as R6 (`μηνίσκ` in both meniscus lists).
+2. **`pinzamiento` alone is in `_OA_generic`.** It means joint-space narrowing in an OA
+   context, but the corpus's most frequent use is *"**Pinzamiento** de la almohadilla grasa
+   de Hoffa"* — Hoffa fat-pad **impingement**, an unrelated finding.
+
+Neither inflates Spanish *positives* (it is the lowest language); both inflate the `weak`
+bucket with clauses that are not OA at all. Fixing it moves those studies `weak` (0.45) →
+`absent` (0.08), which is a ranking gain even though no new positive appears. Needs its own
+measurement because `_OA_generic` feeds all three OA labels.
+
+Also unaddressed: Spanish genuinely names both compartments together (*"compartimentos
+femorotibiales"*, plural, no side) where other languages name one. A both-compartments rule
+would be a separate small win.
+
+### 2.12 Greek `χόνδρ` has the R5 prefix bug, unmeasured `LOW`
+The `^` word-start marker added for English `chondral` (R10) applies to Greek `χόνδρ` too: it
+fires inside `οστεοχονδρινο` and `ενχόνδρωμα` (an enchondroma is a benign bone tumour, not
+OA) **20 times out of 64**. Real, but small, and word-start may cost more than it saves on
+Greek's heavily prefixed compounds. Measure before changing. Dutch `artrose` inside
+`gonartrose`, German `arthrose` inside `gonarthrose`/`retropatellararthrose` and Bulgarian
+`артроза` inside `гонартроза` were all checked and are **correct** — that is the substring
+matching working as designed.
 
 ---
 
@@ -236,9 +320,12 @@ Mean agreement 0.883. The outliers are diagnostic:
 
 - **OA under-detection** is the `weak` state from §2.2 — when OA is named without a
   compartment, the rule assigns a flat 0.45 that never crosses threshold. Reading the
-  surrounding context resolves the compartment most of the time. Fix: propagate compartment
+  surrounding context resolves the compartment most of the time. ~~Fix: propagate compartment
   from the enclosing section header (`MEDIAL COMPARTMENT:` / `Mediales Kompartiment:` /
-  `compartimento femorotibial medial`) rather than requiring it in the same clause.
+  `compartimento femorotibial medial`) rather than requiring it in the same clause.~~
+  **Superseded 2026-08-07 — that fix was aimed at the wrong thing.** Those headers barely
+  exist outside English and Dutch; the compartment is in the same clause, named by anatomy
+  the glossary lacked. See §2.2 for what was actually wrong and what was done.
 - **Contusion over-detection**: the rule counts *any* marrow oedema. Gold and careful reading
   both distinguish **traumatic** contusion from **degenerative/reactive** subchondral oedema
   and from oedema **adjacent to a fracture** (gold labels that Contusion = 0). Fix: require a
@@ -261,10 +348,17 @@ Intra-rater consistency: **100%** on the 2 duplicate pairs seen so far (small, b
 | R7 | Croatian OA compartments 0.0% | corpus says `femorotibijaln`/`kompartm`, never `odjeljak` | co-occurrence terms |
 | R8 | Bulgarian Baker's 62.7% | bare `киста` matches any cyst; `Бейкер` appears 0/220 | `киста~поплитеал` (see 2.3) |
 | R9 | Effusion AUC 0.604 | severity ignored; 32% of hits qualified trace/minimal | `minimal` cue class → downgrade to hedged. **0.604 → 0.743** |
+| R10 | English `chondral` fired 1,019× non-word-initially | substring stem is a suffix of `subchondral` (846) and `osteochondral` (170), so subchondral oedema / insufficiency fracture / bone island all read as cartilage pathology | `^` word-start marker → `^chondral`. Checked all 9 languages; English is the only one that needed it (see §2.12) |
 
 **The recurring pattern:** guessed vocabulary is wrong far more often than the logic is. Every
-single one of R2/R6/R7/R8 was found by the per-language positive-rate table, not by gold AUC.
-Keep that table in every run.
+single one of R2/R6/R7/R8 was found by the per-language positive-rate table, not by gold AUC —
+and §2.2 is the same story a fifth time, with the extra twist that the *diagnosis* in §2c had
+already committed to a logic fix (section-header scope) that the corpus does not support.
+Check the vocabulary against the corpus before designing the rule. Keep that table in every run.
+
+R10 was found neither way: it surfaced from **auditing what a change newly fires on**, by
+reading 25 clauses. Worth repeating after any rule that moves a few hundred studies — the
+per-language table is too coarse to see a fault that is spread evenly across one language.
 
 ---
 
