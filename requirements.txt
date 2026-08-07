@@ -16,3 +16,10 @@ numpy>=1.24
 
 # Data access only. New-style KGAT_ token at ~/.kaggle/access_token; kaggle.json is dead.
 kaggle>=2.2
+
+# eda_04_metadata_baseline.py, and the fusion head later.
+scikit-learn>=1.4
+
+# extractor/llm_extract.py (method B). Only needed if the LLM extractor runs against the API;
+# the local-GPU path does not require it.
+anthropic>=0.116

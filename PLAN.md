@@ -330,20 +330,62 @@ to log decode / preprocess / GPU / write time separately, then walk the list mea
 
 ## 7. Schedule — 11 weeks
 
+> **Revised 2026-08-07.** The original schedule deferred the first submission to weeks 4–6 and
+> treated backbone choice as a week 7–9 scaling knob. Both assumed we would build a baseline from
+> nothing. The public leaderboard reached 0.932 within 48 hours of the competition opening, on
+> forks of shared DINOv2 notebooks (§7.1), so a baseline is now a fork and LB feedback is nearly
+> free. The tracks below run in parallel rather than labels-then-vision, because the vision
+> pipeline is what *evaluates* the label work.
+
 | Weeks | Phase | Exit criterion |
 |---|---|---|
 | **1** | ~~Logistics + text EDA~~ **DONE 2026-08-06** — CSVs pulled, `FINDINGS.md` written | ✅ 58/4,407 gold; 9 languages; 6 series types |
-| **1–2** | **Hand-label 250–400 reports**, stratified across all 9 languages (§2.2). Machine-translate to read | A validation set 5× the size of gold, with real per-language coverage |
-| **1–2** | Set up Kaggle-notebook workflow; survey external datasets (§3.4) and check licences | Know which external corpora are usable before committing to a pretraining plan |
-| **1–3** | **Report→label extraction.** Offline multilingual LLM + a second method; reconcile; validate per-label **and per-language** against gold + your own set | Full pseudo-labelled training table for all 4,349 unlabelled studies |
-| **2–4** | Preprocessing + cache built as a Kaggle Dataset (overlaps with above) | Cached volumes for all training studies; CV folds fixed |
-| **4–6** | Baseline 2.5D + slice transformer, single plane, 5-fold → first LB submission | Honest OOF macro-AUC on gold; valid submission |
-| **6–7** | Multi-series routing + attention pooling using the provided series metadata | Beats single-plane, especially on PF OA / Baker's / MCL |
-| **7–9** | Scale & diversify: per-plane specialists, 3D branch, bigger backbones, correlation stacker | Ensemble beats best single by more than its CI |
+| **2** | **Unblock.** Fork a public DINOv2 baseline → submit. Verify `(0020,0060) Laterality` survived the 86-tag allowlist (§3.2). **A/B our extractor against the public weak labels** on the 31 blind gold + 86 hand labels | A number on the board; laterality answered; **we know whether our labels are a moat** |
+| **2–3** | **Feature cache.** §3.1 preprocessing on Kaggle; benchmark decode per transfer syntax while in there. Frozen DINOv2 ViT-B/14 @518 → per-slice embeddings → publish as a Kaggle Dataset | ~1 GB of embeddings, downloadable. Local iteration unblocked |
+| **3–4** | **Fusion head, trained locally.** §3.3 minus the backbone: slice transformer → attention pool → series-type embedding → series attention → 12 logits. Series dropout mandatory; no hflip unless Medial↔Lateral swap | Beats the public baseline on *our* held-out set, not the LB |
+| **3–5** *(parallel)* | **Labels.** Finish the 217 remaining hand labels. Fix §2.1–§2.7 and the §2b-ii calibration. LLM extractor once the host is settled. Fit the §1.3 soft-target constants | Labels that measurably beat the public ones |
+| **5–7** | **External data** (§3.4). MRNet → ACL + meniscus; OAI → the three OA labels; fastMRI+ | Gain on the ~6 covered labels over pseudo-labels alone |
+| **7–9** | **Scale.** Unfreeze the last N DINOv2 blocks now the architecture is settled. Per-plane specialists, correlation stacker (§3.5.5), ensemble | Ensemble beats best single by more than its CI |
 | **9–10** | Efficiency variant + hardening: decode optimization, degenerate-input tests, full-size runtime profiling | Lean submission within ~0.01 AUC of best, ≤15 min |
 | **11** | Final submission selection, open-source packaging, video | Two finals chosen on CV, both verified clean |
 
 Entry deadline **Oct 15** — accept the rules well before then.
+
+The load-bearing item is the **week-2 A/B**. It is roughly two hours of work and it decides how the
+next month is spent. If our extractor clearly beats the public weak labels, the LLM extractor is
+justified and the moat is real. If it does not, skip the API budget and redirect those weeks into
+external data, where six of twelve labels get actual expert image reads instead of anything derived
+from report text.
+
+### 7.1 What the public leaderboard is actually doing — measured 2026-08-07
+
+Top score 0.932; ranks 2–20 spread 0.900 → 0.811; **every submission dated 2026-08-06/07**. Nobody
+built a weakly-supervised 12-label 3D pipeline in 48 hours — the field forked shared notebooks.
+Six of the top 20 public notebooks are DINOv2-based (`DINOv2 at meniscus resolution`,
+`DINOsaur V2`, `dinov2-ensemble`, `Public 4-fold DINOv2 v4`, `DINOv2 Base Physical Scale Soup`,
+`DINO Protocol Fusion`). A frozen self-supervised ViT needs far less label signal than a CNN
+trained from scratch, which is why 0.9 arrived so fast.
+
+Consequences:
+
+- **0.9 is table stakes, not a target.** The spread from 0.811 to 0.932 is people tuning one notebook.
+- **`nekkon/weak-labels-for-all-12-knee-mri-findings` is public.** §5 called the extractor "the
+  solution"; that is now partly commoditized. Ours has to beat the public set to be worth anything,
+  which is measurable — hence the week-2 A/B.
+- **DINOv2 replaces the §3.3 backbone slot and nothing else.** The slice transformer, attention
+  pooling, series-type embedding, and series dropout all stand, and are likely *ahead* of the public
+  forks — `DINO Protocol Fusion` existing as a separate notebook suggests most forks pool naively
+  across series. Frictions: patch-14 fixes resolution to multiples of 14 (use 518, not 224 — a
+  meniscal tear is small and 16×16 patches lose it), and the stem takes exactly 3 channels, so
+  §3.3's "groups of 3–5 adjacent slices" becomes exactly 3.
+- **Freeze the backbone and cache the embeddings.** ~4,400 studies × ~5 series × ~24 slices ≈ 530k
+  slices; at ViT-B/14's 768 dims in fp16 that is under 1 GB. The fusion head then trains on the
+  laptop in minutes per experiment. Differentiation cannot come from the backbone — everyone has the
+  same weights — so it has to come from the fusion layer, the labels, and external data.
+
+**Tested and rejected:** series metadata alone (counts and presence flags over the 6 types) predicts
+nothing — macro AUC **0.471** on the 58 gold, 5-fold CV, below chance. There is no protocol-fingerprint
+shortcut. Do not re-run this. See `eda_04_metadata_baseline.py`.
 
 ---
 
@@ -359,7 +401,9 @@ Entry deadline **Oct 15** — accept the rules well before then.
 | **Rare labels + only ~1,300 test studies → wide CIs** | Bootstrap CIs; accept that some ranking is luck; don't overfit folds |
 | **JPEG 2000 decode dominates runtime** | Benchmark per transfer syntax in week 1; `pylibjpeg-openjpeg` / GDCM |
 | **Missing series in test studies** | Series-dropout augmentation + explicit degenerate-input tests |
-| **570 GB won't fit locally** | Kaggle notebooks / cloud for images; local work is text-only (§1) |
+| **570 GB won't fit locally** | Kaggle notebooks / cloud for pixels. ~~Local work is text-only~~ — **no longer true**: cached frozen DINOv2 embeddings are ~1 GB, so the fusion head trains locally (§7.1) |
+| **Public weak labels commoditize the extractor** | A/B ours against `nekkon`'s public set on the 31 gold + 86 hand labels in week 2, *before* spending further on extraction. If ours does not win, redirect to external data |
+| **Everyone shares one backbone** | DINOv2 is universal, so it cannot differentiate. Push the edge into the fusion layer (§3.3), the labels (§2), and external data (§3.4) — the three places our work is already strongest |
 
 ---
 

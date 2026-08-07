@@ -10,6 +10,7 @@ from pathlib import Path
 
 sys.path.insert(0, str(Path(__file__).parent))
 from rule_extractor import RuleExtractor, LABELS
+from metrics import auc
 
 PROJ = Path(__file__).resolve().parents[1]
 
@@ -27,16 +28,6 @@ scores = pd.DataFrame([r["scores"] for r in res], index=tr.index)
 states = pd.DataFrame([r["states"] for r in res], index=tr.index)
 evid = pd.DataFrame([{L: r["evidence"].get(L, "") for L in LABELS} for r in res],
                     index=tr.index)
-
-
-def auc(y, s):
-    """Rank-based AUC; returns nan if only one class present."""
-    y = np.asarray(y, float); s = np.asarray(s, float)
-    pos, neg = y == 1, y == 0
-    if pos.sum() == 0 or neg.sum() == 0:
-        return np.nan
-    r = pd.Series(s).rank().values
-    return (r[pos].sum() - pos.sum() * (pos.sum() + 1) / 2) / (pos.sum() * neg.sum())
 
 
 g = tr.is_gold.values
