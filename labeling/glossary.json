@@ -1,0 +1,1166 @@
+{
+  "_comment": "Stem-based multilingual glossary for the 12 RSNA knee findings. Terms are STEMS matched as case-insensitive substrings, because Croatian/Russian/Greek/Turkish inflect heavily. Used for (a) highlighting in the hand-labeling UI and (b) seeding the rule-based extractor that cross-checks the LLM. CORRECTION 2026-08-06: the Cyrillic block is BULGARIAN, not Russian; the 'latin' bucket was terse ENGLISH. Language IDs now come from lingua (data/lang_detected.csv), not the stopword heuristic.",
+  "languages": [
+    "english",
+    "spanish",
+    "turkish",
+    "croatian",
+    "greek",
+    "german",
+    "bulgarian",
+    "dutch",
+    "french"
+  ],
+  "findings": {
+    "ACL": {
+      "english": [
+        "anterior cruciate",
+        "acl",
+        "cruciate ligament"
+      ],
+      "turkish": [
+        "ön çapraz",
+        "on capraz",
+        "öçb",
+        "ocb",
+        "acl"
+      ],
+      "croatian": [
+        "prednji križni",
+        "prednjeg križnog",
+        "prednje križne",
+        "križni ligament",
+        "lca",
+        "acl"
+      ],
+      "dutch": [
+        "voorste kruisband",
+        "vkb",
+        "acl",
+        "kruisband"
+      ],
+      "spanish": [
+        "cruzado anterior",
+        "lca"
+      ],
+      "greek": [
+        "πρόσθιο χιαστό",
+        "πρόσθιος χιαστός",
+        "πρόσθιου χιαστού",
+        "πχσ",
+        "χιαστ",
+        "χιαστός σύνδεσμος"
+      ],
+      "german": [
+        "vorderes kreuzband",
+        "vorderen kreuzband",
+        "vkb",
+        "kreuzband",
+        "acl"
+      ],
+      "french": [
+        "croisé antérieur",
+        "croise anterieur",
+        "lca"
+      ],
+      "bulgarian": [
+        "предна кръстна",
+        "предната кръстна",
+        "предн кръстн",
+        "пкв"
+      ]
+    },
+    "MCL": {
+      "english": [
+        "medial collateral",
+        "mcl",
+        "tibial collateral"
+      ],
+      "turkish": [
+        "medial kollateral",
+        "iç yan bağ",
+        "ic yan bag",
+        "mcl"
+      ],
+      "croatian": [
+        "medijalni kolateralni",
+        "medijalnog kolateralnog",
+        "unutarnji kolateralni",
+        "mcl"
+      ],
+      "dutch": [
+        "mediale collaterale",
+        "mediale band",
+        "mcl",
+        "binnenband"
+      ],
+      "spanish": [
+        "colateral medial",
+        "lateral interno",
+        "lcm",
+        "ligamento interno"
+      ],
+      "greek": [
+        "έσω πλάγι",
+        "έσω πλάγιος",
+        "έσω πλάγιου",
+        "έσω πλαγίου",
+        "επσ",
+        "πλάγι σύνδεσμ",
+        "πλάγιοι σύνδεσμοι",
+        "πλάγιος σύνδεσμος",
+        "πλαγίου συνδέσμου",
+        "πλαγίων συνδέσμων"
+      ],
+      "german": [
+        "mediales kollateralband",
+        "innenband",
+        "mediale kollateralband",
+        "mcl"
+      ],
+      "french": [
+        "collatéral médial",
+        "collateral medial",
+        "latéral interne",
+        "lateral interne",
+        "lli"
+      ],
+      "bulgarian": [
+        "колатерал",
+        "медиален колатерал",
+        "вътрешн странич"
+      ]
+    },
+    "Medial Meniscus": {
+      "english": [
+        "medial meniscus"
+      ],
+      "turkish": [
+        "medial menisküs",
+        "medial menisk",
+        "iç menisküs"
+      ],
+      "croatian": [
+        "medijalni menisk",
+        "medijalnog meniska",
+        "unutarnji menisk"
+      ],
+      "dutch": [
+        "mediale meniscus",
+        "binnenmeniscus"
+      ],
+      "spanish": [
+        "menisco medial",
+        "menisco interno"
+      ],
+      "greek": [
+        "έσω κερατ",
+        "έσω μηνίσκ"
+      ],
+      "german": [
+        "innenmeniskus",
+        "medialer meniskus",
+        "medialen meniskus"
+      ],
+      "french": [
+        "ménisque interne",
+        "menisque interne",
+        "ménisque médial",
+        "menisque medial"
+      ],
+      "bulgarian": [
+        "медиалния менискус",
+        "медиален менискус",
+        "медиалниот менискус",
+        "вътрешния менискус",
+        "медиалния мениск"
+      ]
+    },
+    "Lateral Meniscus": {
+      "english": [
+        "lateral meniscus"
+      ],
+      "turkish": [
+        "lateral menisküs",
+        "lateral menisk",
+        "dış menisküs"
+      ],
+      "croatian": [
+        "lateralni menisk",
+        "lateralnog meniska",
+        "vanjski menisk"
+      ],
+      "dutch": [
+        "laterale meniscus",
+        "buitenmeniscus"
+      ],
+      "spanish": [
+        "menisco lateral",
+        "menisco externo"
+      ],
+      "greek": [
+        "έξω κερατ",
+        "έξω μηνίσκ"
+      ],
+      "german": [
+        "außenmeniskus",
+        "aussenmeniskus",
+        "lateraler meniskus",
+        "lateralen meniskus"
+      ],
+      "french": [
+        "ménisque externe",
+        "menisque externe",
+        "ménisque latéral",
+        "menisque lateral"
+      ],
+      "bulgarian": [
+        "латералния менискус",
+        "латерален менискус",
+        "външния менискус",
+        "латералния мениск"
+      ]
+    },
+    "_OA_generic": {
+      "english": [
+        "osteoarthr",
+        "degenerativ",
+        "chondromalac",
+        "osteophyt",
+        "joint space narrowing",
+        "cartilage loss",
+        "chondral"
+      ],
+      "turkish": [
+        "osteoartr",
+        "dejeneratif",
+        "kondromalaz",
+        "osteofit",
+        "eklem aralığında daralma",
+        "kıkırdak"
+      ],
+      "croatian": [
+        "artroz",
+        "degenerac",
+        "degenerativ",
+        "hondromalac",
+        "osteofit",
+        "suženj",
+        "hrskavic"
+      ],
+      "dutch": [
+        "artrose",
+        "degeneratie",
+        "degeneratief",
+        "chondromalac",
+        "osteofyt",
+        "gewrichtsspleet",
+        "kraakbeen"
+      ],
+      "spanish": [
+        "artrosis",
+        "degenerativ",
+        "condromalac",
+        "osteofito",
+        "pinzamiento",
+        "cartílago",
+        "cartilago"
+      ],
+      "greek": [
+        "απώλεια",
+        "αρθρικού χόνδρου",
+        "αρθρικός χόνδρος",
+        "εκφυλιστικ",
+        "εκφύλισ",
+        "επιχείλια",
+        "οστεοαρθρ",
+        "οστεόφυτ",
+        "οστεόφυτα",
+        "χονδρομαλακ",
+        "χόνδρ",
+        "χόνδρου"
+      ],
+      "german": [
+        "arthrose",
+        "gonarthrose",
+        "degenerativ",
+        "chondromalaz",
+        "osteophyt",
+        "knorpel"
+      ],
+      "french": [
+        "arthrose",
+        "gonarthrose",
+        "dégénératif",
+        "degeneratif",
+        "chondromalac",
+        "ostéophyt",
+        "osteophyt",
+        "pincement",
+        "cartilage"
+      ],
+      "bulgarian": [
+        "артроза",
+        "гонартроза",
+        "дегенератив",
+        "хондромалац",
+        "остеофит",
+        "хрущял",
+        "изтънен",
+        "изтъняване",
+        "стеснен"
+      ]
+    },
+    "_compartment_medial": {
+      "english": [
+        "medial compartment",
+        "medial femorotibial",
+        "medial tibiofemoral"
+      ],
+      "turkish": [
+        "medial kompartman",
+        "medial femorotibial"
+      ],
+      "croatian": [
+        "medijaln~femorotibijaln",
+        "medijaln~kompartm",
+        "medijalnom femorotibijalnom"
+      ],
+      "dutch": [
+        "mediale compartiment",
+        "mediale femorotibiale"
+      ],
+      "spanish": [
+        "compartimento medial",
+        "femorotibial interno",
+        "femorotibial medial"
+      ],
+      "greek": [
+        "έσω διαμέρισμα",
+        "έσω διαμερίσματ",
+        "έσω μεσάρθριο",
+        "έσω μεσαρθρίου",
+        "έσω μηροκνημιαί",
+        "έσω μηροκνημιαία"
+      ],
+      "german": [
+        "mediale kompartiment",
+        "medialen kompartiment",
+        "medialen femorotibial"
+      ],
+      "french": [
+        "compartiment médial",
+        "compartiment interne",
+        "fémoro-tibial interne"
+      ],
+      "bulgarian": [
+        "медиалната страна",
+        "медиалния кондил",
+        "медиално ставно",
+        "медиална гонартроза"
+      ]
+    },
+    "_compartment_lateral": {
+      "english": [
+        "lateral compartment",
+        "lateral femorotibial",
+        "lateral tibiofemoral"
+      ],
+      "turkish": [
+        "lateral kompartman",
+        "lateral femorotibial"
+      ],
+      "croatian": [
+        "lateraln~femorotibijaln",
+        "lateraln~kompartm",
+        "lateralnom femorotibijalnom"
+      ],
+      "dutch": [
+        "laterale compartiment",
+        "laterale femorotibiale"
+      ],
+      "spanish": [
+        "compartimento lateral",
+        "femorotibial externo",
+        "femorotibial lateral"
+      ],
+      "greek": [
+        "έξω διαμέρισμα",
+        "έξω διαμερίσματ",
+        "έξω μεσάρθριο",
+        "έξω μεσαρθρίου",
+        "έξω μηροκνημιαί",
+        "έξω μηροκνημιαία"
+      ],
+      "german": [
+        "laterale kompartiment",
+        "lateralen kompartiment",
+        "lateralen femorotibial"
+      ],
+      "french": [
+        "compartiment latéral",
+        "compartiment externe",
+        "fémoro-tibial externe"
+      ],
+      "bulgarian": [
+        "латералната страна",
+        "латералния кондил",
+        "латерално ставно",
+        "латерална гонартроза"
+      ]
+    },
+    "PF OA": {
+      "english": [
+        "patellofemoral",
+        "patellar cartilage",
+        "retropatellar",
+        "trochlea"
+      ],
+      "turkish": [
+        "patellofemoral",
+        "patellar kıkırdak",
+        "retropatellar",
+        "troklea"
+      ],
+      "croatian": [
+        "patelofemoraln",
+        "patelarn",
+        "retropatelarn",
+        "trohle"
+      ],
+      "dutch": [
+        "patellofemoral",
+        "retropatellair",
+        "patellair kraakbeen",
+        "trochlea"
+      ],
+      "spanish": [
+        "patelofemoral",
+        "femoropatelar",
+        "retropatelar",
+        "tróclea",
+        "troclea"
+      ],
+      "greek": [
+        "επιγονατίδ",
+        "επιγονατιδ",
+        "επιγονατιδομηριαί",
+        "μηροεπιγονατιδ",
+        "τροχιλ"
+      ],
+      "german": [
+        "patellofemoral",
+        "retropatellar",
+        "femoropatellar",
+        "trochlea"
+      ],
+      "french": [
+        "fémoro-patellaire",
+        "femoro-patellaire",
+        "patellofémoral",
+        "rétropatellaire",
+        "trochlé"
+      ],
+      "bulgarian": [
+        "пател",
+        "ретинакул",
+        "феморопател",
+        "пателофемор"
+      ]
+    },
+    "Effusion": {
+      "english": [
+        "effusion",
+        "joint fluid",
+        "intra-articular fluid",
+        "hydrops"
+      ],
+      "turkish": [
+        "efüzyon",
+        "efuzyon",
+        "eklem sıvısı",
+        "sıvı artışı",
+        "mayi"
+      ],
+      "croatian": [
+        "izljev",
+        "izljeva",
+        "tekućin",
+        "hidrops"
+      ],
+      "dutch": [
+        "hydrops",
+        "gewrichtsvocht",
+        "effusie",
+        "vocht in het gewricht"
+      ],
+      "spanish": [
+        "derrame",
+        "líquido articular",
+        "liquido articular"
+      ],
+      "greek": [
+        "αρθρική συλλογή",
+        "αρθρικό υγρό",
+        "ενδαρθρικ",
+        "ενδαρθρική συλλογή",
+        "συλλογή υγρού",
+        "υγρού",
+        "υγρό στην άρθρωση",
+        "υδράρθρ"
+      ],
+      "german": [
+        "erguss",
+        "gelenkerguss",
+        "gelenkflüssigkeit",
+        "hydrops"
+      ],
+      "french": [
+        "épanchement",
+        "epanchement",
+        "liquide articulaire",
+        "hydarthrose"
+      ],
+      "bulgarian": [
+        "ставен излив",
+        "излив",
+        "течност в",
+        "хидартроза"
+      ]
+    },
+    "Synovitis": {
+      "english": [
+        "synovit",
+        "synovial thickening",
+        "synovial proliferation",
+        "pannus"
+      ],
+      "turkish": [
+        "sinovit",
+        "sinovyal kalınlaşma",
+        "pannus"
+      ],
+      "croatian": [
+        "sinovit",
+        "sinovijaln",
+        "zadebljanje sinovij"
+      ],
+      "dutch": [
+        "synovitis",
+        "synoviale verdikking",
+        "pannus"
+      ],
+      "spanish": [
+        "sinovitis",
+        "engrosamiento sinovial",
+        "pannus"
+      ],
+      "greek": [
+        "αρθρικού υμέν",
+        "αρθρικού υμένα",
+        "πάχυνση του υμένα",
+        "υμέν",
+        "υμεν",
+        "υμενίτιδ",
+        "υμενίτιδα",
+        "υμενικ"
+      ],
+      "german": [
+        "synovitis",
+        "synoviale verdickung",
+        "pannus",
+        "synovialis"
+      ],
+      "french": [
+        "synovite",
+        "épaississement synovial",
+        "pannus"
+      ],
+      "bulgarian": [
+        "синови",
+        "синовиал",
+        "синовит",
+        "синовиум"
+      ]
+    },
+    "Baker's": {
+      "english": [
+        "baker",
+        "popliteal cyst",
+        "gastrocnemio-semimembranosus"
+      ],
+      "turkish": [
+        "baker kist",
+        "popliteal kist"
+      ],
+      "croatian": [
+        "bakerova cist",
+        "poplitealn cist",
+        "bakerove cist"
+      ],
+      "dutch": [
+        "bakercyste",
+        "baker cyste",
+        "popliteale cyste"
+      ],
+      "spanish": [
+        "quiste de baker",
+        "quiste poplíteo",
+        "quiste popliteo"
+      ],
+      "greek": [
+        "κύστη baker",
+        "ιγνυακή κύστ",
+        "κύστη μπέικερ"
+      ],
+      "german": [
+        "bakerzyste",
+        "baker-zyste",
+        "poplitealzyste",
+        "popliteale zyste"
+      ],
+      "french": [
+        "kyste de baker",
+        "kyste poplité",
+        "kyste poplite"
+      ],
+      "bulgarian": [
+        "киста~поплитеал",
+        "поплитеална киста",
+        "бейкър",
+        "бейкер"
+      ]
+    },
+    "Contusion": {
+      "english": [
+        "contusion",
+        "bone marrow edema",
+        "bone marrow oedema",
+        "bone bruise",
+        "marrow signal",
+        "trabecular edema"
+      ],
+      "turkish": [
+        "kontüzyon",
+        "kemik iliği ödem",
+        "kemik ödem",
+        "trabeküler ödem"
+      ],
+      "croatian": [
+        "kontuzij",
+        "edem koštane srži",
+        "koštani edem",
+        "nagnječenj"
+      ],
+      "dutch": [
+        "contusie",
+        "botoedeem",
+        "beenmergoedeem",
+        "bone bruise"
+      ],
+      "spanish": [
+        "contusión",
+        "contusion",
+        "edema óseo",
+        "edema oseo",
+        "edema de médula ósea",
+        "edema medular"
+      ],
+      "greek": [
+        "θλάση",
+        "μυελ",
+        "μυελικό οίδημα",
+        "μυελού των οστών",
+        "μώλωπ",
+        "οίδημα",
+        "οίδημα μυελού",
+        "οίδημα του μυελού",
+        "οστικού μυελού",
+        "οστικού οιδήματ",
+        "οστικό οίδημα",
+        "οστικός μυελός"
+      ],
+      "german": [
+        "kontusion",
+        "knochenmarködem",
+        "knochenmarkoedem",
+        "knochenödem",
+        "bone bruise"
+      ],
+      "french": [
+        "contusion",
+        "œdème osseux",
+        "oedeme osseux",
+        "œdème médullaire",
+        "oedeme medullaire"
+      ],
+      "bulgarian": [
+        "костномозъчен едем",
+        "костен едем",
+        "контузия",
+        "оток на костния",
+        "субхондрален едем"
+      ]
+    },
+    "Fracture": {
+      "english": [
+        "fracture",
+        "fractured",
+        "avulsion",
+        "cortical break",
+        "insufficiency fracture"
+      ],
+      "turkish": [
+        "fraktür",
+        "fraktur",
+        "kırık",
+        "kirik",
+        "avülsiyon"
+      ],
+      "croatian": [
+        "fraktur",
+        "prijelom",
+        "avulzij"
+      ],
+      "dutch": [
+        "fractuur",
+        "breuk",
+        "avulsie"
+      ],
+      "spanish": [
+        "fractura",
+        "avulsión",
+        "avulsion"
+      ],
+      "greek": [
+        "αποσπαστικό",
+        "κάταγμ",
+        "κάταγμα",
+        "κατάγματ",
+        "καταγματ"
+      ],
+      "german": [
+        "fraktur",
+        "bruch",
+        "abriss",
+        "avulsion"
+      ],
+      "french": [
+        "fracture",
+        "avulsion",
+        "arrachement"
+      ],
+      "bulgarian": [
+        "фрактура",
+        "счупване",
+        "авулзи"
+      ]
+    },
+    "_tear": {
+      "english": [
+        "tear",
+        "torn",
+        "rupture",
+        "ruptured",
+        "disruption",
+        "discontinuity"
+      ],
+      "turkish": [
+        "yırtık",
+        "yirtik",
+        "rüptür",
+        "ruptur",
+        "yırtığ"
+      ],
+      "croatian": [
+        "ruptur",
+        "rupture",
+        "prekid kontinuiteta",
+        "puknuć"
+      ],
+      "dutch": [
+        "scheur",
+        "ruptuur",
+        "gescheurd",
+        "onderbreking"
+      ],
+      "spanish": [
+        "rotura",
+        "desgarro",
+        "ruptura",
+        "discontinuidad"
+      ],
+      "greek": [
+        "ασαφοποίηση",
+        "διακοπή συνέχει",
+        "μερικής ρήξης",
+        "ολικής ρήξης",
+        "ρήξ",
+        "ρήξεω",
+        "ρήξη"
+      ],
+      "german": [
+        "riss",
+        "ruptur",
+        "rissbildung",
+        "kontinuitätsunterbrechung"
+      ],
+      "french": [
+        "rupture",
+        "déchirure",
+        "dechirure",
+        "fissure",
+        "solution de continuité"
+      ],
+      "bulgarian": [
+        "руптура",
+        "скъсване",
+        "разкъсване",
+        "увреда",
+        "лезия",
+        "нарушена цялост"
+      ]
+    },
+    "_meniscus_generic": {
+      "english": [
+        "meniscus",
+        "menisci",
+        "meniscal"
+      ],
+      "spanish": [
+        "menisco",
+        "meniscos",
+        "meniscal"
+      ],
+      "turkish": [
+        "menisküs",
+        "menisk"
+      ],
+      "croatian": [
+        "menisk",
+        "meniska",
+        "menisci"
+      ],
+      "greek": [
+        "μηνίσκ"
+      ],
+      "german": [
+        "meniskus",
+        "menisken"
+      ],
+      "bulgarian": [
+        "менискус",
+        "мениск"
+      ],
+      "dutch": [
+        "meniscus",
+        "menisci"
+      ],
+      "french": [
+        "ménisque",
+        "menisque",
+        "ménisques"
+      ]
+    },
+    "_tricompartmental": {
+      "english": [
+        "tricompartmental",
+        "all three compartments",
+        "three compartments",
+        "global osteoarthr",
+        "generalised osteoarthr",
+        "generalized osteoarthr"
+      ],
+      "spanish": [
+        "tricompartimental",
+        "tres compartimentos",
+        "los tres compartimentos"
+      ],
+      "turkish": [
+        "üç kompartman",
+        "trikompartman"
+      ],
+      "croatian": [
+        "tri odjeljka",
+        "trokompartmentaln",
+        "sva tri odjeljka"
+      ],
+      "greek": [
+        "και των τριών",
+        "τριών διαμερισμάτων"
+      ],
+      "german": [
+        "pangonarthrose",
+        "alle drei kompartimente",
+        "trikompartimentell"
+      ],
+      "bulgarian": [
+        "и трите",
+        "трите отдела",
+        "трикомпартментал"
+      ],
+      "dutch": [
+        "tricompartimenteel",
+        "alle drie de compartimenten"
+      ],
+      "french": [
+        "tricompartimental",
+        "trois compartiments",
+        "les trois compartiments"
+      ]
+    }
+  },
+  "cues": {
+    "negation": {
+      "english": [
+        "no ",
+        "without",
+        "absent",
+        "unremarkable",
+        "intact",
+        "normal",
+        "negative for",
+        "no evidence",
+        "preserved",
+        "not seen",
+        "nonvisual"
+      ],
+      "turkish": [
+        "yok",
+        "izlenmedi",
+        "saptanmadı",
+        "görülmedi",
+        "normal",
+        "doğal",
+        "intakt",
+        "olağan",
+        "mevcut değil"
+      ],
+      "croatian": [
+        "bez ",
+        "uredan",
+        "uredn",
+        "nema ",
+        "očuvan",
+        "održan",
+        "primjeren",
+        "intaktan",
+        "ne uočava",
+        "nije "
+      ],
+      "dutch": [
+        "geen ",
+        "zonder",
+        "intact",
+        "normaal",
+        "ongestoord",
+        "niet ",
+        "afwezig",
+        "onafgebroken"
+      ],
+      "spanish": [
+        "no ",
+        "sin ",
+        "ausencia",
+        "normal",
+        "íntegro",
+        "integro",
+        "conservado",
+        "sin alteraciones"
+      ],
+      "greek": [
+        "χωρίς",
+        "δεν ",
+        "ουδεμία",
+        "φυσιολογικ",
+        "ακέραι",
+        "άνευ"
+      ],
+      "german": [
+        "kein",
+        "keine",
+        "ohne",
+        "unauffällig",
+        "intakt",
+        "regelrecht",
+        "normal",
+        "nicht "
+      ],
+      "french": [
+        "pas de",
+        "sans ",
+        "absence",
+        "normal",
+        "intact",
+        "respecté",
+        "non "
+      ],
+      "bulgarian": [
+        "няма",
+        "без ",
+        "не се",
+        "нормално",
+        "нормален",
+        "нормална",
+        "запазена",
+        "запазен",
+        "б.о.",
+        "непроменен",
+        "интактн",
+        "запазена цялост",
+        "запазен интегритет"
+      ]
+    },
+    "uncertainty": {
+      "english": [
+        "possible",
+        "probable",
+        "suspected",
+        "cannot exclude",
+        "questionable",
+        "may represent",
+        "suggestive",
+        "likely",
+        "equivocal"
+      ],
+      "turkish": [
+        "şüpheli",
+        "supheli",
+        "olası",
+        "muhtemel",
+        "ayırt edilemedi",
+        "düşündür"
+      ],
+      "croatian": [
+        "moguć",
+        "vjerojatn",
+        "sumnj",
+        "suspektn",
+        "ne može se isključiti",
+        "vjerojatno"
+      ],
+      "dutch": [
+        "mogelijk",
+        "waarschijnlijk",
+        "verdacht",
+        "suspect",
+        "niet uit te sluiten",
+        "vermoedelijk"
+      ],
+      "spanish": [
+        "posible",
+        "probable",
+        "sospecha",
+        "sugestivo",
+        "no se puede excluir",
+        "dudoso"
+      ],
+      "greek": [
+        "πιθαν",
+        "ύποπτ",
+        "δεν αποκλείεται",
+        "αμφίβολ"
+      ],
+      "german": [
+        "möglich",
+        "wahrscheinlich",
+        "verdächtig",
+        "verdacht",
+        "fraglich",
+        "nicht auszuschließen",
+        "am ehesten"
+      ],
+      "french": [
+        "possible",
+        "probable",
+        "suspect",
+        "évoque",
+        "evoque",
+        "ne peut être exclu",
+        "douteux"
+      ],
+      "bulgarian": [
+        "вероятно",
+        "възможно",
+        "суспектн",
+        "не се изключва",
+        "съмнени",
+        "вероятн"
+      ]
+    },
+    "minimal": {
+      "english": [
+        "trace",
+        "minimal",
+        "small",
+        "mild",
+        "scant",
+        "tiny",
+        "slight",
+        "subtle"
+      ],
+      "spanish": [
+        "leve",
+        "mínim",
+        "minim",
+        "pequeñ",
+        "escas",
+        "discret",
+        "ligero"
+      ],
+      "turkish": [
+        "minimal",
+        "hafif",
+        "küçük",
+        "az miktar",
+        "silik"
+      ],
+      "croatian": [
+        "manji",
+        "minimaln",
+        "blag",
+        "diskret",
+        "oskudn",
+        "neznatn"
+      ],
+      "greek": [
+        "ελάχιστ",
+        "μικρ",
+        "ήπι",
+        "διακριτικ"
+      ],
+      "german": [
+        "gering",
+        "minimal",
+        "diskret",
+        "leicht",
+        "klein",
+        "mäßig"
+      ],
+      "bulgarian": [
+        "малък",
+        "малка",
+        "минимал",
+        "лек",
+        "оскъдн",
+        "неголям"
+      ],
+      "dutch": [
+        "gering",
+        "minimaal",
+        "klein",
+        "licht",
+        "weinig",
+        "subtiel"
+      ],
+      "french": [
+        "minime",
+        "discret",
+        "faible",
+        "petit",
+        "léger",
+        "modér"
+      ]
+    }
+  }
+}

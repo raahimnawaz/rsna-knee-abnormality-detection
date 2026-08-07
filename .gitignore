@@ -1,0 +1,17 @@
+# Competition data — licensed by RSNA/Kaggle, not ours to redistribute.
+# Re-fetch with:  python -m kaggle competitions download -c rsna-knee-abnormality-detection -f train.csv -p data
+data/
+
+# Contains verbatim radiology report text (303 reports inlined / one per row).
+# Regenerate with: python labeling/sample_for_labeling.py && python labeling/build_labeler.py
+labeling/labeling_sample.csv
+labeling/labeler.html
+
+# Credentials must never land here (they live in ~/.kaggle/access_token)
+*access_token*
+kaggle.json
+
+__pycache__/
+*.pyc
+.DS_Store
+Thumbs.db
