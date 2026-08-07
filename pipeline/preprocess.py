@@ -1,0 +1,300 @@
+"""The single definition of how a series becomes model input. Imported by both sides.
+
+Two programs must agree byte-for-byte on this: `kaggle_02_dinov2_cache.py`, which builds the
+training features, and the submission notebook, which rebuilds them for the test set. If they
+drift, nothing raises -- the model simply receives inputs from a distribution it never saw and
+scores badly for reasons no traceback will show. That failure has no local symptom and would
+surface as an unexplained CV/LB gap, so the defence is structural:
+
+  1. ONE file. Neither program defines a constant of its own.
+  2. FINGERPRINT. Every constant that changes a feature value is hashed into PREPROCESS_VERSION.
+     The cache manifest records it; the submission notebook asserts on it. Paste a stale copy of
+     this file into a Kaggle notebook and the assert fires instead of the model silently rotting.
+
+Kaggle Script notebooks are single files, so to import this there either attach the repo as a
+Dataset and `sys.path.insert(0, "/kaggle/input/<ds>/pipeline")`, or add it as a Kaggle Utility
+Script. Both keep one source of truth; pasting a copy does not, which is what (2) is for.
+
+pydicom is imported lazily inside the DICOM readers so this module stays importable on the Mac,
+where the images never land and pydicom is deliberately not a dependency.
+"""
+import hashlib
+import json
+
+import numpy as np
+import torch
+import torch.nn.functional as F
+
+# --------------------------------------------------------------------------- constants
+# Changing ANY of these invalidates an existing feature cache. See PREPROCESS_VERSION.
+MODEL = "vit_base_patch14_reg4_dinov2.lvd142m"   # registers variant; cleaner attention maps
+IMG_SIZE = 518          # 37x37 patches at patch-14. A meniscal tear is small and 224 loses it.
+SLICES_PER_SERIES = 32  # cached. Train on 24 -- see SLICE_JITTER below.
+TARGET_MM = 0.35        # in-plane resample target, mm/px
+FOV_MM = 160.0          # centre crop/pad field of view
+EMBED_DIM = 1536        # CLS(768) || patch-mean(768) -- what embed() concatenates
+
+# Slices used per series at TRAIN time, out of the SLICES_PER_SERIES cached. The gap is the
+# only pixel-space augmentation that survives a frozen backbone: everything else in PLAN 3.3
+# (affine, gamma, bias field, Rician noise) is applied to pixels the backbone has already
+# consumed. Caching 32 and sampling 24 buys slice jitter back for 33% more storage.
+SLICES_PER_SERIES_TRAIN = 24
+
+PLANE_ID = {"Axial": 0, "Coronal": 1, "Sagittal": 2}
+# Fluid_Sensitive and Fat_Suppression are perfectly redundant (FINDINGS.md 3.1), so one flag
+# is the whole story -> 6 series types, not 12.
+N_SERIES_TYPES = len(PLANE_ID) * 2
+
+IMAGENET_MEAN = torch.tensor([0.485, 0.456, 0.406]).view(1, 3, 1, 1)
+IMAGENET_STD = torch.tensor([0.229, 0.224, 0.225]).view(1, 3, 1, 1)
+
+# Slices per forward pass. Not a fingerprinted constant -- batching changes throughput, not
+# feature values -- but shared so the cache build and the submission notebook are tuned once.
+# 518px at patch-14 is ~1,374 tokens per slice, so this is bounded by activation memory.
+BATCH_HINT = 16
+
+# Every study is canonicalised to this handedness. 'Medial' is on opposite sides of the image
+# for a left vs a right knee, so four of the twelve labels are noise without this (PLAN 3.2).
+CANONICAL_SIDE = "R"
+
+
+def _fingerprint() -> str:
+    """Hash of everything that changes a cached feature value."""
+    payload = json.dumps({
+        "model": MODEL, "img_size": IMG_SIZE, "slices": SLICES_PER_SERIES,
+        "target_mm": TARGET_MM, "fov_mm": FOV_MM, "embed_dim": EMBED_DIM,
+        "canonical_side": CANONICAL_SIDE, "norm": "pct_0.5_99.5", "stack": "2.5d_prev_cur_next",
+    }, sort_keys=True)
+    return hashlib.sha256(payload.encode()).hexdigest()[:12]
+
+
+PREPROCESS_VERSION = _fingerprint()
+
+
+# --------------------------------------------------------------------------- DICOM reading
+# Decode is the bottleneck for both the cache build and the submission notebook -- PLAN.md
+# 6.3.1 ranks decode throughput as the single largest efficiency lever, at zero AUC cost,
+# because the corpus mixes uncompressed / JPEG Lossless / JPEG 2000 / Implicit VR and JPEG 2000
+# is slow. `dicomsdl` is typically 3-5x pydicom on JPEG 2000; SimpleITK and NVIDIA DALI are the
+# other candidates. But this is a MEASUREMENT, not a belief: kaggle_01's benchmark reports
+# ms/slice per transfer syntax per backend, and that decides it.
+#
+# Until then the backend stays pluggable, defaulting to whatever is present. pydicom is
+# preinstalled on the Kaggle image; dicomsdl is not, and the submission notebook has NO
+# INTERNET -- so choosing it means shipping a pinned wheel in an attached Dataset. Do not adopt
+# it on reputation; adopt it if kaggle_01 says it is worth the packaging.
+DECODE_BACKEND = "auto"     # "auto" | "pydicom" | "dicomsdl"
+
+
+def _backend() -> str:
+    if DECODE_BACKEND != "auto":
+        return DECODE_BACKEND
+    try:
+        import dicomsdl  # noqa: F401
+        return "dicomsdl"
+    except ImportError:
+        return "pydicom"
+
+
+def read_pixels(path) -> np.ndarray | None:
+    """Decode one slice to a 2-D float32 array, via whichever backend is selected."""
+    try:
+        if _backend() == "dicomsdl":
+            import dicomsdl
+            return np.asarray(dicomsdl.open(str(path)).pixelData(), dtype=np.float32)
+        import pydicom
+        return pydicom.dcmread(path, force=True).pixel_array.astype(np.float32)
+    except Exception:
+        return None
+
+
+def read_headers(paths):
+    """-> (headers, kept_paths). Unreadable files are dropped rather than failing the series.
+
+    Always pydicom: header reads are cheap with stop_before_pixels=True, and pydicom's
+    attribute access is what slice_order/read_laterality are written against. The backend
+    choice only matters for pixel decode, which is where the time actually goes.
+    """
+    import pydicom
+    headers, keep = [], []
+    for p in paths:
+        try:
+            headers.append(pydicom.dcmread(p, stop_before_pixels=True, force=True))
+            keep.append(p)
+        except Exception:
+            pass
+    return headers, keep
+
+
+def slice_order(headers) -> list[int]:
+    """Sort indices along the true through-plane axis (PLAN.md 3.1 step 1).
+
+    The slice normal is the cross product of the row and column direction cosines from
+    ImageOrientationPatient; projecting ImagePositionPatient onto it gives a real spatial
+    coordinate. InstanceNumber is NOT reliably spatial, and a mis-ordered volume silently
+    destroys the slice transformer's positional signal. Falls back to it only when the
+    geometry is missing.
+    """
+    keys = []
+    for i, ds in enumerate(headers):
+        try:
+            iop = np.asarray(ds.ImageOrientationPatient, float)
+            ipp = np.asarray(ds.ImagePositionPatient, float)
+            normal = np.cross(iop[:3], iop[3:])
+            keys.append((float(np.dot(ipp, normal)), i))
+        except Exception:
+            keys.append((float(getattr(ds, "InstanceNumber", i) or i), i))
+    return [i for _, i in sorted(keys)]
+
+
+def read_laterality(headers) -> str | None:
+    """-> 'L' | 'R' | None, by majority over the series.
+
+    Tries (0020,0060) Laterality then (0020,0062) ImageLaterality, then a BodyPartExamined
+    suffix. Returns None when the 86-tag allowlist stripped all of them -- the caller decides
+    what to do, and `canonicalise` records the miss rather than guessing a side. Never infer
+    handedness from ImagePositionPatient sign without checking the audit first:
+    de-identification frequently zeroes or shifts those coordinates.
+    """
+    votes = []
+    for ds in headers:
+        v = getattr(ds, "Laterality", None) or getattr(ds, "ImageLaterality", None)
+        if not v:
+            bp = str(getattr(ds, "BodyPartExamined", "") or "").upper()
+            v = "L" if bp.endswith("L") and "KNEE" in bp else ("R" if bp.endswith("R") and "KNEE" in bp else None)
+        v = str(v).strip().upper()[:1] if v else None
+        if v in ("L", "R"):
+            votes.append(v)
+    if not votes:
+        return None
+    return max(set(votes), key=votes.count)
+
+
+# --------------------------------------------------------------------------- volume ops
+def canonicalise(vol: np.ndarray, laterality: str | None, plane: str | None) -> np.ndarray:
+    """Mirror left knees onto CANONICAL_SIDE so 'medial' is always the same image side.
+
+    Only in-plane left-right matters, and only for planes that HAVE a left-right axis in the
+    image: axial and coronal put medial/lateral along the image x-axis, sagittal does not (its
+    x-axis is anterior-posterior), so flipping a sagittal series would mirror the knee
+    front-to-back for no gain. Returns the volume unchanged when laterality is unknown --
+    guessing is worse than a recorded miss, which the cache stores per series so coverage can
+    be audited afterwards.
+    """
+    if laterality is None or laterality == CANONICAL_SIDE:
+        return vol
+    if plane not in ("Axial", "Coronal"):
+        return vol
+    return np.ascontiguousarray(vol[:, :, ::-1])
+
+
+def center_fit(v: torch.Tensor, side: int) -> torch.Tensor:
+    """Centre crop or zero-pad [1,S,H,W] to side x side. The knee is protocol-centred."""
+    _, _, h, w = v.shape
+    if h > side:
+        t = (h - side) // 2
+        v = v[:, :, t:t + side, :]
+    if w > side:
+        l = (w - side) // 2
+        v = v[:, :, :, l:l + side]
+    _, _, h, w = v.shape
+    if h < side or w < side:
+        v = F.pad(v, (0, max(0, side - w), 0, max(0, side - h)))
+    return v
+
+
+def normalise_and_resample(vol: np.ndarray, spacing: float | None) -> np.ndarray:
+    """[S,H,W] raw -> [S,side,side] float32 in [0,1]. PLAN.md 3.1 steps 3-4.
+
+    MRI has no HU standard, so intensity is per-volume robust percentiles rather than a fixed
+    window.
+    """
+    v = torch.from_numpy(np.ascontiguousarray(vol)).float()[None]      # [1,S,H,W]
+    lo, hi = torch.quantile(v.flatten(), torch.tensor([0.005, 0.995]))
+    v = ((v - lo) / (hi - lo + 1e-6)).clamp(0, 1)
+    if spacing and spacing > 0:
+        scale = spacing / TARGET_MM
+        if abs(scale - 1) > 0.02:
+            v = F.interpolate(v, scale_factor=scale, mode="bilinear", align_corners=False)
+    return center_fit(v, int(round(FOV_MM / TARGET_MM)))[0].numpy()
+
+
+def pick_slices(n_available: int, n_want: int = SLICES_PER_SERIES) -> np.ndarray:
+    """Even spread across the volume. A knee series is protocol-centred, so the middle is signal."""
+    return np.unique(np.linspace(0, max(n_available - 1, 0), n_want).round().astype(int))
+
+
+def to_25d(vol: np.ndarray) -> torch.Tensor:
+    """[S,H,W] -> [S,3,H,W]: three adjacent slices as RGB, matching DINOv2's 3-channel stem.
+
+    PLAN 3.3 says 'groups of 3-5 adjacent slices'; the ViT stem takes exactly 3, so 3 it is.
+    """
+    t = torch.from_numpy(np.ascontiguousarray(vol)).float()
+    prev = torch.cat([t[:1], t[:-1]])
+    nxt = torch.cat([t[1:], t[-1:]])
+    return torch.stack([prev, t, nxt], dim=1)
+
+
+def imagenet_normalise(b: torch.Tensor) -> torch.Tensor:
+    """[B,3,H,W] in [0,1] -> resized to IMG_SIZE and standardised for the DINOv2 stem."""
+    b = F.interpolate(b, size=(IMG_SIZE, IMG_SIZE), mode="bilinear", align_corners=False)
+    return (b - IMAGENET_MEAN.to(b.device)) / IMAGENET_STD.to(b.device)
+
+
+def load_series(paths, plane: str | None = None):
+    """DICOM paths -> ([S,side,side] float32 in [0,1], laterality) or (None, laterality).
+
+    The whole of PLAN.md 3.1 in one call, so the cache builder and the submission notebook
+    cannot diverge on any step of it.
+    """
+    headers, keep = read_headers(paths)
+    if len(keep) < 3:
+        return None, None
+
+    lat = read_laterality(headers)
+    order = slice_order(headers)
+    idx = [order[i] for i in pick_slices(len(order))]
+
+    try:
+        spacing = float(np.asarray(headers[idx[0]].PixelSpacing, float)[0])
+    except Exception:
+        spacing = None
+
+    # Decode ONLY the slices that are kept -- never touch pixel data twice (PLAN.md 6.3.1).
+    vol = [a for a in (read_pixels(keep[i]) for i in idx) if a is not None]
+    if len(vol) < 3:
+        return None, lat
+
+    # Mixed in-series geometry happens; keep the dominant shape rather than dropping the series.
+    shape = max({a.shape for a in vol}, key=lambda s: s[0] * s[1])
+    vol = [a for a in vol if a.shape == shape]
+    if len(vol) < 3:
+        return None, lat
+
+    v = normalise_and_resample(np.stack(vol), spacing)
+    return canonicalise(v, lat, plane), lat
+
+
+def manifest(**extra) -> dict:
+    """The reproducibility contract written beside every cache shard."""
+    return {"preprocess_version": PREPROCESS_VERSION, "model": MODEL, "img_size": IMG_SIZE,
+            "slices_per_series": SLICES_PER_SERIES,
+            "slices_per_series_train": SLICES_PER_SERIES_TRAIN,
+            "target_mm": TARGET_MM, "fov_mm": FOV_MM, "embed_dim": EMBED_DIM,
+            "canonical_side": CANONICAL_SIDE, "decode_backend": DECODE_BACKEND, **extra}
+
+
+def assert_matches(cache_manifest: dict) -> None:
+    """Fail loudly when the features were built by a different version of this file."""
+    got = cache_manifest.get("preprocess_version")
+    if got != PREPROCESS_VERSION:
+        raise SystemExit(
+            f"preprocessing mismatch: features were built with {got!r}, this file is "
+            f"{PREPROCESS_VERSION!r}.\nThe test set would be preprocessed differently from the "
+            f"training set and the model would silently score badly. Rebuild the cache or "
+            f"restore the matching version of pipeline/preprocess.py."
+        )
+
+
+if __name__ == "__main__":
+    print(json.dumps(manifest(), indent=2))

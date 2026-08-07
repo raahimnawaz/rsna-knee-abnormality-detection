@@ -16,3 +16,8 @@ __pycache__/
 *.pyc
 .DS_Store
 Thumbs.db
+
+# Feature cache (~2.4 GB) and trained heads. Rebuilt by notebooks/kaggle_02 on Kaggle and
+# fusion/train.py here; neither belongs in git.
+data/features/
+fusion/runs/

@@ -84,9 +84,17 @@ labeling/              hand-labelling workflow
   rekey_labels.py        binds labels to StudyInstanceUID; --check catches sample drift
   eval_model_labels.py   vs gold and vs rule extractor
   error_direction.py     splits disagreement into calibration vs true divergence
+pipeline/              shared by BOTH machines -- the one definition of preprocessing
+  preprocess.py          DICOM -> model input. Fingerprinted; see "Preprocessing parity"
+fusion/                the differentiator (PLAN.md 3.3). Trains on the Mac Studio, MPS
+  model.py               slice transformer -> attention pool -> series attention -> 12 logits
+  dataset.py             cached features -> padded batches. `python fusion/dataset.py` self-tests
+  folds.py               5-fold, grouped by patient-proxy. NB: there is no patient column
+  train.py               training loop + pooled-OOF gold eval. --synthetic needs no cache
 notebooks/             Kaggle-side only; the 570 GB of pixels never come local
   kaggle_01_dicom_audit.py    did (0020,0060) Laterality survive? + decode cost per syntax
-  kaggle_02_dinov2_cache.py   frozen DINOv2 -> ~800 MB of per-slice features, shardable
+  kaggle_02_dinov2_cache.py   frozen DINOv2 -> ~2.4 GB of per-slice features, shardable
+  kaggle_03_submit.py         test DICOM -> submission.csv. No internet; weights from a Dataset
 eda_01_labels.py       label coverage, prevalence, co-occurrence
 eda_02_langs.py        language identification + series structure
 eda_03_langid.py       lingua-based language detection (supersedes the heuristic)
@@ -145,13 +153,67 @@ notebooks/kaggle_02_dinov2_cache.py   -> /kaggle/working/features  (publish as a
 ```
 
 The cache is the reason local work is **no longer text-only**. Frozen DINOv2 embeddings are
-~800 MB for the whole corpus, so the §3.3 fusion head — slice transformer, attention pool,
+~2.4 GB for the whole corpus, so the §3.3 fusion head — slice transformer, attention pool,
 series-type embedding, series attention — trains on a laptop in minutes per experiment. The
 backbone is the same one everyone else has; the fusion layer, the labels, and external data are
 where the edge has to come from.
 
 `kaggle_02` shards via `SHARD` / `N_SHARDS` and skips finished studies on restart, because
 decode is the bottleneck and this will not complete in one session.
+
+## Training (Mac Studio)
+
+Three machines, one pipeline. Pixels never leave Kaggle; the Studio only ever sees vectors.
+
+```
+Kaggle    kaggle_01 audit  ->  kaggle_02 cache  ->  publish Dataset   [~2.4 GB]
+Studio    download  ->  fusion/folds.py  ->  fusion/train.py          [MPS, minutes/experiment]
+Kaggle    upload fold*.pt  ->  kaggle_03_submit.py  ->  submission.csv
+```
+
+```bash
+python fusion/dataset.py                  # self-test: shapes, masks, degenerate studies
+python fusion/train.py --synthetic        # whole loop on random features. Needs no cache
+python fusion/folds.py                    # writes data/folds.csv
+python fusion/train.py --features data/features
+```
+
+**`--synthetic` is not a toy.** It emits the exact shapes, dtypes, masks and edge cases the real
+cache produces — single-series studies, unknown series types, minimum slice counts — so every
+consumer is testable before a DICOM has been decoded. On random features it scores macro **0.518**
+on the 58 gold studies. That is the point: chance is the correct answer, and anything meaningfully
+above it would mean a leak.
+
+**Do not containerise the training.** Docker Desktop on macOS has no Metal passthrough — containers
+run in a Linux VM and there is no Apple-silicon `--gpus`. A dockerised run trains on CPU. torch MPS
+needs native macOS. Reproducibility comes from the pins in `requirements.txt` plus the preprocessing
+fingerprint below.
+
+### Preprocessing parity — the failure with no symptom
+
+`pipeline/preprocess.py` is the single definition of DICOM → model input, imported by the cache
+builder *and* the submission notebook. If those two ever disagree, the model is fed a distribution
+it never trained on and simply scores badly — no traceback, no warning, and it would surface only
+as an unexplained CV/LB gap. So every constant that changes a feature value is hashed into
+`PREPROCESS_VERSION`, written into the cache manifest, and asserted by `kaggle_03` before it reads
+a single study.
+
+```bash
+python pipeline/preprocess.py    # prints the manifest, including the fingerprint
+```
+
+Change `IMG_SIZE`, `TARGET_MM`, `FOV_MM`, `SLICES_PER_SERIES`, the model, or the canonical side, and
+the fingerprint changes and the existing cache is invalid. That is the intended behaviour.
+
+### What the folds can and cannot do
+
+`fusion/folds.py` groups on a hash of the report text, because **`train.csv` has no patient
+column** — the only same-patient signal available is that 150 studies share a report with another
+(bilateral knees or follow-ups). It is a floor, not a solution: two studies on one patient with
+genuinely different reports still leak and we cannot detect it.
+
+Gold is scored **pooled out-of-fold, never per fold**. 58 gold studies over 5 folds is 8–16 each,
+and MCL lands at zero positives in two of them.
 
 ## Status
 
@@ -162,11 +224,16 @@ decode is the bottleneck and this will not complete in one session.
 - [x] Hand-labelling UI + all 30 blind gold studies labelled
 - [x] **Our labels beat the public weak labels** on gold and on hand labels — the moat is real
 - [x] Series-metadata shortcut tested and rejected (0.471, below chance)
+- [x] **Training code complete and tested end-to-end on synthetic features** — fusion head,
+      dataset, folds, training loop, submission notebook. Everything that does not need pixels
+      is done; the Studio is blocked only on the cache
 - [ ] Hand-labelling — 86/303 done; the remaining 217 are the only validation set we will have
 - [ ] **First LB submission** — fork a public DINOv2 baseline. Nothing else is measurable until
       this exists
 - [ ] Laterality confirmed (`kaggle_01`) — four side-specific labels depend on it
 - [ ] DINOv2 feature cache built and published (`kaggle_02`)
+- [ ] **The §7.2 A/B: fusion head trained twice on identical folds, our labels vs `nekkon`'s.**
+      The only test of whether the label moat survives contact with a model
 - [ ] LLM extractor (method B) — host undecided (`IMPROVEMENTS.md` §1.1); ~$44 batched on the
       API, or ~30–90 min a pass on a 5090
 - [ ] External data — MRNet, OAI, fastMRI+ cover ~6 of 12 labels with real expert image reads

@@ -20,11 +20,19 @@ kaggle>=2.2
 # eda_04_metadata_baseline.py, and the fusion head later.
 scikit-learn>=1.4
 
-# The fusion head (PLAN.md 3.3) trains locally on cached DINOv2 embeddings -- ~800 MB, not
-# 570 GB -- so torch is a local dependency, not a Kaggle-only one. MPS works on Apple silicon.
-# pydicom/timm are deliberately absent: those run only in the Kaggle notebooks, where the
-# images live.
-torch>=2.2
+# The fusion head (PLAN.md 3.3) trains on the Mac Studio against cached DINOv2 embeddings --
+# ~2.4 GB, not 570 GB -- so torch is a local dependency, not a Kaggle-only one.
+#
+# DO NOT CONTAINERISE THE TRAINING. Docker Desktop on macOS runs containers inside a Linux VM
+# with no Metal passthrough; there is no Apple-silicon equivalent of `--gpus`. A dockerised run
+# on the Studio trains on CPU, which throws away the entire reason for using it. torch MPS
+# requires native macOS execution. Reproducibility here comes from these pins plus the
+# preprocess fingerprint recorded in the cache manifest (pipeline/preprocess.py), not an image.
+#
+# pydicom/timm/dicomsdl are deliberately absent: those run only in the Kaggle notebooks, where
+# the images live. Anything the SUBMISSION notebook needs must be preinstalled on the Kaggle
+# image or shipped as a wheel in an attached Dataset -- inference has no internet.
+torch>=2.2,<3
 
 # extractor/llm_extract.py (method B). Only needed if the LLM extractor runs against the API;
 # the local-GPU path does not require it.

@@ -341,7 +341,7 @@ to log decode / preprocess / GPU / write time separately, then walk the list mea
 |---|---|---|
 | **1** | ~~Logistics + text EDA~~ **DONE 2026-08-06** — CSVs pulled, `FINDINGS.md` written | ✅ 58/4,407 gold; 9 languages; 6 series types |
 | **2** | **Unblock.** Fork a public DINOv2 baseline → submit. Verify `(0020,0060) Laterality` survived the 86-tag allowlist (§3.2). **A/B our extractor against the public weak labels** on the 31 blind gold + 86 hand labels | A number on the board; laterality answered; **we know whether our labels are a moat** |
-| **2–3** | **Feature cache — now the critical path (§7.2).** §3.1 preprocessing on Kaggle; benchmark decode per transfer syntax while in there. Frozen DINOv2 ViT-B/14 @518 → per-slice embeddings → publish as a Kaggle Dataset | ~1 GB of embeddings, downloadable. Local iteration unblocked **and the label track has a scoreboard again** |
+| **2–3** | **Feature cache — now the critical path (§7.2).** §3.1 preprocessing on Kaggle; benchmark decode per transfer syntax while in there. Frozen DINOv2 ViT-B/14 @518 → per-slice embeddings → publish as a Kaggle Dataset | ~2.4 GB of embeddings, downloadable. Local iteration unblocked **and the label track has a scoreboard again** |
 | **3–4** | **Fusion head, trained locally.** §3.3 minus the backbone: slice transformer → attention pool → series-type embedding → series attention → 12 logits. Series dropout mandatory; no hflip unless Medial↔Lateral swap | Beats the public baseline on *our* held-out set, not the LB |
 | **3–5** *(parallel)* | **Labels.** Finish the 217 remaining hand labels — now the priority item on this track, because it is the only thing that restores measurement (§7.2). Then the §2b-ii calibration and §2.11; fit the §1.3 soft-target constants. LLM extractor once the host is settled. ~~Fix §2.1–§2.7~~ — §2.1 is the report-only ceiling, not a bug, and §2.2 is done | Labels that beat the public ones **through a trained model**, not just against a report-derived reference |
 | **5–7** | **External data** (§3.4). MRNet → ACL + meniscus; OAI → the three OA labels; fastMRI+ | Gain on the ~6 covered labels over pseudo-labels alone |
@@ -385,7 +385,9 @@ Consequences:
   meniscal tear is small and 16×16 patches lose it), and the stem takes exactly 3 channels, so
   §3.3's "groups of 3–5 adjacent slices" becomes exactly 3.
 - **Freeze the backbone and cache the embeddings.** ~4,400 studies × ~5 series × ~24 slices ≈ 530k
-  slices; at ViT-B/14's 768 dims in fp16 that is under 1 GB. The fusion head then trains on the
+  slices; at the 1,536 dims embed() actually returns (CLS || patch-mean) in fp16, and 32 cached
+  slices rather than 24, that is **2.4 GB** — earlier drafts said "under 1 GB" by computing at 768
+  dims, corrected 2026-08-07. The fusion head then trains on the
   laptop in minutes per experiment. Differentiation cannot come from the backbone — everyone has the
   same weights — so it has to come from the fusion layer, the labels, and external data.
 
@@ -436,7 +438,7 @@ track we have most invested in. Path 2 is not reachable without it. Build it fir
 | **Rare labels + only ~1,300 test studies → wide CIs** | Bootstrap CIs; accept that some ranking is luck; don't overfit folds |
 | **JPEG 2000 decode dominates runtime** | Benchmark per transfer syntax in week 1; `pylibjpeg-openjpeg` / GDCM |
 | **Missing series in test studies** | Series-dropout augmentation + explicit degenerate-input tests |
-| **570 GB won't fit locally** | Kaggle notebooks / cloud for pixels. ~~Local work is text-only~~ — **no longer true**: cached frozen DINOv2 embeddings are ~1 GB, so the fusion head trains locally (§7.1) |
+| **570 GB won't fit locally** | Kaggle notebooks / cloud for pixels. ~~Local work is text-only~~ — **no longer true**: cached frozen DINOv2 embeddings are ~2.4 GB, so the fusion head trains locally (§7.1) |
 | ~~**Public weak labels commoditize the extractor**~~ **retired 2026-08-07** | A/B run and passed — 0.777/0.749 vs 0.672/0.672 on gold, 0.864/0.862 vs 0.757 on hand labels. Ours wins on both references and both metrics |
 | **Extractor gains are no longer measurable** (§7.2) — replaces the risk above | ~1,000 studies of label improvement moved gold macro by 0.002 against a ±0.038 CI. Finish the 217 hand labels; then score labels *through* a trained fusion head, not against a report-derived reference |
 | **Everyone shares one backbone** | DINOv2 is universal, so it cannot differentiate. Push the edge into the fusion layer (§3.3), the labels (§2), and external data (§3.4) — the three places our work is already strongest |
