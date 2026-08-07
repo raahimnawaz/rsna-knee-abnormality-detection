@@ -2,7 +2,7 @@
 
 **Metric:** macro-averaged AUROC over 12 labels
 **Timeline:** started Jul 30 2026 · entry/merger deadline **Oct 15** · final submission **Oct 22 2026**
-→ **~11 weeks from today (Aug 6).**
+→ **~10.5 weeks from today (Aug 7).**
 **Prizes:** main track 10 places ($9k down to $5k); **efficiency track 3 places ($7k / $6k / $5k)**
 **Field as of Aug 6:** 2,180 entrants, 164 participants, 158 teams, 437 submissions — very early.
 **Constraints:** Kaggle notebook, ≤9h, no internet, `submission.csv`. Winners must open-source code
@@ -341,9 +341,9 @@ to log decode / preprocess / GPU / write time separately, then walk the list mea
 |---|---|---|
 | **1** | ~~Logistics + text EDA~~ **DONE 2026-08-06** — CSVs pulled, `FINDINGS.md` written | ✅ 58/4,407 gold; 9 languages; 6 series types |
 | **2** | **Unblock.** Fork a public DINOv2 baseline → submit. Verify `(0020,0060) Laterality` survived the 86-tag allowlist (§3.2). **A/B our extractor against the public weak labels** on the 31 blind gold + 86 hand labels | A number on the board; laterality answered; **we know whether our labels are a moat** |
-| **2–3** | **Feature cache.** §3.1 preprocessing on Kaggle; benchmark decode per transfer syntax while in there. Frozen DINOv2 ViT-B/14 @518 → per-slice embeddings → publish as a Kaggle Dataset | ~1 GB of embeddings, downloadable. Local iteration unblocked |
+| **2–3** | **Feature cache — now the critical path (§7.2).** §3.1 preprocessing on Kaggle; benchmark decode per transfer syntax while in there. Frozen DINOv2 ViT-B/14 @518 → per-slice embeddings → publish as a Kaggle Dataset | ~1 GB of embeddings, downloadable. Local iteration unblocked **and the label track has a scoreboard again** |
 | **3–4** | **Fusion head, trained locally.** §3.3 minus the backbone: slice transformer → attention pool → series-type embedding → series attention → 12 logits. Series dropout mandatory; no hflip unless Medial↔Lateral swap | Beats the public baseline on *our* held-out set, not the LB |
-| **3–5** *(parallel)* | **Labels.** Finish the 217 remaining hand labels. Fix §2.1–§2.7 and the §2b-ii calibration. LLM extractor once the host is settled. Fit the §1.3 soft-target constants | Labels that measurably beat the public ones |
+| **3–5** *(parallel)* | **Labels.** Finish the 217 remaining hand labels — now the priority item on this track, because it is the only thing that restores measurement (§7.2). Then the §2b-ii calibration and §2.11; fit the §1.3 soft-target constants. LLM extractor once the host is settled. ~~Fix §2.1–§2.7~~ — §2.1 is the report-only ceiling, not a bug, and §2.2 is done | Labels that beat the public ones **through a trained model**, not just against a report-derived reference |
 | **5–7** | **External data** (§3.4). MRNet → ACL + meniscus; OAI → the three OA labels; fastMRI+ | Gain on the ~6 covered labels over pseudo-labels alone |
 | **7–9** | **Scale.** Unfreeze the last N DINOv2 blocks now the architecture is settled. Per-plane specialists, correlation stacker (§3.5.5), ensemble | Ensemble beats best single by more than its CI |
 | **9–10** | Efficiency variant + hardening: decode optimization, degenerate-input tests, full-size runtime profiling | Lean submission within ~0.01 AUC of best, ≤15 min |
@@ -351,11 +351,17 @@ to log decode / preprocess / GPU / write time separately, then walk the list mea
 
 Entry deadline **Oct 15** — accept the rules well before then.
 
-The load-bearing item is the **week-2 A/B**. It is roughly two hours of work and it decides how the
-next month is spent. If our extractor clearly beats the public weak labels, the LLM extractor is
-justified and the moat is real. If it does not, skip the API budget and redirect those weeks into
-external data, where six of twelve labels get actual expert image reads instead of anything derived
-from report text.
+~~The load-bearing item is the **week-2 A/B**.~~ **Done 2026-08-07 and passed** — ours beats the
+public weak labels on both references (0.777 / 0.749 vs 0.672 / 0.672 on gold), so the moat is real
+and the LLM extractor stays justified. But the A/B answers a narrower question than it looks:
+it compares label sources against a *report-derived* reference, and what decides the competition is
+whether a **model** trained on our labels outscores one trained on `nekkon`'s.
+
+**The load-bearing item is now the feature cache**, for the reason in §7.2: it is the only
+instrument that can answer that question, and without it every remaining item on the label track is
+unmeasurable. Two Kaggle sessions, and `kaggle_01` gates `kaggle_02` — if laterality did not
+survive the 86-tag allowlist, four of the twelve labels are unreliable and that changes what the
+cache is worth building against.
 
 ### 7.1 What the public leaderboard is actually doing — measured 2026-08-07
 
@@ -387,6 +393,35 @@ Consequences:
 nothing — macro AUC **0.471** on the 58 gold, 5-fold CV, below chance. There is no protocol-fingerprint
 shortcut. Do not re-run this. See `eda_04_metadata_baseline.py`.
 
+### 7.2 The extractor track has run out of instrument — measured 2026-08-07
+
+The §2.2 compartment fix moved **~1,000 studies** off a flat 0.45 that could not contribute to a
+ranking metric. Gold macro AUC moved **0.775 → 0.777**, against a bootstrap CI of **±0.038**. The
+change is real and corpus-level evidence says so, but the 58 gold studies cannot see it, and
+neither can the 83 hand labels at better than ±0.03.
+
+That is not a one-off. It is the steady state for everything left in `IMPROVEMENTS.md` §2:
+
+> **No remaining extractor change is measurable on the references we currently hold.** Each one
+> is worth a few hundred to a thousand studies of label quality and a few thousandths of gold AUC.
+> We can rank them by reading and by corpus statistics — which is how §2.2 and R10 were found and
+> justified — but we cannot *score* them, and we cannot tell when to stop.
+
+Three ways out, in order of cost:
+
+1. **Finish the 217 hand labels.** Halves the CIs (§4.1 of `IMPROVEMENTS.md`) and is already on the
+   schedule. Necessary, not sufficient — 303 items still leaves ±0.03 on a macro comparison.
+2. **Measure labels through a trained model.** Train the §3.3 fusion head twice on identical
+   splits, once on our pseudo-labels and once on `nekkon`'s, and compare *model* AUC. This is the
+   claim that actually matters and the A/B in §7 does not test it: label-AUC → model-AUC is not
+   monotone, and noise-robust training over 4,349 studies can absorb a 0.1 label-AUC gap entirely.
+3. **LLM extractor as a second opinion** (§1.1). Its value is now as much *adjudication* —
+   disagreement mining to target the next hand labels — as raw extraction quality.
+
+**This re-ranks the feature cache.** It was scheduled as the thing that unblocks local vision
+iteration. It is now also **the only instrument that can score the label work**, which is the
+track we have most invested in. Path 2 is not reachable without it. Build it first.
+
 ---
 
 ## 8. Risks
@@ -402,18 +437,32 @@ shortcut. Do not re-run this. See `eda_04_metadata_baseline.py`.
 | **JPEG 2000 decode dominates runtime** | Benchmark per transfer syntax in week 1; `pylibjpeg-openjpeg` / GDCM |
 | **Missing series in test studies** | Series-dropout augmentation + explicit degenerate-input tests |
 | **570 GB won't fit locally** | Kaggle notebooks / cloud for pixels. ~~Local work is text-only~~ — **no longer true**: cached frozen DINOv2 embeddings are ~1 GB, so the fusion head trains locally (§7.1) |
-| **Public weak labels commoditize the extractor** | A/B ours against `nekkon`'s public set on the 31 gold + 86 hand labels in week 2, *before* spending further on extraction. If ours does not win, redirect to external data |
+| ~~**Public weak labels commoditize the extractor**~~ **retired 2026-08-07** | A/B run and passed — 0.777/0.749 vs 0.672/0.672 on gold, 0.864/0.862 vs 0.757 on hand labels. Ours wins on both references and both metrics |
+| **Extractor gains are no longer measurable** (§7.2) — replaces the risk above | ~1,000 studies of label improvement moved gold macro by 0.002 against a ±0.038 CI. Finish the 217 hand labels; then score labels *through* a trained fusion head, not against a report-derived reference |
 | **Everyone shares one backbone** | DINOv2 is universal, so it cannot differentiate. Push the edge into the fusion layer (§3.3), the labels (§2), and external data (§3.4) — the three places our work is already strongest |
 
 ---
 
 ## 9. Immediate next steps
 
-1. **Cancel the browser download** (it will fill C: and fail).
-2. `pip install kaggle`, add the API token, accept the competition rules, then:
-   `kaggle competitions download -c rsna-knee-abnormality-detection -f train.csv`
-   (and `-f train_series.csv`). Everything on the critical path is text.
-3. Answer from `train.csv`: how many studies total, **how many have labels**, what languages,
-   label prevalences, co-occurrence matrix.
-4. Benchmark DICOM decode by transfer syntax on a handful of studies.
-5. Build the report extractor. That is the competition.
+> Rewritten 2026-08-07. The original five items — cancel the browser download, install the Kaggle
+> CLI, characterise `train.csv`, benchmark decode, build the extractor — are done bar the decode
+> benchmark, which now lives inside `kaggle_01`. Everything below needs a Kaggle session, which is
+> the point: **there is nothing left on the local critical path that we can measure** (§7.2).
+
+1. **Run `notebooks/kaggle_01_dicom_audit.py`** as a Kaggle Script with the competition dataset
+   attached. ~30 min. Answers laterality (§3.2) and decode cost per transfer syntax (§6.3.1) in one
+   pass. Download `dicom_audit.json` and record the result in `FINDINGS.md`.
+   **If `(0020,0060) Laterality` did not survive the allowlist, stop and re-plan** — four of the
+   twelve labels are side-specific and the fallback (geometry, or a pixel L/R classifier) has to be
+   built before the cache is worth anything.
+2. **Fork a public DINOv2 notebook and submit.** Still unmet from week 2, and it is ~an hour. Until
+   a number exists on the board, no later change has a baseline to move against.
+3. **Run `notebooks/kaggle_02_dinov2_cache.py`**, sharded, across as many sessions as it takes.
+   Do the 224 pass first to get the pipeline honest, then re-run at 518. Publish
+   `/kaggle/working/features` as a Kaggle Dataset.
+4. **Then the two experiments that are currently impossible:** train the §3.3 fusion head, and
+   train it twice on identical splits — our pseudo-labels vs `nekkon`'s — to find out whether the
+   label moat survives contact with a model (§7.2 path 2).
+5. In parallel, and only in parallel: the remaining 217 hand labels. They are what restores
+   measurement on the label track itself.

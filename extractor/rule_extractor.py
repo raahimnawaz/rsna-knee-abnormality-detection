@@ -62,41 +62,49 @@ def _is_word_start(text: str, pos: int) -> bool:
     return pos == 0 or not text[pos - 1].isalpha()
 
 
-def find_term(hay: str, needle: str, word_start: bool) -> bool:
-    """Substring search; word_start=True for CUES only.
+def iter_spans(hay: str, needle: str, word_start: bool = False):
+    """Yield (start, end) for every match of a stem. The one search implementation.
 
-    Finding stems must stay substring-matched ('artroz' inside 'gonartroza'), but cues
-    must not ('normal' inside 'abnormal' would invert the finding).
-
-    A stem may opt into word-start matching by carrying a leading '^'. Needed where a stem
-    is a suffix of an unrelated word: English '^chondral' must not fire inside 'subchondral'
-    (bone under the cartilage -- subchondral fracture, contusion and bone island are not OA)
-    or 'osteochondral'. Same class of bug as R5 ('normal' inside 'abnormal').
+    A stem may opt into word-start matching by carrying a leading '^', regardless of the
+    flag. Needed where a stem is a suffix of an unrelated word: English '^chondral' must not
+    fire inside 'subchondral' (the bone *under* the cartilage -- subchondral fracture,
+    contusion and bone island are not OA) or 'osteochondral'. Same class of bug as R5
+    ('normal' inside 'abnormal').
     """
     if needle.startswith("^"):
         needle, word_start = needle[1:], True
     p = hay.find(needle)
     while p != -1:
         if not word_start or _is_word_start(hay, p):
-            return True
+            yield p, p + len(needle)
         p = hay.find(needle, p + 1)
-    return False
 
 
-def _spans(hay: str, needle: str) -> list[tuple[int, int]]:
-    """All match spans of a stem, honouring the '^' word-start marker."""
-    ws = needle.startswith("^")
-    if ws:
-        needle = needle[1:]
-    out, p = [], hay.find(needle)
-    while p != -1:
-        if not ws or _is_word_start(hay, p):
-            out.append((p, p + len(needle)))
-        p = hay.find(needle, p + 1)
-    return out
+def find_term(hay: str, needle: str, word_start: bool) -> bool:
+    """Substring search; word_start=True for CUES only.
+
+    Finding stems must stay substring-matched ('artroz' inside 'gonartroza'), but cues
+    must not ('normal' inside 'abnormal' would invert the finding).
+    """
+    return next(iter_spans(hay, needle, word_start), None) is not None
 
 
 class RuleExtractor:
+    # A compartment is a side adjective plus a structure belonging to exactly one
+    # compartment, so these two keys are satisfied by the pair as well as by an explicit
+    # phrase. See labeling/compartment_patch.py and IMPROVEMENTS.md 2.2.
+    DERIVED = {"_compartment_medial": "_side_medial",
+               "_compartment_lateral": "_side_lateral"}
+
+    # Max characters between the side adjective and the structure it must modify. Measured,
+    # not guessed, and chosen before looking at gold: over the 299 studies the derived rule
+    # newly resolves, the gap is 3 at the median and 22 at p90, then a long tail out to 188
+    # that is ~80% false positives -- 'Patellofemoral compartment cartilage: ... medial
+    # patellar facet' (the medial PATELLAR facet is in the patellofemoral compartment, not
+    # the medial tibiofemoral one), impaction fractures, meniscal degeneration. 25 sits past
+    # the elbow and keeps 90.6%.
+    SIDE_WINDOW = 25
+
     def __init__(self, glossary_path: Path):
         g = json.loads(Path(glossary_path).read_text(encoding="utf-8"))
         self.F = {k: {l: [norm(t) for t in ts] for l, ts in v.items()}
@@ -106,30 +114,24 @@ class RuleExtractor:
         self.MIN = {l: [norm(t) for t in ts]
                     for l, ts in g["cues"].get("minimal", {}).items()}
 
-    # A compartment is a side plus a structure that belongs to exactly one compartment.
-    DERIVED = {"_compartment_medial": "_side_medial",
-               "_compartment_lateral": "_side_lateral"}
-
-    # Max characters between the side adjective and the structure it must modify. Measured,
-    # not guessed: over the 299 studies the derived rule newly resolves, the gap is 3 at the
-    # median and 22 at p90, then a long tail out to 188 that is ~80% false positives --
-    # 'Patellofemoral compartment cartilage: ... medial patellar facet' (the medial PATELLAR
-    # facet is in the patellofemoral compartment, not the medial tibiofemoral one), impaction
-    # fractures, and meniscal degeneration. 25 sits past the elbow and keeps 90.6%.
-    SIDE_WINDOW = 25
-
-    def _near(self, clause: str, key_a: str, key_b: str, lang: str) -> bool:
-        """True when a term from key_a sits within SIDE_WINDOW chars of one from key_b.
+    def _near(self, clause: str, side_key: str, struct_key: str, lang: str) -> bool:
+        """True when a side adjective sits within SIDE_WINDOW chars of a structure.
 
         Bare co-occurrence in a clause is too loose for compartment attribution: the side
-        adjective has to actually modify the structure, not merely share a sentence with it.
+        has to actually modify the structure, not merely share a sentence with it.
+
+        Both keys must hold plain stems. A '~' conjunction has no single span, so it would
+        silently never match here -- the failure mode this repo keeps rediscovering.
         """
-        a = [s for t in self.F.get(key_a, {}).get(lang, []) for s in _spans(clause, t)]
-        if not a:
+        sides = [s for t in self.F.get(side_key, {}).get(lang, [])
+                 for s in iter_spans(clause, t)]
+        if not sides:
             return False
-        b = [s for t in self.F.get(key_b, {}).get(lang, []) for s in _spans(clause, t)]
-        return any(max(0, max(i, k) - min(j, l)) <= self.SIDE_WINDOW
-                   for i, j in a for k, l in b)
+        structs = [s for t in self.F.get(struct_key, {}).get(lang, [])
+                   for s in iter_spans(clause, t)]
+        # Gap between two spans, 0 when they touch or overlap, order-independent.
+        return any(max(0, max(s0, t0) - min(s1, t1)) <= self.SIDE_WINDOW
+                   for s0, s1 in sides for t0, t1 in structs)
 
     def _has(self, clause: str, key: str, lang: str) -> bool:
         """A term containing '~' is a conjunction: every part must appear in the clause.
