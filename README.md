@@ -44,12 +44,32 @@ eda_03_langid.py       lingua-based language detection (supersedes the heuristic
 ## Setup
 
 ```bash
-python -m pip install kaggle pandas lingua-language-detector
+python -m pip install -r requirements.txt
 # auth: new-style KGAT_ token at ~/.kaggle/access_token (legacy kaggle.json no longer works)
-python -m kaggle competitions download -c rsna-knee-abnormality-detection -f train.csv -p data
-python -m kaggle competitions download -c rsna-knee-abnormality-detection -f train_series.csv -p data
+
+# all four CSVs are needed -- eda_01 reads test.csv/test_series.csv too
+for f in train.csv train_series.csv test.csv test_series.csv; do
+  python -m kaggle competitions download -c rsna-knee-abnormality-detection -f "$f" -p data
+done
+
+python eda_01_labels.py            # writes data/lang_guess.csv   <- eda_03 needs this
 python eda_03_langid.py            # writes data/lang_detected.csv
 python extractor/run_extract.py    # writes data/pseudo_labels.csv
+```
+
+**Run `eda_01` before `eda_03`.** `eda_03_langid.py` reads `data/lang_guess.csv` to diff the
+lingua result against the old heuristic, and `eda_01_labels.py` is the only thing that writes
+it. Skipping straight to `eda_03` fails with `FileNotFoundError`.
+
+**On a fresh clone, re-key the hand labels before trusting any evaluation** —
+`labeling/model_labels.csv` joins on `item_id`, which is assigned *positionally* after a
+shuffle (`sample_for_labeling.py:70-71`) and is not bound to `StudyInstanceUID`. If `lingua`
+resolves to a different version, the language strata shift, the shuffle lands differently, and
+those 86 labels silently describe the wrong studies. Hence the exact pin in `requirements.txt`.
+
+```bash
+python labeling/sample_for_labeling.py     # regenerates labeling_sample.csv
+python labeling/rekey_labels.py --check    # fails loudly if the mapping drifted
 ```
 
 Whole text pipeline runs in ~22 s on CPU. No GPU involved, and none needed until the LLM

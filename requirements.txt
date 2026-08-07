@@ -1,0 +1,18 @@
+# lingua is pinned EXACTLY and deliberately.
+#
+# sample_for_labeling.py stratifies by the language column in data/lang_detected.csv, which
+# lingua produces. A different lingua release reclassifies some reports, which changes the
+# per-language allocation, which changes the shuffle, which renumbers item_id -- and
+# labeling/model_labels.csv joins on item_id alone. The 86 hand labels (including all 30
+# blind gold studies) would then silently describe the wrong reports, with no error raised.
+#
+# Do not relax this pin without running:  python labeling/rekey_labels.py --check
+lingua-language-detector==2.2.0
+
+# Not determinism-critical; sampling reproducibility rests on numpy's RandomState/Generator
+# streams, which are version-stable for a fixed seed.
+pandas>=2.0
+numpy>=1.24
+
+# Data access only. New-style KGAT_ token at ~/.kaggle/access_token; kaggle.json is dead.
+kaggle>=2.2
