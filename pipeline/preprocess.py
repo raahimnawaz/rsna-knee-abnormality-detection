@@ -20,6 +20,7 @@ where the images never land and pydicom is deliberately not a dependency.
 """
 import hashlib
 import json
+import os
 
 import numpy as np
 import torch
@@ -27,11 +28,15 @@ import torch.nn.functional as F
 
 # --------------------------------------------------------------------------- constants
 # Changing ANY of these invalidates an existing feature cache. See PREPROCESS_VERSION.
-MODEL = "vit_base_patch14_reg4_dinov2.lvd142m"   # registers variant; cleaner attention maps
-IMG_SIZE = 518          # 37x37 patches at patch-14. A meniscal tear is small and 224 loses it.
-SLICES_PER_SERIES = 32  # cached. Train on 24 -- see SLICE_JITTER below.
-TARGET_MM = 0.35        # in-plane resample target, mm/px
-FOV_MM = 160.0          # centre crop/pad field of view
+MODEL = os.environ.get("MODEL", "vit_base_patch14_reg4_dinov2.lvd142m")   # registers variant
+# 518 -> 37x37 patches at patch-14. A meniscal tear is small and 224 loses it, but 518 costs
+# ~5x, so the honest order is a 224 pass to prove the pipeline end-to-end on real features and
+# then 518 once it is worth the GPU quota. Overridable by env so ONE code dataset serves both
+# passes -- and because IMG_SIZE feeds the fingerprint, the two caches can never be confused.
+IMG_SIZE = int(os.environ.get("IMG_SIZE", 518))
+SLICES_PER_SERIES = int(os.environ.get("SLICES_PER_SERIES", 32))   # train on 24; see below
+TARGET_MM = float(os.environ.get("TARGET_MM", 0.35))   # in-plane resample target, mm/px
+FOV_MM = float(os.environ.get("FOV_MM", 160.0))        # centre crop/pad field of view
 EMBED_DIM = 1536        # CLS(768) || patch-mean(768) -- what embed() concatenates
 
 # Slices used per series at TRAIN time, out of the SLICES_PER_SERIES cached. The gap is the
@@ -106,6 +111,71 @@ def read_pixels(path) -> np.ndarray | None:
         return pydicom.dcmread(path, force=True).pixel_array.astype(np.float32)
     except Exception:
         return None
+
+
+def find_competition_root(hint: str = "knee"):
+    """Locate the mounted competition data. Do NOT assume it is a direct child of /kaggle/input.
+
+    Measured 2026-08-07: it mounts at /kaggle/input/competitions/rsna-knee-abnormality-detection,
+    one level deeper than the obvious guess. A find_root that only scans direct children exits
+    with 'competition data not found' -- after the notebook has already queued for a GPU. So
+    search two levels and require a marker file rather than trusting the directory name.
+    """
+    from pathlib import Path as _P
+    base = _P("/kaggle/input")
+    if not base.exists():
+        raise SystemExit("no /kaggle/input -- this runs on Kaggle, not locally")
+
+    def looks_right(d) -> bool:
+        return (d / "train_series.csv").exists() or (d / "test_series.csv").exists()
+
+    cands = []
+    for p in sorted(base.iterdir()):
+        if not p.is_dir():
+            continue
+        cands.append(p)
+        try:
+            cands.extend(sorted(c for c in p.iterdir() if c.is_dir()))
+        except OSError:
+            pass
+    for d in cands:
+        if looks_right(d) and hint in d.name.lower():
+            return d
+    for d in cands:                     # marker file beats the name hint
+        if looks_right(d):
+            return d
+    raise SystemExit(f"competition data not found under {base}; looked in "
+                     f"{[str(c) for c in cands[:8]]}")
+
+
+def build_study_index(root) -> dict:
+    """StudyInstanceUID -> directory, built in ONE filesystem pass.
+
+    The obvious `next(d for d in root.rglob(uid) if d.is_dir())` inside a per-study loop walks
+    the entire tree once per study: O(n_studies x n_files) over 4,407 studies and 819,640 files
+    spanning 570 GB. On Kaggle's mounted dataset that alone can outlast the session.
+
+    The layout is <split>_series/<StudyInstanceUID>/<SeriesInstanceUID>/*.dcm, so listing one
+    level under each top-level directory builds the whole map. Falls back to rglob only if that
+    finds nothing, so a layout change degrades to slow rather than to broken.
+    """
+    from pathlib import Path as _P
+    root = _P(root)
+    idx: dict = {}
+    for parent in sorted(root.iterdir()):
+        if not parent.is_dir():
+            continue
+        try:
+            for d in parent.iterdir():
+                if d.is_dir():
+                    idx.setdefault(d.name, d)
+        except OSError:
+            continue
+    if not idx:
+        for d in root.rglob("*"):
+            if d.is_dir():
+                idx.setdefault(d.name, d)
+    return idx
 
 
 def read_headers(paths):

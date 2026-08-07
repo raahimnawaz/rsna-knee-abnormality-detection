@@ -47,7 +47,8 @@ for _p in ("/kaggle/input/rsna-knee-code/pipeline", "/kaggle/usr/lib/preprocess"
         sys.path.insert(0, _p)
         break
 from preprocess import (BATCH_HINT, MODEL, PLANE_ID, PREPROCESS_VERSION,  # noqa: E402
-                        imagenet_normalise, load_series, manifest, to_25d)
+                        build_study_index, find_competition_root, imagenet_normalise,
+                        load_series, manifest, to_25d)
 
 BATCH = BATCH_HINT
 SHARD, N_SHARDS = int(os.environ.get("SHARD", 0)), int(os.environ.get("N_SHARDS", 1))
@@ -79,16 +80,6 @@ def _decode_task(item):
     return study, k, plane_name, fs_flag, vol, side
 
 
-def find_root() -> Path:
-    base = Path("/kaggle/input")
-    if not base.exists():
-        sys.exit("no /kaggle/input -- this runs on Kaggle, not locally")
-    for p in base.iterdir():
-        if p.is_dir() and "knee" in p.name.lower() and "code" not in p.name.lower():
-            return p
-    sys.exit(f"competition data not found under {base}")
-
-
 @torch.no_grad()
 def embed(model, x: torch.Tensor, dev: str) -> np.ndarray:
     """[S,3,H,W] -> [S, 2D] fp16: CLS concatenated with the patch mean.
@@ -116,11 +107,12 @@ def build_cache(root: Path, mine: list, meta, out: Path, embed_fn,
     # boundaries, not just within one study. A study has ~5 series; without look-ahead past the
     # end of a study the GPU stalls every five items waiting on the next decode.
     todo = []
+    index = build_study_index(root)             # one pass, not one walk per study
     for study in mine:
         if (out / f"{study}.npz").exists():     # resume: an interrupted session loses one study
             skipped += 1
             continue
-        sdir = next((d for d in root.rglob(study) if d.is_dir()), None)
+        sdir = index.get(study)
         if sdir is None:
             continue
         for k, ser in enumerate(sorted(p for p in sdir.iterdir() if p.is_dir())):
@@ -195,7 +187,7 @@ def build_cache(root: Path, mine: list, meta, out: Path, embed_fn,
 
 def main() -> None:
     import timm
-    root = find_root()
+    root = find_competition_root()
     OUT.mkdir(parents=True, exist_ok=True)
 
     series = pd.read_csv(root / "train_series.csv")

@@ -43,6 +43,7 @@ for _p in ("/kaggle/input/rsna-knee-code", str(Path(__file__).resolve().parents[
         sys.path.insert(0, _p + "/fusion")
         break
 from preprocess import (BATCH_HINT, MODEL, PLANE_ID, assert_matches,   # noqa: E402
+                        build_study_index, find_competition_root,
                         imagenet_normalise, load_series, to_25d)
 from dataset import series_type_id                                     # noqa: E402
 from model import FusionHead                                           # noqa: E402
@@ -55,14 +56,6 @@ WEIGHTS_DIR = Path("/kaggle/input/dinov2-weights")
 FUSION_DIR = Path("/kaggle/input/rsna-knee-fusion")
 CACHE_MANIFEST = FUSION_DIR / "manifest.json"
 OUT = Path("/kaggle/working/submission.csv")
-
-
-def find_competition() -> Path:
-    for p in sorted(Path("/kaggle/input").iterdir()):
-        if p.is_dir() and "knee" in p.name.lower() and not any(
-                x in p.name.lower() for x in ("code", "fusion", "weights")):
-            return p
-    sys.exit("competition data not found under /kaggle/input")
 
 
 def load_backbone(dev: str):
@@ -151,7 +144,7 @@ def predict_study(backbone, heads, sdir: Path, meta, dev, n_slices: int) -> np.n
 
 def main() -> None:
     global COMP
-    COMP = find_competition()
+    COMP = find_competition_root()
     dev = "cuda" if torch.cuda.is_available() else "cpu"
 
     if CACHE_MANIFEST.exists():
@@ -170,10 +163,11 @@ def main() -> None:
     backbone = load_backbone(dev)
     heads = load_heads(dev)
 
+    index = build_study_index(COMP)     # one pass; per-study rglob is O(n^2) over 570 GB
     rows, failures, t0 = [], 0, time.time()
     for n, uid in enumerate(test.StudyInstanceUID, 1):
         try:
-            sdir = next((d for d in COMP.rglob(uid) if d.is_dir()), None)
+            sdir = index.get(uid)
             if sdir is None:
                 raise FileNotFoundError("study directory not found")
             p = predict_study(backbone, heads, sdir, meta, dev, n_slices)
