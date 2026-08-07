@@ -11,6 +11,7 @@ labeling/labeler.html
 *access_token*
 kaggle.json
 
+.venv/
 __pycache__/
 *.pyc
 .DS_Store

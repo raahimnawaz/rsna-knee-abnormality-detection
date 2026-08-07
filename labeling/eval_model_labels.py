@@ -17,8 +17,15 @@ mine = pd.read_csv(ROOT/"labeling"/"model_labels.csv")
 states = pd.read_csv(ROOT/"data"/"extract_states.csv")
 scores = pd.read_csv(ROOT/"data"/"pseudo_labels.csv")
 
-m = samp.merge(mine, on="item_id", suffixes=("_gold", "_mine"))
-print(f"labelled so far: {len(m)} / {len(samp)}")
+# Join on StudyInstanceUID as well when the labels carry it (see rekey_labels.py). item_id is
+# positional and silently repoints if the sample is regenerated after upstream drift; joining on
+# both keys turns that failure into dropped rows, which the count below makes visible.
+keys = ["item_id"] + (["StudyInstanceUID"] if "StudyInstanceUID" in mine.columns else [])
+m = samp.merge(mine, on=keys, suffixes=("_gold", "_mine"))
+print(f"labelled so far: {len(m)} / {len(samp)}   (joined on {', '.join(keys)})")
+if len(m) < len(mine):
+    raise SystemExit(f"{len(mine) - len(m)} of {len(mine)} labelled items did not match the "
+                     f"sample on {keys}. Run: python labeling/rekey_labels.py --check")
 
 # ---------- duplicates: intra-rater consistency ----------
 dups = m[m.dup_of.notna() & (m.dup_of != "")]
