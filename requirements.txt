@@ -20,6 +20,12 @@ kaggle>=2.2
 # eda_04_metadata_baseline.py, and the fusion head later.
 scikit-learn>=1.4
 
+# The fusion head (PLAN.md 3.3) trains locally on cached DINOv2 embeddings -- ~800 MB, not
+# 570 GB -- so torch is a local dependency, not a Kaggle-only one. MPS works on Apple silicon.
+# pydicom/timm are deliberately absent: those run only in the Kaggle notebooks, where the
+# images live.
+torch>=2.2
+
 # extractor/llm_extract.py (method B). Only needed if the LLM extractor runs against the API;
 # the local-GPU path does not require it.
 anthropic>=0.116
