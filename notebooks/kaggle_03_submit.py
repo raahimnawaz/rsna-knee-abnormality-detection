@@ -1,7 +1,7 @@
 """Submission notebook: test DICOMs -> submission.csv. Runs on Kaggle, no internet, <=9h.
 
 The inference path the whole project exists to feed. It reproduces the feature cache live --
-there is no cache for the test set -- then runs the fusion head trained on the Mac Studio.
+there is no cache for the test set -- then runs the fusion head trained on the M5.
 
     /kaggle/input/<competition>          the test DICOMs
     /kaggle/input/rsna-knee-code         this repo, so pipeline/preprocess.py is importable

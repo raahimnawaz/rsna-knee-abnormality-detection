@@ -86,7 +86,7 @@ labeling/              hand-labelling workflow
   error_direction.py     splits disagreement into calibration vs true divergence
 pipeline/              shared by BOTH machines -- the one definition of preprocessing
   preprocess.py          DICOM -> model input. Fingerprinted; see "Preprocessing parity"
-fusion/                the differentiator (PLAN.md 3.3). Trains on the Mac Studio, MPS
+fusion/                the differentiator (PLAN.md 3.3). Trains on the M5, MPS
   model.py               slice transformer -> attention pool -> series attention -> 12 logits
   dataset.py             cached features -> padded batches. `python fusion/dataset.py` self-tests
   folds.py               5-fold, grouped by patient-proxy. NB: there is no patient column
@@ -161,14 +161,14 @@ where the edge has to come from.
 `kaggle_02` shards via `SHARD` / `N_SHARDS` and skips finished studies on restart, because
 decode is the bottleneck and this will not complete in one session.
 
-## Training (Mac Studio)
+## Training (the M5 is enough)
 
-Three machines, one pipeline. Pixels never leave Kaggle; the Studio only ever sees vectors.
+Two machines, one pipeline. Pixels never leave Kaggle; the laptop only ever sees vectors.
 
 ```
-Kaggle    kaggle_01 audit  ->  kaggle_02 cache  ->  publish Dataset   [~2.4 GB]
-Studio    download  ->  fusion/folds.py  ->  fusion/train.py          [MPS, minutes/experiment]
-Kaggle    upload fold*.pt  ->  kaggle_03_submit.py  ->  submission.csv
+Kaggle   kaggle_01 audit  ->  kaggle_02 cache  ->  publish Dataset   [~2.4 GB]
+M5       download  ->  fusion/folds.py  ->  fusion/train.py          [MPS, minutes/experiment]
+Kaggle   upload fold*.pt  ->  kaggle_03_submit.py  ->  submission.csv
 ```
 
 ```bash
@@ -176,6 +176,7 @@ python fusion/dataset.py                  # self-test: shapes, masks, degenerate
 python fusion/train.py --synthetic        # whole loop on random features. Needs no cache
 python fusion/folds.py                    # writes data/folds.csv
 python fusion/train.py --features data/features
+python fusion/train.py --features data/features --limit 500   # fast iteration; keeps all gold
 ```
 
 **`--synthetic` is not a toy.** It emits the exact shapes, dtypes, masks and edge cases the real
@@ -183,6 +184,13 @@ cache produces — single-series studies, unknown series types, minimum slice co
 consumer is testable before a DICOM has been decoded. On random features it scores macro **0.518**
 on the 58 gold studies. That is the point: chance is the correct answer, and anything meaningfully
 above it would mean a leak.
+
+**The M5 laptop is sufficient — no Studio, no 980 Ti.** The fusion head is 3.7M parameters over
+cached vectors, so the binding constraint is RAM for the cache, not the accelerator. Measured on a
+16 GB M5: **2.18 GB peak** with the full cache, the model and optimizer steps all live. The 980 Ti's
+6 GB would fit too, but Maxwell has no tensor cores and PyTorch has deprecated sm_52, and it cannot
+help with the one genuinely heavy step — the frozen backbone — because that runs on Kaggle either
+way. Everything here is fp32 on purpose: 3.7M parameters gain nothing from mixed precision.
 
 **Do not containerise the training.** Docker Desktop on macOS has no Metal passthrough — containers
 run in a Linux VM and there is no Apple-silicon `--gpus`. A dockerised run trains on CPU. torch MPS
@@ -226,7 +234,7 @@ and MCL lands at zero positives in two of them.
 - [x] Series-metadata shortcut tested and rejected (0.471, below chance)
 - [x] **Training code complete and tested end-to-end on synthetic features** — fusion head,
       dataset, folds, training loop, submission notebook. Everything that does not need pixels
-      is done; the Studio is blocked only on the cache
+      is done; training is blocked only on the cache
 - [ ] Hand-labelling — 86/303 done; the remaining 217 are the only validation set we will have
 - [ ] **First LB submission** — fork a public DINOv2 baseline. Nothing else is measurable until
       this exists

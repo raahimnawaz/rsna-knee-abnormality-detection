@@ -1,4 +1,4 @@
-"""Train the fusion head on cached DINOv2 features. Mac Studio, MPS.
+"""Train the fusion head on cached DINOv2 features. Runs on the M5; MPS, CUDA or CPU.
 
     python fusion/train.py --synthetic          # no cache needed; proves the loop runs
     python fusion/train.py --features data/features
@@ -39,9 +39,26 @@ D = PROJ / "data"
 
 
 def device() -> str:
+    """MPS first, then CUDA, then CPU.
+
+    The fusion head is 3.7M parameters over cached vectors, so this is not a compute-bound job
+    on any of them -- the binding constraint is RAM for the ~2.4 GB cache, not the accelerator.
+    A 16 GB M5 peaks at 2.18 GB with the cache, model and optimizer live, measured.
+
+    Everything here is fp32 deliberately. No autocast: a 3.7M-parameter model gains nothing from
+    mixed precision, MPS fp16 reductions are uneven, and a GTX 980 Ti (Maxwell, sm_52) has no
+    tensor cores, so fp16 would buy nothing there either.
+    """
     if torch.backends.mps.is_available():
         return "mps"
     return "cuda" if torch.cuda.is_available() else "cpu"
+
+
+def describe_device(dev: str) -> str:
+    if dev == "cuda":
+        p = torch.cuda.get_device_properties(0)
+        return f"cuda ({p.name}, {p.total_memory / 1e9:.0f} GB, sm_{p.major}{p.minor})"
+    return dev
 
 
 def load_targets(path: Path | None, ids: list[str]) -> pd.DataFrame:
@@ -127,6 +144,9 @@ def main() -> None:
     ap.add_argument("--feature-noise", type=float, default=0.01)
     ap.add_argument("--seed", type=int, default=20260807)
     ap.add_argument("--out", default=str(PROJ / "fusion" / "runs"))
+    ap.add_argument("--limit", type=int, default=0,
+                    help="train on the first N studies only -- fast iteration on the M5 "
+                         "while the full cache downloads")
     ap.add_argument("--verbose", action="store_true")
     args = ap.parse_args()
 
@@ -156,13 +176,18 @@ def main() -> None:
             sys.exit(f"{fdir} not found.\nThe cache is built on Kaggle: run "
                      f"notebooks/kaggle_02_dinov2_cache.py, publish /kaggle/working/features as "
                      f"a Dataset, download it here. Until then: --synthetic")
+        if args.limit:
+            g = folds[folds.is_gold]
+            rest = folds[~folds.is_gold].head(args.limit)
+            folds = pd.concat([g, rest]).drop_duplicates("StudyInstanceUID").reset_index(drop=True)
+            print(f"--limit {args.limit}: {len(folds)} studies ({len(g)} gold kept)")
         store = FeatureStore(fdir, folds.StudyInstanceUID.tolist())
 
     targets = load_targets(Path(args.labels) if args.labels else None,
                            folds.StudyInstanceUID.tolist())
     targets.index = folds.StudyInstanceUID
 
-    print(f"device {dev} · {len(store):,} studies with features · "
+    print(f"device {describe_device(dev)} · {len(store):,} studies with features · "
           f"labels {Path(args.labels).name if args.labels else 'pseudo_labels.csv'}")
 
     t0 = time.time()

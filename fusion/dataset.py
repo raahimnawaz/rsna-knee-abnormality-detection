@@ -1,9 +1,9 @@
-"""Feature cache -> padded batches. Runs entirely in RAM on the Mac Studio.
+"""Feature cache -> padded batches. Runs entirely in RAM on a 16 GB M5.
 
-The whole cache is ~1.8 GB (24,371 series x 32 slices x 1536 dims fp16), which on a unified-
+The whole cache is ~2.4 GB (24,371 series x 32 slices x 1536 dims fp16), which on a unified-
 memory machine means it is loaded once and never touched again -- no DataLoader workers, no
-disk pressure, no sharding. That is the single biggest reason this trains in minutes per
-experiment.
+disk pressure, no sharding. Measured peak on a 16 GB M5, cache + model + optimizer steps: 2.18
+GB. That is the single biggest reason this trains in minutes per experiment.
 
 SYNTHETIC MODE exists so every consumer of this file -- the model, the training loop, the
 submission notebook -- is testable before a single DICOM has been decoded on Kaggle. It emits
@@ -26,6 +26,7 @@ invalid here at any level: hflip swaps Medial and Lateral, so it would need the 
 swapped too (PLAN.md 3.2). Handedness is canonicalised once, in preprocessing.
 """
 import sys
+import time
 from pathlib import Path
 
 import numpy as np
@@ -67,24 +68,49 @@ class FeatureStore:
             self._load(Path(feature_dir))
 
     def _load(self, d: Path) -> None:
-        missing = []
-        for uid in self.ids:
+        """Load every study once. ~2.4 GB for the full corpus, which fits an M5 with room.
+
+        Measured on a 16 GB M5: 2.18 GB peak resident with the full cache, the model and
+        optimizer steps live. Features stay fp16 here and are upcast per batch in __getitem__ --
+        holding them as float32 would double this for no benefit.
+        """
+        missing, corrupt, t0 = [], [], time.time()
+        for n, uid in enumerate(self.ids, 1):
             p = d / f"{uid}.npz"
             if not p.exists():
                 missing.append(uid)
                 continue
-            z = np.load(p)
-            feats, sidx = z["feats"], z["series_idx"]
-            plane, fs = z["plane"], z["fluid_sensitive"]
+            try:
+                z = np.load(p)
+                feats, sidx = z["feats"], z["series_idx"]
+                plane, fs = z["plane"], z["fluid_sensitive"]
+            except Exception:
+                # A session killed mid-write leaves a truncated .npz. kaggle_02 writes via
+                # tmp+rename so this should not happen, but a silently-dropped study would be
+                # worse than a loud one.
+                corrupt.append(uid)
+                continue
             series = []
             for k in np.unique(sidx):
                 m = sidx == k
                 series.append((feats[m], series_type_id(int(plane[m][0]), int(fs[m][0]))))
             if series:
                 self.data[uid] = series
+            if n % 500 == 0 or n == len(self.ids):
+                print(f"\r  loading features {n:,}/{len(self.ids):,} "
+                      f"({time.time() - t0:.0f}s)", end="", flush=True)
+        print()
+
+        nbytes = sum(a.nbytes for s in self.data.values() for a, _ in s)
+        n_ser = sum(len(s) for s in self.data.values())
+        print(f"  {len(self.data):,} studies / {n_ser:,} series resident, "
+              f"{nbytes / 1e9:.2f} GB fp16")
         if missing:
             print(f"  WARNING: {len(missing):,}/{len(self.ids):,} studies have no feature file "
-                  f"(first: {missing[0]})")
+                  f"(first: {missing[0]}). Is the cache build finished?")
+        if corrupt:
+            print(f"  WARNING: {len(corrupt):,} unreadable .npz files (first: {corrupt[0]}). "
+                  f"Delete them and re-run the shard that produced them.")
         self.ids = [u for u in self.ids if u in self.data]
 
     def _make_synthetic(self, seed: int) -> None:

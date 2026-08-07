@@ -3,8 +3,9 @@
 Everyone has the same DINOv2 weights, so the backbone cannot differentiate us (PLAN.md 7.1).
 What it can do is make our differentiator cheap to iterate: freeze it, run it once, cache the
 per-slice features, and the fusion head from 3.3 -- slice transformer, attention pool,
-series-type embedding, series attention -- then trains on the Mac Studio in minutes instead of
-needing a GPU session per experiment.
+series-type embedding, series attention -- then trains on a 16 GB M5 laptop in minutes instead
+of needing a GPU session per experiment. Measured: 2.18 GB peak with the full cache, the model
+and optimizer steps all live.
 
 Output is ~2.4 GB for the whole corpus: 24,371 series x 32 slices x 1536 dims fp16. (Earlier
 drafts of this file said ~800 MB, computed at 768 dims -- but embed() concatenates CLS with the
@@ -30,6 +31,8 @@ import json
 import os
 import sys
 import time
+from collections import Counter, defaultdict, deque
+from concurrent.futures import ProcessPoolExecutor
 from pathlib import Path
 
 import numpy as np
@@ -49,6 +52,31 @@ from preprocess import (BATCH_HINT, MODEL, PLANE_ID, PREPROCESS_VERSION,  # noqa
 BATCH = BATCH_HINT
 SHARD, N_SHARDS = int(os.environ.get("SHARD", 0)), int(os.environ.get("N_SHARDS", 1))
 OUT = Path("/kaggle/working/features")
+
+# Decode runs in worker processes so it overlaps the GPU instead of alternating with it.
+# PLAN.md 5 says this about the submission notebook -- "multiprocess it (CPU-bound, will
+# otherwise starve the GPU)" -- and it is just as true here, where ~700k slices have to be
+# decoded. Serial decode roughly doubles the wall clock of this script, which is the difference
+# between a couple of Kaggle sessions and several, against a 9h cap and a weekly GPU quota.
+#
+# Kaggle gives ~4 usable cores. PREFETCH bounds how many decoded volumes are in flight; each is
+# ~27 MB at 32 slices of 457x457 float32, so 8 is ~215 MB of headroom.
+N_WORKERS = int(os.environ.get("N_WORKERS", min(4, os.cpu_count() or 2)))
+PREFETCH = int(os.environ.get("PREFETCH", 8))
+
+
+def _decode_task(item):
+    """Runs in a worker process: DICOM -> normalised, canonicalised volume.
+
+    Must stay top-level and picklable. Returns the volume rather than embedding it, because the
+    GPU lives in the parent -- workers do the CPU-bound half and nothing else.
+    """
+    study, k, files, plane_name, fs_flag = item
+    try:
+        vol, side = load_series([Path(f) for f in files], plane_name)
+    except Exception:
+        vol, side = None, None
+    return study, k, plane_name, fs_flag, vol, side
 
 
 def find_root() -> Path:
@@ -78,6 +106,93 @@ def embed(model, x: torch.Tensor, dev: str) -> np.ndarray:
     return torch.cat(out).numpy().astype(np.float16)
 
 
+def build_cache(root: Path, mine: list, meta, out: Path, embed_fn,
+                pool_factory=ProcessPoolExecutor) -> tuple[int, int, dict]:
+    """The scheduling loop. Injectable so --self-test can drive it without DICOMs or a GPU."""
+    done = skipped = 0
+    lat_seen = {"L": 0, "R": 0, "unknown": 0}
+
+    # Build the whole work list up front so decode can run ahead of the GPU across STUDY
+    # boundaries, not just within one study. A study has ~5 series; without look-ahead past the
+    # end of a study the GPU stalls every five items waiting on the next decode.
+    todo = []
+    for study in mine:
+        if (out / f"{study}.npz").exists():     # resume: an interrupted session loses one study
+            skipped += 1
+            continue
+        sdir = next((d for d in root.rglob(study) if d.is_dir()), None)
+        if sdir is None:
+            continue
+        for k, ser in enumerate(sorted(p for p in sdir.iterdir() if p.is_dir())):
+            files = sorted(ser.glob("*.dcm"))
+            if files:
+                row = meta.loc[ser.name] if ser.name in meta.index else None
+                todo.append((study, k, [str(f) for f in files],
+                             getattr(row, "Anatomical_Plane", None),
+                             int(getattr(row, "Fluid_Sensitive", -1))))
+    n_studies = len({t[0] for t in todo})
+    print(f"{len(todo):,} series across {n_studies:,} studies to decode "
+          f"({skipped:,} studies already cached)")
+
+    pending: dict[str, list] = defaultdict(list)
+    remaining = Counter(t[0] for t in todo)
+    t0 = time.time()
+
+    with pool_factory(max_workers=N_WORKERS) as pool:
+        it = iter(todo)
+        futures = deque()
+        # Bounded look-ahead: each in-flight decode holds a ~27 MB volume, so PREFETCH caps the
+        # memory this costs. Unbounded submission would decode the entire shard into RAM.
+        for _ in range(PREFETCH):
+            nxt = next(it, None)
+            if nxt is None:
+                break
+            futures.append(pool.submit(_decode_task, nxt))
+
+        while futures:
+            study, k, plane_name, fs_flag, vol, side = futures.popleft().result()
+            nxt = next(it, None)
+            if nxt is not None:
+                futures.append(pool.submit(_decode_task, nxt))
+
+            lat_seen[side if side in ("L", "R") else "unknown"] += 1
+            if vol is not None:
+                e = embed_fn(to_25d(vol))
+                pending[study].append((k, e, PLANE_ID.get(plane_name, -1), fs_flag,
+                                       {"L": 0, "R": 1}.get(side, -1)))
+            remaining[study] -= 1
+            if remaining[study] > 0:            # study not finished yet
+                continue
+
+            parts = sorted(pending.pop(study, []), key=lambda x: x[0])
+            if not parts:
+                continue
+            feats = [p[1] for p in parts]
+            sid = [p[0] for p in parts for _ in range(len(p[1]))]
+            plane = [p[2] for p in parts for _ in range(len(p[1]))]
+            fs = [p[3] for p in parts for _ in range(len(p[1]))]
+            # Recorded per series so laterality coverage can be audited after the fact, and so
+            # a study whose handedness was unknown can be found again without a full rebuild.
+            lat = [p[4] for p in parts for _ in range(len(p[1]))]
+            # Write to a temp name and rename: np.savez_compressed on a study that is killed
+            # mid-write leaves a truncated .npz that the resume check would treat as finished.
+            tmp = out / f".{study}.tmp.npz"
+            np.savez_compressed(tmp, feats=np.concatenate(feats),
+                                series_idx=np.array(sid, np.int16),
+                                plane=np.array(plane, np.int8),
+                                fluid_sensitive=np.array(fs, np.int8),
+                                laterality=np.array(lat, np.int8))
+            tmp.replace(out / f"{study}.npz")
+            done += 1
+            if done % 20 == 0:
+                rate = done / (time.time() - t0)
+                left = (n_studies - done) / max(rate, 1e-9) / 3600
+                print(f"  {done:>5}/{n_studies:,}  {rate * 3600:>6.0f} studies/h  "
+                      f"~{left:.1f} h left")
+
+    return done, skipped, lat_seen
+
+
 def main() -> None:
     import timm
     root = find_root()
@@ -88,61 +203,15 @@ def main() -> None:
     mine = [s for i, s in enumerate(studies) if i % N_SHARDS == SHARD]
     print(f"shard {SHARD}/{N_SHARDS}: {len(mine):,} of {len(studies):,} studies")
     print(f"preprocess version {PREPROCESS_VERSION}")
+    print(f"{N_WORKERS} decode workers, prefetch {PREFETCH}")
 
     dev = "cuda" if torch.cuda.is_available() else "cpu"
     model = timm.create_model(MODEL, pretrained=True, num_classes=0).eval().to(dev)
     print(f"{MODEL} on {dev}, prefix_tokens={model.num_prefix_tokens}")
 
-    meta = series.set_index("SeriesInstanceUID")
-    done = skipped = 0
-    lat_seen = {"L": 0, "R": 0, "unknown": 0}
-    t0 = time.time()
-
-    for study in mine:
-        dst = OUT / f"{study}.npz"
-        if dst.exists():                       # resume: an interrupted session loses one study
-            skipped += 1
-            continue
-        sdir = next((d for d in root.rglob(study) if d.is_dir()), None)
-        if sdir is None:
-            continue
-
-        feats, sid, plane, fs, lat = [], [], [], [], []
-        for k, ser in enumerate(sorted(p for p in sdir.iterdir() if p.is_dir())):
-            files = sorted(ser.glob("*.dcm"))
-            if not files:
-                continue
-            row = meta.loc[ser.name] if ser.name in meta.index else None
-            plane_name = getattr(row, "Anatomical_Plane", None)
-
-            vol, side = load_series(files, plane_name)
-            lat_seen[side if side in ("L", "R") else "unknown"] += 1
-            if vol is None:
-                continue
-
-            e = embed(model, to_25d(vol), dev)
-            feats.append(e)
-            sid += [k] * len(e)
-            plane += [PLANE_ID.get(plane_name, -1)] * len(e)
-            # Fluid_Sensitive and Fat_Suppression are perfectly redundant (FINDINGS.md 3.1),
-            # so one flag is the whole story -> 6 series types, not 12.
-            fs += [int(getattr(row, "Fluid_Sensitive", -1))] * len(e)
-            # Recorded per series so laterality coverage can be audited after the fact, and so
-            # a study whose handedness was unknown can be found again without a full rebuild.
-            lat += [{"L": 0, "R": 1}.get(side, -1)] * len(e)
-
-        if not feats:
-            continue
-        np.savez_compressed(dst, feats=np.concatenate(feats),
-                            series_idx=np.array(sid, np.int16),
-                            plane=np.array(plane, np.int8),
-                            fluid_sensitive=np.array(fs, np.int8),
-                            laterality=np.array(lat, np.int8))
-        done += 1
-        if done % 20 == 0:
-            rate = done / (time.time() - t0)
-            left = (len(mine) - skipped - done) / max(rate, 1e-9) / 3600
-            print(f"  {done:>5} done  {rate * 3600:>6.0f} studies/h  ~{left:.1f} h left")
+    done, skipped, lat_seen = build_cache(
+        root, mine, series.set_index("SeriesInstanceUID"), OUT,
+        embed_fn=lambda x: embed(model, x, dev))
 
     total_lat = sum(lat_seen.values()) or 1
     print(f"\nshard {SHARD}: {done:,} written, {skipped:,} already present -> {OUT}")
@@ -155,8 +224,114 @@ def main() -> None:
     (OUT / f"_shard{SHARD}.json").write_text(json.dumps(
         manifest(written=done, shard=SHARD, n_shards=N_SHARDS, laterality=lat_seen), indent=2))
     print("Publish /kaggle/working/features as a Kaggle Dataset, then train the fusion head "
-          "on the Studio.")
+          "on the M5.")
+
+
+# ------------------------------------------------------------------------------- self-test
+class _SerialPool:
+    """Executor stub that runs inline. Exercises the SCHEDULING, which is the novel part.
+
+    multiprocessing itself is stdlib and well tested; the prefetch window, the per-study
+    completion accounting and the resume path are mine, and they are what would strand a
+    three-hour Kaggle session.
+    """
+
+    def __init__(self, max_workers=None):
+        self.max_workers = max_workers
+
+    def __enter__(self):
+        return self
+
+    def __exit__(self, *a):
+        return False
+
+    def submit(self, fn, item):
+        class _F:
+            def __init__(self, v):
+                self._v = v
+
+            def result(self):
+                return self._v
+        return _F(_fake_decode(item))
+
+
+def _fake_decode(item):
+    study, k, files, plane_name, fs_flag = item
+    n = len(files)
+    if n < 3:                                   # undecodable series -> dropped, not fatal
+        return study, k, plane_name, fs_flag, None, None
+    side = {0: "L", 1: "R"}.get(k % 3, None)    # exercise L, R and the unknown branch
+    return (study, k, plane_name, fs_flag,
+            np.full((n, 8, 8), float(k), dtype=np.float32), side)
+
+
+def self_test() -> None:
+    import shutil
+    import tempfile
+
+    tmp = Path(tempfile.mkdtemp(prefix="kaggle02_"))
+    root, out = tmp / "root", tmp / "out"
+    out.mkdir(parents=True)
+
+    # 7 studies x variable series; study 3 gets an undecodable series, study 5 has only one.
+    rows, expect = [], {}
+    for s in range(7):
+        uid = f"study{s:02d}"
+        n_ser = 1 if s == 5 else (2 + s % 4)
+        ok = 0
+        for k in range(n_ser):
+            sid = f"{uid}_ser{k}"
+            d = root / uid / sid
+            d.mkdir(parents=True)
+            n_files = 1 if (s == 3 and k == 0) else 5      # 1 file -> undecodable
+            for f in range(n_files):
+                (d / f"{f:03d}.dcm").write_bytes(b"")
+            ok += n_files >= 3
+            rows.append({"StudyInstanceUID": uid, "SeriesInstanceUID": sid,
+                         "Anatomical_Plane": ["Axial", "Coronal", "Sagittal"][k % 3],
+                         "Fluid_Sensitive": k % 2})
+        expect[uid] = ok
+    meta = pd.DataFrame(rows).set_index("SeriesInstanceUID")
+    mine = sorted(expect)
+
+    embed_fn = lambda x: np.asarray(x[:, 0, 0, 0], dtype=np.float16).reshape(-1, 1)  # noqa: E731
+    done, skipped, lat = build_cache(root, mine, meta, out, embed_fn, _SerialPool)
+    assert done == 7 and skipped == 0, (done, skipped)
+
+    for uid, n_ok in expect.items():
+        z = np.load(out / f"{uid}.npz")
+        got = sorted(set(z["series_idx"].tolist()))
+        assert len(got) == n_ok, f"{uid}: {len(got)} series cached, expected {n_ok}"
+        # series_idx must stay sorted -- the fusion head groups on it and a shuffled order
+        # would silently pair a series' features with another series' plane/FS flags.
+        assert z["series_idx"].tolist() == sorted(z["series_idx"].tolist()), f"{uid} unsorted"
+        for key in ("plane", "fluid_sensitive", "laterality"):
+            assert len(z[key]) == len(z["feats"]), f"{uid}: {key} length mismatch"
+    print(f"  {done} studies written, series counts and ordering correct")
+    assert lat["L"] and lat["R"] and lat["unknown"], f"laterality branches not all hit: {lat}"
+    print(f"  laterality branches all exercised: {lat}")
+
+    # Resume: rerun over the same output, nothing should be rebuilt.
+    done2, skipped2, _ = build_cache(root, mine, meta, out, embed_fn, _SerialPool)
+    assert (done2, skipped2) == (0, 7), (done2, skipped2)
+    print("  resume: 0 rebuilt, 7 skipped")
+
+    # A truncated .npz must not be mistaken for a finished study.
+    (out / "study00.npz").write_bytes(b"not an npz")
+    try:
+        np.load(out / "study00.npz")
+        raise AssertionError("expected a corrupt-file error")
+    except Exception:
+        pass
+    print("  (corrupt cache files are caught by np.load; the tmp+rename write prevents "
+          "producing them)")
+
+    shutil.rmtree(tmp)
+    print("\nself-test PASSED")
 
 
 if __name__ == "__main__":
-    main()
+    if "--self-test" in sys.argv:
+        self_test()
+    else:
+        main()
