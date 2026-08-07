@@ -4,7 +4,9 @@ from pathlib import Path
 sys.path.insert(0, str(Path(__file__).parent))
 from rule_extractor import RuleExtractor, LABELS, norm
 
-ROOT = Path(r"C:\Users\Raahim\rsna-knee-mri"); D = ROOT / "data"
+PROJ = Path(__file__).resolve().parents[1]
+
+ROOT = PROJ; D = ROOT / "data"
 ex = RuleExtractor(ROOT / "labeling" / "glossary.json")
 tr = pd.read_csv(D / "train.csv").merge(pd.read_csv(D / "lang_detected.csv"), on="StudyInstanceUID")
 tr["is_gold"] = tr[LABELS].notna().all(axis=1)

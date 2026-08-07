@@ -2,7 +2,9 @@
 import pandas as pd, sys
 from pathlib import Path
 
-ROOT = Path(r"C:\Users\Raahim\rsna-knee-mri\labeling")
+PROJ = Path(__file__).resolve().parents[1]
+
+ROOT = PROJ / "labeling"
 df = pd.read_csv(ROOT / "labeling_sample.csv")
 a, b = int(sys.argv[1]), int(sys.argv[2])
 for i in range(a, min(b, len(df))):

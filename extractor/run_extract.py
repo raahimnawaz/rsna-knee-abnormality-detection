@@ -11,7 +11,9 @@ from pathlib import Path
 sys.path.insert(0, str(Path(__file__).parent))
 from rule_extractor import RuleExtractor, LABELS
 
-ROOT = Path(r"C:\Users\Raahim\rsna-knee-mri")
+PROJ = Path(__file__).resolve().parents[1]
+
+ROOT = PROJ
 D = ROOT / "data"
 
 ex = RuleExtractor(ROOT / "labeling" / "glossary.json")

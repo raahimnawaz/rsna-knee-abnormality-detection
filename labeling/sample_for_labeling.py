@@ -15,7 +15,9 @@ Output: labeling_sample.csv (shuffled; gold/dup flags present but NOT shown in t
 import pandas as pd, numpy as np, hashlib, json, sys
 from pathlib import Path
 
-ROOT = Path(r"C:\Users\Raahim\rsna-knee-mri")
+PROJ = Path(__file__).resolve().parents[1]
+
+ROOT = PROJ
 D, OUT = ROOT / "data", ROOT / "labeling"
 SEED = 20260806
 N_STRAT, N_GOLD, N_DUP = 250, 30, 20

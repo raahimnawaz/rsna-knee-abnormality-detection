@@ -12,7 +12,9 @@ Bulgarian: Baker's is written just 'киста' (+ location), never 'Бейке�
 import json
 from pathlib import Path
 
-P = Path(r"C:\Users\Raahim\rsna-knee-mri\labeling\glossary.json")
+PROJ = Path(__file__).resolve().parents[1]
+
+P = PROJ / "labeling" / "glossary.json"
 d = json.loads(P.read_text(encoding="utf-8"))
 F = d["findings"]
 

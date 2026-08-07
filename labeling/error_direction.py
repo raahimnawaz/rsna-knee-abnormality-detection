@@ -9,7 +9,9 @@ This distinction decides whether 84.7% is a ceiling or just my current operating
 import pandas as pd, numpy as np
 from pathlib import Path
 
-R = Path(r"C:\Users\Raahim\rsna-knee-mri")
+PROJ = Path(__file__).resolve().parents[1]
+
+R = PROJ
 L = ["ACL","MCL","Medial Meniscus","Lateral Meniscus","Medial OA","Lateral OA",
      "PF OA","Effusion","Synovitis","Baker's","Contusion","Fracture"]
 

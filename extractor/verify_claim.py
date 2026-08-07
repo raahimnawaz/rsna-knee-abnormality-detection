@@ -11,7 +11,9 @@ Four ways that claim could be an artefact rather than a fact:
 import pandas as pd, numpy as np, re
 from pathlib import Path
 
-D = Path(r"C:\Users\Raahim\rsna-knee-mri\data")
+PROJ = Path(__file__).resolve().parents[1]
+
+D = PROJ / "data"
 L = ["ACL","MCL","Medial Meniscus","Lateral Meniscus","Medial OA","Lateral OA",
      "PF OA","Effusion","Synovitis","Baker's","Contusion","Fracture"]
 tr = pd.read_csv(D/"train.csv")

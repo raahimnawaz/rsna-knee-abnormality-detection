@@ -1,7 +1,10 @@
 """Identify the 'latin-unknown' bucket and confirm series-type structure."""
 import pandas as pd, re, collections
+from pathlib import Path
 
-D = r"C:\Users\Raahim\rsna-knee-mri\data"
+PROJ = Path(__file__).resolve().parent
+
+D = PROJ / "data"
 tr = pd.read_csv(f"{D}/train.csv").merge(pd.read_csv(f"{D}/lang_guess.csv"), on="StudyInstanceUID")
 ts = pd.read_csv(f"{D}/train_series.csv")
 

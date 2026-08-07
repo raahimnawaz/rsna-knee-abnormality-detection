@@ -1,7 +1,10 @@
 """Phase-1 EDA: how much supervision actually exists, and in what languages."""
 import pandas as pd, numpy as np, re, collections, sys
+from pathlib import Path
 
-D = r"C:\Users\Raahim\rsna-knee-mri\data"
+PROJ = Path(__file__).resolve().parent
+
+D = PROJ / "data"
 LABELS = ["ACL","MCL","Medial Meniscus","Lateral Meniscus","Medial OA","Lateral OA",
           "PF OA","Effusion","Synovitis","Baker's","Contusion","Fracture"]
 
@@ -100,5 +103,5 @@ else:
     print("gold subset too small for a correlation matrix")
 
 tr[["StudyInstanceUID","lang_guess"]].to_csv(
-    r"C:\Users\Raahim\rsna-knee-mri\data\lang_guess.csv", index=False)
+    PROJ / "data" / "lang_guess.csv", index=False)
 print("\nwrote lang_guess.csv")

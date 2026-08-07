@@ -7,7 +7,9 @@ import pandas as pd
 from pathlib import Path
 from lingua import Language, LanguageDetectorBuilder
 
-D = Path(r"C:\Users\Raahim\rsna-knee-mri\data")
+PROJ = Path(__file__).resolve().parent
+
+D = PROJ / "data"
 
 # LATIN deliberately excluded: it only ever captured terse, telegraphic ENGLISH reports
 # ("ACL normal. MCL normal. Medial meniscus tear.") that are too function-word-poor to

@@ -6,7 +6,9 @@ two methods that share a designer, so treat it as a consistency check, not accur
 import pandas as pd, numpy as np
 from pathlib import Path
 
-ROOT = Path(r"C:\Users\Raahim\rsna-knee-mri")
+PROJ = Path(__file__).resolve().parents[1]
+
+ROOT = PROJ
 L = ["ACL","MCL","Medial Meniscus","Lateral Meniscus","Medial OA","Lateral OA",
      "PF OA","Effusion","Synovitis","Baker's","Contusion","Fracture"]
 

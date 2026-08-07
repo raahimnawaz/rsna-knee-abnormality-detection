@@ -6,7 +6,9 @@ Progress autosaves to localStorage; export to CSV when done or to back up.
 import pandas as pd, json
 from pathlib import Path
 
-ROOT = Path(r"C:\Users\Raahim\rsna-knee-mri\labeling")
+PROJ = Path(__file__).resolve().parents[1]
+
+ROOT = PROJ / "labeling"
 LABELS = ["ACL","MCL","Medial Meniscus","Lateral Meniscus","Medial OA","Lateral OA",
           "PF OA","Effusion","Synovitis","Baker's","Contusion","Fracture"]
 KEYS = ["1","2","3","4","5","6","7","8","9","0","-","="]
