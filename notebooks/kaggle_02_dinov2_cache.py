@@ -231,6 +231,12 @@ def build_cache(root: Path, mine: list, meta, out: Path, embed_fn,
 
 
 def main() -> None:
+    # Check the GPU before ANYTHING else -- before indexing 4,410 directories and before timm
+    # pulls DINOv2 weights. A bad draw should cost seconds so retrying is nearly free.
+    dev = pick_device()
+    if dev != "cuda":
+        raise SystemExit(f"refusing to start on '{dev}'. Re-run to draw a different GPU.")
+
     import timm
     root = find_competition_root()
     OUT.mkdir(parents=True, exist_ok=True)
@@ -242,10 +248,6 @@ def main() -> None:
     print(f"preprocess version {PREPROCESS_VERSION}")
     print(f"{N_WORKERS} decode workers, prefetch {PREFETCH}")
 
-    dev = pick_device()
-    if dev != "cuda":
-        raise SystemExit(f"refusing to start on '{dev}'. See the warning above; re-run this "
-                         f"notebook to draw a different GPU.")
     model = timm.create_model(MODEL, pretrained=True, num_classes=0).eval().to(dev)
     print(f"{MODEL} on {dev}, prefix_tokens={model.num_prefix_tokens}")
 

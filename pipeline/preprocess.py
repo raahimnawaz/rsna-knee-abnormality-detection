@@ -146,19 +146,43 @@ def pick_device() -> str:
     import torch
     if not torch.cuda.is_available():
         return "cpu"
+
+    # Launch an actual kernel. Inferring support from get_device_capability() against
+    # get_arch_list() looks tidier but is indirect, and the first version of this function
+    # wrapped it in try/except and fell through to "cuda" on any failure -- so it passed a
+    # P100 straight through to the same crash it existed to prevent. Running a real op is the
+    # ground truth, it costs microseconds, and there is nothing left to infer.
+    # Capability check FIRST, and it fails closed. Two earlier versions of this guard tried to
+    # infer support and both fell open on a P100 -- one swallowed an exception and returned
+    # "cuda", the other's probe did not raise. Kaggle's PyTorch reports a 7.0 minimum, so
+    # anything below that is unusable, full stop, with no inference and no fallthrough.
     try:
         major, minor = torch.cuda.get_device_capability(0)
-        supported = torch.cuda.get_arch_list()
-        ok = any(a.startswith("sm_") and int(a[3:]) == major * 10 + minor for a in supported)
-        if not ok:
-            name = torch.cuda.get_device_name(0)
-            print(f"WARNING: {name} is compute {major}.{minor} but this PyTorch was built for "
-                  f"{sorted(supported)}.\nThe GPU is unusable. Re-run to be assigned a different "
-                  f"one (a T4 works); running on CPU would take days.")
-            return "unusable"
+        name = torch.cuda.get_device_name(0)
     except Exception:
-        pass
-    return "cuda"
+        major, minor, name = 0, 0, "unknown GPU"
+    print(f"GPU: {name}, compute {major}.{minor}")
+    if major < 7:
+        print(f"WARNING: {name} (compute {major}.{minor}) is below the 7.0 minimum this "
+              f"PyTorch supports. Kaggle still assigns P100s and the accelerator field in "
+              f"kernel-metadata.json does not override the draw. Re-run for a different GPU.")
+        return "unusable"
+
+    try:
+        torch.zeros(8, 8, device="cuda").sum().item()
+        return "cuda"
+    except Exception as e:
+        try:
+            name = torch.cuda.get_device_name(0)
+            major, minor = torch.cuda.get_device_capability(0)
+            what = f"{name} (compute {major}.{minor})"
+        except Exception:
+            what = "the assigned GPU"
+        print(f"WARNING: {what} cannot run this PyTorch build -- {type(e).__name__}: "
+              f"{str(e).splitlines()[0]}\nKaggle still assigns Tesla P100s (compute 6.0) while "
+              f"its PyTorch requires >= 7.0, and the accelerator field in kernel-metadata.json "
+              f"does not reliably override the draw. Re-run to get a different GPU; a T4 works.")
+        return "unusable"
 
 
 def find_competition_root(hint: str = "knee"):
