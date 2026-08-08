@@ -34,7 +34,29 @@ import numpy as np
 import pandas as pd
 import pydicom
 
-sys.path.insert(0, "/kaggle/input/rsna-knee-code/pipeline")
+# Locate pipeline/preprocess.py wherever the code Dataset landed. Globbing beats hardcoding:
+# the mount name depends on the Dataset slug, and a Dataset version still being created when the
+# kernel starts can leave the path briefly absent -- which surfaced as a bare ModuleNotFoundError
+# and cost a GPU session. Fail with a listing instead.
+def _bootstrap_preprocess() -> None:
+    import glob
+    # Recursive: Kaggle nests sources under competitions/ and datasets/ when a kernel has more
+    # than one, so the depth of the mount is not fixed. Measured 2026-08-07 -- /kaggle/input held
+    # exactly ['competitions', 'datasets'] and a one-level glob found nothing.
+    for pat in ("/kaggle/input/**/pipeline/preprocess.py", "/kaggle/usr/lib/**/preprocess.py",
+                str(Path(__file__).resolve().parents[1] / "pipeline" / "preprocess.py")):
+        hits = sorted(glob.glob(pat, recursive=True))
+        if hits:
+            sys.path.insert(0, str(Path(hits[0]).parent))
+            return
+    listing = sorted(glob.glob("/kaggle/input/*")) + sorted(glob.glob("/kaggle/input/*/*"))
+    raise SystemExit(
+        "cannot find pipeline/preprocess.py. Attach the rsna-knee-code Dataset to this "
+        f"notebook. /kaggle/input currently holds: {listing}")
+
+
+_bootstrap_preprocess()
+
 from preprocess import build_study_index, find_competition_root  # noqa: E402
 
 OUT = Path("/kaggle/working")
