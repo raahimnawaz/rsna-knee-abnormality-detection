@@ -33,6 +33,7 @@ import sys
 import time
 from collections import Counter, defaultdict, deque
 from concurrent.futures import ProcessPoolExecutor
+import multiprocessing
 from pathlib import Path
 
 import numpy as np
@@ -77,8 +78,25 @@ OUT = Path("/kaggle/working/features")
 #
 # Kaggle gives ~4 usable cores. PREFETCH bounds how many decoded volumes are in flight; each is
 # ~27 MB at 32 slices of 457x457 float32, so 8 is ~215 MB of headroom.
-N_WORKERS = int(os.environ.get("N_WORKERS", min(4, os.cpu_count() or 2)))
-PREFETCH = int(os.environ.get("PREFETCH", 8))
+# The mount is LATENCY-bound, not bandwidth- or CPU-bound: kaggle_01b measured ~19 ms per file
+# open, and the cache needs ~700k of them. That is ~10 h serial, which is why the workers are
+# not optional and why oversubscribing cores helps -- they are blocked on I/O, not computing.
+N_WORKERS = int(os.environ.get("N_WORKERS", 8))
+PREFETCH = int(os.environ.get("PREFETCH", 16))
+
+
+def _pool(max_workers):
+    """ProcessPoolExecutor on a SPAWN context.
+
+    The default on Linux is fork, and this process initialises CUDA (timm .to('cuda')) before
+    the pool is created. Forking a process that already holds a CUDA context is documented as
+    unsafe, and the observed cost was severe: the first 224 run tracked the SERIAL throughput
+    curve for 9 h against a ~2.7 h estimate with 4 workers. Spawn starts clean children that
+    never inherit the context. They re-import this module, which is why _decode_task is
+    top-level and why main() sits behind an __name__ guard.
+    """
+    return ProcessPoolExecutor(max_workers=max_workers,
+                               mp_context=multiprocessing.get_context("spawn"))
 
 
 def _decode_task(item):
@@ -113,7 +131,7 @@ def embed(model, x: torch.Tensor, dev: str) -> np.ndarray:
 
 
 def build_cache(root: Path, mine: list, meta, out: Path, embed_fn,
-                pool_factory=ProcessPoolExecutor) -> tuple[int, int, dict]:
+                pool_factory=None) -> tuple[int, int, dict]:
     """The scheduling loop. Injectable so --self-test can drive it without DICOMs or a GPU."""
     done = skipped = 0
     lat_seen = {"tag": 0, "geometry": 0, "none": 0}
@@ -141,11 +159,12 @@ def build_cache(root: Path, mine: list, meta, out: Path, embed_fn,
     print(f"{len(todo):,} series across {n_studies:,} studies to decode "
           f"({skipped:,} studies already cached)")
 
+    n_done_series = 0
     pending: dict[str, list] = defaultdict(list)
     remaining = Counter(t[0] for t in todo)
     t0 = time.time()
 
-    with pool_factory(max_workers=N_WORKERS) as pool:
+    with (pool_factory or _pool)(max_workers=N_WORKERS) as pool:
         it = iter(todo)
         futures = deque()
         # Bounded look-ahead: each in-flight decode holds a ~27 MB volume, so PREFETCH caps the
@@ -167,6 +186,17 @@ def build_cache(root: Path, mine: list, meta, out: Path, embed_fn,
                 e = embed_fn(to_25d(vol))
                 pending[study].append((k, e, PLANE_ID.get(plane_name, -1), fs_flag,
                                        {"L": 0, "R": 1}.get(side, -1)))
+            n_done_series += 1
+            if n_done_series in (25, 100, 400):
+                el = time.time() - t0
+                rate = n_done_series / max(el, 1e-9)
+                print(f"  PROBE {n_done_series} series in {el:.0f}s = {rate:.2f} series/s "
+                      f"-> ~{len(todo) / max(rate, 1e-9) / 3600:.1f} h for this shard "
+                      f"({N_WORKERS} workers)")
+                if n_done_series == 100 and rate < 0.35:
+                    print("    WARNING: that is near single-worker throughput. The pool may not "
+                          "be parallelising -- check N_WORKERS and the spawn context before "
+                          "letting this run for hours.")
             remaining[study] -= 1
             if remaining[study] > 0:            # study not finished yet
                 continue
