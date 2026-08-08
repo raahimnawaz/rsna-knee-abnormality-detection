@@ -146,9 +146,10 @@ subset in a held-out fold for honest evaluation of the *whole* pipeline.
 ### 3.1 Preprocessing
 1. Group by series (folders already do this); sort slices by `ImagePositionPatient` projected onto
    the slice normal — **not** `InstanceNumber`.
-2. **Transfer-syntax spread is a real cost**: uncompressed, JPEG Lossless, JPEG 2000, Implicit VR.
-   JPEG 2000 decode is slow. Install `pylibjpeg` + `pylibjpeg-openjpeg` + GDCM and **benchmark
-   decode time per syntax early** — this drives §7.
+2. ~~**Transfer-syntax spread is a real cost**: uncompressed, JPEG Lossless, JPEG 2000, Implicit
+   VR. JPEG 2000 decode is slow.~~ **Measured 2026-08-07 and false.** The corpus is **200/200
+   Explicit VR Little Endian** at **3.1 ms/slice** — one syntax, uncompressed, cheap. No
+   `pylibjpeg`, no GDCM, no `dicomsdl`. See `FINDINGS.md` §6.
 3. MRI has no HU standard → per-volume robust percentile normalization (clip 0.5/99.5 → [0,1]).
 4. Resample in-plane to fixed mm/px; centre-crop/pad to a fixed FOV. The knee is protocol-centred,
    so a detector is overkill.
@@ -160,10 +161,12 @@ Four labels are side-specific (Medial/Lateral Meniscus, Medial/Lateral OA). "Med
 left and right knees, so a model fed raw mixed-handedness studies sees medial findings on both
 sides of the image.
 
-**Canonicalize every study to one handedness.** DICOMs are stripped to an allowlist of 86 tags —
-**first check whether `(0020,0060) Laterality` and `BodyPartExamined` survived.** If not, derive
-handedness from `ImagePositionPatient`/`ImageOrientationPatient` sign conventions, or train a small
-left/right classifier on pixels. Audit visually on a sample either way.
+**Canonicalize every study to one handedness.** **Answered 2026-08-07** (`FINDINGS.md` §6.2):
+`(0020,0060) Laterality` survives but is **empty on half the corpus** — 2,203 of 4,407 studies
+carry a usable value. The geometry fallback works, but *not* at the obvious boundary: `x < 0`
+agrees with the tag only 89.3%, while **`x < -62` agrees 97.7%** (cross-validated 97.32% ± 0.72%),
+because the scanned knee sits at isocentre rather than the patient being centred. Tag first,
+geometry second, source recorded per series. A pixel-based L/R classifier is no longer needed.
 
 > **TTA trap:** horizontal-flip TTA is *invalid* here unless you also swap the Medial↔Lateral
 > output pairs. Either swap them or don't use hflip.
@@ -232,7 +235,10 @@ required.
 
 ## 4. Validation
 
-- **MultilabelStratifiedGroupKFold**, 5 folds, grouped by patient. Stratify on the rarest labels.
+- ~~**MultilabelStratifiedGroupKFold**, 5 folds, grouped by patient.~~ **There is no patient to
+  group by** — `PatientID` is present in every DICOM and is *unique per study* (4,407 IDs for
+  4,407 studies), so it is de-identified per study. Plain multilabel-stratified 5-fold, ungrouped;
+  `fusion/folds.py`. Stratify on the rarest labels.
 - Keep gold-labeled and pseudo-labeled studies **identifiable** in every fold; always report
   metrics on the **gold** subset — pseudo-labels inherit the extractor's biases and will flatter you.
 - Studies are from a "diverse international mix of imaging sites" → **site shift is the #1 CV↔LB
@@ -311,9 +317,11 @@ Worked examples (`maxAUC` = 0.85; showing the normalized form for readability �
 | Tiny/fast, accuracy sacrificed | 0.800 | 3 min | 0.143 | 0.006 | 0.149 |
 
 ### 6.3 What to optimize, ranked
-1. **DICOM decode throughput — free.** Zero AUC cost, and likely the majority of runtime given the
-   JPEG 2000 / JPEG Lossless mix. Multiprocess, decode only the slices you feed, never touch pixel
-   data twice.
+1. ~~**DICOM decode throughput — free.**~~ **Demoted 2026-08-07.** There is no JPEG 2000; every
+   file is uncompressed at 3.1 ms/slice, so the whole corpus decodes in ~36 min single-threaded
+   against ~4 h of GPU at 518. **The pipeline is GPU-bound, not decode-bound.** Still multiprocess
+   it and still decode only the slices you feed — both are free — but the lever is resolution and
+   slice count, not the decoder.
 2. **Series pruning** using the provided metadata: keep sagittal + coronal + axial fluid-sensitive,
    drop localizers and non-FS duplicates.
 3. **Slice subsampling** (16 vs 32) — measure the OOF cost first.
@@ -436,7 +444,8 @@ track we have most invested in. Path 2 is not reachable without it. Build it fir
 | **Site/scanner/protocol shift** (explicitly international) | Site-aware CV, heavy intensity aug, per-site monitoring |
 | **Prevalence shift train→public→private** (stated) | AUC is prevalence-insensitive within a label; don't calibrate to train prevalence; trust CV |
 | **Rare labels + only ~1,300 test studies → wide CIs** | Bootstrap CIs; accept that some ranking is luck; don't overfit folds |
-| **JPEG 2000 decode dominates runtime** | Benchmark per transfer syntax in week 1; `pylibjpeg-openjpeg` / GDCM |
+| ~~**JPEG 2000 decode dominates runtime**~~ **retired 2026-08-07** | Measured: 200/200 Explicit VR Little Endian, 3.1 ms/slice. The risk does not exist |
+| **GPU time is the cache-build constraint** — replaces the row above | ~700k slices at 518 is the cost. Do a 224 pass first; shard via `SHARD`/`N_SHARDS`; the build resumes, so a killed session loses one study |
 | **Missing series in test studies** | Series-dropout augmentation + explicit degenerate-input tests |
 | **570 GB won't fit locally** | Kaggle notebooks / cloud for pixels. ~~Local work is text-only~~ — **no longer true**: cached frozen DINOv2 embeddings are ~2.4 GB, so the fusion head trains locally (§7.1) |
 | ~~**Public weak labels commoditize the extractor**~~ **retired 2026-08-07** | A/B run and passed — 0.777/0.749 vs 0.672/0.672 on gold, 0.864/0.862 vs 0.757 on hand labels. Ours wins on both references and both metrics |

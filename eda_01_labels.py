@@ -1,5 +1,5 @@
 """Phase-1 EDA: how much supervision actually exists, and in what languages."""
-import pandas as pd, numpy as np, re, collections, sys
+import pandas as pd, numpy as np, re
 from pathlib import Path
 
 PROJ = Path(__file__).resolve().parent

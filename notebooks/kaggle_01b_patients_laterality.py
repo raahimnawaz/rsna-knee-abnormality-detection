@@ -89,7 +89,7 @@ def main() -> None:
         sdir = index.get(study)
         if sdir is None:
             continue
-        pids, sides, xs, planes = Counter(), Counter(), [], Counter()
+        pids, sides, xs = Counter(), Counter(), []
         for ser in sdir.iterdir():
             if not ser.is_dir():
                 continue

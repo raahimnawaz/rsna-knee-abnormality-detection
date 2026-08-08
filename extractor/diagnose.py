@@ -1,5 +1,5 @@
 """Bootstrap CIs on the gold eval, plus targeted diagnostics for the weakest labels."""
-import pandas as pd, numpy as np, sys, re
+import pandas as pd, numpy as np, sys
 from pathlib import Path
 sys.path.insert(0, str(Path(__file__).parent))
 from rule_extractor import RuleExtractor, LABELS, norm

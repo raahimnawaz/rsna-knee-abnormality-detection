@@ -35,7 +35,7 @@ import torch
 
 PROJ = Path(__file__).resolve().parents[1]
 sys.path.insert(0, str(PROJ / "pipeline"))
-from preprocess import (EMBED_DIM, N_SERIES_TYPES, PLANE_ID,          # noqa: E402
+from preprocess import (EMBED_DIM, N_SERIES_TYPES,                    # noqa: E402
                         SLICES_PER_SERIES, SLICES_PER_SERIES_TRAIN)
 
 LABELS = ["ACL", "MCL", "Medial Meniscus", "Lateral Meniscus", "Medial OA", "Lateral OA",

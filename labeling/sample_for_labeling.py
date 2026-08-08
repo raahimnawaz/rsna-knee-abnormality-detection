@@ -12,7 +12,7 @@ Design:
 
 Output: labeling_sample.csv (shuffled; gold/dup flags present but NOT shown in the UI).
 """
-import pandas as pd, numpy as np, hashlib, json, sys
+import pandas as pd, numpy as np
 from pathlib import Path
 
 PROJ = Path(__file__).resolve().parents[1]

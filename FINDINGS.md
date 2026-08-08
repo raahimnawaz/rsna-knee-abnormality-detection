@@ -162,3 +162,69 @@ the extractor exists.
    strong play given how label-poor this competition is.
 5. **Series handling:** 6 types, not 12. Axial FS always available. 87% of studies miss
    something — train with series dropout from day one.
+
+## 6. DICOM findings — 2026-08-07
+
+From `notebooks/kaggle_01_dicom_audit.py` (200 studies) and
+`notebooks/kaggle_01b_patients_laterality.py` (all 4,407). Raw output in `data/dicom_audit.json`
+and `data/laterality_check.json`.
+
+### 6.1 There is no JPEG 2000. There is no transfer-syntax mix at all.
+
+| syntax | files | decode |
+|---|---:|---:|
+| Explicit VR Little Endian | **200 / 200** | **3.1 ms/slice** |
+
+`PLAN.md` budgeted for "uncompressed, JPEG Lossless, JPEG 2000, Implicit VR" and ranked decode
+throughput as the largest efficiency lever. Both are now retired. ~700k slices at 3.1 ms is
+**~36 min single-threaded**, against **~4 h of GPU** at 518 — the cache build is **GPU-bound**.
+`dicomsdl`/`pylibjpeg`/GDCM buy nothing here; their advantage is JPEG 2000, which is absent.
+
+### 6.2 Laterality survives on half the corpus, and the obvious fallback is wrong
+
+| | studies |
+|---|---:|
+| `(0020,0060) Laterality` present **and non-empty** | **2,203 / 4,407 (50.0%)** |
+| present but **empty** (must not be read as a side) | 2,204 |
+| usable `ImagePositionPatient` | 4,407 (100%) |
+
+Testing the geometry rule against the 2,203 studies that have both:
+
+| boundary | agreement with tag |
+|---|---:|
+| `x < 0` → R (the obvious guess) | **89.3%** |
+| `x < -62` → R | **97.7%** |
+
+The errors at a zero boundary are lopsided — 98.9% correct on R-tagged studies but only 79.5% on
+L-tagged — and every disagreement sits at |x| ≈ 10. The scanned knee is placed at **isocentre**
+rather than the patient being centred, so R knees cluster at x ≈ −150 and L knees at ≈ +14, and
+the two modes straddle −62, not 0.
+
+Cross-validated (fit 80% / test 20%, ×20): **97.32% ± 0.72%**, threshold stable at **−62.4 ± 4.5**.
+It should transfer — the untagged half has a near-identical x distribution (below −62 / between /
+above: 51.2/8.9/40.0 tagged vs 53.8/9.9/36.3 untagged).
+
+**Adopted:** tag first, geometry second, and the source is stored per series in the feature cache
+so the geometry-derived subset stays identifiable and can be re-measured against the model.
+
+### 6.3 There is no patient linkage in this dataset
+
+`(0010,0020) PatientID` is present in every DICOM — and is **unique per study**: 4,407 distinct
+IDs for 4,407 studies, zero patients with more than one. It is de-identified per study.
+
+Nor is shared report text a patient proxy. Those groups are **templates**: the largest is 37
+studies sharing one Turkish boilerplate normal report (*"Diz eklemi içi sıvı miktarı normal.
+Çapraz ve yan bağlar normal…"*) — 37 different people with identical text.
+
+So there is nothing to group folds by, and grouping on report text actively hurt: it forced fold
+sizes to 664–1,077 to prevent a leak that cannot occur, since the model consumes images and the
+report is the target's source rather than an input. Ungrouped stratified folds come out 881–882.
+
+### 6.4 Other tags
+
+83 distinct tags survive. `ImagePositionPatient`, `ImageOrientationPatient`, `PixelSpacing`,
+`SliceThickness`, `InstanceNumber`, `Rows`/`Columns` are all 200/200 — slice ordering by
+projected `ImagePositionPatient` is safe. `BodyPartExamined` is 189/200 and **dirty**: values
+include `ADRENAL`, `LIVER`, `LSPINE`, `ANKLE`. Do not route on it.
+
+---

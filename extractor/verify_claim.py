@@ -8,7 +8,7 @@ Four ways that claim could be an artefact rather than a fact:
                     could pair text with another study's labels.
   D  DATA HYGIENE -- non-binary / unexpected values in the label columns.
 """
-import pandas as pd, numpy as np, re
+import pandas as pd, re
 from pathlib import Path
 
 PROJ = Path(__file__).resolve().parents[1]
