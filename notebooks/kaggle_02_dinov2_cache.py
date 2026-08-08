@@ -64,7 +64,7 @@ def _bootstrap_preprocess() -> None:
 _bootstrap_preprocess()
 from preprocess import (BATCH_HINT, MODEL, PLANE_ID, PREPROCESS_VERSION,  # noqa: E402
                         build_study_index, find_competition_root, imagenet_normalise,
-                        load_series, manifest, to_25d)
+                        load_series, manifest, pick_device, to_25d)
 
 BATCH = BATCH_HINT
 SHARD, N_SHARDS = int(os.environ.get("SHARD", 0)), int(os.environ.get("N_SHARDS", 1))
@@ -242,7 +242,10 @@ def main() -> None:
     print(f"preprocess version {PREPROCESS_VERSION}")
     print(f"{N_WORKERS} decode workers, prefetch {PREFETCH}")
 
-    dev = "cuda" if torch.cuda.is_available() else "cpu"
+    dev = pick_device()
+    if dev != "cuda":
+        raise SystemExit(f"refusing to start on '{dev}'. See the warning above; re-run this "
+                         f"notebook to draw a different GPU.")
     model = timm.create_model(MODEL, pretrained=True, num_classes=0).eval().to(dev)
     print(f"{MODEL} on {dev}, prefix_tokens={model.num_prefix_tokens}")
 

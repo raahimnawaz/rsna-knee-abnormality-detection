@@ -130,6 +130,37 @@ def read_pixels(path) -> np.ndarray | None:
         return None
 
 
+def pick_device() -> str:
+    """'cuda' only if the assigned GPU can actually run this PyTorch build.
+
+    `torch.cuda.is_available()` is TRUE on a GPU whose compute capability the installed wheel
+    has no kernels for, and the failure then arrives much later as a bare
+    `CUDA error: no kernel image is available for execution on the device`.
+
+    Measured 2026-08-08: Kaggle hands out **Tesla P100 (capability 6.0)** alongside T4s, and its
+    current PyTorch supports 7.0-12.0. A P100 session therefore cannot run this at all. The
+    assignment is a coin flip and the `accelerator` field in kernel-metadata.json does not
+    reliably override it, so the only defence is to detect it and say so in seconds rather than
+    after the notebook has queued, downloaded weights, and started decoding.
+    """
+    import torch
+    if not torch.cuda.is_available():
+        return "cpu"
+    try:
+        major, minor = torch.cuda.get_device_capability(0)
+        supported = torch.cuda.get_arch_list()
+        ok = any(a.startswith("sm_") and int(a[3:]) == major * 10 + minor for a in supported)
+        if not ok:
+            name = torch.cuda.get_device_name(0)
+            print(f"WARNING: {name} is compute {major}.{minor} but this PyTorch was built for "
+                  f"{sorted(supported)}.\nThe GPU is unusable. Re-run to be assigned a different "
+                  f"one (a T4 works); running on CPU would take days.")
+            return "unusable"
+    except Exception:
+        pass
+    return "cuda"
+
+
 def find_competition_root(hint: str = "knee"):
     """Locate the mounted competition data. Do NOT assume it is a direct child of /kaggle/input.
 

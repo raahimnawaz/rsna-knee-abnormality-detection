@@ -63,7 +63,7 @@ def _bootstrap_preprocess() -> None:
 _bootstrap_preprocess()
 from preprocess import (BATCH_HINT, MODEL, PLANE_ID, assert_matches,   # noqa: E402
                         build_study_index, find_competition_root,
-                        imagenet_normalise, load_series, to_25d)
+                        imagenet_normalise, load_series, pick_device, to_25d)
 from dataset import series_type_id                                     # noqa: E402
 from model import FusionHead                                           # noqa: E402
 
@@ -164,7 +164,10 @@ def predict_study(backbone, heads, sdir: Path, meta, dev, n_slices: int) -> np.n
 def main() -> None:
     global COMP
     COMP = find_competition_root()
-    dev = "cuda" if torch.cuda.is_available() else "cpu"
+    # At submission time a CPU fallback is still better than no submission at all,
+    # so unlike the cache build this degrades rather than exits.
+    dev = pick_device()
+    dev = "cpu" if dev == "unusable" else dev
 
     if CACHE_MANIFEST.exists():
         assert_matches(json.loads(CACHE_MANIFEST.read_text()))
