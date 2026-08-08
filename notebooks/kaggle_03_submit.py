@@ -117,7 +117,7 @@ def predict_study(backbone, heads, sdir: Path, meta, dev, n_slices: int) -> np.n
             continue
         row = meta.loc[ser.name] if ser.name in meta.index else None
         plane_name = getattr(row, "Anatomical_Plane", None)
-        vol, _ = load_series(files, plane_name)
+        vol, _, _ = load_series(files, plane_name)
         if vol is None:
             continue
         e = embed_series(backbone, vol, dev)

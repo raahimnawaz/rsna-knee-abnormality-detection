@@ -74,10 +74,10 @@ def _decode_task(item):
     """
     study, k, files, plane_name, fs_flag = item
     try:
-        vol, side = load_series([Path(f) for f in files], plane_name)
+        vol, side, src = load_series([Path(f) for f in files], plane_name)
     except Exception:
-        vol, side = None, None
-    return study, k, plane_name, fs_flag, vol, side
+        vol, side, src = None, None, "none"
+    return study, k, plane_name, fs_flag, vol, side, src
 
 
 @torch.no_grad()
@@ -101,7 +101,7 @@ def build_cache(root: Path, mine: list, meta, out: Path, embed_fn,
                 pool_factory=ProcessPoolExecutor) -> tuple[int, int, dict]:
     """The scheduling loop. Injectable so --self-test can drive it without DICOMs or a GPU."""
     done = skipped = 0
-    lat_seen = {"L": 0, "R": 0, "unknown": 0}
+    lat_seen = {"tag": 0, "geometry": 0, "none": 0}
 
     # Build the whole work list up front so decode can run ahead of the GPU across STUDY
     # boundaries, not just within one study. A study has ~5 series; without look-ahead past the
@@ -142,12 +142,12 @@ def build_cache(root: Path, mine: list, meta, out: Path, embed_fn,
             futures.append(pool.submit(_decode_task, nxt))
 
         while futures:
-            study, k, plane_name, fs_flag, vol, side = futures.popleft().result()
+            study, k, plane_name, fs_flag, vol, side, src = futures.popleft().result()
             nxt = next(it, None)
             if nxt is not None:
                 futures.append(pool.submit(_decode_task, nxt))
 
-            lat_seen[side if side in ("L", "R") else "unknown"] += 1
+            lat_seen[src] = lat_seen.get(src, 0) + 1
             if vol is not None:
                 e = embed_fn(to_25d(vol))
                 pending[study].append((k, e, PLANE_ID.get(plane_name, -1), fs_flag,
@@ -207,11 +207,12 @@ def main() -> None:
 
     total_lat = sum(lat_seen.values()) or 1
     print(f"\nshard {SHARD}: {done:,} written, {skipped:,} already present -> {OUT}")
-    print(f"laterality: L {lat_seen['L']}, R {lat_seen['R']}, "
-          f"unknown {lat_seen['unknown']} ({100 * lat_seen['unknown'] / total_lat:.1f}%)")
-    if lat_seen["unknown"] > total_lat * 0.05:
-        print("  WARNING: >5% of series have no laterality tag. Medial/Lateral labels are only "
-              "as good as this -- see PLAN.md 3.2 and the kaggle_01 audit before trusting them.")
+    print(f"laterality source: tag {lat_seen.get('tag', 0)}, "
+          f"geometry {lat_seen.get('geometry', 0)}, none {lat_seen.get('none', 0)} "
+          f"({100 * lat_seen.get('none', 0) / total_lat:.1f}%)")
+    if lat_seen.get("none", 0) > total_lat * 0.02:
+        print("  WARNING: >2% of series have neither a tag nor usable geometry, so they are "
+              "NOT canonicalised. Medial/Lateral labels are only as good as this -- PLAN.md 3.2.")
 
     (OUT / f"_shard{SHARD}.json").write_text(json.dumps(
         manifest(written=done, shard=SHARD, n_shards=N_SHARDS, laterality=lat_seen), indent=2))
@@ -251,10 +252,11 @@ def _fake_decode(item):
     study, k, files, plane_name, fs_flag = item
     n = len(files)
     if n < 3:                                   # undecodable series -> dropped, not fatal
-        return study, k, plane_name, fs_flag, None, None
+        return study, k, plane_name, fs_flag, None, None, "none"
     side = {0: "L", 1: "R"}.get(k % 3, None)    # exercise L, R and the unknown branch
+    src = {0: "tag", 1: "geometry"}.get(k % 3, "none")
     return (study, k, plane_name, fs_flag,
-            np.full((n, 8, 8), float(k), dtype=np.float32), side)
+            np.full((n, 8, 8), float(k), dtype=np.float32), side, src)
 
 
 def self_test() -> None:
@@ -273,7 +275,7 @@ def self_test() -> None:
         ok = 0
         for k in range(n_ser):
             sid = f"{uid}_ser{k}"
-            d = root / uid / sid
+            d = root / "train_series" / uid / sid
             d.mkdir(parents=True)
             n_files = 1 if (s == 3 and k == 0) else 5      # 1 file -> undecodable
             for f in range(n_files):
@@ -300,8 +302,8 @@ def self_test() -> None:
         for key in ("plane", "fluid_sensitive", "laterality"):
             assert len(z[key]) == len(z["feats"]), f"{uid}: {key} length mismatch"
     print(f"  {done} studies written, series counts and ordering correct")
-    assert lat["L"] and lat["R"] and lat["unknown"], f"laterality branches not all hit: {lat}"
-    print(f"  laterality branches all exercised: {lat}")
+    assert lat["tag"] and lat["geometry"] and lat["none"], f"lat sources not all hit: {lat}"
+    print(f"  laterality sources all exercised: {lat}")
 
     # Resume: rerun over the same output, nothing should be rebuilt.
     done2, skipped2, _ = build_cache(root, mine, meta, out, embed_fn, _SerialPool)

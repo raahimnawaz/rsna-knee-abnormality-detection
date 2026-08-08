@@ -62,6 +62,22 @@ BATCH_HINT = 16
 # for a left vs a right knee, so four of the twelve labels are noise without this (PLAN 3.2).
 CANONICAL_SIDE = "R"
 
+# Boundary on the median ImagePositionPatient x-coordinate below which a knee is the RIGHT one.
+#
+# NOT zero, which is the obvious guess and is wrong. Measured over the 2,203 studies that carry
+# a real Laterality tag (kaggle_01b): R knees sit at x median -150, L knees at +14, and the
+# disagreements at a zero boundary all cluster at |x| ~ 10. The scanned knee is placed at
+# isocentre rather than the patient being centred, so the frame is offset and the two modes
+# straddle roughly -62 instead of 0.
+#
+#   threshold 0    -> 89.3% agreement with the tag
+#   threshold -62  -> 97.7%; cross-validated (fit 80% / test 20%, x20) 97.32% +- 0.72%,
+#                     threshold itself stable at -62.4 +- 4.5
+#
+# It transfers to the untagged half: the two halves have near-identical x distributions
+# (below -62 / between / above: 51.2/8.9/40.0 tagged vs 53.8/9.9/36.3 untagged).
+LATERALITY_X_THRESHOLD = -62.0
+
 
 def _fingerprint() -> str:
     """Hash of everything that changes a cached feature value."""
@@ -69,6 +85,7 @@ def _fingerprint() -> str:
         "model": MODEL, "img_size": IMG_SIZE, "slices": SLICES_PER_SERIES,
         "target_mm": TARGET_MM, "fov_mm": FOV_MM, "embed_dim": EMBED_DIM,
         "canonical_side": CANONICAL_SIDE, "norm": "pct_0.5_99.5", "stack": "2.5d_prev_cur_next",
+        "lat_x_threshold": LATERALITY_X_THRESHOLD,
     }, sort_keys=True)
     return hashlib.sha256(payload.encode()).hexdigest()[:12]
 
@@ -217,27 +234,41 @@ def slice_order(headers) -> list[int]:
     return [i for _, i in sorted(keys)]
 
 
-def read_laterality(headers) -> str | None:
-    """-> 'L' | 'R' | None, by majority over the series.
+def read_laterality(headers) -> tuple[str | None, str]:
+    """-> ('L' | 'R' | None, source) where source is 'tag' | 'geometry' | 'none'.
 
-    Tries (0020,0060) Laterality then (0020,0062) ImageLaterality, then a BodyPartExamined
-    suffix. Returns None when the 86-tag allowlist stripped all of them -- the caller decides
-    what to do, and `canonicalise` records the miss rather than guessing a side. Never infer
-    handedness from ImagePositionPatient sign without checking the audit first:
-    de-identification frequently zeroes or shifts those coordinates.
+    The tag is only half the story. kaggle_01b measured (0020,0060) Laterality present on
+    2,203 of 4,407 studies -- the rest carry the tag with an EMPTY value, which must not be
+    read as a side. Leaving that half uncanonicalised would make Medial/Lateral Meniscus and
+    Medial/Lateral OA noise for half the corpus (PLAN.md 3.2), which is worse than a fallback
+    that is right ~97% of the time.
+
+    So: tag first, geometry second. The source is returned and stored per series in the cache,
+    so the geometry-derived subset stays identifiable and the decision can be re-measured
+    against the model later rather than being baked in invisibly.
     """
     votes = []
     for ds in headers:
         v = getattr(ds, "Laterality", None) or getattr(ds, "ImageLaterality", None)
         if not v:
             bp = str(getattr(ds, "BodyPartExamined", "") or "").upper()
-            v = "L" if bp.endswith("L") and "KNEE" in bp else ("R" if bp.endswith("R") and "KNEE" in bp else None)
+            v = ("L" if bp.endswith("L") and "KNEE" in bp
+                 else ("R" if bp.endswith("R") and "KNEE" in bp else None))
         v = str(v).strip().upper()[:1] if v else None
         if v in ("L", "R"):
             votes.append(v)
-    if not votes:
-        return None
-    return max(set(votes), key=votes.count)
+    if votes:
+        return max(set(votes), key=votes.count), "tag"
+
+    xs = []
+    for ds in headers:
+        try:
+            xs.append(float(np.asarray(ds.ImagePositionPatient, float)[0]))
+        except Exception:
+            pass
+    if xs:
+        return ("R" if float(np.median(xs)) < LATERALITY_X_THRESHOLD else "L"), "geometry"
+    return None, "none"
 
 
 # --------------------------------------------------------------------------- volume ops
@@ -312,16 +343,16 @@ def imagenet_normalise(b: torch.Tensor) -> torch.Tensor:
 
 
 def load_series(paths, plane: str | None = None):
-    """DICOM paths -> ([S,side,side] float32 in [0,1], laterality) or (None, laterality).
+    """DICOM paths -> ([S,side,side] float32 in [0,1], laterality, laterality_source).
 
     The whole of PLAN.md 3.1 in one call, so the cache builder and the submission notebook
     cannot diverge on any step of it.
     """
     headers, keep = read_headers(paths)
     if len(keep) < 3:
-        return None, None
+        return None, None, "none"
 
-    lat = read_laterality(headers)
+    lat, lat_src = read_laterality(headers)
     order = slice_order(headers)
     idx = [order[i] for i in pick_slices(len(order))]
 
@@ -333,16 +364,16 @@ def load_series(paths, plane: str | None = None):
     # Decode ONLY the slices that are kept -- never touch pixel data twice (PLAN.md 6.3.1).
     vol = [a for a in (read_pixels(keep[i]) for i in idx) if a is not None]
     if len(vol) < 3:
-        return None, lat
+        return None, lat, lat_src
 
     # Mixed in-series geometry happens; keep the dominant shape rather than dropping the series.
     shape = max({a.shape for a in vol}, key=lambda s: s[0] * s[1])
     vol = [a for a in vol if a.shape == shape]
     if len(vol) < 3:
-        return None, lat
+        return None, lat, lat_src
 
     v = normalise_and_resample(np.stack(vol), spacing)
-    return canonicalise(v, lat, plane), lat
+    return canonicalise(v, lat, plane), lat, lat_src
 
 
 def manifest(**extra) -> dict:

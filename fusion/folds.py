@@ -1,16 +1,26 @@
-"""5-fold split: grouped by patient-proxy, stratified on the rarest labels.
+"""5-fold split, stratified on the rarest labels. NOT grouped -- and that is a measured call.
 
-PLAN.md 4 asks for MultilabelStratifiedGroupKFold "grouped by patient". **There is no patient
-column.** train.csv is StudyInstanceUID, Report, and the twelve labels -- nothing else. So the
-grouping key has to be inferred, and the only same-patient signal in the data is shared report
-text: 131 studies repeat a report that appeared earlier, and IMPROVEMENTS.md 2b-i measured 177
-studies involved in sharing overall. Those are bilateral knees or follow-ups on one patient.
-Split them across folds and the model memorises a patient in train and is scored on them in
-val, which inflates CV and shows up later as an unexplained CV/LB gap.
+PLAN.md 4 asks for MultilabelStratifiedGroupKFold "grouped by patient". Getting there took two
+wrong turns, both worth recording because both are the obvious thing to do:
 
-So: group on a hash of the normalised report text. It is a floor, not a solution -- two
-studies on one patient with genuinely different reports still leak, and we cannot detect that.
-Recorded as a known limitation rather than papered over.
+  1. train.csv has no patient column, so the first version grouped on a hash of the report
+     text, reasoning that studies sharing a report are bilateral knees or follow-ups.
+  2. The DICOM audit then found (0010,0020) PatientID in 200/200 headers, which looked like
+     the real answer.
+
+Both are wrong. kaggle_01b read PatientID for every study: **4,407 studies, 4,407 distinct
+PatientIDs, zero patients with more than one study.** The IDs are de-identified per study, so
+there is no patient linkage in this dataset at all.
+
+And the report-hash groups are not patients either -- they are TEMPLATES. The largest group is
+37 studies sharing one Turkish boilerplate normal report ('Diz eklemi içi sıvı miktarı normal.
+Çapraz ve yan bağlar normal...'), i.e. 37 different people who got identical text. Forcing them
+into one fold damaged fold balance (664-1,077 studies per fold) to prevent a leak that cannot
+happen: the model consumes images, and the report is the target's source, never an input.
+
+So there is nothing to group by, grouping on text made the folds worse, and plain multilabel
+stratification is correct here. The GROUP_KEY hook stays as a single function so that if real
+patient linkage ever appears it is a one-line change.
 
 Stratification is greedy rather than exact. Exact multilabel stratification is NP-hard and the
 standard Kaggle approach (iterative-stratification) has no grouped variant, so we do what its
@@ -22,7 +32,6 @@ every fold and every metric is reported on them separately -- pseudo-labels inhe
 extractor's biases and scoring against them flatters the model.
 """
 import argparse
-import hashlib
 import sys
 from pathlib import Path
 
@@ -38,11 +47,13 @@ N_FOLDS = 5
 SEED = 20260807
 
 
-def group_key(report: str) -> str:
-    """Patient proxy: hash of whitespace-normalised report text."""
-    if not isinstance(report, str):
-        return "nan"
-    return hashlib.sha1(" ".join(report.split()).encode("utf-8")).hexdigest()[:16]
+def group_key(row) -> str:
+    """The grouping key. Currently the study itself -- i.e. no grouping. See the module docstring.
+
+    Swap this for a real patient identifier the moment one exists; everything downstream
+    already treats groups as the unit of assignment.
+    """
+    return row.StudyInstanceUID
 
 
 def assign(groups: list, y: np.ndarray, n_folds: int, seed: int) -> np.ndarray:
@@ -86,7 +97,7 @@ def assign(groups: list, y: np.ndarray, n_folds: int, seed: int) -> np.ndarray:
 
 def build(soft_labels: bool = True) -> pd.DataFrame:
     tr = pd.read_csv(D / "train.csv")
-    tr["group"] = tr.Report.map(group_key)
+    tr["group"] = [group_key(r) for r in tr.itertuples()]
     tr["is_gold"] = tr[LABELS].notna().all(axis=1)
 
     # Stratify on the labels we will actually train against. Gold where it exists, otherwise
