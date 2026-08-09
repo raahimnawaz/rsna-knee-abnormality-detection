@@ -93,7 +93,9 @@ fusion/                the differentiator (PLAN.md 3.3). Trains on the M5, MPS
   train.py               training loop + pooled-OOF gold eval. --synthetic needs no cache
 notebooks/             Kaggle-side only; the 570 GB of pixels never come local
   kaggle_01_dicom_audit.py    did (0020,0060) Laterality survive? + decode cost per syntax
-  kaggle_02_dinov2_cache.py   frozen DINOv2 -> ~2.4 GB of per-slice features, shardable
+  kaggle_01b_patients_laterality.py  header-only pass over all 4,407: PatientID + laterality
+  kaggle_02_dinov2_cache.py   frozen DINOv2 -> ~2.4 GB of per-slice features, shardable.
+                              `--self-test` runs the whole scheduler locally, no DICOMs needed
   kaggle_03_submit.py         test DICOM -> submission.csv. No internet; weights from a Dataset
 eda_01_labels.py       label coverage, prevalence, co-occurrence
 eda_02_langs.py        language identification + series structure
@@ -143,14 +145,29 @@ python extractor/compare_methods.py           # the table above
 
 ## Kaggle-side work
 
-The images are 570 GB and stay on Kaggle. Two scripts run there, in this order — run the audit
-first, because if laterality is unrecoverable then four of the twelve labels are unreliable and
-that changes what the feature cache is worth building against.
+The images are 570 GB and stay on Kaggle. The scripts run there in this order — the audits come
+first, because if laterality were unrecoverable then four of the twelve labels would be
+unreliable and that changes what the feature cache is worth building against. **Both audits are
+done** (`FINDINGS.md` §6); the cache is not.
 
 ```
-notebooks/kaggle_01_dicom_audit.py    -> /kaggle/working/dicom_audit.json
-notebooks/kaggle_02_dinov2_cache.py   -> /kaggle/working/features  (publish as a Dataset)
+notebooks/kaggle_01_dicom_audit.py           -> /kaggle/working/dicom_audit.json        [done]
+notebooks/kaggle_01b_patients_laterality.py  -> /kaggle/working/laterality_check.json   [done]
+notebooks/kaggle_02_dinov2_cache.py          -> /kaggle/working/features  (publish as a Dataset)
 ```
+
+**A bad Kaggle GPU draw is the single biggest way to lose a session here.** Kaggle assigns a
+Tesla P100 on roughly four of five draws and `accelerator` in `kernel-metadata.json` does not
+reliably override it; its PyTorch dropped Pascal, so a P100 cannot run this at all — while
+`torch.cuda.is_available()` returns True on one. `pick_device()` checks compute capability
+against the installed wheel's arch list in the first seconds of `main()` and refuses, so a bad
+draw costs seconds and re-running is a viable strategy rather than a way to burn the weekly
+quota. Run `python pipeline/preprocess.py` for the fingerprint; the guard prints the GPU it drew.
+
+**Watch the PROBE line.** `kaggle_02` prints measured throughput at 25 / 100 / 400 series with
+the implied hours for the shard, and warns when the rate is near single-worker. Three earlier
+attempts burned 21 h, then two ~1 h sessions, then 9 h before anyone could tell the pool had
+stopped parallelising. If that warning fires, kill the session.
 
 The cache is the reason local work is **no longer text-only**. Frozen DINOv2 embeddings are
 ~2.4 GB for the whole corpus, so the §3.3 fusion head — slice transformer, attention pool,
@@ -172,12 +189,19 @@ Kaggle   upload fold*.pt  ->  kaggle_03_submit.py  ->  submission.csv
 ```
 
 ```bash
-python fusion/dataset.py                  # self-test: shapes, masks, degenerate studies
-python fusion/train.py --synthetic        # whole loop on random features. Needs no cache
-python fusion/folds.py                    # writes data/folds.csv
+python fusion/dataset.py                              # self-test: shapes, masks, degenerate studies
+python notebooks/kaggle_02_dinov2_cache.py --self-test # scheduler, resume, spawn pool. No DICOMs
+python fusion/train.py --synthetic                    # whole loop on random features. No cache
+python fusion/folds.py                                # writes data/folds.csv
 python fusion/train.py --features data/features
 python fusion/train.py --features data/features --limit 500   # fast iteration; keeps all gold
 ```
+
+`kaggle_02 --self-test` is the one that guards a Kaggle session rather than a laptop run. It
+drives the whole scheduling loop on synthetic series — prefetch window, per-study completion
+accounting, the resume path, the throughput probe — and it constructs the **real spawn pool** and
+asserts it fans out across workers, pins each to one thread, and does not re-search the mount on
+re-import. Every one of those has cost a session at least once.
 
 **`--synthetic` is not a toy.** It emits the exact shapes, dtypes, masks and edge cases the real
 cache produces — single-series studies, unknown series types, minimum slice counts — so every
@@ -229,7 +253,7 @@ genuinely different reports still leak and we cannot detect it.
 Gold is scored **pooled out-of-fold, never per fold**. 58 gold studies over 5 folds is 8–16 each,
 and MCL lands at zero positives in two of them.
 
-## Status
+## Status — 2026-08-08
 
 - [x] Data logistics, language ID, series structure
 - [x] Rule extractor v1 — macro AUC **0.777** on gold, 95% CI [0.74, 0.82]
@@ -241,11 +265,18 @@ and MCL lands at zero positives in two of them.
 - [x] **Training code complete and tested end-to-end on synthetic features** — fusion head,
       dataset, folds, training loop, submission notebook. Everything that does not need pixels
       is done; training is blocked only on the cache
+- [x] **Laterality answered** (`kaggle_01` + `kaggle_01b`, `FINDINGS.md` §6.2) — the tag survives
+      on 50% of the corpus, and the geometry fallback agrees 97.7% at the `x < −62` boundary, not
+      the obvious `x < 0` (89.3%). Tag first, geometry second, source recorded per series
+- [x] **Cache-build harness hardened** (`IMPROVEMENTS.md` §6) — the GPU guard, the spawn pool and
+      the preprocessing-parity assert all had faults that cost or would have cost a session.
+      Fixed and self-tested locally; **not yet run against real DICOMs**
+- [ ] **DINOv2 feature cache built and published (`kaggle_02`) — THE BLOCKER.** Four attempts,
+      none finished, none of them failing at the modelling: see `PLAN.md` §9 for the table. Next
+      move is a 224 shard 0/4 proving run, judged on the PROBE line within minutes
 - [ ] Hand-labelling — 86/303 done; the remaining 217 are the only validation set we will have
-- [ ] **First LB submission** — fork a public DINOv2 baseline. Nothing else is measurable until
-      this exists
-- [ ] Laterality confirmed (`kaggle_01`) — four side-specific labels depend on it
-- [ ] DINOv2 feature cache built and published (`kaggle_02`)
+- [ ] **First LB submission** — fork a public DINOv2 baseline. Independent of the cache, ~an
+      hour, and nothing else is measurable until it exists. It should stop waiting behind §9.1
 - [ ] **The §7.2 A/B: fusion head trained twice on identical folds, our labels vs `nekkon`'s.**
       The only test of whether the label moat survives contact with a model
 - [ ] LLM extractor (method B) — host undecided (`IMPROVEMENTS.md` §1.1); ~$44 batched on the

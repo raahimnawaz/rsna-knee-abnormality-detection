@@ -1,7 +1,12 @@
-# Extractor: friction log & improvement backlog
+# Friction log & improvement backlog
 
 Running record of known weaknesses, open decisions, and things to re-check. Updated as work
 proceeds. **Read this before touching the extractor** — most of it is already diagnosed.
+
+§0–§5 are the **extractor** track and are the bulk of this file. §6 is the **Kaggle-side
+pipeline** track, added 2026-08-08: same format, same purpose, different failure modes. Read it
+before touching `pipeline/preprocess.py` or either cache notebook — every entry in it has cost or
+would have cost a GPU session.
 
 **Status 2026-08-07:** rule-based extractor running over all 4,407 reports.
 Macro AUC **0.777** on the 58 gold studies, 95% CI **[0.74, 0.82]** (±0.038).
@@ -380,3 +385,57 @@ per-language table is too coarse to see a fault that is spread evenly across one
   for additional hand-labelling.
 - Check whether pseudo-label noise is correlated with language — if so, weight the loss by
   per-language extractor reliability rather than uniformly.
+
+---
+
+## 6. Kaggle-side pipeline — friction log `ADDED 2026-08-08`
+
+The extractor track is measured in thousandths of AUC. This one is measured in **lost sessions**:
+a 9 h cap, a weekly GPU quota, and four cache-build attempts that produced nothing. None of them
+failed at the modelling. Recorded in the same format as §3 because the failure *patterns* repeat.
+
+### 6.1 Resolved (provenance)
+
+| # | Issue | Root cause | Fix |
+|---|---|---|---|
+| K1 | Full-corpus @518 run killed at **21 h** | unsharded, no resume — a cancellation cost everything | `SHARD`/`N_SHARDS`; per-study `.npz` + tmp-and-rename, so a killed session loses one study |
+| K2 | Two relaunches died ~1 h in with `no kernel image is available for execution on the device` | Kaggle drew a **P100 (compute 6.0)**; its PyTorch needs ≥ 7.0, and `torch.cuda.is_available()` is **True** on one. `accelerator` in kernel-metadata.json does not reliably override the draw | `pick_device()` in the first seconds of `main()`; cache build exits, submission degrades |
+| K3 | Guard v1 **passed a P100 through** | inferred support from `get_arch_list()` inside a bare `try/except` that returned `"cuda"` on any failure — it **failed open** | capability read first, no fallthrough |
+| K4 | Guard v2 also passed a P100 | probe kernel did not raise — CUDA errors are reported **asynchronously** and a tiny op did not surface it | probe kept, but `torch.cuda.synchronize()` added and **nothing depends on it** |
+| K5 | Guard v3 could not see a GPU too **NEW** | the arch-list check was deleted, leaving only a `major < 7` floor, which is one-sided | arch list restored **two-sided**: below the compiled minimum is fatal, above it warns (PTX JIT is real, and hard-failing it strands working sessions) |
+| K6 | Guard v3 condemned **working T4s** | `get_device_capability()` and `get_device_name()` shared one `try`, so a transient NVML failure on the *name* zeroed a capability already read — reported as "compute 0.0 is below the 7.0 minimum" | separate `try` blocks |
+| K7 | 224 shard ran **9 h on the serial curve** against a 2.7 h estimate | `ProcessPoolExecutor` **forked** a process that already held a CUDA context (timm `.to('cuda')` runs first) | spawn context; `_decode_task` top-level, `main()` behind `__name__` |
+| K8 | The spawn fix made every worker **re-walk the 570 GB mount** | spawn re-imports the module in each child, and the module body globs `/kaggle/input/**/pipeline/preprocess.py` — `**` scandirs ~29k series dirs | parent caches the answer in `RSNA_PREPROCESS_DIR`; bounded-depth patterns before the recursive fallback |
+| K9 | 8 spawn workers × torch's default intra-op threads = **~32 compute threads on ~4 cores** | "workers are blocked on I/O" is only mostly true — `normalise_and_resample` runs `torch.quantile` and `F.interpolate` over the whole volume | pool `initializer` pins each child to one thread; `N_WORKERS` capped by `cpu_count` |
+| K10 | The preprocessing-parity assert — the project's headline defence — **never ran** | `kaggle_03` looked for `manifest.json`; `kaggle_02` writes `_shard*.json` and `fusion/train.py` wrote neither. `exists()` was always False, so it fell through to a `print` | `train.py` stamps `manifest.json` beside `fold*.pt`; a missing manifest is now **fatal** |
+| K11 | The CPU fallback produced **no submission at all** | "a slow submission beats none" — but `to_csv` sat *after* a loop that cannot finish in 9 h at 518px on CPU | all-0.5 placeholder written before the backbone loads, rewritten every 100 studies |
+| K12 | Inference fed the head **fp32** | cache is stored fp16 and `dataset.py` upcasts per batch, so the head only ever trained on fp16-quantised vectors. `PREPROCESS_VERSION` hashes constants, not dtypes | `.half().float()` round-trip in `embed_series` |
+| K13 | `--self-test` covered **neither** of K7's or K8's mechanisms | probe thresholds started at 25 series and the synthetic corpus holds 21; `self_test` always passed `_SerialPool`, so the spawn pool was never constructed | thresholds are a constant the test lowers; a pool test asserts fan-out, thread pinning, and no re-glob |
+
+**The recurring pattern, and it is not the extractor's.** There, guessed *vocabulary* was wrong
+far more often than the logic. Here, three of thirteen entries (K3, K4, K5) are the same guard
+**failing open** — and a guard that fails open is worse than no guard, because it looks like
+protection and you stop checking. The tell each time was that the fix was never *observed* to
+work; it was reasoned to work and then shipped. K13 is the same fault one level up: both
+mechanisms that cost sessions were unreachable from the self-test the file's docstring calls "the
+gate that says the pipeline is correct".
+
+**So: for anything on this track, the test is not "does it look right" but "what does it print on
+the box".** `--self-test` before pushing a Dataset version; the PROBE line before letting a
+session run for hours.
+
+### 6.2 Open
+
+- **Nothing above has been run against real DICOMs.** All thirteen fixes are self-tested locally
+  and that is all. The 224 shard-0 proving run (`PLAN.md` §9.1) is the only thing that converts
+  them from reasoning into measurement, which is exactly the failure mode of K3–K5.
+- **The ~19 ms/open cost model is not measured.** It is inferred from the failed runs and
+  mis-attributed to `kaggle_01b`, which does not time opens (`FINDINGS.md` §6.1). The PROBE
+  replaces it with a real number on the next shard — record it.
+- **`SLICES_PER_SERIES_TRAIN` is deliberately excluded from the fingerprint**, so a train/serve
+  mismatch on the slice count is not caught by `assert_matches()`. It travels in the manifest as
+  data and `kaggle_03` reads it from there; if that indirection ever breaks, nothing raises.
+- **Two device pickers became one** (`pick_device(allow_mps=...)`), but the `"unusable"` sentinel
+  still leaks into callers, each of which special-cases it differently — exit in `kaggle_02`, CPU
+  in `kaggle_03` and `fusion/train.py`. That is deliberate (the right answer genuinely differs per
+  caller), but it is the kind of shape that drifts.

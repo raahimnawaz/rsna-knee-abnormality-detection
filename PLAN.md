@@ -2,7 +2,7 @@
 
 **Metric:** macro-averaged AUROC over 12 labels
 **Timeline:** started Jul 30 2026 · entry/merger deadline **Oct 15** · final submission **Oct 22 2026**
-→ **~10.5 weeks from today (Aug 7).**
+→ **~10.5 weeks from today (Aug 8).**
 **Prizes:** main track 10 places ($9k down to $5k); **efficiency track 3 places ($7k / $6k / $5k)**
 **Field as of Aug 6:** 2,180 entrants, 164 participants, 158 teams, 437 submissions — very early.
 **Constraints:** Kaggle notebook, ≤9h, no internet, `submission.csv`. Winners must open-source code
@@ -317,11 +317,22 @@ Worked examples (`maxAUC` = 0.85; showing the normalized form for readability �
 | Tiny/fast, accuracy sacrificed | 0.800 | 3 min | 0.143 | 0.006 | 0.149 |
 
 ### 6.3 What to optimize, ranked
-1. ~~**DICOM decode throughput — free.**~~ **Demoted 2026-08-07.** There is no JPEG 2000; every
-   file is uncompressed at 3.1 ms/slice, so the whole corpus decodes in ~36 min single-threaded
-   against ~4 h of GPU at 518. **The pipeline is GPU-bound, not decode-bound.** Still multiprocess
-   it and still decode only the slices you feed — both are free — but the lever is resolution and
-   slice count, not the decoder.
+1. ~~**DICOM decode throughput — free.**~~ ~~**Demoted 2026-08-07.**~~ **Re-ranked 2026-08-08, and
+   the demotion was half right.** The *decoder* is still irrelevant: there is no JPEG 2000, every
+   file is Explicit VR Little Endian at 3.1 ms/slice, and `dicomsdl`/`pylibjpeg`/GDCM buy nothing.
+   But "3.1 ms/slice ⇒ ~36 min single-threaded ⇒ GPU-bound" did not survive contact with the mount.
+   That benchmark timed **decode of files already opened**, n=6, inside a 200-study audit. What the
+   cache build actually pays is **per-file open latency** on a 570 GB network mount — ~19 ms each,
+   ~700k of them, i.e. hours before a single kernel launches. The first 224 shard ran 9 h against a
+   2.7 h estimate.
+
+   **So the cache build is I/O-LATENCY-bound, not GPU-bound and not decode-bound.** The lever is
+   concurrency of opens (oversubscribed workers, prefetch depth) and file *count* — which is what
+   makes slice subsampling and series pruning pay twice. Resolution and slice count still dominate
+   the GPU side of the submission notebook, where the test set is ~1,300 studies and the mount is
+   read once. `kaggle_02`'s PROBE at 25/100/400 series prints the implied hours for the shard and
+   is the instrument that settles this properly — the ~19 ms figure is an inference from failed
+   runs, not a recorded measurement (see `FINDINGS.md` §6.1).
 2. **Series pruning** using the provided metadata: keep sagittal + coronal + axial fluid-sensitive,
    drop localizers and non-FS duplicates.
 3. **Slice subsampling** (16 vs 32) — measure the OOF cost first.
@@ -445,7 +456,9 @@ track we have most invested in. Path 2 is not reachable without it. Build it fir
 | **Prevalence shift train→public→private** (stated) | AUC is prevalence-insensitive within a label; don't calibrate to train prevalence; trust CV |
 | **Rare labels + only ~1,300 test studies → wide CIs** | Bootstrap CIs; accept that some ranking is luck; don't overfit folds |
 | ~~**JPEG 2000 decode dominates runtime**~~ **retired 2026-08-07** | Measured: 200/200 Explicit VR Little Endian, 3.1 ms/slice. The risk does not exist |
-| **GPU time is the cache-build constraint** — replaces the row above | ~700k slices at 518 is the cost. Do a 224 pass first; shard via `SHARD`/`N_SHARDS`; the build resumes, so a killed session loses one study |
+| ~~**GPU time is the cache-build constraint**~~ **corrected 2026-08-08** | It is not GPU time, it is **per-file open latency** on the mount (§6.3.1). ~700k opens at ~19 ms is hours before the GPU matters. Shard via `SHARD`/`N_SHARDS`; the build resumes, so a killed session loses one study; do the 224 pass first |
+| **Kaggle assigns a P100 on roughly 4 of 5 draws, and `accelerator` in kernel-metadata.json does not override it** | Its PyTorch dropped Pascal, so a P100 session cannot run this at all — and `torch.cuda.is_available()` is True on one. `pick_device()` fails closed in the first seconds of `main()`, so a bad draw costs seconds and re-rolling is a viable strategy rather than a way to burn the weekly quota |
+| **A silently-serial worker pool costs a whole session** | Three cache attempts died this way (21 h, then 9 h on the serial curve). The pool is spawn-context, workers are pinned to one thread, and the PROBE at 25/100/400 series warns inside minutes when the rate is near single-worker. `--self-test` now constructs the real pool and asserts it fans out |
 | **Missing series in test studies** | Series-dropout augmentation + explicit degenerate-input tests |
 | **570 GB won't fit locally** | Kaggle notebooks / cloud for pixels. ~~Local work is text-only~~ — **no longer true**: cached frozen DINOv2 embeddings are ~2.4 GB, so the fusion head trains locally (§7.1) |
 | ~~**Public weak labels commoditize the extractor**~~ **retired 2026-08-07** | A/B run and passed — 0.777/0.749 vs 0.672/0.672 on gold, 0.864/0.862 vs 0.757 on hand labels. Ours wins on both references and both metrics |
@@ -456,22 +469,34 @@ track we have most invested in. Path 2 is not reachable without it. Build it fir
 
 ## 9. Immediate next steps
 
-> Rewritten 2026-08-07. The original five items — cancel the browser download, install the Kaggle
-> CLI, characterise `train.csv`, benchmark decode, build the extractor — are done bar the decode
-> benchmark, which now lives inside `kaggle_01`. Everything below needs a Kaggle session, which is
-> the point: **there is nothing left on the local critical path that we can measure** (§7.2).
+> Rewritten 2026-08-08. Item 1 of the previous list (the DICOM audit) is **done** — `kaggle_01`
+> plus `kaggle_01b` ran over all 4,407 studies and the results are in `FINDINGS.md` §6; laterality
+> is answered and the geometry fallback is adopted. Everything below still needs a Kaggle session.
+> **There is nothing left on the local critical path that we can measure** (§7.2).
 
-1. **Run `notebooks/kaggle_01_dicom_audit.py`** as a Kaggle Script with the competition dataset
-   attached. ~30 min. Answers laterality (§3.2) and decode cost per transfer syntax (§6.3.1) in one
-   pass. Download `dicom_audit.json` and record the result in `FINDINGS.md`.
-   **If `(0020,0060) Laterality` did not survive the allowlist, stop and re-plan** — four of the
-   twelve labels are side-specific and the fallback (geometry, or a pixel L/R classifier) has to be
-   built before the cache is worth anything.
-2. **Fork a public DINOv2 notebook and submit.** Still unmet from week 2, and it is ~an hour. Until
-   a number exists on the board, no later change has a baseline to move against.
-3. **Run `notebooks/kaggle_02_dinov2_cache.py`**, sharded, across as many sessions as it takes.
-   Do the 224 pass first to get the pipeline honest, then re-run at 518. Publish
-   `/kaggle/working/features` as a Kaggle Dataset.
+**Where the cache build actually stands.** Four attempts, none finished, and none of them failed
+at the modelling:
+
+| attempt | outcome | cause | now |
+|---|---|---|---|
+| full corpus @518 | killed at 21 h | unsharded, no resume | `SHARD`/`N_SHARDS` + per-study resume |
+| two relaunches | died ~1 h in | drew a P100; `is_available()` is True on it | `pick_device()` fails closed in the first seconds |
+| 224 shard 0/4 | ran 9 h on the serial curve vs a 2.7 h estimate | pool forked a live CUDA context | spawn context, 8 pinned workers, PROBE at 25 series |
+
+The fixes are committed and self-tested; **none of them has yet been run against real DICOMs.**
+That is the whole of the current risk.
+
+1. **Run `notebooks/kaggle_02_dinov2_cache.py` at 224, shard 0 of 4.** This is the proving pass,
+   not the cache — the question it answers is whether the PROBE at 25 series now reports a
+   parallel rate. If it prints the "may not be parallelising" warning, stop the session
+   immediately; that is what it is for. Budget minutes, not hours, to find out.
+2. **Then the full 518 build**, sharded across as many sessions as it takes. Publish
+   `/kaggle/working/features` as a Kaggle Dataset. Keep `_shard*.json` in the published Dataset —
+   `fusion/train.py` needs it to stamp `manifest.json` beside the weights, and `kaggle_03` now
+   refuses to submit without one.
+3. **Fork a public DINOv2 notebook and submit.** Still unmet from week 2, and it is ~an hour. It
+   is independent of everything above, so it should not keep waiting behind the cache: until a
+   number exists on the board, no later change has a baseline to move against.
 4. **Then the two experiments that are currently impossible:** train the §3.3 fusion head, and
    train it twice on identical splits — our pseudo-labels vs `nekkon`'s — to find out whether the
    label moat survives contact with a model (§7.2 path 2).

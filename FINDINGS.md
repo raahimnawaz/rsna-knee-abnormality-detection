@@ -176,9 +176,21 @@ and `data/laterality_check.json`.
 | Explicit VR Little Endian | **200 / 200** | **3.1 ms/slice** |
 
 `PLAN.md` budgeted for "uncompressed, JPEG Lossless, JPEG 2000, Implicit VR" and ranked decode
-throughput as the largest efficiency lever. Both are now retired. ~700k slices at 3.1 ms is
-**~36 min single-threaded**, against **~4 h of GPU** at 518 — the cache build is **GPU-bound**.
-`dicomsdl`/`pylibjpeg`/GDCM buy nothing here; their advantage is JPEG 2000, which is absent.
+throughput as the largest efficiency lever. Both are retired: `dicomsdl`/`pylibjpeg`/GDCM buy
+nothing here, because their advantage is JPEG 2000 and there isn't any.
+
+> **CORRECTION 2026-08-08 — the conclusion drawn from this table was wrong.** It read "~700k
+> slices at 3.1 ms = ~36 min single-threaded, against ~4 h of GPU, so the cache build is
+> GPU-bound." Four cache-build attempts say otherwise. **This benchmark timed decode, n=6, on
+> files it had already opened** — it never measured the open. On the 570 GB mount that open is
+> the dominant cost, and there are ~700k of them. The 224 proving shard ran **9 h against a 2.7 h
+> estimate**. The build is **I/O-latency-bound**; see `PLAN.md` §6.3.1.
+>
+> The ~19 ms/open figure quoted in `pipeline/` and `notebooks/` is an **inference from those
+> failed runs, not a recorded measurement** — nothing in `data/dicom_audit.json` or
+> `data/laterality_check.json` contains it, and `kaggle_01b` (which the code comments cite) does
+> not time opens. `kaggle_02`'s PROBE at 25/100/400 series is the instrument that will replace it
+> with a real number. **Record that number here when the next shard runs.**
 
 ### 6.2 Laterality survives on half the corpus, and the obvious fallback is wrong
 
