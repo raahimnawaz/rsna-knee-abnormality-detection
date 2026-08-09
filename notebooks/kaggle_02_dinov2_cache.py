@@ -44,16 +44,49 @@ import torch
 # the mount name depends on the Dataset slug, and a Dataset version still being created when the
 # kernel starts can leave the path briefly absent -- which surfaced as a bare ModuleNotFoundError
 # and cost a GPU session. Fail with a listing instead.
+PREPROCESS_DIR_ENV = "RSNA_PREPROCESS_DIR"
+SEARCHED_FOR_PREPROCESS = False     # False = took the cached path; see _pool_self_test
+
+
+def _repo_preprocess() -> str | None:
+    """This repo's own copy, for a checkout rather than a Kaggle mount.
+
+    Lazy and guarded on purpose. __main__ has no __file__ in a notebook cell or under exec(),
+    and evaluating this eagerly while building the pattern list turned "no code Dataset
+    attached" into a bare NameError raised before the helpful SystemExit below could run.
+    """
+    f = globals().get("__file__")
+    return str(Path(f).resolve().parents[1] / "pipeline" / "preprocess.py") if f else None
+
+
 def _bootstrap_preprocess() -> None:
     import glob
-    # Recursive: Kaggle nests sources under competitions/ and datasets/ when a kernel has more
-    # than one, so the depth of the mount is not fixed. Measured 2026-08-07 -- /kaggle/input held
-    # exactly ['competitions', 'datasets'] and a one-level glob found nothing.
-    for pat in ("/kaggle/input/**/pipeline/preprocess.py", "/kaggle/usr/lib/**/preprocess.py",
-                str(Path(__file__).resolve().parents[1] / "pipeline" / "preprocess.py")):
-        hits = sorted(glob.glob(pat, recursive=True))
+    # Spawned decode workers re-import this module (see _pool), so this runs once per worker as
+    # well as in the parent. The env var is how the parent hands them the answer: without it
+    # every worker repeats the search, and a `**` pattern under /kaggle/input descends into the
+    # competition data -- ~29k series directories holding 819,640 files on a mount measured at
+    # ~19 ms per open. Paid 8 times at pool startup that is minutes of dead time, against a 9 h
+    # session cap and a weekly GPU quota.
+    global SEARCHED_FOR_PREPROCESS
+    cached = os.environ.get(PREPROCESS_DIR_ENV)
+    if cached and (Path(cached) / "preprocess.py").exists():
+        sys.path.insert(0, cached)
+        return
+    SEARCHED_FOR_PREPROCESS = True
+
+    # BOUNDED DEPTH FIRST, recursion only as a fallback. Kaggle nests sources under
+    # competitions/ and datasets/ when a kernel has more than one, so the depth is not fixed
+    # (measured 2026-08-07 -- /kaggle/input held exactly those two and a one-level glob found
+    # nothing) -- but it is shallow, and every depth below 3 is image data.
+    pats = [f"/kaggle/input/{'*/' * d}pipeline/preprocess.py" for d in range(4)]
+    pats += ["/kaggle/usr/lib/*/preprocess.py", "/kaggle/usr/lib/**/preprocess.py",
+             "/kaggle/input/**/pipeline/preprocess.py", _repo_preprocess()]
+    for pat in pats:
+        hits = sorted(glob.glob(pat, recursive=True)) if pat else []
         if hits:
-            sys.path.insert(0, str(Path(hits[0]).parent))
+            found = str(Path(hits[0]).parent)
+            sys.path.insert(0, found)
+            os.environ[PREPROCESS_DIR_ENV] = found      # workers inherit this; see above
             return
     listing = sorted(glob.glob("/kaggle/input/*")) + sorted(glob.glob("/kaggle/input/*/*"))
     raise SystemExit(
@@ -76,13 +109,28 @@ OUT = Path("/kaggle/working/features")
 # decoded. Serial decode roughly doubles the wall clock of this script, which is the difference
 # between a couple of Kaggle sessions and several, against a 9h cap and a weekly GPU quota.
 #
-# Kaggle gives ~4 usable cores. PREFETCH bounds how many decoded volumes are in flight; each is
-# ~27 MB at 32 slices of 457x457 float32, so 8 is ~215 MB of headroom.
 # The mount is LATENCY-bound, not bandwidth- or CPU-bound: kaggle_01b measured ~19 ms per file
 # open, and the cache needs ~700k of them. That is ~10 h serial, which is why the workers are
-# not optional and why oversubscribing cores helps -- they are blocked on I/O, not computing.
-N_WORKERS = int(os.environ.get("N_WORKERS", 8))
+# not optional and why oversubscribing cores helps -- they are mostly blocked on I/O. Kaggle
+# gives ~4 usable cores, hence 8; capped off Kaggle so a 2-core box does not spawn 8 processes.
+# Decode is not PURELY I/O though (normalise_and_resample runs torch.quantile and F.interpolate
+# over the whole volume), so _worker_init pins each child to one intra-op thread -- 8 children
+# at torch's default of one thread per core would be ~32 compute threads on 4 cores.
+N_WORKERS = int(os.environ.get("N_WORKERS", min(8, 2 * (os.cpu_count() or 2))))
+# PREFETCH bounds how many decoded volumes are in flight; each is ~27 MB at 32 slices of
+# 457x457 float32, so 16 is ~430 MB. That sits on top of ~250-400 MB of RSS per spawned worker
+# (they re-import torch/numpy/pandas and share nothing, unlike fork) against Kaggle's ~13 GB.
 PREFETCH = int(os.environ.get("PREFETCH", 16))
+
+# Series counts at which build_cache prints a throughput probe. A module constant so --self-test
+# can lower it; the first threshold used to sit above anything the self-test produced, so the
+# probe and its "not parallelising" warning shipped without ever having been executed.
+PROBE_AT = (25, 100, 400)
+
+
+def _worker_init() -> None:
+    """Runs once per spawned child. Keeps one decode process to one compute thread."""
+    torch.set_num_threads(1)
 
 
 def _pool(max_workers):
@@ -93,10 +141,13 @@ def _pool(max_workers):
     unsafe, and the observed cost was severe: the first 224 run tracked the SERIAL throughput
     curve for 9 h against a ~2.7 h estimate with 4 workers. Spawn starts clean children that
     never inherit the context. They re-import this module, which is why _decode_task is
-    top-level and why main() sits behind an __name__ guard.
+    top-level, why main() sits behind an __name__ guard, and why _bootstrap_preprocess caches
+    its answer in the environment -- re-import means each child would otherwise repeat the
+    search across the 570 GB mount.
     """
     return ProcessPoolExecutor(max_workers=max_workers,
-                               mp_context=multiprocessing.get_context("spawn"))
+                               mp_context=multiprocessing.get_context("spawn"),
+                               initializer=_worker_init)
 
 
 def _decode_task(item):
@@ -162,7 +213,7 @@ def build_cache(root: Path, mine: list, meta, out: Path, embed_fn,
     n_done_series = 0
     pending: dict[str, list] = defaultdict(list)
     remaining = Counter(t[0] for t in todo)
-    t0 = time.time()
+    t0 = t_steady = time.time()
 
     with (pool_factory or _pool)(max_workers=N_WORKERS) as pool:
         it = iter(todo)
@@ -177,6 +228,11 @@ def build_cache(root: Path, mine: list, meta, out: Path, embed_fn,
 
         while futures:
             study, k, plane_name, fs_flag, vol, side, src = futures.popleft().result()
+            if n_done_series == 0:
+                # Steady-state clock. Spawning 8 children costs a few seconds of interpreter
+                # startup and torch imports; folding that into the probe below made the
+                # 25-series rate startup-dominated and could trip the warning spuriously.
+                t_steady = time.time()
             nxt = next(it, None)
             if nxt is not None:
                 futures.append(pool.submit(_decode_task, nxt))
@@ -187,13 +243,13 @@ def build_cache(root: Path, mine: list, meta, out: Path, embed_fn,
                 pending[study].append((k, e, PLANE_ID.get(plane_name, -1), fs_flag,
                                        {"L": 0, "R": 1}.get(side, -1)))
             n_done_series += 1
-            if n_done_series in (25, 100, 400):
-                el = time.time() - t0
-                rate = n_done_series / max(el, 1e-9)
+            if n_done_series in PROBE_AT:
+                el = time.time() - t_steady
+                rate = (n_done_series - 1) / max(el, 1e-9)      # first result started the clock
                 print(f"  PROBE {n_done_series} series in {el:.0f}s = {rate:.2f} series/s "
                       f"-> ~{len(todo) / max(rate, 1e-9) / 3600:.1f} h for this shard "
                       f"({N_WORKERS} workers)")
-                if n_done_series == 100 and rate < 0.35:
+                if n_done_series == PROBE_AT[1] and rate < 0.35:
                     print("    WARNING: that is near single-worker throughput. The pool may not "
                           "be parallelising -- check N_WORKERS and the spawn context before "
                           "letting this run for hours.")
@@ -309,9 +365,51 @@ def _fake_decode(item):
             np.full((n, 8, 8), float(k), dtype=np.float32), side, src)
 
 
+def _pool_probe_task(delay):
+    """Trivial picklable payload, only for _pool_self_test. Must stay top-level."""
+    time.sleep(delay)
+    return os.getpid(), torch.get_num_threads(), SEARCHED_FOR_PREPROCESS
+
+
+def _pool_self_test() -> None:
+    """Exercise the real spawn pool. This is the mechanism that cost 9 h when it was wrong.
+
+    _SerialPool covers the scheduling, but it cannot see either of the two things that actually
+    burned a session: whether the pool parallelises AT ALL -- the first 224 run tracked the
+    serial throughput curve for 9 h -- and whether a spawned child repeats the /kaggle/input
+    search on re-import instead of reading the answer out of the environment.
+    """
+    with _pool(max_workers=2) as pool:
+        # Warm up first: the timing below must measure the work, not two interpreters starting
+        # and importing torch. The sleep is what forces BOTH children up.
+        for f in [pool.submit(_pool_probe_task, 0.2) for _ in range(2)]:
+            f.result()
+        t0 = time.time()
+        results = [f.result() for f in [pool.submit(_pool_probe_task, 0.25) for _ in range(4)]]
+        el = time.time() - t0
+
+    pids = {r[0] for r in results}
+    assert len(pids) == 2, f"spawn pool did not fan out across workers: {pids}"
+    assert el < 0.8, f"4 x 0.25s on 2 workers took {el:.2f}s -- serial, not parallel"
+    assert all(r[1] == 1 for r in results), f"workers not pinned to one thread: {results}"
+    assert not any(r[2] for r in results), (
+        f"a child re-ran the preprocess search instead of reading {PREPROCESS_DIR_ENV}; on "
+        f"Kaggle that is a full walk of the 570 GB mount per worker: {results}")
+    print(f"  spawn pool: 4 x 0.25s tasks in {el:.2f}s over {len(pids)} workers, 1 thread each, "
+          f"preprocess dir inherited (no re-glob)")
+
+
 def self_test() -> None:
     import shutil
     import tempfile
+
+    global PROBE_AT
+    # The real thresholds start at 25 series and the corpus below holds 21, so the probe block
+    # -- including its "not parallelising" warning -- never ran under the self-test that is this
+    # file's stated correctness gate. Lower them instead of inflating the corpus.
+    PROBE_AT = (3, 5, 400)
+
+    _pool_self_test()
 
     tmp = Path(tempfile.mkdtemp(prefix="kaggle02_"))
     root, out = tmp / "root", tmp / "out"
