@@ -411,14 +411,27 @@ failed at the modelling. Recorded in the same format as §3 because the failure 
 | K11 | The CPU fallback produced **no submission at all** | "a slow submission beats none" — but `to_csv` sat *after* a loop that cannot finish in 9 h at 518px on CPU | all-0.5 placeholder written before the backbone loads, rewritten every 100 studies |
 | K12 | Inference fed the head **fp32** | cache is stored fp16 and `dataset.py` upcasts per batch, so the head only ever trained on fp16-quantised vectors. `PREPROCESS_VERSION` hashes constants, not dtypes | `.half().float()` round-trip in `embed_series` |
 | K13 | `--self-test` covered **neither** of K7's or K8's mechanisms | probe thresholds started at 25 series and the synthetic corpus holds 21; `self_test` always passed `_SerialPool`, so the spawn pool was never constructed | thresholds are a constant the test lowers; a pool test asserts fan-out, thread pinning, and no re-glob |
+| K14 | **The backbone cannot run at `IMG_SIZE=224` at all.** The kernel sets it (`os.environ.setdefault("IMG_SIZE", "224")`) and `forward_features` raises `AssertionError: Input height (224) doesn't match model (518)` on the **first series** — past the GPU guard, past the corpus walk, past the weights download | `vit_base_patch14_reg4_dinov2.lvd142m` is 518-native (1,369 position tokens) and timm will not interpolate the position embedding unless asked. `create_model(MODEL, pretrained=True, num_classes=0)` has carried no size argument since `ab5be8a` | `dynamic_img_size=True` in **both** `kaggle_02` and `kaggle_03`, plus a one-slice smoke of the real `embed()` immediately after the model is built. Reproduced and fixed locally on timm 1.0.28, 2026-08-08 |
 
 **The recurring pattern, and it is not the extractor's.** There, guessed *vocabulary* was wrong
-far more often than the logic. Here, three of thirteen entries (K3, K4, K5) are the same guard
+far more often than the logic. Here, three of fourteen entries (K3, K4, K5) are the same guard
 **failing open** — and a guard that fails open is worse than no guard, because it looks like
 protection and you stop checking. The tell each time was that the fix was never *observed* to
 work; it was reasoned to work and then shipped. K13 is the same fault one level up: both
 mechanisms that cost sessions were unreachable from the self-test the file's docstring calls "the
 gate that says the pipeline is correct".
+
+**K14 is K13's bill arriving.** The self-test injects `embed_fn`, so in thirteen rounds of fixing
+this file the real backbone was never once constructed — and the one line that decides whether it
+can run at the configured resolution went unexecuted from `ab5be8a` to now. Every K-entry above it
+is scheduling, I/O and device selection: the parts we wrote. K14 sat in the part we assumed.
+
+**It also puts a question mark on K7, which should be settled and not argued.** K7 attributes the
+9 h run to the forked CUDA context. But `IMG_SIZE` only became env-overridable in `1195587`
+(2026-08-07 16:52 PDT), and the 518 path costs ~5× the 224 path — so a run that *intended* 224 and
+silently got 518 would also look like the serial curve. The two explanations are not exclusive and
+the evidence is gone. **The PROBE line on the next real shard distinguishes them**; until it
+prints, treat the spawn fix as unconfirmed rather than proven.
 
 **So: for anything on this track, the test is not "does it look right" but "what does it print on
 the box".** `--self-test` before pushing a Dataset version; the PROBE line before letting a
@@ -426,9 +439,21 @@ session run for hours.
 
 ### 6.2 Open
 
-- **Nothing above has been run against real DICOMs.** All thirteen fixes are self-tested locally
-  and that is all. The 224 shard-0 proving run (`PLAN.md` §9.1) is the only thing that converts
-  them from reasoning into measurement, which is exactly the failure mode of K3–K5.
+- **The device guard is the first fix validated in the wild — 2026-08-08.** Attempt 5
+  (`raahimnawaz/rsna-knee-cache-224-s0`) drew a Tesla P100, and `pick_device()` refused: kernel
+  status ERROR, `refusing to start on 'unusable'`, no DICOM opened and no weights pulled. This is
+  precisely the failure that cost ~1 h twice before. Two details worth keeping:
+  - Torch emitted its sm_60 `UserWarning` *before* our line printed, so the log's first screenful
+    looks like a crash. It isn't — read down to `WARNING: ... Re-run for a different GPU.`
+  - The guard fired at **t=243 s** of session wall-clock, which reads badly against the "costs
+    seconds" claim in the README. It isn't the guard: `main()` calls `pick_device()` before timm
+    and before the corpus walk. The 243 s is Kaggle's container boot plus the 570 GB mount, and
+    it is the floor on *any* re-roll. A bad draw costs ~4 min of session, not ~0.
+- **The other twelve fixes still have not touched real DICOMs.** Everything on the decode path —
+  the spawn pool, the pinned threads, the PROBE, per-study resume — remains self-tested only. The
+  224 shard-0 proving run (`PLAN.md` §9.1) is still the only thing that converts them from
+  reasoning into measurement, which is exactly the failure mode of K3–K5. Attempt 5 never reached
+  them.
 - **The ~19 ms/open cost model is not measured.** It is inferred from the failed runs and
   mis-attributed to `kaggle_01b`, which does not time opens (`FINDINGS.md` §6.1). The PROBE
   replaces it with a real number on the next shard — record it.

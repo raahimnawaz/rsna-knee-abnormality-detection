@@ -95,9 +95,9 @@ def _bootstrap_preprocess() -> None:
 
 
 _bootstrap_preprocess()
-from preprocess import (BATCH_HINT, MODEL, PLANE_ID, PREPROCESS_VERSION,  # noqa: E402
-                        build_study_index, find_competition_root, imagenet_normalise,
-                        load_series, manifest, pick_device, to_25d)
+from preprocess import (BATCH_HINT, EMBED_DIM, IMG_SIZE, MODEL, PLANE_ID,  # noqa: E402
+                        PREPROCESS_VERSION, build_study_index, find_competition_root,
+                        imagenet_normalise, load_series, manifest, pick_device, to_25d)
 
 BATCH = BATCH_HINT
 SHARD, N_SHARDS = int(os.environ.get("SHARD", 0)), int(os.environ.get("N_SHARDS", 1))
@@ -304,8 +304,29 @@ def main() -> None:
     print(f"preprocess version {PREPROCESS_VERSION}")
     print(f"{N_WORKERS} decode workers, prefetch {PREFETCH}")
 
-    model = timm.create_model(MODEL, pretrained=True, num_classes=0).eval().to(dev)
+    # dynamic_img_size is NOT optional. This checkpoint is 518-native (1,369 position tokens),
+    # and timm asserts on any other input size unless the position embedding can be interpolated
+    # at forward time: "Input height (224) doesn't match model (518)". IMG_SIZE defaults to 224
+    # here, so without this flag the very first embed() raises -- after the GPU guard passes,
+    # after the corpus walk, and after the weights download. The self-test never caught it
+    # because it injects a fake embed_fn and so never builds the real backbone.
+    #
+    # The flag rather than img_size=IMG_SIZE, because pos_embed then stays at its native shape
+    # and kaggle_03 can load the same checkpoint at either resolution. Measured 2026-08-08 on
+    # timm 1.0.28: identical output to img_size=518 at 518, max|diff| 2.5e-05 at 224 -- an order
+    # of magnitude under the fp16 the cache is stored in.
+    model = timm.create_model(MODEL, pretrained=True, num_classes=0,
+                              dynamic_img_size=True).eval().to(dev)
     print(f"{MODEL} on {dev}, prefix_tokens={model.num_prefix_tokens}")
+
+    # Smoke the real embed path on one synthetic slice before touching a single DICOM. This is
+    # pick_device()'s argument applied to the backbone: the failure above cost nothing to detect
+    # and a whole session to discover. Checks the resolution AND the 1536-wide concat.
+    probe = embed(model, torch.zeros(1, 3, IMG_SIZE, IMG_SIZE), dev)
+    if probe.shape != (1, EMBED_DIM):
+        raise SystemExit(f"backbone smoke test: embed() returned {probe.shape}, expected "
+                         f"(1, {EMBED_DIM}) at IMG_SIZE={IMG_SIZE}. The cache would be unusable.")
+    print(f"backbone smoke test OK at {IMG_SIZE}px -> {EMBED_DIM}-d")
 
     done, skipped, lat_seen = build_cache(
         root, mine, series.set_index("SeriesInstanceUID"), OUT,

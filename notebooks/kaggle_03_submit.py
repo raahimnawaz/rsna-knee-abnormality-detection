@@ -118,7 +118,11 @@ def load_cache_manifest() -> dict | None:
 def load_backbone(dev: str):
     """DINOv2 from an attached Dataset. pretrained=False so timm never touches the network."""
     import timm
-    model = timm.create_model(MODEL, pretrained=False, num_classes=0)
+    # dynamic_img_size must match kaggle_02 exactly -- see the note there. It is also what makes
+    # the load below work at all: the checkpoint is 518-native, strict=False forgives missing and
+    # unexpected keys but NOT a shape mismatch, so a model built at IMG_SIZE=224 would raise on
+    # pos_embed instead of falling through to the missing-key guard.
+    model = timm.create_model(MODEL, pretrained=False, num_classes=0, dynamic_img_size=True)
     files = [p for p in WEIGHTS_DIR.rglob("*") if p.suffix in (".safetensors", ".bin", ".pt")]
     if not files:
         sys.exit(f"no DINOv2 weights under {WEIGHTS_DIR}. Attach them as a Dataset -- with no "
