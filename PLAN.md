@@ -246,6 +246,16 @@ required.
 - **Prevalence differs across train / public LB / private LB** (stated explicitly). AUC is
   prevalence-insensitive *within* a label, so this is survivable — but it means public LB will be
   noisy and will not track private. **Trust CV.**
+- **The public leaderboard is 30% of test; the final standing is the other 70%.** Confirmed
+  2026-08-08. Two consequences, and the second is the one that costs people prizes:
+  - On the ~1,300-study estimate above, the public LB is scored on **~390 studies**, and a label
+    at Fracture-like prevalence contributes on the order of a hundred positives to it. A per-label
+    AUC off that base has a CI wide enough to swallow most of the improvements we plan to make.
+    **A public-LB move smaller than the gap between two of our CV folds is not evidence.**
+  - The 30/70 split is *disjoint*, so every point of public-LB tuning is fitted to studies that
+    contribute nothing to the final rank. Combined with the stated prevalence shift, public→private
+    shake-up is the default expectation, not the tail risk. This is why §4's final-two-submission
+    rule is (a) best CV, (b) smallest CV–LB gap — **neither of them is "best public LB".**
 - Bootstrap CIs per label. With ~1,300 test studies and a rare label like Fracture, the private
   AUC for that label has a wide CI — some of the final ranking is luck. Don't chase fold noise.
 - Final two submissions: (a) best CV ensemble, (b) most robust / smallest CV–LB gap.
@@ -471,20 +481,29 @@ track we have most invested in. Path 2 is not reachable without it. Build it fir
 
 > Rewritten 2026-08-08. Item 1 of the previous list (the DICOM audit) is **done** — `kaggle_01`
 > plus `kaggle_01b` ran over all 4,407 studies and the results are in `FINDINGS.md` §6; laterality
-> is answered and the geometry fallback is adopted. Everything below still needs a Kaggle session.
-> **There is nothing left on the local critical path that we can measure** (§7.2).
+> is answered and the geometry fallback is adopted.
+>
+> **Amended 2026-08-09, and the amendment is the important part.** The line that stood here —
+> "everything below needs a Kaggle session, there is nothing left on the local critical path we
+> can measure" — is **no longer true**, and it was load-bearing: it is why four sessions were
+> spent re-rolling a GPU instead of asking whether the GPU was required. §9.1 has the measurements.
+> The backbone runs on the M5 at 62.8 slices/s @224, and the corpus exists as per-series NIfTI at
+> a size that fits on the laptop. **The local critical path is open again.**
 
-**Where the cache build actually stands.** Four attempts, none finished, and none of them failed
+**Where the cache build actually stands.** Five attempts, none finished, and none of them failed
 at the modelling:
 
 | attempt | outcome | cause | now |
 |---|---|---|---|
 | full corpus @518 | killed at 21 h | unsharded, no resume | `SHARD`/`N_SHARDS` + per-study resume |
 | two relaunches | died ~1 h in | drew a P100; `is_available()` is True on it | `pick_device()` fails closed in the first seconds |
-| 224 shard 0/4 | ran 9 h on the serial curve vs a 2.7 h estimate | pool forked a live CUDA context | spawn context, 8 pinned workers, PROBE at 25 series |
+| 224 shard 0/4 | ran 9 h on the serial curve vs a 2.7 h estimate | pool forked a live CUDA context — **but see `IMPROVEMENTS.md` K7: a run that intended 224 and silently got 518 looks identical, and the evidence is gone** | spawn context, 8 pinned workers, PROBE at 25 series |
+| 224 shard 0/4, retry | P100 draw, refused in the first seconds | the GPU lottery | nothing to fix — **this is the guard working.** First of the thirteen fixes validated in the wild |
 
-The fixes are committed and self-tested; **none of them has yet been run against real DICOMs.**
-That is the whole of the current risk.
+**The sixth attempt would also have failed, and not on the GPU.** `IMG_SIZE=224` against a
+518-native backbone raises on the first series (`IMPROVEMENTS.md` K14, fixed 2026-08-09). Twelve
+of the fourteen fixes have still never touched a real DICOM. That is the whole of the current
+risk, and §9.1 is the cheapest way to retire it.
 
 1. **Run `notebooks/kaggle_02_dinov2_cache.py` at 224, shard 0 of 4.** This is the proving pass,
    not the cache — the question it answers is whether the PROBE at 25 series now reports a
@@ -502,3 +521,52 @@ That is the whole of the current risk.
    label moat survives contact with a model (§7.2 path 2).
 5. In parallel, and only in parallel: the remaining 217 hand labels. They are what restores
    measurement on the label track itself.
+
+### 9.1 The cache may not need a Kaggle GPU at all — measured 2026-08-08
+
+Four failed attempts have all failed on *Kaggle-specific* properties: the GPU lottery, the 9 h
+cap, and above all the ~19 ms latency of opening one of ~700k small files on a network mount.
+None of those are properties of the data. Two measurements say the whole train-side cache can be
+built on the M5 instead.
+
+**Throughput.** `vit_base_patch14_reg4_dinov2.lvd142m` on MPS, `dynamic_img_size=True`, fp32:
+
+| resolution | tokens/slice | slices/s | 24,371 series @16 slices | @32 slices |
+|---|---:|---:|---:|---:|
+| 224 | 261 | **62.8** | ~1.7 h | ~3.5 h |
+| 518 | 1,374 | **9.9** | ~10.9 h | ~21.9 h |
+
+GPU time only, and therefore a floor — but there is no 9 h cap on a laptop, the run is already
+resumable per study, and a bad draw is not a thing that can happen.
+
+**Pixels that fit.** `davidadekanmi/rsna-knee-nifti-part1..8`, ~120 GB total against 719 GB free,
+is the corpus as **one NIfTI per series** — `{StudyUID}_{SeriesUID}.nii`. Header of a sample:
+512×512×22, int16, pixdim 0.33 × 0.33 × 3.4 mm, `sform_code=2` with a populated affine. That is
+the DICOM pixel data repackaged, not a downsample: §3.1 asks for 518 from a 512 native source.
+
+**And it deletes the actual bottleneck.** One file per series is **24,371 opens instead of
+~700k**, off a local SSD rather than a network mount. The latency wall that burned K1 and K7
+is not being optimised here — it is being removed.
+
+Two other public copies were checked and **rejected**, both for the same reason:
+
+- `barun2104/...-processed-3d-volumes` (7.4 GB) — `(20, 160, 160) uint8` per **study**. The series
+  structure is gone, so §3.3's series attention has nothing to attend over, and with no spacing or
+  laterality the §3.2 canonicalisation cannot run — that is 4 of the 12 labels.
+- `aidenhopkins/rsna-knee-processed` (7.6 GB) — `(400, 6, 9, 224, 224) uint8` with a series mask,
+  so structure survives, but 9 slices per series and undocumented windowing. Usable to *shake out*
+  the fusion head, not to train the thing we submit.
+
+**What this does not solve, and must not be waved through:**
+
+- `nifti_train/` is **train only**. Test is processed on Kaggle by `kaggle_03` and always was.
+- The third-party DICOM→NIfTI conversion is **not in `PREPROCESS_VERSION`**. It sits upstream of
+  the fingerprint, which means the fingerprint cannot detect it. Slice order and the orientation
+  convention behind that affine have to be validated against the DICOMs for a handful of studies
+  before any of it is trusted — the geometry laterality fallback reads exactly that affine.
+- `load_series()` takes DICOM paths. A NIfTI reader path is new code on the parity-critical file.
+
+So the honest framing: this unblocks **every experiment** in item 4 and it does so tonight, on a
+laptop, with no lottery. Whether it can also produce submission-grade features depends entirely on
+the conversion validating against DICOM — which is a measurement, and one that needs a Kaggle
+session to make. Item 1 is therefore not cancelled; it is demoted from blocker to check.

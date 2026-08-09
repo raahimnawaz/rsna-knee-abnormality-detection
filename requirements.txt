@@ -29,10 +29,42 @@ scikit-learn>=1.4
 # requires native macOS execution. Reproducibility here comes from these pins plus the
 # preprocess fingerprint recorded in the cache manifest (pipeline/preprocess.py), not an image.
 #
-# pydicom/timm/dicomsdl are deliberately absent: those run only in the Kaggle notebooks, where
-# the images live. Anything the SUBMISSION notebook needs must be preinstalled on the Kaggle
-# image or shipped as a wheel in an attached Dataset -- inference has no internet.
+# dicomsdl is deliberately absent: it runs only in the Kaggle notebooks, where the images live.
+# Anything the SUBMISSION notebook needs must be preinstalled on the Kaggle image or shipped as
+# a wheel in an attached Dataset -- inference has no internet.
 torch>=2.2,<3
+
+# --- local backbone path, added 2026-08-09 (PLAN.md 9.1) -------------------------------------
+#
+# timm used to be listed here as "deliberately absent -- Kaggle only". That was downstream of an
+# assumption, not a measurement: that the 570 GB of pixels could never be local. Per-series NIfTI
+# copies of the corpus are ~120 GB, and the M5 runs DINOv2 at 62.8 slices/s @224, so the backbone
+# is now a local dependency too. Keeping it out of this file is what made "run it on Kaggle" feel
+# like the only option for four sessions.
+#
+# INSTALL THESE WITH --no-deps. A plain resolve is free to move numpy or pandas, and the lingua
+# pin at the top of this file only protects lingua -- item_id also rides on numpy's shuffle. The
+# versions below are the ones measured against; they are exact for that reason.
+#
+#   .venv/bin/pip install --no-deps -r requirements.txt
+#
+# timm needs torchvision, which needs pillow; huggingface_hub needs the httpx stack to fetch
+# weights. All are listed because --no-deps means pip will not discover them for you.
+timm==1.0.28
+torchvision==0.28.0
+pillow==12.3.0
+huggingface_hub==1.27.0
+safetensors==0.8.0
+hf-xet==1.6.0
+httpx==0.28.1
+httpcore==1.0.9
+h11==0.16.0
+anyio==4.14.2
+sniffio==1.3.1
+certifi==2026.7.22
+
+# Reading the per-series NIfTI corpus (PLAN.md 9.1). Not needed for the Kaggle-side DICOM path.
+nibabel==5.4.2
 
 # extractor/llm_extract.py (method B). Only needed if the LLM extractor runs against the API;
 # the local-GPU path does not require it.
