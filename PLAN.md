@@ -544,6 +544,37 @@ is the corpus as **one NIfTI per series** — `{StudyUID}_{SeriesUID}.nii`. Head
 512×512×22, int16, pixdim 0.33 × 0.33 × 3.4 mm, `sform_code=2` with a populated affine. That is
 the DICOM pixel data repackaged, not a downsample: §3.1 asks for 518 from a 512 native source.
 
+> **CORRECTION 2026-08-09 — two things above are wrong.** Both were read off a header without
+> being tested, which is the same shape of mistake as §6.1's decode benchmark.
+>
+> **1. It is 12 parts and ~178 GB, not 8 and ~120.** Parts 9–12 were uploaded 2026-08-08 22:29,
+> after this survey. Parts 1–8 are the 118 GB recorded. Still fits 719 GB free, but the Kaggle
+> CLI does **not** delete each zip after `--unzip`, so the working peak is ~368 GB unless they
+> are removed as the download proceeds.
+>
+> **2. "a populated affine" / "real affine" is wrong, and it is the expensive one.** Measured
+> over all 1,393 series of part 1 (`pipeline/validate_nifti.py`): `sform_code` is indeed 2, and
+> the affine is **diagonal spacing with zero translation and no rotation** — 0.0% of series
+> carry either. The converter kept voxel spacing and discarded the patient coordinate system.
+> `ImagePositionPatient` and `ImageOrientationPatient` are both gone, so from these files:
+>
+> - **the geometry laterality fallback cannot run at all.** It needs IPP[0]. That fallback is
+>   what canonicalises the 2,204 studies with an empty `(0020,0060)` tag — half the corpus — and
+>   without it Medial/Lateral Meniscus and Medial/Lateral OA are noise (§3.2). Four of twelve.
+> - plane is not derivable either, and slice direction relative to the DICOM normal is unknowable.
+>
+> **This does not sink the corpus, because none of it has to come from the NIfTI.** `kaggle_01b`
+> already resolved laterality for all 4,407 studies from the DICOM headers into
+> `data/study_meta.csv`, and plane is in `train_series.csv`. `preprocess.study_laterality()`
+> reads that table and `load_series_nifti()` takes laterality as an argument. Measured on part 1:
+> **250/250 studies resolve — 48% by tag, 52% by geometry, 0% unresolved.** The dependency is
+> that `kaggle_01b` was run over the whole corpus *first*; had it not been, this corpus would be
+> unusable for 4 of the 12 labels and the reason would have been invisible.
+>
+> What is still open is **in-plane orientation and slice direction**, and with no rotation in the
+> affine there is now no header that can settle either — the `kaggle_01c` thumbnails are the only
+> instrument left. That is why it exports first/middle/last per series rather than just middle.
+
 **And it deletes the actual bottleneck.** One file per series is **24,371 opens instead of
 ~700k**, off a local SSD rather than a network mount. The latency wall that burned K1 and K7
 is not being optimised here — it is being removed.

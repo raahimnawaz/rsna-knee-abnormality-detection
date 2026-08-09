@@ -75,6 +75,8 @@ extractor/             report -> 12-label extraction, method A and method B
   metrics.py             auc / bal_acc, shared. separate module so importing it is safe
   diagnose.py            bootstrap CIs + targeted failure diagnostics
   verify_claim.py        stress-tests the "labels aren't report-derived" claim
+  calibrate_states.py    fits the soft-target ladder to P(gold=1|state). IMPROVEMENTS.md 1.3a.
+                         The fit LOST (0.743 -> 0.699); kept as a measurement, not a setting
 labeling/              hand-labelling workflow
   glossary.json          multilingual terms for 12 findings + negation/uncertainty/severity
   compartment_patch.py   adds _side_* / _compartment_struct. IMPROVEMENTS.md 2.2
@@ -85,7 +87,9 @@ labeling/              hand-labelling workflow
   eval_model_labels.py   vs gold and vs rule extractor
   error_direction.py     splits disagreement into calibration vs true divergence
 pipeline/              shared by BOTH machines -- the one definition of preprocessing
-  preprocess.py          DICOM -> model input. Fingerprinted; see "Preprocessing parity"
+  preprocess.py          DICOM *and NIfTI* -> model input. Fingerprinted; see "Preprocessing parity"
+  build_cache_local.py   the feature cache, built on the M5 from NIfTI. 1,062 studies/h @224
+  validate_nifti.py      5 checks that the NIfTI repackaging matches the DICOMs. All pass
 fusion/                the differentiator (PLAN.md 3.3). Trains on the M5, MPS
   model.py               slice transformer -> attention pool -> series attention -> 12 logits
   dataset.py             cached features -> padded batches. `python fusion/dataset.py` self-tests
@@ -94,6 +98,8 @@ fusion/                the differentiator (PLAN.md 3.3). Trains on the M5, MPS
 notebooks/             Kaggle-side only; the 570 GB of pixels never come local
   kaggle_01_dicom_audit.py    did (0020,0060) Laterality survive? + decode cost per syntax
   kaggle_01b_patients_laterality.py  header-only pass over all 4,407: PatientID + laterality
+  kaggle_01c_series_geometry.py  per-series geometry + thumbnails so the NIfTI conversion can
+                              be validated locally. CPU-only, no GPU lottery, ~5 min
   kaggle_02_dinov2_cache.py   frozen DINOv2 -> ~2.4 GB of per-slice features, shardable.
                               `--self-test` runs the whole scheduler locally, no DICOMs needed
   kaggle_03_submit.py         test DICOM -> submission.csv. No internet; weights from a Dataset
@@ -197,6 +203,27 @@ python fusion/train.py --features data/features
 python fusion/train.py --features data/features --limit 500   # fast iteration; keeps all gold
 ```
 
+### Building the cache locally (the route that actually worked)
+
+```bash
+# 1. pixels: one NIfTI per series, ~178 GB zipped / ~386 GB extracted. Delete each zip as you go
+python -m kaggle datasets download -d davidadekanmi/rsna-knee-nifti-part1 -p data/nifti --unzip
+
+# 2. prove the repackaging matches the DICOMs BEFORE building anything (5 checks)
+python pipeline/validate_nifti.py --geometry data/series_geometry.csv --thumbs data/series_thumbs.npz
+
+# 3. build. IMG_SIZE feeds the fingerprint, so 224 and 518 caches cannot be confused
+IMG_SIZE=224 caffeinate -dimsu python pipeline/build_cache_local.py --validated --out data/features_224
+caffeinate -dimsu python pipeline/build_cache_local.py --validated --out data/features
+```
+
+Measured on a 16 GB M5: **1,062 studies/h at 224** (~4.2 h for the corpus), ~26 h at 518. The
+`--validated` flag is a deliberate speed bump — without it the builder warns on every run that
+checks 4/4b have not been re-earned for the current corpus revision.
+
+**The NIfTI mirror is incomplete.** Parts 1–12 and 16–18 exist; 13–15 return 403. That is
+**81.7% of studies** and **47 of 58 gold**. Re-check periodically — parts have appeared twice.
+
 `kaggle_02 --self-test` is the one that guards a Kaggle session rather than a laptop run. It
 drives the whole scheduling loop on synthetic series — prefetch window, per-study completion
 accounting, the resume path, the throughput probe — and it constructs the **real spawn pool** and
@@ -262,6 +289,12 @@ and MCL lands at zero positives in two of them.
 - [x] Hand-labelling UI + all 30 blind gold studies labelled
 - [x] **Our labels beat the public weak labels** on gold and on hand labels — the moat is real
 - [x] Series-metadata shortcut tested and rejected (0.471, below chance)
+- [x] **Soft-target ladder fitted against gold — and the fit LOST** (`IMPROVEMENTS.md` §1.3a).
+      `absent` is 52% of the target matrix and sits at 0.08 against a measured 0.167; correcting
+      that scored **0.743 → 0.699**. How far each label's `absent` was raised predicts how much
+      AUC it lost (corr **−0.776**), because the `absent` bucket is heterogeneous and re-targeting
+      it to its mean teaches the mean instead of the discrimination. Better calibration, worse
+      ranking. Kept as a measurement, not a setting
 - [x] **Training code complete and tested end-to-end on synthetic features** — fusion head,
       dataset, folds, training loop, submission notebook. Everything that does not need pixels
       is done; training is blocked only on the cache
@@ -271,7 +304,18 @@ and MCL lands at zero positives in two of them.
 - [x] **Cache-build harness hardened** (`IMPROVEMENTS.md` §6) — the GPU guard, the spawn pool and
       the preprocessing-parity assert all had faults that cost or would have cost a session.
       Fixed and self-tested locally; **not yet run against real DICOMs**
-- [ ] **DINOv2 feature cache built and published (`kaggle_02`) — THE BLOCKER.** Four attempts,
+- [x] **The cache is built — locally, from NIfTI, not on Kaggle** (`PLAN.md` §9.1 + its
+      correction). Five Kaggle attempts died on the GPU lottery, the 9 h cap and ~19 ms/open on a
+      network mount; none are properties of the data. `pipeline/build_cache_local.py` builds it on
+      the M5 at a measured **1,062 studies/h** at 224. The conversion was validated against the
+      DICOMs first (`pipeline/validate_nifti.py`, 5 checks): in-plane layout `as-is` at
+      **r = 1.0000** — identical pixels — and slice order 100% forward
+- [x] **First vision-model result: macro AUC 0.743** on 37 gold studies, images only, 224px, on
+      61% of the corpus with default hyperparameters. A floor, not a ceiling — 518px, the rest of
+      the corpus and any tuning at all are still unspent. Synovitis scores **0.777** despite being
+      the extractor's *worst* label (0.607), which is the first evidence for §2.1's option (b)
+- [ ] ~~**DINOv2 feature cache built and published (`kaggle_02`)**~~ — superseded by the local
+      build above. Kaggle-side remains the path for the TEST set, which `kaggle_03` always did Four attempts,
       none finished, none of them failing at the modelling: see `PLAN.md` §9 for the table. Next
       move is a 224 shard 0/4 proving run, judged on the PROBE line within minutes
 - [ ] Hand-labelling — 86/303 done; the remaining 217 are the only validation set we will have

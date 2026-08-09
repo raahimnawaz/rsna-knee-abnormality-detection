@@ -20,4 +20,7 @@ Thumbs.db
 # Feature cache (~2.4 GB) and trained heads. Rebuilt by notebooks/kaggle_02 on Kaggle and
 # fusion/train.py here; neither belongs in git.
 data/features/
+data/features_224/
+data/nifti/
 fusion/runs/
+fusion/runs_cal/

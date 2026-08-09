@@ -419,8 +419,22 @@ def normalise_and_resample(vol: np.ndarray, spacing: float | None) -> np.ndarray
     window.
     """
     v = torch.from_numpy(np.ascontiguousarray(vol)).float()[None]      # [1,S,H,W]
-    lo, hi = torch.quantile(v.flatten(), torch.tensor([0.005, 0.995]))
-    v = ((v - lo) / (hi - lo + 1e-6)).clamp(0, 1)
+    # np.percentile, NOT torch.quantile. torch.quantile raises
+    #   RuntimeError: quantile() input tensor is too large
+    # above 2**24 (16,777,216) elements, and a 32-slice series at 768x768 is 18,874,368. The
+    # corpus contains 768x768 series, so this is not a corner case -- it is every large series.
+    #
+    # Found 2026-08-09 on the first real run of the local builder. It sits in the SHARED path,
+    # so kaggle_02 would have hit it too, mid-build, after hours of GPU. The five failed cache
+    # attempts died on the GPU lottery and on mount latency before ever reaching a series this
+    # big, which is the only reason it had not surfaced.
+    #
+    # Same statistic, same interpolation (both linear by default), no size ceiling. The
+    # "pct_0.5_99.5" in PREPROCESS_VERSION still describes it exactly -- and note the
+    # fingerprint hashes that DESCRIPTION, not this implementation, so it could not have caught
+    # a change here. Nothing had been cached yet, so there is no old cache to invalidate.
+    lo, hi = np.percentile(np.asarray(vol, dtype=np.float32), [0.5, 99.5])
+    v = ((v - float(lo)) / (float(hi) - float(lo) + 1e-6)).clamp(0, 1)
     if spacing and spacing > 0:
         scale = spacing / TARGET_MM
         if abs(scale - 1) > 0.02:
@@ -448,6 +462,31 @@ def imagenet_normalise(b: torch.Tensor) -> torch.Tensor:
     """[B,3,H,W] in [0,1] -> resized to IMG_SIZE and standardised for the DINOv2 stem."""
     b = F.interpolate(b, size=(IMG_SIZE, IMG_SIZE), mode="bilinear", align_corners=False)
     return (b - IMAGENET_MEAN.to(b.device)) / IMAGENET_STD.to(b.device)
+
+
+def embed(model, x: torch.Tensor, dev: str, batch: int = BATCH_HINT) -> np.ndarray:
+    """[S,3,H,W] -> [S, 2D] fp16: CLS concatenated with the patch mean.
+
+    Both halves earn their place: CLS carries the global impression, the patch mean retains
+    localised signal that a single token averages away -- and the findings here are small.
+
+    Lives here rather than in a builder because it decides FEATURE VALUES, which makes it
+    preprocessing by this file's own definition. It is called by the Kaggle cache builder, the
+    local NIfTI builder and the submission notebook; three copies of it would be three ways for
+    the train and test distributions to drift apart, which is the failure the whole
+    PREPROCESS_VERSION mechanism exists to prevent and the one it could not see.
+
+    autocast is CUDA-only on purpose. MPS fp16 reductions are uneven, and the cache is stored in
+    fp16 either way -- the accumulation should not also be.
+    """
+    out = []
+    for i in range(0, len(x), batch):
+        b = imagenet_normalise(x[i:i + batch].to(dev))
+        with torch.autocast(dev, dtype=torch.float16, enabled=(dev == "cuda")):
+            tok = model.forward_features(b)
+        cls, patches = tok[:, 0], tok[:, model.num_prefix_tokens:].mean(1)
+        out.append(torch.cat([cls, patches], -1).float().cpu())
+    return torch.cat(out).numpy().astype(np.float16)
 
 
 def load_series(paths, plane: str | None = None):
@@ -482,6 +521,170 @@ def load_series(paths, plane: str | None = None):
 
     v = normalise_and_resample(np.stack(vol), spacing)
     return canonicalise(v, lat, plane), lat, lat_src
+
+
+# --------------------------------------------------------------------------- NIfTI source
+#
+# TRAIN ONLY, AND IT SITS UPSTREAM OF THE FINGERPRINT. Read this before trusting a feature
+# built through it.
+#
+# `davidadekanmi/rsna-knee-nifti-part1..12` is the competition corpus repackaged as one NIfTI
+# per series (PLAN.md 9.1). It exists because the DICOM path's real cost is not decode, it is
+# ~19 ms to open one of ~700k small files on a network mount; one file per series is 24,371
+# opens off a local SSD instead, which removes the wall rather than optimising it.
+#
+# The danger is specific and it is not "third-party data might be wrong". It is that the
+# conversion happened BEFORE `PREPROCESS_VERSION` is computed, so the fingerprint -- the whole
+# mechanism this file exists to provide -- structurally cannot see it. Train features would come
+# through here and test features through `load_series()`, and if the two disagree on slice order
+# or in-plane orientation the model is fed a distribution it never trained on and simply scores
+# badly. No traceback. That is the exact failure README "Preprocessing parity" is about, one
+# layer further up than the fingerprint can reach.
+#
+# So every convention below is NAMED and MEASURED by `pipeline/validate_nifti.py`, not assumed.
+
+# MEASURED 2026-08-09, and it corrects PLAN.md 9.1. That section recorded "sform_code=2 with a
+# populated affine ... real affine". The sform_code is indeed 2, and the affine is NOT real:
+#
+#     [[0.33 0    0    0]
+#      [0    0.33 0    0]      <- diagonal spacing, identity rotation, ZERO translation
+#      [0    0    3.4  0]
+#      [0    0    0    1]]
+#
+# The converter wrote voxel spacing into the header and discarded the patient coordinate system.
+# ImagePositionPatient and ImageOrientationPatient are both gone. Consequences:
+#
+#   - THE GEOMETRY LATERALITY FALLBACK CANNOT RUN FROM THESE FILES. It needs IPP[0], and there
+#     is no position. That fallback is what canonicalises the 2,204 studies whose (0020,0060)
+#     tag is empty -- half the corpus -- and without canonicalisation Medial/Lateral Meniscus
+#     and Medial/Lateral OA are noise (PLAN.md 3.2). Four of twelve labels.
+#   - Plane cannot be derived either. Recoverable: train_series.csv carries Anatomical_Plane.
+#   - Slice direction relative to the DICOM normal is unknowable from the header.
+#
+# The fix is that none of this has to come from the NIfTI. `kaggle_01b` already resolved
+# laterality for all 4,407 studies from the DICOM headers and wrote it to data/study_meta.csv --
+# `laterality_tag` for the tagged half, `x_median` for every study. So laterality is PASSED IN
+# here from that table rather than re-derived, which is strictly better than what the DICOM path
+# does at run time: same answer, already measured, no per-series recomputation.
+#
+# In-plane orientation and slice direction could not be settled from headers at all once the
+# affine turned out to carry no direction cosines. `kaggle_01c` thumbnails settled both in
+# pixels instead: layout `as-is` at r = 1.0000 against the DICOM middle slice (best for 100% of
+# series, runner-up 0.65), and slice order 100% forward. r = 1.0 means the pixel data is
+# identical, so this is a faithful repackaging and the transpose below is correct as written.
+#
+# There is deliberately NO module-level "the affine is empty" constant. `nifti_geometry()`
+# reports has_position / has_orientation per file, because a later part of the dataset could be
+# converted by a different pass and a global flag would hide that.
+
+
+def _nifti_axes(aff: np.ndarray, shape: tuple) -> tuple[int, int, int]:
+    """-> (slice_axis, row_axis, col_axis) read off the affine, not assumed to be (H,W,S).
+
+    The slice axis is the one with the largest voxel spacing: knee MRI is ~0.33 mm in-plane
+    against ~3.4 mm through-plane, a 10x separation, so this is unambiguous here even though it
+    would not be on isotropic data.
+    """
+    spacing = np.linalg.norm(aff[:3, :3], axis=0)
+    slice_axis = int(np.argmax(spacing))
+    rest = [a for a in range(3) if a != slice_axis]
+    # Of the two in-plane axes, DICOM's `rows` runs along the column-direction cosine. In the
+    # affine that is the second in-plane column, so the later axis is the row axis.
+    return slice_axis, rest[1], rest[0]
+
+
+def nifti_geometry(path) -> dict | None:
+    """Header-only read: shape, spacing, and the per-slice x in DICOM LPS. No pixel data.
+
+    Separate from load_series_nifti because validate_nifti.py needs this over thousands of
+    series and must not pay to decode any of them.
+    """
+    import nibabel as nib
+    try:
+        img = nib.load(str(path))
+    except Exception:
+        return None
+    aff = np.asarray(img.affine, float)
+    shape = tuple(int(s) for s in img.shape[:3])
+    if len(shape) != 3 or min(shape) < 3:
+        return None
+    sa, ra, ca = _nifti_axes(aff, shape)
+    spacing = np.linalg.norm(aff[:3, :3], axis=0)
+
+    # Is there a patient coordinate system in here at all, or only spacing? A zero translation
+    # with a diagonal 3x3 is not "the scanner frame with the origin at isocentre" -- it is the
+    # frame having been dropped. Reported per file rather than assumed, because a later part of
+    # the dataset could have been converted by a different pass.
+    has_position = bool(np.abs(aff[:3, 3]).max() > 1e-6)
+    off_diag = aff[:3, :3] - np.diag(np.diag(aff[:3, :3]))
+    has_orientation = bool(np.abs(off_diag).max() > 1e-6)
+
+    return {"shape": shape, "slice_axis": sa, "row_axis": ra, "col_axis": ca,
+            "n_slices": shape[sa], "in_plane_mm": float(min(spacing[ra], spacing[ca])),
+            "slice_mm": float(spacing[sa]),
+            "has_position": has_position, "has_orientation": has_orientation,
+            "affine": aff}
+
+
+def study_laterality(meta_path) -> dict:
+    """study_meta.csv -> {StudyInstanceUID: (side, source)}. The DICOM answer, precomputed.
+
+    kaggle_01b resolved this from the headers over all 4,407 studies: the (0020,0060) tag where
+    it is non-empty, and the x < -62 geometry rule otherwise (FINDINGS.md 6.2). Reading it back
+    here keeps the NIfTI path on exactly the same laterality decision the DICOM path makes, which
+    matters more than usual because the NIfTI files cannot supply it themselves.
+    """
+    import csv
+    out = {}
+    with open(meta_path, newline="") as fh:
+        for row in csv.DictReader(fh):
+            uid = row.get("StudyInstanceUID")
+            if not uid or uid in out:
+                continue
+            tag = (row.get("laterality_tag") or "").strip().upper()[:1]
+            if tag in ("L", "R"):
+                out[uid] = (tag, "tag")
+                continue
+            try:
+                x = float(row.get("x_median") or "")
+            except ValueError:
+                out[uid] = (None, "none")
+                continue
+            out[uid] = (("R" if x < LATERALITY_X_THRESHOLD else "L"), "geometry")
+    return out
+
+
+def load_series_nifti(path, plane: str | None = None, laterality: str | None = None,
+                      laterality_source: str = "none"):
+    """One .nii -> the same ([S,side,side] float32 in [0,1], laterality, source) as load_series.
+
+    Everything after the read is the SHARED code path -- pick_slices, normalise_and_resample,
+    canonicalise. Only the reader differs, which is the point: the parity-critical arithmetic has
+    one definition and this cannot drift from it.
+
+    `laterality` MUST be passed in, from study_laterality(). It is not derivable here: these
+    files carry spacing and nothing else (see the section header). Passing None is honest rather
+    than safe -- canonicalise() then leaves the volume alone and the study is recorded as
+    uncanonicalised, which is the behaviour the DICOM path already has when both tag and geometry
+    are missing.
+
+    `plane` likewise comes from train_series.csv, not from the file.
+    """
+    import nibabel as nib
+    g = nifti_geometry(path)
+    if g is None:
+        return None, laterality, laterality_source
+    try:
+        arr = np.asanyarray(nib.load(str(path)).dataobj)
+    except Exception:
+        return None, laterality, laterality_source
+
+    vol = np.transpose(arr, (g["slice_axis"], g["row_axis"], g["col_axis"])).astype(np.float32)
+    vol = vol[pick_slices(len(vol))]
+    if len(vol) < 3:
+        return None, laterality, laterality_source
+    v = normalise_and_resample(np.ascontiguousarray(vol), g["in_plane_mm"])
+    return canonicalise(v, laterality, plane), laterality, laterality_source
 
 
 def manifest(**extra) -> dict:

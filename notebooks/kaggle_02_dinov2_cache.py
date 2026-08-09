@@ -97,7 +97,7 @@ def _bootstrap_preprocess() -> None:
 _bootstrap_preprocess()
 from preprocess import (BATCH_HINT, EMBED_DIM, IMG_SIZE, MODEL, PLANE_ID,  # noqa: E402
                         PREPROCESS_VERSION, build_study_index, find_competition_root,
-                        imagenet_normalise, load_series, manifest, pick_device, to_25d)
+                        embed, load_series, manifest, pick_device, to_25d)
 
 BATCH = BATCH_HINT
 SHARD, N_SHARDS = int(os.environ.get("SHARD", 0)), int(os.environ.get("N_SHARDS", 1))
@@ -165,22 +165,6 @@ def _decode_task(item):
 
 
 @torch.no_grad()
-def embed(model, x: torch.Tensor, dev: str) -> np.ndarray:
-    """[S,3,H,W] -> [S, 2D] fp16: CLS concatenated with the patch mean.
-
-    Both halves earn their place: CLS carries the global impression, the patch mean retains
-    localised signal that a single token averages away -- and the findings here are small.
-    """
-    out = []
-    for i in range(0, len(x), BATCH):
-        b = imagenet_normalise(x[i:i + BATCH].to(dev))
-        with torch.autocast(dev, dtype=torch.float16, enabled=(dev == "cuda")):
-            tok = model.forward_features(b)
-        cls, patches = tok[:, 0], tok[:, model.num_prefix_tokens:].mean(1)
-        out.append(torch.cat([cls, patches], -1).float().cpu())
-    return torch.cat(out).numpy().astype(np.float16)
-
-
 def build_cache(root: Path, mine: list, meta, out: Path, embed_fn,
                 pool_factory=None) -> tuple[int, int, dict]:
     """The scheduling loop. Injectable so --self-test can drive it without DICOMs or a GPU."""
@@ -322,7 +306,7 @@ def main() -> None:
     # Smoke the real embed path on one synthetic slice before touching a single DICOM. This is
     # pick_device()'s argument applied to the backbone: the failure above cost nothing to detect
     # and a whole session to discover. Checks the resolution AND the 1536-wide concat.
-    probe = embed(model, torch.zeros(1, 3, IMG_SIZE, IMG_SIZE), dev)
+    probe = embed(model, torch.zeros(1, 3, IMG_SIZE, IMG_SIZE), dev, BATCH)
     if probe.shape != (1, EMBED_DIM):
         raise SystemExit(f"backbone smoke test: embed() returned {probe.shape}, expected "
                          f"(1, {EMBED_DIM}) at IMG_SIZE={IMG_SIZE}. The cache would be unusable.")
@@ -330,7 +314,7 @@ def main() -> None:
 
     done, skipped, lat_seen = build_cache(
         root, mine, series.set_index("SeriesInstanceUID"), OUT,
-        embed_fn=lambda x: embed(model, x, dev))
+        embed_fn=lambda x: embed(model, x, dev, BATCH))
 
     total_lat = sum(lat_seen.values()) or 1
     print(f"\nshard {SHARD}: {done:,} written, {skipped:,} already present -> {OUT}")

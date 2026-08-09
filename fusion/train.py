@@ -3,6 +3,7 @@
     python fusion/train.py --synthetic          # no cache needed; proves the loop runs
     python fusion/train.py --features data/features
     python fusion/train.py --features data/features --labels data/public_weak_labels.csv
+    python fusion/train.py --features data/features --calibrated-targets
 
 That third form is the experiment the whole label track has been waiting for (PLAN.md 7.2).
 Train twice on IDENTICAL folds -- once on our pseudo-labels, once on nekkon's public weak
@@ -17,6 +18,21 @@ study is predicted by the fold that held it out, then all 58 are scored at once.
 
 Gold is never trained on. It is the only honest measurement of the whole pipeline and spending
 it on 58 extra training rows would be a bad trade.
+
+`--calibrated-targets` is the fourth form. **It scored WORSE than the default -- 0.743 -> 0.699
+(IMPROVEMENTS.md 1.3a) -- and is kept as the harness that measured that, not as a setting to
+turn on.**
+
+It replaces the hand-chosen rule_extractor.SCORE ladder with P(gold=1 | state) measured off gold
+(extractor/calibrate_states.py). That is better calibrated and worse at ranking: the `absent`
+bucket mixes true positives with true negatives, so re-targeting it to its mean teaches the mean
+rather than the discrimination, and macro AUC only rewards discrimination.
+
+It also weakens the gold guarantee, which is why it was opt-in before it was disproven: gold now
+touches the *targets*, though it is still never a training row. Cross-fitting is what kept the
+evaluation honest -- fold f trains on targets from a table fitted only on gold outside fold f --
+and the macro should still be read as slightly optimistic, because the five state constants are
+structure shared across folds.
 """
 import argparse
 import json
@@ -104,6 +120,43 @@ def load_targets(path: Path | None, ids: list[str]) -> pd.DataFrame:
     return df.reindex(ids)[LABELS].fillna(0.5)
 
 
+def load_calibration(path: Path) -> tuple[dict, pd.DataFrame]:
+    """The cross-fitted state->probability tables, plus the raw extractor states.
+
+    Targets become fold-dependent under calibration, which is the entire point: fold f's table
+    is fitted on the gold studies OUTSIDE fold f, so no gold study influences the model that
+    later predicts it. Fitting one table on all 58 and using it everywhere would quietly convert
+    the pooled-OOF gold macro -- the only honest number this project has -- into a fitted one.
+    """
+    if not path.exists():
+        sys.exit(f"{path} not found -- run: python extractor/calibrate_states.py --write")
+    cal = json.loads(path.read_text())
+    if not cal.get("per_fold"):
+        sys.exit(f"{path.name} has no per-fold tables, so it can only be applied in a way that "
+                 f"leaks gold into the gold evaluation. Re-run calibrate_states.py with "
+                 f"data/folds.csv present.")
+    sp = D / "extract_states.csv"
+    if not sp.exists():
+        sys.exit(f"{sp} not found -- run extractor/run_extract.py first")
+    states = pd.read_csv(sp).drop_duplicates("StudyInstanceUID").set_index("StudyInstanceUID")
+    return cal, states
+
+
+def calibrated_targets(cal: dict, fold: int, states: pd.DataFrame,
+                       ids: list[str]) -> pd.DataFrame:
+    """Extractor states -> soft targets, using the table fitted without this fold's gold."""
+    tbl = cal["per_fold"].get(str(int(fold)))
+    if tbl is None:
+        sys.exit(f"no calibration table for fold {fold} -- it had too few gold studies outside "
+                 f"it to fit. Re-run calibrate_states.py and check its per-fold lines.")
+    st = states.reindex(ids)[LABELS]
+    out = pd.DataFrame(index=pd.Index(ids), columns=LABELS, dtype=float)
+    for lab in LABELS:
+        out[lab] = st[lab].map(tbl["per_label"][lab]).to_numpy(dtype=float)
+    # A study with no extracted state at all is a genuine unknown, not a negative.
+    return out.fillna(0.5)
+
+
 @torch.no_grad()
 def predict(model, loader, dev) -> tuple[list[str], np.ndarray]:
     model.eval()
@@ -162,6 +215,11 @@ def main() -> None:
     ap.add_argument("--labels", default=None,
                     help="soft-target CSV; default data/pseudo_labels.csv. Point at "
                          "data/public_weak_labels.csv for the PLAN 7.2 A/B")
+    ap.add_argument("--calibrated-targets", nargs="?", const="state_calibration.json",
+                    default=None,
+                    help="rebuild targets from extract_states.csv using the cross-fitted "
+                         "P(gold=1|state) tables instead of rule_extractor.SCORE. "
+                         "IMPROVEMENTS.md 1.3; produce them with extractor/calibrate_states.py")
     ap.add_argument("--synthetic", action="store_true",
                     help="random features -- proves the loop runs before the cache exists")
     ap.add_argument("--folds", default=str(D / "folds.csv"))
@@ -180,6 +238,18 @@ def main() -> None:
                          "while the full cache downloads")
     ap.add_argument("--verbose", action="store_true")
     args = ap.parse_args()
+
+    # Before the device probe and the ~2.4 GB cache load: a bad flag combination here should
+    # cost a second, not the minute it takes to page the features in.
+    cal = states = None
+    if args.calibrated_targets:
+        if args.labels:
+            sys.exit("--calibrated-targets rebuilds targets from extract_states.csv, so it "
+                     "cannot be combined with --labels. The PLAN 7.2 A/B compares label "
+                     "SOURCES; run it with SCORE on both arms or calibration on neither, or "
+                     "the arms differ by two things at once.")
+        p = Path(args.calibrated_targets)
+        cal, states = load_calibration(p if p.is_absolute() else D / p)
 
     torch.manual_seed(args.seed)
     np.random.seed(args.seed)
@@ -216,17 +286,19 @@ def main() -> None:
         store = FeatureStore(fdir, folds.StudyInstanceUID.tolist())
         cache_meta = cache_manifest(fdir)
 
-    targets = load_targets(Path(args.labels) if args.labels else None,
-                           folds.StudyInstanceUID.tolist())
+    ids = folds.StudyInstanceUID.tolist()
+    targets = load_targets(Path(args.labels) if args.labels else None, ids)
     targets.index = folds.StudyInstanceUID
 
-    print(f"device {describe_device(dev)} · {len(store):,} studies with features · "
-          f"labels {Path(args.labels).name if args.labels else 'pseudo_labels.csv'}")
+    src = ("state_calibration.json (cross-fitted)" if cal
+           else (Path(args.labels).name if args.labels else "pseudo_labels.csv"))
+    print(f"device {describe_device(dev)} · {len(store):,} studies with features · labels {src}")
 
     t0 = time.time()
     oof: dict[str, np.ndarray] = {}
     for f in sorted(folds.fold.unique()):
-        model, uids, preds, n_tr = run_fold(f, folds, store, targets, args, dev)
+        tgt = targets if cal is None else calibrated_targets(cal, f, states, ids)
+        model, uids, preds, n_tr = run_fold(f, folds, store, tgt, args, dev)
         oof.update(dict(zip(uids, preds)))
         print(f"  fold {f}: trained on {n_tr:,}, predicted {len(uids):,}")
         outdir = Path(args.out)
@@ -267,7 +339,7 @@ def main() -> None:
 
     Path(args.out).mkdir(parents=True, exist_ok=True)
     summary = {"macro_auc": macro, "per_label": aucs, "n_gold": int(len(gold)),
-               "labels_source": args.labels or "pseudo_labels.csv",
+               "labels_source": src,
                "synthetic": bool(args.synthetic), "epochs": args.epochs, "d": args.d}
     (Path(args.out) / "summary.json").write_text(json.dumps(summary, indent=2))
     pd.DataFrame(P, columns=LABELS).assign(

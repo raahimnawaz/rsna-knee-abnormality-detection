@@ -69,15 +69,118 @@ The plan calls for a second, independent extractor to cross-check the rules. Opt
 Training-side work, so the no-internet rule does **not** apply. Recommendation: Kaggle GPU
 notebook — free, no data leaves Kaggle, and the corpus is already there.
 
-### 1.2 What does "not mentioned" mean?
-Currently scored 0.08 vs 0.03 for explicit negation. Radiologists mostly report positives, so
-silence ≈ absence — but **not always**, and it varies by institution template. The 4-state
-hand-labelling is designed to measure exactly this. Re-tune both constants afterwards.
+### 1.2 What does "not mentioned" mean? `MEASURED 2026-08-09` — was open
+**Silence is 2.3× more likely to hide a true positive than an explicit negation is**, and the
+scores say 1.3×. Measured against gold: `absent` → **0.167** [0.132, 0.209], `neg` → **0.073**
+[0.029, 0.173]. The direction of the guess was right and the size was not.
 
-### 1.3 Soft-target constants are guesses
-`pos 0.95 / hedged 0.65 / weak 0.45 / neg 0.03 / absent 0.08`. Chosen by reasoning, never
-fitted. Once hand-labels exist, fit them (isotonic or simple grid) against observed positive
-rates per state.
+The reason this matters more than the other four constants: **`absent` is 52.4% of the target
+matrix** — 365 of 696 gold cells, and 62.1% across the full corpus. It is not a corner case, it
+is the modal training target, and it was set to less than half its measured value.
+
+It is also the constant that most clearly **cannot be one number**. Per label, `absent` runs
+from 0.031 (ACL) to 0.372 (Synovitis). That spread is the §2.1 ceiling stated in target terms:
+87.6% of reports never mention synovitis and 37% of those knees have it, so a flat 0.08 asserts
+"no synovitis" on 43 of 58 gold studies while 16 are positive. Nothing downstream can recover
+from a target that wrong; §2.1's option (b) — let the vision model learn it off Effusion — is
+now the *only* option, because the alternative is training against noise labelled as certainty.
+
+### 1.3 Soft-target constants are guesses `FITTED 2026-08-09` — `extractor/calibrate_states.py`
+`pos 0.95 / hedged 0.65 / weak 0.45 / neg 0.03 / absent 0.08`, chosen by reasoning. Measured
+P(gold=1 | state) over the 58 gold studies, 696 cells:
+
+| state | cells | share | P(gold=1) | 95% CI | SCORE | delta |
+|---|---:|---:|---:|---|---:|---:|
+| pos | 182 | 26.1% | **0.747** | [0.679, 0.805] | 0.95 | −0.203 |
+| hedged | 52 | 7.5% | **0.558** | [0.423, 0.684] | 0.65 | −0.092 |
+| weak | 42 | 6.0% | **0.238** | [0.135, 0.385] | 0.45 | −0.212 |
+| neg | 55 | 7.9% | **0.073** | [0.029, 0.173] | 0.03 | +0.043 |
+| absent | 365 | 52.4% | **0.167** | [0.132, 0.209] | 0.08 | +0.087 |
+
+**The ladder is monotone in the right direction — that is the extractor's state machine passing
+an independent test — but every rung is in the wrong place.** It is compressed at both ends and
+stretched in the middle: the two confident states are too extreme, and the two uncertain states
+(`weak`, `absent`) are pushed toward the negative rail when the data puts them well inside it.
+
+`pos` at 0.747 is the one to read carefully, because **it is not extractor error.** Gold is an
+independent *image* read. When a report says "ACL tear", the image reader agrees three times in
+four; the last quarter is genuine report-vs-image disagreement and no extractor work removes
+it. 0.95 claims a certainty the modality does not have. This is the quantitative form of README
+fact 3 — gold labels are not a function of the report text — and it caps what §7.2 can show.
+
+**Fit on gold, not on the hand labels.** §1.3 originally said to fit these once hand-labels
+exist. That works for `pos`/`hedged`/`weak` and is wrong for `absent`: the hand labels are read
+from the *report*, so P(hand=1 | absent) measures extractor recall — "did a careful human
+reading the same text also see nothing". The training target's job is to predict the **image**,
+and only gold is an independent image read. The two questions diverge exactly where the answer
+matters, which is why `pos` comes out at 0.747 rather than near 1.
+
+**Per-label tables are shrunk, not fitted.** Per-label `absent` cells run 4–50 (Effusion has 4),
+so raw per-label rates are anecdote. `calibrate_states.py` shrinks each toward the pooled rate
+with a Beta prior whose strength is chosen by leave-one-out log loss; it picks **m = 20
+pseudo-counts**. Treat the per-label column as directional and the pooled column as the result.
+
+**Using this cannot be allowed to burn gold.** Fitting on all 58 and training on the result
+would make the pooled-OOF gold macro a fitted number rather than a held-out one — the exact
+failure §0 and §C5 of the research notes warn about. So the tables are **cross-fitted**: one per
+fold, each fitted only on gold *outside* that fold. Across folds they are stable (`pos`
+0.707–0.779, `absent` 0.151–0.184), which is itself evidence the pooled fit is not noise.
+`fusion/train.py --calibrated-targets` consumes them and refuses a non-cross-fitted file. It is
+**opt-in**, so the §7.2 label A/B keeps comparing one thing at a time.
+
+### 1.3a The calibration was TESTED and it LOST. `MEASURED 2026-08-09`
+
+`0.743 → 0.699` on the 224 cache, 37 gold studies, identical folds and seed. **The recalibrated
+targets are worse than the guessed ones**, and the mechanism is measurable rather than inferred:
+
+| label | absent 0.08 → | share `absent` | ΔAUC |
+|---|---:|---:|---:|
+| Synovitis | 0.307 | 87.6% | **−0.182** |
+| Lateral OA | 0.139 | 55.8% | −0.110 |
+| Fracture | 0.173 | 79.6% | −0.099 |
+| PF OA | 0.211 | 45.1% | −0.087 |
+| Lateral Meniscus | 0.212 | 59.5% | −0.076 |
+| Contusion | 0.151 | 56.9% | −0.057 |
+| Effusion | 0.223 | 17.2% | −0.006 |
+| MCL | 0.091 | 94.5% | +0.000 |
+| Medial OA | 0.160 | 53.1% | +0.000 |
+| ACL | 0.084 | 82.7% | +0.009 |
+| Medial Meniscus | 0.194 | 45.8% | +0.031 |
+| Baker's | 0.107 | 67.7% | **+0.043** |
+
+```
+corr(absent_raise × absent_share, ΔAUC) = −0.776
+corr(absent_raise,                ΔAUC) = −0.630
+```
+
+**How much a label's `absent` target was raised predicts how much AUC it lost.** Synovitis was
+raised furthest across the largest share of the corpus and lost most; Baker's was raised least
+and gained. A random effect would not order itself that way, which is what makes this more than
+the n=37 noise floor — the *macro* delta of −0.044 on its own would not be readable.
+
+**Why, and this is the part worth keeping.** §1.3 fitted P(gold=1 | state) and treated it as the
+right training target. But the `absent` bucket is **heterogeneous** — it mixes true positives and
+true negatives — and assigning it its mean teaches the model the mean instead of the
+discrimination. The extractor's 0.08 is badly calibrated and strongly *separating*; macro AUC is
+a ranking metric and only rewards the separation. **Better calibration, worse ranking.**
+
+So §1.3's measurement stands and its conclusion does not. P(gold=1 | absent) = 0.167 against a
+0.08 target is still a fact; `pos` = 0.747 is still real report-vs-image disagreement. What is
+falsified is that correcting those improves rank ordering.
+
+**The research notes were righter than the fix.** They said `NOT_MENTIONED = MASKED, not 0`.
+Masking was judged too aggressive here — 94.5% of MCL cells would vanish — and re-targeting was
+taken as the moderate middle. It is not a middle: masking removes the heterogeneous bucket from
+the loss, re-targeting actively trains toward its average. Opposite treatments.
+
+**Next experiment, now well-posed:** mask `absent` from the loss rather than re-target it, on the
+labels where it dominates. If the mechanism above holds it should beat both arms. Run it against
+the 0.743 baseline on the fuller cache — at n=37 it cannot be resolved.
+
+`--calibrated-targets` stays in `fusion/train.py` as the harness that produced this, not as a
+recommended setting. **Do not enable it.**
+
+Still open: whether masking beats the guessed ladder.
 
 ---
 
@@ -412,6 +515,7 @@ failed at the modelling. Recorded in the same format as §3 because the failure 
 | K12 | Inference fed the head **fp32** | cache is stored fp16 and `dataset.py` upcasts per batch, so the head only ever trained on fp16-quantised vectors. `PREPROCESS_VERSION` hashes constants, not dtypes | `.half().float()` round-trip in `embed_series` |
 | K13 | `--self-test` covered **neither** of K7's or K8's mechanisms | probe thresholds started at 25 series and the synthetic corpus holds 21; `self_test` always passed `_SerialPool`, so the spawn pool was never constructed | thresholds are a constant the test lowers; a pool test asserts fan-out, thread pinning, and no re-glob |
 | K14 | **The backbone cannot run at `IMG_SIZE=224` at all.** The kernel sets it (`os.environ.setdefault("IMG_SIZE", "224")`) and `forward_features` raises `AssertionError: Input height (224) doesn't match model (518)` on the **first series** — past the GPU guard, past the corpus walk, past the weights download | `vit_base_patch14_reg4_dinov2.lvd142m` is 518-native (1,369 position tokens) and timm will not interpolate the position embedding unless asked. `create_model(MODEL, pretrained=True, num_classes=0)` has carried no size argument since `ab5be8a` | `dynamic_img_size=True` in **both** `kaggle_02` and `kaggle_03`, plus a one-slice smoke of the real `embed()` immediately after the model is built. Reproduced and fixed locally on timm 1.0.28, 2026-08-08 |
+| K15 | **`normalise_and_resample` raises on any large series.** `torch.quantile` has a hard ceiling at 2**24 (16,777,216) elements and a 32-slice series at 768×768 is 18,874,368. The corpus contains 768×768 series, so this is not a corner case — it is every large series | `torch.quantile()` is documented as limited but the limit is not in its signature, and the call sits in the **shared** path, so `kaggle_02` would have hit it mid-build after hours of GPU. The five failed attempts all died on the GPU lottery or mount latency before reaching a series this big | `np.percentile` — same statistic, same linear interpolation, agrees to 6.3e-8, no ceiling. Found 2026-08-09 on the **first real run** of `build_cache_local.py`, on the 12th study |
 
 **The recurring pattern, and it is not the extractor's.** There, guessed *vocabulary* was wrong
 far more often than the logic. Here, three of fourteen entries (K3, K4, K5) are the same guard
@@ -420,6 +524,14 @@ protection and you stop checking. The tell each time was that the fix was never 
 work; it was reasoned to work and then shipped. K13 is the same fault one level up: both
 mechanisms that cost sessions were unreachable from the self-test the file's docstring calls "the
 gate that says the pipeline is correct".
+
+**K15 is the same bill again, and it is worth stating plainly.** K14 was the one line that
+decides whether the backbone runs, never executed because the self-test injected a fake
+`embed_fn`. K15 is the one line that decides whether a *large volume* normalises, never executed
+because nothing had ever fed this pipeline a real 768×768 series. Both sat in shared,
+parity-critical code. Both were found within minutes of finally running the real thing on real
+data. The lesson is not "write more self-tests" — it is that **synthetic fixtures reproduce the
+shapes you thought of**, and the corpus contains shapes you did not.
 
 **K14 is K13's bill arriving.** The self-test injects `embed_fn`, so in thirteen rounds of fixing
 this file the real backbone was never once constructed — and the one line that decides whether it
