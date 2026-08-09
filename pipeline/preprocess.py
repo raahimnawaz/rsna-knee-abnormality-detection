@@ -130,8 +130,29 @@ def read_pixels(path) -> np.ndarray | None:
         return None
 
 
-def pick_device() -> str:
-    """'cuda' only if the assigned GPU can actually run this PyTorch build.
+CUDA_MIN_CAPABILITY = (7, 0)    # what Kaggle's current PyTorch reports as its floor
+
+
+def _parse_arch(entry: str) -> tuple[int, int] | None:
+    """'sm_75' -> (7, 5), 'sm_90a' -> (9, 0), 'sm_100' -> (10, 0). Anything else -> None.
+
+    The last digit is the minor version, whatever is left is the major -- which is why this is
+    not a two-character slice: Blackwell's sm_100 is compute 10.0, not 1.0.
+    """
+    if not entry.startswith("sm_"):
+        return None                             # 'compute_90' (PTX) is not a binary arch
+    digits = "".join(c for c in entry[3:] if c.isdigit())
+    if len(digits) < 2:
+        return None
+    return int(digits[:-1]), int(digits[-1])
+
+
+def pick_device(allow_mps: bool = False) -> str:
+    """The ONE device picker. Returns 'cuda', 'mps' (only if allow_mps), 'cpu' or 'unusable'.
+
+    'unusable' means a GPU is present but this PyTorch build has no kernels for it. That is a
+    RETRY, not a fallback, and callers must not silently treat it as 'cpu' -- see kaggle_02,
+    which exits, and kaggle_03, which writes a placeholder submission before degrading.
 
     `torch.cuda.is_available()` is TRUE on a GPU whose compute capability the installed wheel
     has no kernels for, and the failure then arrives much later as a bare
@@ -142,46 +163,78 @@ def pick_device() -> str:
     assignment is a coin flip and the `accelerator` field in kernel-metadata.json does not
     reliably override it, so the only defence is to detect it and say so in seconds rather than
     after the notebook has queued, downloaded weights, and started decoding.
+
+    allow_mps exists for fusion/train.py, which is the only caller that can use Apple silicon.
+    It is a parameter rather than a second function because two device pickers that disagree is
+    exactly how fusion/train.py kept the unguarded is_available() this one was written to
+    replace.
     """
     import torch
+    if allow_mps and torch.backends.mps.is_available():
+        return "mps"
     if not torch.cuda.is_available():
         return "cpu"
 
-    # Launch an actual kernel. Inferring support from get_device_capability() against
-    # get_arch_list() looks tidier but is indirect, and the first version of this function
-    # wrapped it in try/except and fell through to "cuda" on any failure -- so it passed a
-    # P100 straight through to the same crash it existed to prevent. Running a real op is the
-    # ground truth, it costs microseconds, and there is nothing left to infer.
     # Capability check FIRST, and it fails closed. Two earlier versions of this guard tried to
     # infer support and both fell open on a P100 -- one swallowed an exception and returned
     # "cuda", the other's probe did not raise. Kaggle's PyTorch reports a 7.0 minimum, so
     # anything below that is unusable, full stop, with no inference and no fallthrough.
+    #
+    # The two queries get their own try blocks on purpose: sharing one meant a transient failure
+    # of the NAME lookup zeroed a capability that had already been read successfully, and a
+    # perfectly good T4 was then condemned as "compute 0.0".
     try:
         major, minor = torch.cuda.get_device_capability(0)
+    except Exception:
+        major, minor = 0, 0
+    try:
         name = torch.cuda.get_device_name(0)
     except Exception:
-        major, minor, name = 0, 0, "unknown GPU"
+        name = "unknown GPU"
     print(f"GPU: {name}, compute {major}.{minor}")
-    if major < 7:
-        print(f"WARNING: {name} (compute {major}.{minor}) is below the 7.0 minimum this "
-              f"PyTorch supports. Kaggle still assigns P100s and the accelerator field in "
+    if (major, minor) < CUDA_MIN_CAPABILITY:
+        print(f"WARNING: {name} (compute {major}.{minor}) is below the "
+              f"{CUDA_MIN_CAPABILITY[0]}.{CUDA_MIN_CAPABILITY[1]} minimum this PyTorch "
+              f"supports. Kaggle still assigns P100s and the accelerator field in "
               f"kernel-metadata.json does not override the draw. Re-run for a different GPU.")
         return "unusable"
 
+    # The floor above only catches a card too OLD for the *Kaggle* wheel. get_arch_list() is
+    # what the installed wheel was actually compiled for, so it catches the same failure on any
+    # machine (a Maxwell sm_52 box, say) and it is the only thing that can see a card too NEW.
+    #
+    # Below the compiled minimum there is no escape hatch -- fail closed. ABOVE it, CUDA can JIT
+    # the highest embedded PTX forward, so sm_86 on an sm_80 wheel is fine and hard-failing that
+    # would strand working sessions. Warn and let the probe below decide.
+    try:
+        archs = sorted(filter(None, (_parse_arch(a) for a in torch.cuda.get_arch_list())))
+    except Exception:
+        archs = []                              # a source build can report nothing; don't condemn
+    if archs and (major, minor) not in archs:
+        if (major, minor) < min(archs):
+            print(f"WARNING: {name} (compute {major}.{minor}) is below sm_{min(archs)[0]}"
+                  f"{min(archs)[1]}, the oldest architecture this PyTorch was compiled for "
+                  f"({torch.cuda.get_arch_list()}). There is no forward-JIT path downwards, so "
+                  f"this would die with 'no kernel image is available for execution on the "
+                  f"device'. Use a newer GPU or a PyTorch build that targets this one.")
+            return "unusable"
+        print(f"NOTE: {name} (compute {major}.{minor}) is newer than anything this PyTorch was "
+              f"compiled for ({torch.cuda.get_arch_list()}); it will run via PTX JIT if the "
+              f"wheel embeds PTX. First launch may be slow.")
+
     try:
         torch.zeros(8, 8, device="cuda").sum().item()
+        torch.cuda.synchronize()    # kernel-launch errors are reported ASYNCHRONOUSLY
         return "cuda"
     except Exception as e:
-        try:
-            name = torch.cuda.get_device_name(0)
-            major, minor = torch.cuda.get_device_capability(0)
-            what = f"{name} (compute {major}.{minor})"
-        except Exception:
-            what = "the assigned GPU"
-        print(f"WARNING: {what} cannot run this PyTorch build -- {type(e).__name__}: "
-              f"{str(e).splitlines()[0]}\nKaggle still assigns Tesla P100s (compute 6.0) while "
-              f"its PyTorch requires >= 7.0, and the accelerator field in kernel-metadata.json "
-              f"does not reliably override the draw. Re-run to get a different GPU; a T4 works.")
+        # name/major/minor are already in scope and already have fallbacks. Re-querying CUDA
+        # after a failed launch risks a second exception on a poisoned context for no gain.
+        detail = (str(e).splitlines() or [""])[0]       # str(SomeError()) is "" -> [] , not [""]
+        print(f"WARNING: {name} (compute {major}.{minor}) cannot run this PyTorch build -- "
+              f"{type(e).__name__}: {detail}\nKaggle still assigns Tesla P100s (compute 6.0) "
+              f"while its PyTorch requires >= 7.0, and the accelerator field in "
+              f"kernel-metadata.json does not reliably override the draw. Re-run to get a "
+              f"different GPU; a T4 works.")
         return "unusable"
 
 
