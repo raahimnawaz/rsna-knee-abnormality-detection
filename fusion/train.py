@@ -31,9 +31,11 @@ import torch
 PROJ = Path(__file__).resolve().parents[1]
 sys.path.insert(0, str(PROJ / "fusion"))
 sys.path.insert(0, str(PROJ / "extractor"))
+sys.path.insert(0, str(PROJ / "pipeline"))
 from dataset import LABELS, FeatureStore, StudyDataset, collate     # noqa: E402
 from model import FusionHead, soft_bce                              # noqa: E402
 from metrics import auc                                             # noqa: E402
+from preprocess import pick_device                                  # noqa: E402
 
 D = PROJ / "data"
 
@@ -48,10 +50,39 @@ def device() -> str:
     Everything here is fp32 deliberately. No autocast: a 3.7M-parameter model gains nothing from
     mixed precision, MPS fp16 reductions are uneven, and a GTX 980 Ti (Maxwell, sm_52) has no
     tensor cores, so fp16 would buy nothing there either.
+
+    Delegated to preprocess.pick_device so the CUDA guard is not a thing the two Kaggle
+    notebooks have and this file does not. That 980 Ti is exactly the machine a bare
+    torch.cuda.is_available() sends into `no kernel image is available for execution on the
+    device` -- after the ~2.4 GB cache has already loaded. Here 'unusable' means CPU: this job
+    is small enough to run there, which is not true of either notebook.
     """
-    if torch.backends.mps.is_available():
-        return "mps"
-    return "cuda" if torch.cuda.is_available() else "cpu"
+    dev = pick_device(allow_mps=True)
+    return "cpu" if dev == "unusable" else dev
+
+
+def cache_manifest(fdir: Path) -> dict | None:
+    """The preprocessing contract of the feature cache being trained on.
+
+    kaggle_02 writes one _shard*.json per shard beside the .npz files. Copying it out beside
+    fold*.pt is what lets kaggle_03 assert that the test set is preprocessed exactly as these
+    heads' training features were -- see its docstring point 2. Without this the heads travel
+    to Kaggle with no record of what built them, which is how that assert came to be a print
+    statement guarding a file nothing wrote.
+    """
+    shards = sorted(fdir.glob("_shard*.json"))
+    if not shards:
+        print(f"WARNING: no _shard*.json under {fdir} -- the cache predates the manifest, or "
+              f"was published without it. kaggle_03 REFUSES to submit heads with no manifest, "
+              f"so rebuild or copy one in before uploading the fusion Dataset.")
+        return None
+    m = json.loads(shards[0].read_text())
+    versions = {json.loads(s.read_text()).get("preprocess_version") for s in shards}
+    if len(versions) > 1:
+        sys.exit(f"the shards in {fdir} disagree on preprocess_version ({versions}). They were "
+                 f"built by different versions of pipeline/preprocess.py, so the cache is a "
+                 f"mixture of two preprocessings. Rebuild the odd shards.")
+    return m
 
 
 def describe_device(dev: str) -> str:
@@ -158,6 +189,7 @@ def main() -> None:
         sys.exit(f"{args.folds} not found -- run: python fusion/folds.py")
     folds = pd.read_csv(args.folds)
 
+    cache_meta = None       # the preprocessing contract, copied out beside fold*.pt below
     if args.synthetic:
         # Keep EVERY gold study, then fill up with non-gold. Sampling blind leaves ~3 gold in
         # 300 and the pooled-OOF evaluation never runs -- which is the half of this script most
@@ -182,6 +214,7 @@ def main() -> None:
             folds = pd.concat([g, rest]).drop_duplicates("StudyInstanceUID").reset_index(drop=True)
             print(f"--limit {args.limit}: {len(folds)} studies ({len(g)} gold kept)")
         store = FeatureStore(fdir, folds.StudyInstanceUID.tolist())
+        cache_meta = cache_manifest(fdir)
 
     targets = load_targets(Path(args.labels) if args.labels else None,
                            folds.StudyInstanceUID.tolist())
@@ -200,6 +233,11 @@ def main() -> None:
         outdir.mkdir(parents=True, exist_ok=True)
         torch.save({"state_dict": model.state_dict(), "d": args.d,
                     "labels": LABELS, "fold": int(f)}, outdir / f"fold{f}.pt")
+        if cache_meta is not None:
+            # Beside the checkpoints, not in a report file: this Dataset is what gets attached
+            # to the submission notebook, and the manifest has to travel WITH the weights or
+            # kaggle_03 cannot check that it preprocesses the test set the same way.
+            (outdir / "manifest.json").write_text(json.dumps(cache_meta, indent=2))
 
     # ---- pooled OOF evaluation on gold ------------------------------------------------
     tr = pd.read_csv(D / "train.csv")

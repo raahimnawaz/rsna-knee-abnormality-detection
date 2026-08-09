@@ -206,6 +206,12 @@ as an unexplained CV/LB gap. So every constant that changes a feature value is h
 `PREPROCESS_VERSION`, written into the cache manifest, and asserted by `kaggle_03` before it reads
 a single study.
 
+The manifest has to *travel with the weights* for that assert to mean anything: `kaggle_02` writes
+`_shard*.json` beside the feature cache, `fusion/train.py` copies it to `manifest.json` beside
+`fold*.pt`, and `kaggle_03` refuses to run at all if it cannot find one. A submission that cannot
+prove which preprocessing built its heads is the exact failure this section is about, so it exits
+rather than warning.
+
 ```bash
 python pipeline/preprocess.py    # prints the manifest, including the fingerprint
 ```

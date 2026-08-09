@@ -6,7 +6,7 @@ there is no cache for the test set -- then runs the fusion head trained on the M
     /kaggle/input/<competition>          the test DICOMs
     /kaggle/input/rsna-knee-code         this repo, so pipeline/preprocess.py is importable
     /kaggle/input/dinov2-weights         DINOv2 .safetensors/.bin  <- NOT downloaded, see below
-    /kaggle/input/rsna-knee-fusion       fold*.pt from fusion/train.py
+    /kaggle/input/rsna-knee-fusion       fold*.pt AND manifest.json from fusion/train.py
 
 FOUR THINGS THAT KILL A SUBMISSION, ALL HANDLED HERE:
 
@@ -17,7 +17,8 @@ FOUR THINGS THAT KILL A SUBMISSION, ALL HANDLED HERE:
  2. PREPROCESSING DRIFT. If this file preprocessed test data even slightly differently from
     kaggle_02, the model would score badly with no error anywhere. Both import the same
     pipeline/preprocess.py, and assert_matches() compares the cache manifest's fingerprint
-    against this file's before a single study is read.
+    against this file's before a single study is read. A MISSING manifest is fatal, not a
+    warning: an unverifiable run is the exact failure this point exists to prevent.
  3. MISSING SERIES. 87.2% of studies lack at least one of the six types (FINDINGS.md 3.2) and
     some test studies will lack a plane entirely. Every per-study call is wrapped: a study that
     fails for any reason emits 0.5 rather than taking the submission down with it.
@@ -41,14 +42,30 @@ import torch
 # the mount name depends on the Dataset slug, and a Dataset version still being created when the
 # kernel starts can leave the path briefly absent -- which surfaced as a bare ModuleNotFoundError
 # and cost a GPU session. Fail with a listing instead.
+def _repo_preprocess() -> str | None:
+    """This repo's own copy, for a checkout rather than a Kaggle mount.
+
+    Lazy and guarded on purpose. __main__ has no __file__ in a notebook cell or under exec(),
+    and evaluating this eagerly while building the pattern list turned "no code Dataset
+    attached" into a bare NameError raised before the helpful SystemExit below could run.
+    """
+    f = globals().get("__file__")
+    return str(Path(f).resolve().parents[1] / "pipeline" / "preprocess.py") if f else None
+
+
 def _bootstrap_preprocess() -> None:
     import glob
-    # Recursive: Kaggle nests sources under competitions/ and datasets/ when a kernel has more
-    # than one, so the depth of the mount is not fixed. Measured 2026-08-07 -- /kaggle/input held
-    # exactly ['competitions', 'datasets'] and a one-level glob found nothing.
-    for pat in ("/kaggle/input/**/pipeline/preprocess.py", "/kaggle/usr/lib/**/preprocess.py",
-                str(Path(__file__).resolve().parents[1] / "pipeline" / "preprocess.py")):
-        hits = sorted(glob.glob(pat, recursive=True))
+    # BOUNDED DEPTH FIRST, recursion only as a fallback. Kaggle nests sources under
+    # competitions/ and datasets/ when a kernel has more than one, so the depth is not fixed
+    # (measured 2026-08-07 -- /kaggle/input held exactly those two and a one-level glob found
+    # nothing) -- but it is shallow, and every depth below 3 is image data. A `**` pattern
+    # descends into ~29k series directories on a mount measured at ~19 ms per open, and here
+    # that walk is charged straight to the runtime term of the efficiency score.
+    pats = [f"/kaggle/input/{'*/' * d}pipeline/preprocess.py" for d in range(4)]
+    pats += ["/kaggle/usr/lib/*/preprocess.py", "/kaggle/usr/lib/**/preprocess.py",
+             "/kaggle/input/**/pipeline/preprocess.py", _repo_preprocess()]
+    for pat in pats:
+        hits = sorted(glob.glob(pat, recursive=True)) if pat else []
         if hits:
             root = Path(hits[0]).parents[1]
             sys.path.insert(0, str(root / "pipeline"))
@@ -61,8 +78,8 @@ def _bootstrap_preprocess() -> None:
 
 
 _bootstrap_preprocess()
-from preprocess import (BATCH_HINT, MODEL, PLANE_ID, assert_matches,   # noqa: E402
-                        build_study_index, find_competition_root,
+from preprocess import (BATCH_HINT, MODEL, PLANE_ID, SLICES_PER_SERIES_TRAIN,   # noqa: E402
+                        assert_matches, build_study_index, find_competition_root,
                         imagenet_normalise, load_series, pick_device, to_25d)
 from dataset import series_type_id                                     # noqa: E402
 from model import FusionHead                                           # noqa: E402
@@ -73,8 +90,29 @@ LABELS = ["ACL", "MCL", "Medial Meniscus", "Lateral Meniscus", "Medial OA", "Lat
 COMP = None          # resolved below
 WEIGHTS_DIR = Path("/kaggle/input/dinov2-weights")
 FUSION_DIR = Path("/kaggle/input/rsna-knee-fusion")
-CACHE_MANIFEST = FUSION_DIR / "manifest.json"
 OUT = Path("/kaggle/working/submission.csv")
+
+
+def load_cache_manifest() -> dict | None:
+    """The manifest of the feature cache these heads were trained on, or None.
+
+    fusion/train.py copies it next to the fold checkpoints precisely so this lookup succeeds --
+    an earlier version of this file expected a bare manifest.json that NOTHING in the repo
+    wrote, so exists() was always False, assert_matches() never ran, and the fingerprint check
+    the docstring calls a structural defence was in practice a print statement. _shard*.json is
+    accepted too: that is what kaggle_02 writes, so a features Dataset attached directly also
+    works.
+    """
+    for cand in [FUSION_DIR / "manifest.json", *sorted(FUSION_DIR.glob("_shard*.json"))]:
+        if cand.exists():
+            try:
+                m = json.loads(cand.read_text())
+            except Exception as e:
+                sys.exit(f"{cand} is not readable JSON ({e}). It records which preprocessing "
+                         f"built the features the heads were trained on and cannot be skipped.")
+            print(f"cache manifest: {cand.name}")
+            return m
+    return None
 
 
 def load_backbone(dev: str):
@@ -124,7 +162,11 @@ def embed_series(backbone, vol, dev):
             tok = backbone.forward_features(b)
         cls, patches = tok[:, 0], tok[:, backbone.num_prefix_tokens:].mean(1)
         out.append(torch.cat([cls, patches], -1).float().cpu())
-    return torch.cat(out)
+    # Round-trip through fp16 to match TRAINING exactly. kaggle_02 stores the cache as fp16 and
+    # fusion/dataset.py upcasts per batch, so the head has only ever seen fp16-quantised
+    # vectors. Handing it full fp32 here is a train/serve mismatch that the fingerprint cannot
+    # catch -- it hashes constants, not dtypes -- and it is small enough to leave no symptom.
+    return torch.cat(out).half().float()
 
 
 @torch.no_grad()
@@ -164,49 +206,68 @@ def predict_study(backbone, heads, sdir: Path, meta, dev, n_slices: int) -> np.n
 def main() -> None:
     global COMP
     COMP = find_competition_root()
-    # At submission time a CPU fallback is still better than no submission at all,
-    # so unlike the cache build this degrades rather than exits.
+    # At submission time a CPU fallback is still better than no submission at all -- but only
+    # because of the placeholder written below. Without it the fallback produced NOTHING: at
+    # 518px on Kaggle CPU the loop cannot finish inside 9 h, and the single to_csv sat after it.
     dev = pick_device()
-    dev = "cpu" if dev == "unusable" else dev
+    if dev == "unusable":
+        print("continuing on CPU. This will almost certainly hit the 9 h cap before the last "
+              "study; the partial submission below is flushed as it goes, but RE-RUN for a T4.")
+        dev = "cpu"
 
-    if CACHE_MANIFEST.exists():
-        assert_matches(json.loads(CACHE_MANIFEST.read_text()))
-        print("preprocessing fingerprint matches the cache the heads were trained on")
-    else:
-        print(f"WARNING: no {CACHE_MANIFEST.name} attached -- cannot verify that this file "
-              f"preprocesses exactly as the training cache did (see docstring point 2)")
+    cache_manifest = load_cache_manifest()
+    if cache_manifest is None:
+        sys.exit(
+            f"no cache manifest under {FUSION_DIR}. It records the preprocessing that built the "
+            f"features these heads were trained on, and without it a silent train/test "
+            f"preprocessing mismatch would score badly with no error anywhere (docstring point "
+            f"2). fusion/train.py writes manifest.json beside fold*.pt -- re-run it and "
+            f"re-upload the Dataset, or attach the feature cache, which carries _shard*.json.")
+    assert_matches(cache_manifest)
+    print("preprocessing fingerprint matches the cache the heads were trained on")
+    n_slices = int(cache_manifest.get("slices_per_series_train", SLICES_PER_SERIES_TRAIN))
 
     test = pd.read_csv(COMP / "test.csv")
     series = pd.read_csv(COMP / "test_series.csv")
     meta = series.set_index("SeriesInstanceUID")
-    n_slices = int(json.loads(CACHE_MANIFEST.read_text()).get("slices_per_series_train", 24)
-                   if CACHE_MANIFEST.exists() else 24)
+
+    # Every study starts at 0.5 and the file is written BEFORE the expensive part, then
+    # rewritten as results land. A kernel killed at the 9 h cap, or dying on the backbone load,
+    # then still leaves a valid submission holding whatever finished.
+    preds = {uid: np.full(len(LABELS), 0.5) for uid in test.StudyInstanceUID}
+
+    def write_submission() -> pd.DataFrame:
+        sub = pd.DataFrame([[uid, *preds[uid].tolist()] for uid in test.StudyInstanceUID],
+                           columns=["StudyInstanceUID"] + LABELS)
+        sub.to_csv(OUT, index=False)
+        return sub
+
+    write_submission()
+    print(f"placeholder {OUT} written for {len(preds)} studies")
 
     backbone = load_backbone(dev)
     heads = load_heads(dev)
 
     index = build_study_index(COMP)     # one pass; per-study rglob is O(n^2) over 570 GB
-    rows, failures, t0 = [], 0, time.time()
+    failures, t0 = 0, time.time()
     for n, uid in enumerate(test.StudyInstanceUID, 1):
         try:
             sdir = index.get(uid)
             if sdir is None:
                 raise FileNotFoundError("study directory not found")
             p = predict_study(backbone, heads, sdir, meta, dev, n_slices)
-            p = np.clip(np.nan_to_num(p, nan=0.5), 0.0, 1.0)
+            preds[uid] = np.clip(np.nan_to_num(p, nan=0.5), 0.0, 1.0)
         except Exception:
             # One unreadable DICOM must not zero the submission (PLAN.md 5).
             failures += 1
             if failures <= 3:
                 traceback.print_exc()
-            p = np.full(len(LABELS), 0.5)
-        rows.append([uid, *p.tolist()])
         if n % 100 == 0:
             el = time.time() - t0
+            write_submission()
             print(f"  {n}/{len(test)}  {el:.0f}s  eta {el / n * (len(test) - n):.0f}s")
 
-    sub = pd.DataFrame(rows, columns=["StudyInstanceUID"] + LABELS)
-    sub.to_csv(OUT, index=False)
+    sub = write_submission()
 
     el = time.time() - t0
     print(f"\nwrote {OUT}  {len(sub)} rows, {failures} fallbacks in {el:.0f}s")
