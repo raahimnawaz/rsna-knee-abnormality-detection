@@ -103,6 +103,17 @@ def series_table(path: Path) -> dict:
 def build(nifti_dir: Path, out: Path, by_study: dict, lat_of: dict, embed_fn,
           limit: int = 0, probe_at: int = 25) -> dict:
     out.mkdir(parents=True, exist_ok=True)
+    # A cache directory belongs to exactly one PREPROCESS_VERSION. Without this, running the 518
+    # pass into a directory holding 224 features skips every study on the count check and then
+    # re-stamps the manifest as 518 -- a 224 cache labelled 518, which nothing downstream can
+    # detect. The docstring's claim that the two "cannot be confused" only held if the operator
+    # remembered to change --out.
+    shard = out / "_shard0.json"
+    if shard.exists():
+        prev = json.loads(shard.read_text()).get("preprocess_version")
+        if prev and prev != PREPROCESS_VERSION:
+            sys.exit(f"{out} holds a cache built by preprocess_version {prev}, but this run is "
+                     f"{PREPROCESS_VERSION} (IMG_SIZE={IMG_SIZE}). Build into a different --out.")
     studies = sorted(by_study)
     if limit:
         studies = studies[:limit]
@@ -226,7 +237,7 @@ def main() -> None:
 
     by_study = series_table(Path(args.series))
     lat_of = study_laterality(Path(args.meta))
-    have = {p.name.split("_")[0] for p in nd.glob("*.nii")}
+    have = {p.name.split("_")[0] for p in list(nd.glob("*.nii")) + list(nd.glob("*.nii.gz"))}
     by_study = {s: v for s, v in by_study.items() if s in have}
     print(f"preprocess {PREPROCESS_VERSION} · IMG_SIZE={IMG_SIZE} · "
           f"{len(by_study):,} studies present of 4,407")

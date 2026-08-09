@@ -111,6 +111,12 @@ def main(root=None, out=None) -> None:
     for _t, grp in ser.groupby("series_type"):
         idx += list(grp.sample(min(len(grp), per), random_state=SEED).index)
     pick = ser.loc[idx].reset_index(drop=True)
+    # SHUFFLE. `idx` is accumulated per group, so without this the first THUMBS usable series are
+    # all from the first group -- v2 of this script thumbnailed 60 series and every one was
+    # Axial_0, leaving Coronal and Sagittal (where ACL, menisci and MCL live) completely
+    # unvalidated while the report claimed "100% of series". The thumbnails are the ONLY
+    # instrument for orientation, so their coverage is the validation's coverage.
+    pick = pick.sample(frac=1.0, random_state=SEED).reset_index(drop=True)
     print(f"sampled {len(pick):,} series over {pick.series_type.nunique()} types:")
     print(pick.series_type.value_counts().to_string())
 

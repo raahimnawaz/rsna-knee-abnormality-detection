@@ -464,6 +464,7 @@ def imagenet_normalise(b: torch.Tensor) -> torch.Tensor:
     return (b - IMAGENET_MEAN.to(b.device)) / IMAGENET_STD.to(b.device)
 
 
+@torch.no_grad()
 def embed(model, x: torch.Tensor, dev: str, batch: int = BATCH_HINT) -> np.ndarray:
     """[S,3,H,W] -> [S, 2D] fp16: CLS concatenated with the patch mean.
 
@@ -478,6 +479,13 @@ def embed(model, x: torch.Tensor, dev: str, batch: int = BATCH_HINT) -> np.ndarr
 
     autocast is CUDA-only on purpose. MPS fp16 reductions are uneven, and the cache is stored in
     fp16 either way -- the accumulation should not also be.
+
+    THE DECORATOR IS LOAD-BEARING. When this was lifted out of kaggle_02 the @torch.no_grad()
+    stayed behind on build_cache, and kaggle_02 only calls .eval() -- it never sets
+    requires_grad_(False). Its K14 smoke probe then hit `Can't call numpy() on Tensor that
+    requires grad`, after the GPU draw and the weights download. Neither self-test caught it
+    because both inject a fake embed_fn and never build the real backbone -- which is K13's
+    lesson arriving for the third time.
     """
     out = []
     for i in range(0, len(x), batch):
@@ -569,28 +577,37 @@ def load_series(paths, plane: str | None = None):
 #
 # In-plane orientation and slice direction could not be settled from headers at all once the
 # affine turned out to carry no direction cosines. `kaggle_01c` thumbnails settled both in
-# pixels instead: layout `as-is` at r = 1.0000 against the DICOM middle slice (best for 100% of
-# series, runner-up 0.65), and slice order 100% forward. r = 1.0 means the pixel data is
-# identical, so this is a faithful repackaging and the transpose below is correct as written.
+# pixels instead: layout `as-is` at r = 1.0000 against the DICOM middle slice (runner-up 0.65),
+# and slice order 100% forward. r = 1.0 means the pixel data is identical, so this is a faithful
+# repackaging and the transpose below is correct as written -- FOR AXIAL_0. All 60 thumbnailed
+# series turned out to be that one type, because kaggle_01c v2 took the head of a group-ordered
+# frame. Coronal and Sagittal are unvalidated until kaggle_01c is re-run with the shuffle.
 #
 # There is deliberately NO module-level "the affine is empty" constant. `nifti_geometry()`
 # reports has_position / has_orientation per file, because a later part of the dataset could be
 # converted by a different pass and a global flag would hide that.
 
 
-def _nifti_axes(aff: np.ndarray, shape: tuple) -> tuple[int, int, int]:
-    """-> (slice_axis, row_axis, col_axis) read off the affine, not assumed to be (H,W,S).
+NIFTI_SLICE_AXIS = 2        # the converter writes (rows, cols, slices); measured, not assumed
 
-    The slice axis is the one with the largest voxel spacing: knee MRI is ~0.33 mm in-plane
-    against ~3.4 mm through-plane, a 10x separation, so this is unambiguous here even though it
-    would not be on isotropic data.
+
+def _nifti_axes(aff: np.ndarray, shape: tuple) -> tuple[int, int, int]:
+    """-> (slice_axis, row_axis, col_axis). Fixed by the converter's layout, NOT by spacing.
+
+    An earlier version picked the slice axis as argmax(voxel spacing), justified in a docstring
+    as "~0.33 mm in-plane against ~3.4 mm through-plane, a 10x separation, so this is
+    unambiguous". **Measured over all 19,859 downloaded series, that is false**: the ratio runs
+    down to 1.005, 84 series are under 1.5x, and 27 series acquired near-isotropically at
+    (0.625, 0.625, 0.60) put the LARGEST spacing in-plane. argmax then returned axis 0 and
+    reformatted a 160-slice axial acquisition into 256 sagittal slices -- silently, and only on
+    those 27, so no aggregate check would show it.
+
+    The layout is a property of the converter, not of the voxel sizes: every file in this corpus
+    is (rows, cols, slices). Assert it rather than infer it, so a differently-converted part
+    fails loudly instead of being reformatted.
     """
-    spacing = np.linalg.norm(aff[:3, :3], axis=0)
-    slice_axis = int(np.argmax(spacing))
-    rest = [a for a in range(3) if a != slice_axis]
-    # Of the two in-plane axes, DICOM's `rows` runs along the column-direction cosine. In the
-    # affine that is the second in-plane column, so the later axis is the row axis.
-    return slice_axis, rest[1], rest[0]
+    sa = NIFTI_SLICE_AXIS
+    return sa, 1, 0
 
 
 def nifti_geometry(path) -> dict | None:
@@ -610,6 +627,9 @@ def nifti_geometry(path) -> dict | None:
         return None
     sa, ra, ca = _nifti_axes(aff, shape)
     spacing = np.linalg.norm(aff[:3, :3], axis=0)
+    # The slice axis is asserted, not inferred (see _nifti_axes). A file whose slice axis is not
+    # the third is from a different conversion pass and must not be silently reformatted.
+    layout_ok = bool(shape[sa] <= min(shape[ra], shape[ca]) or spacing[sa] >= spacing[ra])
 
     # Is there a patient coordinate system in here at all, or only spacing? A zero translation
     # with a diagonal 3x3 is not "the scanner frame with the origin at isocentre" -- it is the
@@ -620,10 +640,10 @@ def nifti_geometry(path) -> dict | None:
     has_orientation = bool(np.abs(off_diag).max() > 1e-6)
 
     return {"shape": shape, "slice_axis": sa, "row_axis": ra, "col_axis": ca,
-            "n_slices": shape[sa], "in_plane_mm": float(min(spacing[ra], spacing[ca])),
+            "n_slices": shape[sa], "in_plane_mm": float(spacing[ra]),
             "slice_mm": float(spacing[sa]),
             "has_position": has_position, "has_orientation": has_orientation,
-            "affine": aff}
+            "layout_ok": layout_ok, "affine": aff}
 
 
 def study_laterality(meta_path) -> dict:
@@ -648,6 +668,13 @@ def study_laterality(meta_path) -> dict:
             try:
                 x = float(row.get("x_median") or "")
             except ValueError:
+                out[uid] = (None, "none")
+                continue
+            # float("nan") does NOT raise, and `nan < -62` is False -- so a NaN coordinate would
+            # fall through as a confident "L" and mirror that study's axial and coronal volumes,
+            # breaking 4 of the 12 labels while validate_nifti counted it as resolved. Latent
+            # today (0 of 4,407 rows), which is exactly when it is cheap to close.
+            if not np.isfinite(x):
                 out[uid] = (None, "none")
                 continue
             out[uid] = (("R" if x < LATERALITY_X_THRESHOLD else "L"), "geometry")

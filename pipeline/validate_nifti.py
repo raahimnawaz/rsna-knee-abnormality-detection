@@ -20,9 +20,11 @@ Five checks. ALL PASSED 2026-08-09; the verdicts below are results, not intentio
      2,203 by tag, 2,204 by geometry, 0 unresolved. This only works because kaggle_01b was run
      over the whole corpus first -- otherwise 4 of the 12 labels would be noise.
   3. STRUCTURAL INTEGRITY.  Series per study, shapes, spacings against the DICOM headers.
-  4. IN-PLANE ORIENTATION.  Layout `as-is` at **r = 1.0000**, best for 100% of series, runner-up
-     0.6513. r = 1.0 means the pixel data is identical -- a faithful repackaging, not a
-     re-render.
+  4. IN-PLANE ORIENTATION.  Layout `as-is` at **r = 1.0000**, runner-up 0.6513. r = 1.0 means
+     the pixel data is identical -- a faithful repackaging, not a re-render. **CAVEAT: the 60
+     thumbnails that established this were ALL Axial_0** (kaggle_01c v2 filled its budget from
+     the head of a group-ordered frame). Five of six series types are unvalidated. Fixed in
+     kaggle_01c; re-run it and re-check before trusting a submission-grade cache.
   4b. SLICE DIRECTION.  **100% forward**; the stored k order matches the DICOM spatial sort.
   5. SLICE COUNT + SHAPE + SPACING vs DICOM.  69/69, 69/69, spacing error 0.0000 mm.
 
@@ -147,6 +149,8 @@ def check_orientation(nifti_dir: Path, geom: pd.DataFrame, thumbs: dict) -> None
             scores[name] = scores.get(name, 0.0) + c
             if c > best[0]:
                 best = (c, name)
+        if not best[1]:
+            continue          # every layout was under 2 px on a side; nothing to compare
         best_per_series.append(best)
 
         # --- slice direction: does NIfTI k=0 match the DICOM's first or its last? ---
@@ -172,6 +176,14 @@ def check_orientation(nifti_dir: Path, geom: pd.DataFrame, thumbs: dict) -> None
     agree = sum(1 for c, n in best_per_series if n == win) / len(best_per_series)
     med = float(np.median([c for c, _ in best_per_series]))
     print(f"\n  winner: '{win}', best for {agree:.0%} of series, median r = {med:.4f}")
+    if "series_type" in geom.columns:
+        types = geom.set_index(geom.StudyInstanceUID + "_" + geom.SeriesInstanceUID) \
+                    .loc[[k for k in keys if k in g.index], "series_type"]
+        vc = types.value_counts()
+        print(f"  series types covered: {len(vc)}/6 -> {dict(vc)}")
+        if len(vc) < 6:
+            print("  !! NOT all six types were thumbnailed. This verdict covers only the types\n"
+                  "     listed above; the rest are UNVALIDATED. Re-run kaggle_01c.")
     if win == "as-is" and med > 0.9:
         print("  => load_series_nifti's transpose is CORRECT as written. Nothing to change.")
     elif med > 0.9:

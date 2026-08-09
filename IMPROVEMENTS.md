@@ -117,8 +117,16 @@ matters, which is why `pos` comes out at 0.747 rather than near 1.
 
 **Per-label tables are shrunk, not fitted.** Per-label `absent` cells run 4–50 (Effusion has 4),
 so raw per-label rates are anecdote. `calibrate_states.py` shrinks each toward the pooled rate
-with a Beta prior whose strength is chosen by leave-one-out log loss; it picks **m = 20
-pseudo-counts**. Treat the per-label column as directional and the pooled column as the result.
+with a Beta prior whose strength is chosen by leave-one-out log loss. Treat the per-label column
+as directional and the pooled column as the result.
+
+> **CORRECTION 2026-08-09.** This said the search "picks **m = 20 pseudo-counts**", which is the
+> value for the POOLED fit. The cross-fitted tables each run their own search and they do not
+> agree: `{'0': 20.0, '1': 50.0, '2': 20.0, '3': 50.0, '4': 50.0}`. So the five folds of the §1.3a
+> arm differed in shrinkage strength — an uncontrolled nuisance across the very folds that
+> comparison reads as one arm. It does not overturn §1.3a (the effect is ordered by
+> `absent_raise`, which is a per-label quantity, and three of five folds share m), but the next
+> run of that experiment should pin `--m` explicitly so the arms differ by one thing.
 
 **Using this cannot be allowed to burn gold.** Fitting on all 58 and training on the result
 would make the pooled-OOF gold macro a fitted number rather than a held-out one — the exact
@@ -516,6 +524,7 @@ failed at the modelling. Recorded in the same format as §3 because the failure 
 | K13 | `--self-test` covered **neither** of K7's or K8's mechanisms | probe thresholds started at 25 series and the synthetic corpus holds 21; `self_test` always passed `_SerialPool`, so the spawn pool was never constructed | thresholds are a constant the test lowers; a pool test asserts fan-out, thread pinning, and no re-glob |
 | K14 | **The backbone cannot run at `IMG_SIZE=224` at all.** The kernel sets it (`os.environ.setdefault("IMG_SIZE", "224")`) and `forward_features` raises `AssertionError: Input height (224) doesn't match model (518)` on the **first series** — past the GPU guard, past the corpus walk, past the weights download | `vit_base_patch14_reg4_dinov2.lvd142m` is 518-native (1,369 position tokens) and timm will not interpolate the position embedding unless asked. `create_model(MODEL, pretrained=True, num_classes=0)` has carried no size argument since `ab5be8a` | `dynamic_img_size=True` in **both** `kaggle_02` and `kaggle_03`, plus a one-slice smoke of the real `embed()` immediately after the model is built. Reproduced and fixed locally on timm 1.0.28, 2026-08-08 |
 | K15 | **`normalise_and_resample` raises on any large series.** `torch.quantile` has a hard ceiling at 2**24 (16,777,216) elements and a 32-slice series at 768×768 is 18,874,368. The corpus contains 768×768 series, so this is not a corner case — it is every large series | `torch.quantile()` is documented as limited but the limit is not in its signature, and the call sits in the **shared** path, so `kaggle_02` would have hit it mid-build after hours of GPU. The five failed attempts all died on the GPU lottery or mount latency before reaching a series this big | `np.percentile` — same statistic, same linear interpolation, agrees to 6.3e-8, no ceiling. Found 2026-08-09 on the **first real run** of `build_cache_local.py`, on the 12th study |
+| K16 | **A third of NIfTI series are stored back-to-front**, and nothing in the file says which. Measured on a stratified sample: 66.7% forward overall — Axial 12/12, Coronal 14/18, **Sagittal 8/21** | The affine carries no direction cosines (see §9.1's correction), so `load_series_nifti` cannot know. `load_series` always sorts ascending by IPP projection, so train and test disagree on ~1/3 of series — in the axis medial/lateral depends on, and invisible to `PREPROCESS_VERSION` | **OPEN.** Needs a per-series direction bit exported from the DICOMs (Phase 0.1). Not predictable from plane: a plane rule is ~72% accurate. The first verdict said 100% forward because every thumbnail in that sample was Axial_0 |
 
 **The recurring pattern, and it is not the extractor's.** There, guessed *vocabulary* was wrong
 far more often than the logic. Here, three of fourteen entries (K3, K4, K5) are the same guard

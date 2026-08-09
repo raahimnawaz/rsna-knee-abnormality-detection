@@ -79,8 +79,8 @@ def _bootstrap_preprocess() -> None:
 
 _bootstrap_preprocess()
 from preprocess import (BATCH_HINT, MODEL, PLANE_ID, SLICES_PER_SERIES_TRAIN,   # noqa: E402
-                        assert_matches, build_study_index, find_competition_root,
-                        imagenet_normalise, load_series, pick_device, to_25d)
+                        assert_matches, build_study_index, embed,
+                        find_competition_root, load_series, pick_device, to_25d)
 from dataset import series_type_id                                     # noqa: E402
 from model import FusionHead                                           # noqa: E402
 
@@ -156,21 +156,21 @@ def load_heads(dev: str) -> list:
     return heads
 
 
-@torch.no_grad()
 def embed_series(backbone, vol, dev):
-    x = to_25d(vol)
-    out = []
-    for i in range(0, len(x), BATCH_HINT):
-        b = imagenet_normalise(x[i:i + BATCH_HINT].to(dev))
-        with torch.autocast(dev, dtype=torch.float16, enabled=(dev == "cuda")):
-            tok = backbone.forward_features(b)
-        cls, patches = tok[:, 0], tok[:, backbone.num_prefix_tokens:].mean(1)
-        out.append(torch.cat([cls, patches], -1).float().cpu())
-    # Round-trip through fp16 to match TRAINING exactly. kaggle_02 stores the cache as fp16 and
-    # fusion/dataset.py upcasts per batch, so the head has only ever seen fp16-quantised
-    # vectors. Handing it full fp32 here is a train/serve mismatch that the fingerprint cannot
-    # catch -- it hashes constants, not dtypes -- and it is small enough to leave no symptom.
-    return torch.cat(out).half().float()
+    """One series -> [S, EMBED_DIM] float32, via the SHARED embed().
+
+    This used to be a fourth hand-written copy of the embedding loop. It was the LAST one, and
+    the most dangerous: preprocess.embed's own docstring claims three copies were consolidated
+    so train and test cannot drift, and this file -- the test side -- was not migrated. Any
+    future change to pooling or autocast would have applied to training features and not to
+    these. That is K12's shape exactly, under a comment asserting it could not happen.
+
+    embed() already returns fp16, which is the round-trip that matters: kaggle_02 stores the
+    cache as fp16 and fusion/dataset.py upcasts per batch, so the head has only ever seen
+    fp16-quantised vectors. Handing it full fp32 here would be a train/serve mismatch the
+    fingerprint cannot catch, because it hashes constants and not dtypes.
+    """
+    return torch.from_numpy(embed(backbone, to_25d(vol), dev, BATCH_HINT)).float()
 
 
 @torch.no_grad()

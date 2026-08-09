@@ -505,22 +505,32 @@ at the modelling:
 of the fourteen fixes have still never touched a real DICOM. That is the whole of the current
 risk, and §9.1 is the cheapest way to retire it.
 
-1. **Run `notebooks/kaggle_02_dinov2_cache.py` at 224, shard 0 of 4.** This is the proving pass,
-   not the cache — the question it answers is whether the PROBE at 25 series now reports a
-   parallel rate. If it prints the "may not be parallelising" warning, stop the session
-   immediately; that is what it is for. Budget minutes, not hours, to find out.
-2. **Then the full 518 build**, sharded across as many sessions as it takes. Publish
-   `/kaggle/working/features` as a Kaggle Dataset. Keep `_shard*.json` in the published Dataset —
-   `fusion/train.py` needs it to stamp `manifest.json` beside the weights, and `kaggle_03` now
-   refuses to submit without one.
-3. **Fork a public DINOv2 notebook and submit.** Still unmet from week 2, and it is ~an hour. It
-   is independent of everything above, so it should not keep waiting behind the cache: until a
-   number exists on the board, no later change has a baseline to move against.
-4. **Then the two experiments that are currently impossible:** train the §3.3 fusion head, and
-   train it twice on identical splits — our pseudo-labels vs `nekkon`'s — to find out whether the
-   label moat survives contact with a model (§7.2 path 2).
-5. In parallel, and only in parallel: the remaining 217 hand labels. They are what restores
-   measurement on the label track itself.
+> **SUPERSEDED 2026-08-09.** The cache exists — built locally from NIfTI (§9.1), not on Kaggle,
+> and the fusion head has produced its first real number: **macro AUC 0.743** on 37 gold studies.
+> The list below is replaced by the phased route in `README.md` ("Where this goes next"), which is
+> now the operative plan. Summarised here so this section is not misleading:
+
+**Phase 0 — restore measurement (~1 day), in this order.**
+
+1. **Per-series slice direction.** `validate_nifti.py` check 4b, stratified, measures **33% of
+   series stored back-to-front** — Sagittal 8/21 forward. The NIfTI affine has no direction
+   cosines, so it must be exported from the DICOMs: extend `kaggle_01c` over all 24,371 series,
+   CPU-only, no GPU lottery. Cheap route is 2–3 header reads per series (~50k opens, ~20 min);
+   full-header reads (~700k opens, 3.7 h) are the fallback. Then rebuild the 224 cache.
+2. **Submit.** Nothing downstream is calibrated until a leaderboard number exists, and our gold
+   set is *enriched* so 0.743 and a public 0.9 are not on one scale (README §2).
+3. **Train-vs-OOF diagnostic.** Under- and over-fitting want opposite fixes; one run separates
+   them.
+
+**Phase 1 — calibrate against the field.** Fork `pilkwang/rsna-knee-baseline-v1`, reproduce its
+LB score, and re-point the §7.2 A/B at *its* extractor rather than `nekkon`'s CSV — that notebook
+independently reproduces most of what §7.2 treats as our edge (README §3).
+
+**Phase 2 — close the mechanical gap.** 518 cache (~26 h measured). Rank-mean ensembling across
+resolutions then backbones. Measure the gold-in-training trade.
+
+**Phase 3 — the differentiators.** Mask `absent` rather than re-target it (§1.3a). Finish the 217
+hand labels. Attention+mean+max pooling, per-pathology query tokens.
 
 ### 9.1 The cache may not need a Kaggle GPU at all — measured 2026-08-08
 
