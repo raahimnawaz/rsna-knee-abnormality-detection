@@ -66,6 +66,12 @@ certifi==2026.7.22
 # Reading the per-series NIfTI corpus (PLAN.md 9.1). Not needed for the Kaggle-side DICOM path.
 nibabel==5.4.2
 
+# Reads data/external/dicom_headers_zhukovoleksiy.parquet, the published output of
+# zhukovoleksiy/rsna-metadata-probe. Only pandas.read_parquet needs it; added 2026-08-10 with
+# the site-grouped folds (IMPROVEMENTS 2i-a, 2j). NB its string columns come back
+# pyarrow-backed, and pd.NA survives .astype(str) -- see pipeline/site_fingerprint.py
+pyarrow>=15
+
 # extractor/llm_extract.py (method B). Only needed if the LLM extractor runs against the API;
 # the local-GPU path does not require it.
 anthropic>=0.116

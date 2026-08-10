@@ -2,6 +2,42 @@
 
 Twelve-label knee-MRI classification, macro-AUROC. Final submission **2026-10-22**.
 
+---
+
+## START HERE — state as of 2026-08-10
+
+**Baseline: macro 0.7229 ± 0.0048**, site-grouped report-OOF over 2,612 studies. That is the
+honest number; every figure this project produced before 2026-08-10 was inflated by ~0.024 of
+site leakage (§2j) and measured on a 37-study instrument that could not resolve 0.04 (§2g).
+Leaderboard top is 0.942; the best *visible* public solution is 0.903.
+
+**Phase 0 is 4 of 5 done** — see "Where this goes next" for the full plan and the ledger.
+
+| step | state |
+|---|---|
+| 1. Swap labels → `steven_v2` | **done** — `data/targets.csv` |
+| 2. Build the instrument | **done** — 6.7× tighter than gold-37 (§2g) |
+| 2b. Site-grouped folds | **done** — our leakage is +0.024 (§2j) |
+| 3. Time the port before building it | **done** — gate passed at 1.29×; cache is ~16 min (§2h) |
+| **4. Slot-pixel cache + training port** | **NEXT — not started** |
+| 5. Reproduction gate against the fork's own config | blocked on 4 |
+| 6. One submission for the CV↔LB mapping | blocked on 5 |
+
+**Step 4, with one design decision already taken:** build the ~9 GB uint8 slot cache at 336 and
+the `UNFREEZE_LAST=6` training loop (~16 min + 2.6 h/run, both measured). Design the
+**anatomical crop slots in from the start** rather than retrofitting — medial, lateral,
+patellofemoral and the intercondylar notch, which is where the failing labels live and which
+two unrelated fields independently point at (`REFERENCE.md` §4.3–4.4). Volumes are already in
+mm space, so fixed crops need no detector.
+
+**Before running anything on a fresh clone:** `data/` is gitignored — see "Regenerating the
+derived data" under Setup. ~2 minutes, no GPU.
+
+**Two open questions worth one forum post each:** whether MRNet is admissible (asked twice, host
+answered only the LLM half — `REFERENCE.md` §1.3), and how many studies are bilateral (§2k).
+
+---
+
 ## Read these in order
 
 | doc | what it holds |
@@ -172,8 +208,44 @@ done
 
 python eda_01_labels.py            # writes data/lang_guess.csv   <- eda_03 needs this
 python eda_03_langid.py            # writes data/lang_detected.csv
-python extractor/run_extract.py    # writes data/pseudo_labels.csv
+python extractor/run_extract.py    # writes data/pseudo_labels.csv  (extractor RETIRED as a
+                                   # target source -- IMPROVEMENTS 2f. Still needed for
+                                   # extract_states.csv, which 2k flags as unexploited)
 ```
+
+### Regenerating the derived data `data/` is gitignored, so this is the only record
+
+Competition data is licensed and does not belong in git, which means **none of the tables the
+current plan depends on survive a fresh clone.** Rebuild them in this order — total ~2 minutes,
+no GPU:
+
+```bash
+# 1. targets: the public LLM labels, and the benchmark that chose them (IMPROVEMENTS 2f, 2i-c)
+python extractor/bench_public_labels.py --download     # -> data/public_llm_labels/
+python -c "
+import pandas as pd
+L=['ACL','MCL','Medial Meniscus','Lateral Meniscus','Medial OA','Lateral OA','PF OA',
+   'Effusion','Synovitis',\"Baker's\",'Contusion','Fracture']
+src='data/public_llm_labels/stevenleehans_rsna-knee-llm-report-labels/llm_labels_v2.csv'
+tr=pd.read_csv('data/train.csv')
+pd.read_csv(src).drop_duplicates('StudyInstanceUID').set_index('StudyInstanceUID') \
+  .reindex(tr.StudyInstanceUID)[L].reset_index().to_csv('data/targets.csv', index=False)
+"
+
+# 2. scanner fingerprints -- NO Kaggle run needed, the probe author published the headers
+mkdir -p data/external
+kaggle kernels output zhukovoleksiy/rsna-metadata-probe -p data/external
+mv data/external/headers.parquet data/external/dicom_headers_zhukovoleksiy.parquet
+python pipeline/site_fingerprint.py    # expect 265 fingerprints, top 20 = 45.5%
+
+# 3. both fold sets. Build BOTH: the gap between them is the site-leakage number (2j)
+python fusion/folds.py --out data/folds.csv
+python fusion/folds.py --group-by site --out data/folds_site.csv
+```
+
+`pipeline/site_fingerprint.py` prints a warning if the fingerprint count leaves 200–340. **Take
+it seriously** — §2j records a version of that file which silently put 24% of the corpus in one
+group while reporting a healthy count.
 
 **Run `eda_01` before `eda_03`.** `eda_03_langid.py` reads `data/lang_guess.csv` to diff the
 lingua result against the old heuristic, and `eda_01_labels.py` is the only thing that writes
