@@ -8,8 +8,15 @@ pipeline** track, added 2026-08-08: same format, same purpose, different failure
 before touching `pipeline/preprocess.py` or either cache notebook — every entry in it has cost or
 would have cost a GPU session.
 
-**Status 2026-08-07:** rule-based extractor running over all 4,407 reports.
-Macro AUC **0.777** on the 58 gold studies, 95% CI **[0.74, 0.82]** (±0.038).
+> **STATUS 2026-08-10 — read §2f before anything else in this file.** The rule extractor is
+> **last of six** label sources on gold-58: 0.777 against a free public 0.893, losing on 12/12
+> labels and reducing a rank-mean it is added to. The extractor track is **closed as a source
+> of training targets**; §1.1, which blocked it, is closed with it. Most of §2.1–§2.12 below
+> describes bugs in a component that is no longer on the critical path — kept for provenance
+> and because the *patterns* still apply, but do not spend a day on any of it.
+
+**Status 2026-08-07 (superseded, kept for provenance):** rule-based extractor running over all
+4,407 reports. Macro AUC **0.777** on the 58 gold studies, 95% CI **[0.74, 0.82]** (±0.038).
 Outputs: `data/pseudo_labels.csv` (soft targets), `extract_states.csv`, `extract_evidence.csv`.
 
 Latest change is §2.2 (compartment attribution) + R10. It moved ~1,000 studies off the flat
@@ -57,8 +64,28 @@ gold AUC when deciding whether a change is right.
 
 ## 1. Open decisions — need a call
 
-### 1.1 Where does the LLM extractor run? **BLOCKING for method B**
-The plan calls for a second, independent extractor to cross-check the rules. Options:
+### 1.1 Where does the LLM extractor run? `CLOSED 2026-08-10` — it does not have to run at all
+
+**The answer is `kaggle datasets download`.** Four LLM-read label tables are published as free
+public Datasets, and the best of them scores **0.893** on gold-58 against our rules' 0.777 —
+see §2f, which also shows ours losing on 12/12 labels and *subtracting* from a rank-mean. So
+method B is not a build; it is a download, and the decision this entry was blocking on turned
+out to be the wrong question. **`data/pseudo_labels.csv` is retired as a training target.**
+
+What the rule extractor is still for: it is the only source here whose per-clause evidence is
+inspectable (`extract_evidence.csv`), so it stays as a **disagreement detector** — where it and
+the LLM readers diverge is where a report is genuinely ambiguous, which is a per-study
+confidence signal worth testing. That is a hypothesis, not a result; the one fusion test run so
+far (§2f) says it does not help as a *label*.
+
+The original options are kept below because the reasoning was sound and the blocker was real;
+what it missed was that the corpus is shared and someone else would pay the cost first.
+
+| | Pro | Con |
+|---|---|---|
+| **Local (GTX 980 Ti, 6 GB, Maxwell sm_52)** | free, private | 6 GB fits only ~7B at 4-bit; no tensor cores, no bf16; PyTorch Maxwell support is deprecated. 4,407 reports would take many hours |
+| **Hosted API** | best multilingual quality, fast | costs money; reports leave the machine (de-identified competition data, but check rules) |
+| **Kaggle / Colab GPU** | free T4/P100, allowed | session limits; needs the corpus uploaded as a private dataset |
 
 | | Pro | Con |
 |---|---|---|
@@ -613,6 +640,69 @@ always positioned to deliver.
 
 The pixel cache it needs is **~9 GB** (26,442 slot images, 3 × 336² uint8), against 458 GB of
 NIfTI. Once it is built the NIfTI mirror is deletable.
+
+---
+
+## 2f. The moat is inverted: our extractor is last of six `MEASURED 2026-08-10`
+
+Reproduce with `python extractor/bench_public_labels.py --download`. Every row is the same 58
+gold studies and the same macro AUROC as §0, so these numbers sit directly against our 0.777.
+
+| label source | macro AUROC | SE |
+|---|---:|---:|
+| `stevenleehans/llm_labels_v4_blend` | **0.893** | 0.015 |
+| `stevenleehans/llm_labels_full` | 0.878 | 0.016 |
+| `pilkwang/report_labels_v2` | 0.866 | 0.016 |
+| `lixin73/labels_llm_gpt56sol` | 0.835 | 0.018 |
+| `pilkwang/report_labels_v1` | 0.813 | 0.019 |
+| **ours (rules)** | **0.777** | 0.021 |
+
+**+0.116 against the best, ~4.5× the combined SE.** This is not a §0 problem — it is the one
+extractor result in this project that comfortably clears the noise floor, and it points the
+wrong way. Per label it is worse: **0/12**. Synovitis 0.607 vs 0.790, Medial OA 0.764 vs 0.932,
+MCL 0.813 vs 0.976, Medial Meniscus 0.819 vs 0.954.
+
+**And it is not additive.** Rank-mean of the two best public readers scores 0.890; adding ours
+takes it *down* to 0.887. All five public plus ours is 0.882 against 0.885 without. There is no
+combination in which the rule extractor pays for itself.
+
+> Caveat kept next to the result: `v4_blend` is described by its author as a blend and may have
+> been selected on these same 58. The unblended reads settle it anyway — `llm_labels_full`
+> (0.878) and `report_labels_v2` (0.866) are single LLM passes and still clear us by ~0.10.
+
+**How this happened.** §1.1 has stood open since 2026-08-07 as "Where does the LLM extractor
+run? **BLOCKING for method B**". While it was blocked the field published four LLM-read label
+tables as free Kaggle Datasets. The blocker was real and the answer turned out to be that we
+never had to run one: `kaggle datasets download` is the whole of method B. Roughly five days
+went into `rule_extractor.py`, `glossary.json`, compartment attribution (§2.2), the soft-target
+ladder (§1.3) and the hand-labelling UI, to reach 0.777 against a free 0.893.
+
+That is README §9's failure pattern — *a belief that was an inference rather than a
+measurement, left unexamined because it was load-bearing* — running for the third time. §9.1
+retired "local work is text-only". §2e retired "the extractor caps the vision model". This
+retires **"the moat is real"**, which README asserted from a comparison against `nekkon`'s
+week-one binary CSV and never re-pointed, even after §5 flagged it as stale on 2026-08-09.
+
+### Why §2d measured labels as *not* the ceiling and was still wrong
+
+§2d found Spearman −0.17 (p=0.60) between per-label extractor AUC and per-label vision AUC and
+concluded the labels were not the binding constraint. Re-run as a direct A/B instead — same
+`features_224` cache, same folds, same seed, only `--labels` swapped to `steven_v4`:
+
+| targets | gold-37 macro |
+|---|---:|
+| ours (`pseudo_labels.csv`) | 0.719 |
+| `steven_v4` (+0.116 at the target level) | **0.744** |
+
+**+0.025 of vision AUC bought with +0.116 of label AUC**, and inside the ±0.038 CI. That is not
+evidence the labels do not matter. It is what a *second* binding constraint looks like: a frozen
+encoder cannot exploit a better target, so per-label label quality does not propagate to
+per-label vision quality and the §2d correlation vanishes **even when labels matter**. §2e is
+correct and incomplete — trainability and supervision bind at the same time, and neither is
+visible while the other holds.
+
+The practical consequence is an ordering one: swap the labels **before** the training port, so
+the port is validated against the targets we will actually ship rather than against 0.777.
 
 ---
 

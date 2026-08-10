@@ -23,14 +23,47 @@ Twelve-label knee-MRI classification, macro-AUROC. Final submission **2026-10-22
 4. **The leaderboard hit 0.932 within 48 hours of opening, on forks of public DINOv2
    notebooks** — and weak labels for all 12 findings are public too. So 0.9 is table stakes,
    the backbone cannot differentiate us, and "the extractor is the solution" is a claim to be
-   earned rather than assumed. Measured in `PLAN.md` §7.1. As of 2026-08-09 the top is **0.940**
-   over **908 teams**, and an unmodified public fork scores **0.891** at rank 230 — so the entire
-   spread from mid-table to first is about **0.05 AUC**.
+   earned rather than assumed. Measured in `PLAN.md` §7.1. As of 2026-08-10 the top is **0.942**,
+   and an unmodified public fork scores **0.891** — so the entire spread from mid-table to first
+   is about **0.05 AUC**. The claim in the last sentence of point 4 was tested on 2026-08-10 and
+   **failed**: see `IMPROVEMENTS.md` §2f.
+5. **Local scores and leaderboard scores are not the same scale, and the conversion is
+   known.** Two public anchors give it: a baseline notebook reports OOF 0.632 → LB 0.664, and
+   the highest visible solution reports OOF 0.8544 / cross-fitted gold-58 0.8568 → LB 0.903.
+   Interpolating, **our 0.719 gold-37 is worth roughly LB 0.75.** So the gap to the 0.942 top
+   is about **0.19**, not the 0.22 the raw numbers suggest — real, large, and not a measurement
+   artefact. Equally: that solution's report-holdout OOF and its gold-58 agree to **0.002**,
+   which is the proof that a *local* instrument can work here (see "Where this goes next" §0).
 
 ## Does our extractor actually beat the free one?
 
-Yes, on both references. This is the week-2 decision gate (`PLAN.md` §7), and it is
-reproducible with `python extractor/compare_methods.py`:
+> ## **NO. RETRACTED 2026-08-10 — the moat is inverted.**
+>
+> Measured against what is *currently* free rather than against week-one's free, on the same 58
+> gold studies, reproducible with `python extractor/bench_public_labels.py --download`:
+>
+> | label source | macro AUROC | SE |
+> |---|---:|---:|
+> | `stevenleehans/llm_labels_v4_blend` | **0.893** | 0.015 |
+> | `stevenleehans/llm_labels_full` | 0.878 | 0.016 |
+> | `pilkwang/report_labels_v2` | 0.866 | 0.016 |
+> | `lixin73/labels_llm_gpt56sol` | 0.835 | 0.018 |
+> | `pilkwang/report_labels_v1` | 0.813 | 0.019 |
+> | **ours (rules)** | **0.777** | 0.021 |
+>
+> **We are last of six, by +0.116 — about 4.5× the combined SE, and the only extractor number
+> in this project that clears its own noise floor.** Per label: **0/12**. And ours is not
+> additive — rank-mean of the top two public readers is 0.890, and adding ours takes it to
+> 0.887. Full result and the post-mortem in `IMPROVEMENTS.md` §2f.
+>
+> The comparison below is not wrong, it is *stale*: `nekkon`'s CSV is a binary rule set from
+> week one, and §5 flagged the comparison as answering a question the field had moved past on
+> 2026-08-09. It stayed in this position, phrased as a settled decision gate, for a day longer
+> than the evidence supported. **The lesson is the one this file keeps re-learning: a
+> comparison is only as current as its baseline, and "we measured that" has an expiry date.**
+
+The original week-2 decision gate (`PLAN.md` §7), reproducible with
+`python extractor/compare_methods.py`:
 
 | label source | vs gold (n=58) | vs hand labels (n=83) |
 |---|---|---|
@@ -73,7 +106,10 @@ extractor/             report -> 12-label extraction, method A and method B
   rule_extractor.py      the rule extractor (clause-scoped, 9 languages). stdlib only
   run_extract.py         run over corpus + evaluate on gold. NB: works at import time
   llm_extract.py         method B via the Claude Batch API. --dry-run needs no key
-  compare_methods.py     every label source scored head-to-head. the decision gate
+  compare_methods.py     every label source scored head-to-head. the ORIGINAL decision gate,
+                         stale: its baseline is nekkon's week-one binary CSV
+  bench_public_labels.py the same gate re-pointed at the four public LLM readers. THIS is the
+                         live comparison, and we lose it 0/12. IMPROVEMENTS.md 2f
   metrics.py             auc / bal_acc, shared. separate module so importing it is safe
   diagnose.py            bootstrap CIs + targeted failure diagnostics
   verify_claim.py        stress-tests the "labels aren't report-derived" claim
@@ -401,7 +437,12 @@ against a real test DICOM** and every untested path in this repo has held defect
 first own-pipeline submission as a dry run of the inference path that returns the CV↔LB mapping
 as a side effect.
 
-### 5. The moat comparison is stale
+### 5. The moat comparison is stale — `RESOLVED 2026-08-10, against us`
+
+> Re-pointed and measured: **ours 0.777, best public 0.893, 0/12 labels won, negative
+> contribution to a rank-mean.** `IMPROVEMENTS.md` §2f. The section below is what was known
+> before that measurement; the "re-point it" instruction has now been carried out and the
+> answer was that the extractor is not the moat and never becomes one.
 
 `0.777 vs 0.672` was measured against `nekkon`'s published label CSV. The canonical public
 notebook today (`pilkwang/rsna-knee-baseline-v1`, 251 votes) ships its own extractor: clause
@@ -469,6 +510,16 @@ one in place to vouch for random-tensor weights — `assert_matches()` reads onl
 
 ### 9. The failure mode this project keeps repeating
 
+> **A second species, added 2026-08-10 — and it is the more expensive one.** K13–K18 are claims
+> about the *data* that were never measured. §9.1, §2e and §2f are claims about the *world
+> outside this repo* — what is possible, what is required, what is already free — that were
+> never re-measured after the first time. "Local work is text-only" (retired 2026-08-09), "the
+> extractor caps the vision model" (retired 2026-08-10), "the moat is real" (retired
+> 2026-08-10). Each was true or plausible when written, load-bearing for weeks, and cheap to
+> check. **The failure is not believing them; it is that a claim about a moving field was
+> recorded once and then treated as a constant.** Rule 5 below is the fix, and rule 4 of "Where
+> this goes next" is the operational form of it.
+
 K13, K14, K15, K16, K17, K18 and the defects found on 2026-08-09 are one species: **a claim about the
 data written as reasoning and never measured**, guarded by a self-test that shares the same
 assumption. The clearest case is a docstring that justified picking the slice axis by voxel
@@ -486,111 +537,195 @@ Four rules follow, and they are cheap:
 4. When a correction is axis-dependent, enumerate **every** axis before concluding. K18's
    docstring reasoned correctly about the in-plane axis and never mentioned the slice axis, so
    half the fix read as the whole of it for three months.
+5. **A claim about the outside world carries an expiry date.** Any statement of the form "the
+   public X is worse than ours" / "X is not possible here" / "X requires Y" gets re-measured
+   before it is allowed to justify a week of work. Cost so far: four Kaggle sessions (§9.1) and
+   five days of extractor work (§2f).
 
 ## Where this goes next
 
-> **REWRITTEN 2026-08-10 after the resolution test returned +0.013.** This section has now been
-> reordered three times in two days. That churn is itself the symptom, and §0 below is the
-> diagnosis. The plan that follows is built to stop it, and its rules matter more than its steps.
+> **REWRITTEN 2026-08-10 (second time that day), after `extractor/bench_public_labels.py`
+> returned 0.777 vs 0.893.** The previous version of this section is preserved below under
+> "Superseded plans". It was built on one diagnosis — *the architecture cannot fine-tune* —
+> which is correct but was treated as the only one. §2f showed a second constraint of similar
+> size that had been sitting in plain sight since 2026-08-07, and showed why the test that was
+> supposed to detect it could not.
+>
+> This section has now been reordered four times in three days. That churn is real and §0 is
+> still the diagnosis of it, but the fix has changed: the previous version's answer was to stop
+> measuring locally and let the leaderboard decide. That was wrong too, and expensively so —
+> see §0.
 
-### 0. The root cause: there is no working instrument
+### 0. There is no working instrument, and the leaderboard is not the fix
 
 Every macro this project has produced, across every experiment:
 
 ```
-0.695   0.699   0.708   0.719        range 0.024
+0.695   0.699   0.708   0.719   0.744        range 0.049
 ```
 
-against a macro CI of **±0.038**. **Every result is statistically indistinguishable from every
-other.** The soft-target ladder "losing", resolution "winning", the calibrated arm, the full
-cache — none of those conclusions are supported by the instrument that produced them.
+against a macro CI of **±0.038**. Almost every result is statistically indistinguishable from
+almost every other. `PLAN.md` §7.2 diagnosed this for the extractor on 2026-08-07 and called it
+"out of instrument". The fix chosen then was a vision model — scored on the **same 37 gold
+studies**, so it inherited the blindness rather than escaping it.
 
-`PLAN.md` §7.2 diagnosed this for the extractor on 2026-08-07 and called it "out of instrument".
-The fix chosen was a vision model — scored on the **same 37 gold studies**, so it inherited the
-same blindness rather than escaping it.
+**The previous plan's answer was "the leaderboard is the instrument". Retract that.** It is a
+working instrument and an unaffordable one: five submissions a day, ~8 h per training run, a
+30 h weekly quota, and a GPU lottery that refuses four draws in five. A plan that can only
+learn one bit per submission cannot run 20 experiments, and 20 experiments is what the gap
+needs. Worse, it moved the project *away* from local measurement at exactly the moment local
+measurement was about to find §2f — which cost nothing but a download and was invisible to the
+leaderboard entirely.
 
-This is why README §9's failure pattern keeps recurring. When measurement cannot decide,
-decisions get made by reasoning, and reasoning is exactly what K3–K5, K14, K16 and K18 were. The
-pattern is not a discipline problem. It is what a blind instrument does to a project.
+**The real fix is that the 37-study instrument is the wrong local instrument, not that local
+instruments do not work.** The highest visible public solution validates on a held-out fifth of
+the corpus against *report-derived* targets and reports **OOF 0.8544** against **cross-fitted
+gold-58 0.8568** — two disjoint checks agreeing to 0.002. That is a local instrument with
+~880 studies and 150–350 positives per label instead of 37 and 5–19, roughly **5× less noise**,
+and it is free to run.
 
-**Meanwhile there is a working instrument that has been used once.** The leaderboard: ~390+
-natural-prevalence studies, several submissions a day, and 1,025 teams' worth of calibration.
-One submission exists — an unmodified `pilkwang` fork at **0.891**.
+Three things have to be right for it to work, and all three are cheap:
+
+1. **Group the split by a hash of the report text.** Some reports are byte-identical across
+   studies — a template read for an unremarkable knee. Splitting such a group across the divide
+   scores the model on a target whose source it trained on.
+2. **Validate the proxy against gold, then stop looking at gold.** Report-derived OOF is the
+   instrument; cross-fitted gold-58 is the check that the instrument is pointed at the right
+   thing. If they diverge, the proxy is wrong. If they agree, use the proxy — it is the one
+   with the error bars.
+3. **Put the 58 gold studies into training at elevated weight.** They are the only labels in
+   this project read from *images* rather than from text. We currently hold all 58 out to
+   protect a 37-study evaluation that cannot resolve 0.04 — paying our scarcest supervision to
+   buy a number we then cannot read.
 
 ### The rules (these bind the steps below)
 
-1. **The leaderboard is the instrument.** Gold OOF is a smoke test, not evidence. Nothing is
-   "better" until the LB says so.
-2. **One change per submission.** Two changes in one submission measure nothing.
-3. **Nothing below the instrument's resolution.** If an effect cannot be seen, it does not get
-   worked on — regardless of how interesting the mechanism is.
-4. **No infrastructure that is not on the critical path to a submission.** The NIfTI route cost
-   K16 and K18 — both impossible on DICOMs, which carry `ImagePositionPatient` — to buy an
-   effect measured at +0.013.
-5. **The fork is the base, not a reference.** It scores 0.891 and its inference path demonstrably
-   works. `kaggle_03_submit.py` has never executed against a real test DICOM.
+1. **A local report-holdout OOF is the instrument.** Gold-58 is the check on the instrument,
+   cross-fitted, never the arbiter. The leaderboard is the final audit — a few times, not
+   every experiment.
+2. **One change per measurement**, whether the measurement is local or a submission.
+3. **Nothing below the instrument's resolution** — but note the instrument is now ~5× finer, so
+   this forbids much less than it used to.
+4. **Check what is free before building it.** §2f cost five days by not asking. Before any new
+   component: search Kaggle Datasets, pull the top notebooks' code, and measure against them.
+5. **Read the code, not the description.** Three claims about `pilkwang` came from its
+   description and two were wrong; one of them cost a Kaggle run.
+6. **The fork is the base, not a reference.** It scores 0.891 and its inference path
+   demonstrably works. `kaggle_03_submit.py` has never executed against a real test DICOM.
 
-### Phase 0 — the training port, because nothing can be tested until something trains
+### Phase 0 — supervision, then instrument, then port (this week)
 
-> **Attempt 1 failed usefully, 2026-08-10.** Phase 0 was "run the fork with our label table
-> swapped in". It ran in **74 seconds** and changed nothing: `main()` calls `find_weights()`, and
-> with `pilkwang/rsna-knee-weights` mounted it takes `infer_from_package()` — 20 pre-trained
-> members, rank-meaned — and never trains. **The 0.891 is inference from published weights.** No
-> training happened, so the labels never entered anything.
+Ordered so that each step is validated by the one before it. Nothing here needs a Kaggle GPU.
 
-That reorders the route rather than just fixing a step. To test *any* of our assets — labels,
-head, targets — something has to actually train, and there are only two places to do it:
+1. **Swap the labels. (~1 h)** `extractor/bench_public_labels.py --download` already pulls
+   them. Ship the rank-mean of `steven_v4 + steven_full` (0.890 on gold-58) or `steven_v4`
+   alone (0.893) as `data/targets.csv`, replacing `pseudo_labels.csv` everywhere. Then do what
+   the 0.903 system does and we do not: **fuse per target, weighted by each reader's measured
+   per-label accuracy**, rather than picking one reader globally. §2f has the per-label table;
+   `pilkwang_v2` wins Fracture (0.870) and MCL (0.976) while `steven_v4` wins eight others, so
+   a per-label choice is worth having and is free.
+2. **Build the instrument. (~3 h)** Report-text-hash grouping in `fusion/folds.py`; hold out
+   20%; report macro OOF against the fused targets *and* cross-fitted gold-58 side by side, the
+   way the 0.903 system does. **Gate: the two must agree to within ~0.01.** If they do not, the
+   targets are wrong and step 1 is not finished.
+3. **Port the training. (~2 h/run)** The frozen-cache architecture cannot fine-tune (§2e), so
+   it cannot be fixed downstream. Build the ~9 GB pixel cache at 336 (26,442 slot images) from
+   the NIfTI already on disk and train `UNFREEZE_LAST=6` locally. K16's slice-direction bit is
+   on the critical path here — NIfTI carries no `ImagePositionPatient`, so extend `kaggle_01c`
+   over all 24,371 series first (CPU-only, ~20 min); K18 handedness rides along.
+4. **Reproduce the fork's own configuration before changing one line of it.** If a local run
+   with *its* labels does not land near its published score, the port is wrong and every
+   comparison after it is noise. This is the gate; do not pass it by reasoning.
+5. **Submit once**, as a dry run of the inference path, and record the CV↔LB mapping for *our*
+   pipeline rather than the interpolated estimate in "The four facts" §5.
 
-| | per run | quota | lottery |
-|---|---|---|---|
-| Kaggle, weights package detached | ~8 h | 30 h/week → 3 runs | 4 draws in 5 refused |
-| **M5, locally** | **~2 h** | none | none |
+### Phase 1 — the labels that are at chance
 
-So the training port is not Phase 1, it is the precondition for everything, and it is also the
-only place our advantage lives. Do it first:
+Each label is 1/12 of the score, so a label left at chance forfeits `(M − 0.5)/12` ≈ **0.029**
+no matter how good the other eleven are. Ours, on gold-37: **Fracture 0.494, Lateral Meniscus
+0.526, Contusion 0.603**. Those three alone are worth ~0.08 of macro — more than the entire
+remaining gap to the public frontier.
 
-1. **Pixel cache at 336, ~9 GB** (26,442 slot images, 3 × 336² uint8) from the NIfTI already on
-   disk. Two orders of magnitude smaller than the 458 GB it comes from; once it exists the NIfTI
-   mirror is deletable.
-2. **K16's direction bit is on the critical path and now justified.** Local pixels come from
-   NIfTI, which carries no `ImagePositionPatient`, and slot assignment depends on it. Extend
-   `kaggle_01c` over all 24,371 series — CPU-only, no GPU lottery, ~20 min. K18 rides along.
-3. **Reproduce the fork's own configuration locally before changing one line of it.** If a local
-   run with *its* labels does not land near its published-weights score, the port is wrong and
-   every comparison after it is noise. This is the gate; do not pass it by reasoning.
+The per-label pattern is diagnostic, and it matches the physics. Against MRNet (Stanford,
+n=1,370, image-read labels): our ACL **0.702** vs their 0.965; our meniscus **0.634 / 0.526**
+vs their 0.847. Meanwhile our Effusion 0.863, Baker's 0.919 and Medial OA 0.913 are already
+reasonable. **Gross-appearance findings work; findings that need fine local texture at a
+specific anatomic site are at chance.** That is the signature of a frozen natural-image ViT
+plus attention pooling over ~155 slices diluting the two or three that carry the finding — so
+Phase 0 step 3 is the first-order fix, and these are what to check it against.
 
-### Phase 1 — iterate locally, submit one change at a time
-
-Every experiment is ~2 h and free; every submission carries exactly one change. In rough order:
-our labels (`extractor/to_fork_table.py` already writes the table), our fusion head against `SlotHead`
-— **the largest unmeasured claim in the project**, called "likely ahead of the public forks" in
-`PLAN.md` §7.1 and never once compared — then `UNFREEZE_LAST`, slot scheme, and augmentation.
+Then, in order: per-label specialists for the three at chance (the 0.899 notebook adds a
+Synovitis specialist worth +0.084 on that label alone); rank-mean across seeds, then
+resolutions, then backbones; our fusion head against `SlotHead` — **the largest unmeasured
+claim in the project**, called "likely ahead of the public forks" in `PLAN.md` §7.1 and never
+once compared.
 
 ### Phase 2 — the levers that measured largest
 
-1. **Data.** 1,000 → 2,649 studies was **+0.024**; 224 → 518 was **+0.013**. The corpus is at
-   60% of 4,407. Finish it.
-2. **External data** (`PLAN.md` §3.4, "likely decisive"). MRNet supervises three of the six weak
-   labels with real expert reads; OAI covers the OA three.
-3. **Gold at weight 3.0.** The fork trains on all 58; we hold all 58 out. Measure the trade.
-4. **Rank-mean ensembling** across seeds, then backbones.
+1. **External data.** MRNet (1,370 exams, image-read ACL / meniscus / abnormality) supervises
+   exactly the three labels we are worst at, with expert reads rather than report text. OAI
+   covers the OA three. **Check the competition's external-data rules and the forum posting
+   requirement first** — this is gated on a rule, not on effort.
+2. **Data.** 1,000 → 2,649 studies was **+0.024**. The corpus is at 60% of 4,407. Finish it.
+3. **Gold at weight 3.0** — folded into Phase 0 step 2, listed here because it is a lever, not
+   only a validation fix.
+
+### What the public frontier actually does, for reference
+
+Read from the code (`extractor/bench_public_labels.py` pulls the labels; the notebooks come
+from `kaggle kernels pull`). Two lineages, and the CNN one is currently ahead:
+
+| | `pilkwang` / 0.899 line | Yash B3 line (0.903, highest visible) |
+|---|---|---|
+| backbone | DINOv2-**small** @336 | **EfficientNet-B3, single-channel, ImageNet** |
+| trainable | `UNFREEZE_LAST=6`, `LR_BACKBONE=8e-6`, `LR_HEAD=1e-3` | full |
+| study input | 6 slot images (`N_SLOT=6`, `GROUP=3`) | 3 fluid-sensitive, plane-diverse series |
+| slices | 3/slot | 12/series train, **32 infer** |
+| pooling | `SlotHead`, per-target priors 0.55 | **max over slices, then mean over series logits** |
+| targets | conf-weighted `W = 0.25 + 0.75·conf` | per-target fusion of two readers by measured accuracy |
+| aug | multi-window TTA | rotation, gamma, scale; **no horizontal flip** |
+| ensemble | rank-mean, 20 members | mean of 5 fold sigmoids |
+| cost | 10 epochs | 12.4 h, 5 folds |
+
+Three of those are worth stating as flat corrections to our design. **A study is six encoder
+inputs, not ~155** — the frontier does 20× less encoder work and gets more out of it, because
+it adapts the weights instead of pooling frozen slices. **Max-pooling beats attention pooling**
+for this task in their own ablation, for the reason above: the finding lives on two slices.
+**No horizontal flip** — it breaks medial/lateral, which is 6 of our 12 labels.
 
 ### Explicitly not doing
 
+- **Any further extractor work.** §2f: 0/12 labels, negative in fusion. `rule_extractor.py`,
+  `glossary.json`, `calibrate_states.py` and the hand-labelling UI stay for provenance and for
+  the disagreement-detector hypothesis in §1.1, and that is all.
 - **The full 518 rebuild** (~22 h). Measured **+0.013**, inside the CI.
-- **The frozen-feature architecture.** `kaggle_02` / `build_cache_local` / `fusion/train.py` are
-  kept for provenance and for the head comparison in Phase 2, but they are no longer the route:
-  a cached-embedding pipeline cannot fine-tune, and §2e says that is the gap.
-- **Any further extractor refinement below the CI.** §2.2 was worth +0.002 on gold.
+- **The frozen-feature architecture** as the route. Kept for provenance and for the head
+  comparison in Phase 1.
+- **Leaderboard-driven iteration.** Rule 1.
 
-## Status — 2026-08-09
+### Superseded plans (provenance — the reordering itself is the evidence)
+
+| dated | operative claim | why it was replaced |
+|---|---|---|
+| 2026-08-08 | extractor is the critical path; cache needs Kaggle | §9.1: the cache builds locally on the M5 |
+| 2026-08-09 | resolution is the ceiling | tested: **+0.013**, inside the CI (§2d) |
+| 2026-08-10 (am) | trainability is the gap; the leaderboard is the instrument | true but incomplete, and the instrument claim was unaffordable (§2f, §0) |
+
+## Status — 2026-08-10
 
 - [x] Data logistics, language ID, series structure
 - [x] Rule extractor v1 — macro AUC **0.777** on gold, 95% CI [0.74, 0.82]
 - [x] Compartment attribution (`IMPROVEMENTS.md` §2.2) — ~1,000 studies off the flat 0.45.
       Invisible in gold macro (±0.038 CI); justified on corpus evidence, per §0
 - [x] Hand-labelling UI + all 30 blind gold studies labelled
-- [x] **Our labels beat the public weak labels** on gold and on hand labels — the moat is real
+- [x] ~~**Our labels beat the public weak labels** on gold and on hand labels — the moat is
+      real~~ **RETRACTED 2026-08-10.** True against `nekkon`'s week-one binary CSV, false
+      against the four LLM readers published since: **ours 0.777, best public 0.893, 0/12
+      labels won, negative contribution to a rank-mean.** `IMPROVEMENTS.md` §2f.
+      `extractor/bench_public_labels.py` is the live gate; `compare_methods.py` is the stale one
+- [x] **The public LLM labels are measured and adopted** — the extractor track is closed as a
+      source of training targets, and §1.1 ("where does the LLM extractor run?") closes with it:
+      it does not have to run at all
 - [x] Series-metadata shortcut tested and rejected (0.471, below chance)
 - [x] **Soft-target ladder fitted against gold — and the fit LOST** (`IMPROVEMENTS.md` §1.3a).
       `absent` is 52% of the target matrix and sits at 0.08 against a measured 0.167; correcting

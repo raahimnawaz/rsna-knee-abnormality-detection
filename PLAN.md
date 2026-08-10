@@ -95,6 +95,14 @@ deliverable, not an implementation detail. Aim for fixed-size uint8 arrays at ~2
 
 ## 2. Critical path: reports → labels (weeks 1–3)
 
+> **CLOSED 2026-08-10 — this was the critical path and it is now a download.** §2.1 below calls
+> for "a multilingual LLM offline over every training report". Four such tables are published
+> as free Kaggle Datasets, the best scores **0.893** on gold-58, and the rule extractor built
+> instead scores **0.777** and loses on 12/12 labels (`IMPROVEMENTS.md` §2f). Everything in §2
+> is kept for provenance and because §2.1's *schema* — structured attributes, not twelve bits,
+> with per-finding confidence — was right and is what the public readers emit. The build was
+> the error, not the design. Do not spend further time on §2.1–§2.4.
+
 ### 2.1 Extract structured attributes, not just the 12 bits
 Run a multilingual LLM offline over every training report; emit JSON per study:
 
@@ -445,6 +453,15 @@ shortcut. Do not re-run this. See `eda_04_metadata_baseline.py`.
 
 ### 7.2 The extractor track has run out of instrument — measured 2026-08-07
 
+> **AMENDED 2026-08-10. The conclusion was right and the reason was wrong, and the wrong reason
+> cost five days.** This section reads "no remaining extractor change is measurable, so stop
+> tuning and go get a better instrument". The true statement is stronger and was available the
+> whole time: **no remaining extractor change is worth measuring, because the component is
+> 0.116 behind a free alternative** (`IMPROVEMENTS.md` §2f). "Out of instrument" framed the
+> problem as *we cannot see our improvements* and led to building a better reference. "Behind
+> the field" frames it as *there is nothing here to improve* and leads to a download. The
+> instrument was never the binding thing on this track.
+
 The §2.2 compartment fix moved **~1,000 studies** off a flat 0.45 that could not contribute to a
 ranking metric. Gold macro AUC moved **0.775 → 0.777**, against a bootstrap CI of **±0.038**. The
 change is real and corpus-level evidence says so, but the 58 gold studies cannot see it, and
@@ -548,6 +565,23 @@ risk, and §9.1 is the cheapest way to retire it.
 > lottery that refuses four draws in five. Move the *fine-tuning* local. The pixel cache it needs
 > is ~9 GB against 458 GB of NIfTI. K16's direction bit is back **on** the critical path — local
 > pixels have no `ImagePositionPatient` — and is now justified by something that pays for it.
+
+> **SUPERSEDED AGAIN 2026-08-10 (later). Both the Phase list below AND the "use the leaderboard
+> as the instrument" route that replaced it are retired.** `extractor/bench_public_labels.py`
+> re-pointed §7.2's decision gate at the four LLM-read label tables the field has published
+> since week one: **ours 0.777, best public 0.893, 0/12 labels won, and adding ours to a
+> rank-mean makes it worse.** So the critical path this document has assumed since §2 —
+> *reports → labels* — is not ours to walk; it is a download. See `IMPROVEMENTS.md` §2f.
+>
+> Two corrections follow. **The extractor track is closed as a source of training targets**,
+> which retires most of §2 and all of §7.2's premise. **And "the leaderboard is the instrument"
+> was wrong** — five submissions a day against ~8 h runs and a 30 h quota cannot carry 20
+> experiments, and the route that adopted it moved away from local measurement at exactly the
+> moment local measurement found §2f. The replacement is a report-holdout OOF with ~880 studies
+> (the 0.903 system's own OOF and cross-fitted gold-58 agree to 0.002), which is ~5× finer than
+> the 37-study gold and free to run.
+>
+> **The operative plan is `README.md` "Where this goes next", rewritten 2026-08-10.**
 
 > **SUPERSEDED 2026-08-10. Do not follow the Phase list below.** The resolution reordering above
 > was tested and returned **+0.013** — inside the CI (IMPROVEMENTS §2d). The operative plan is
