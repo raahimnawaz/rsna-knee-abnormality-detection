@@ -530,6 +530,19 @@ risk, and §9.1 is the cheapest way to retire it.
 > an unmodified `pilkwang` fork scored **0.891** on 2026-08-09, rank 230/908, top 0.940. What is
 > still unmeasured is the CV↔LB mapping for *our* pipeline.
 
+> **2026-08-10, later — the direction is settled and it is architectural.** `pilkwang`'s notebook
+> was read directly rather than from its description: it **fine-tunes the last six encoder blocks**
+> (`UNFREEZE_LAST = 6`, `LR_BACKBONE = 8e-6`). A frozen-embedding cache cannot do that at any
+> resolution, under any head, with any labels — which is why resolution bought +0.013 and why
+> every number here sits near 0.70. See IMPROVEMENTS §2e. It also uses DINOv2 **small** at **one**
+> resolution, so we are behind on neither capacity nor resolution, only on trainability.
+>
+> The feasible direction, and the one real asymmetry: a study is six encoder inputs, so a full
+> 10-epoch run is **~2 h on the M5** against Kaggle's 8 h budget, 30 h weekly quota and a GPU
+> lottery that refuses four draws in five. Move the *fine-tuning* local. The pixel cache it needs
+> is ~9 GB against 458 GB of NIfTI. K16's direction bit is back **on** the critical path — local
+> pixels have no `ImagePositionPatient` — and is now justified by something that pays for it.
+
 > **SUPERSEDED 2026-08-10. Do not follow the Phase list below.** The resolution reordering above
 > was tested and returned **+0.013** — inside the CI (IMPROVEMENTS §2d). The operative plan is
 > now README "Where this goes next", which starts from a different diagnosis: **every macro this

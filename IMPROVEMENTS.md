@@ -547,6 +547,66 @@ existing 224 cache (free) isolates resolution from corpus size and answers it th
 
 ---
 
+## 2e. The architecture cannot fine-tune, and that is the gap `MEASURED 2026-08-10`
+
+Read from `pilkwang`'s notebook directly (`kaggle kernels pull`), not from its description:
+
+```python
+UNFREEZE_LAST = 6          # trainable transformer blocks, from the output end
+LR_BACKBONE   = 8e-6       # the encoder is adapted, not retrained
+LR_HEAD       = 1e-3
+```
+
+**It fine-tunes the last six encoder blocks. Our design makes that structurally impossible.**
+Caching frozen DINOv2 embeddings once and training a head on the vectors means the encoder can
+never adapt — at any resolution, under any head, with any labels. A self-supervised
+natural-image ViT is far out of distribution on knee MRI, and the late blocks are exactly where
+the adaptation would happen.
+
+That single difference explains the results this project has been getting. Resolution moved
++0.013 because frozen features are frozen at every resolution (§2d). The labels measured out as
+not-the-ceiling (§2d). Everything lands near 0.70 regardless of what changes downstream, because
+the one thing that would move it is the one thing the architecture forbids.
+
+**Three claims in README §6 were also wrong**, all from reading the notebook's description
+rather than its code:
+
+| claimed | actual |
+|---|---|
+| ensembles DINOv2 **and** EfficientNet | one backbone, DINOv2 only |
+| across 224/336 | one resolution, `CACHE_IMG = 336` |
+| "our backbone is already the same checkpoint theirs is" | theirs is DINOv2 **small**; ours is **base** with registers |
+
+So it beats us with a *smaller* backbone at *one* resolution. We are not behind on capacity or on
+resolution. We are behind on being able to train the thing.
+
+It also already ships what our Phase 3 listed as differentiators: `SlotHead` is per-diagnosis
+attention over slot embeddings with per-target priors (`SLOT_PRIOR_STRENGTH = 0.55`) — the
+per-pathology query tokens — plus confidence-weighted targets (`W = 0.25 + 0.75 * conf`),
+multi-window TTA and rank-mean ensembling.
+
+### Why this is good news: the compute is small, and the advantage is ours
+
+`N_SLOT = 6` (`SAG_FLUID_FS`, `COR_FLUID_FS`, `AX_FLUID_FS`, `SAG_FLUID_NOFS`, `COR_T1`,
+`SAG_T1`), `GROUP = 3` slices stacked as RGB. So a study is **6 encoder inputs**, not the ~155
+slices ours embeds. The fork gets more out of ~20x less encoder work by adapting the weights
+instead of pooling many frozen slices.
+
+Estimated on the M5 from our own measured 9.9 img/s for base@518: DINOv2-small at 336 is ~0.26x
+the parameters and ~0.42x the tokens, so ~90 img/s forward, and ~36 img/s training with six
+blocks open. 4,407 studies × 6 slots = 26,442 images → **~12 min/epoch, ~2 h for the fork's
+`EPOCHS = 10`.**
+
+Against Kaggle's `TIME_BUDGET = 8 h`, a 30 h weekly quota and a GPU lottery that refuses four
+draws in five, **that is a 10–20x iteration advantage on the architecture that actually works.**
+This — not 518 — is the asymmetry worth having, and it is the one the local pixel route was
+always positioned to deliver.
+
+The pixel cache it needs is **~9 GB** (26,442 slot images, 3 × 336² uint8), against 458 GB of
+NIfTI. Once it is built the NIfTI mirror is deletable.
+
+---
+
 ## 3. Resolved (kept for provenance — these are the failure *patterns* to watch for)
 
 | # | Issue | Root cause | Fix |

@@ -398,12 +398,32 @@ Greek **MICRO SIGN U+00B5** issue that `FINDINGS.md` §2.2 treats as a distingui
 The §7.2 A/B therefore answers a question the field has moved past. Re-point it at that
 extractor — which we have now forked and run: **0.891**, see §4.
 
-### 6. Mechanically behind
+### 6. The architecture cannot fine-tune — this is the gap
 
-They ensemble DINOv2 **and** EfficientNet across 224/336 by **rank mean**, and train on the gold
-studies at weight 3.0. We run one backbone, one resolution, no ensemble, and hold all 58 gold
-out. Our backbone is already the same checkpoint theirs is — there is no "switch to DINOv2" step
-remaining.
+Read from `pilkwang`'s notebook itself rather than its description:
+
+```python
+UNFREEZE_LAST = 6      # trainable transformer blocks, from the output end
+LR_BACKBONE   = 8e-6   # the encoder is adapted, not retrained
+```
+
+**It fine-tunes the last six encoder blocks. Caching frozen embeddings makes that impossible for
+us** — at any resolution, under any head, with any labels. That is why resolution bought +0.013
+and why everything lands near 0.70 whatever changes downstream. Full analysis in
+`IMPROVEMENTS.md` §2e.
+
+Three claims this section previously made were wrong, all from reading the description instead
+of the code: it uses **one** backbone (not DINOv2 + EfficientNet), at **one** resolution
+(`CACHE_IMG = 336`, not 224/336), and it is DINOv2 **small** — not the base checkpoint we run.
+It beats us with a smaller backbone at one resolution. It also already ships per-diagnosis slot
+attention, confidence-weighted targets and rank-mean TTA — three things listed as our
+differentiators.
+
+**The compute is small and the advantage is ours.** `N_SLOT = 6`, `GROUP = 3`: a study is six
+encoder inputs, not the ~155 slices we embed. On the M5 that is ~12 min/epoch and ~2 h for a full
+`EPOCHS = 10` run, against Kaggle's 8 h budget, 30 h weekly quota and a GPU lottery that refuses
+four draws in five. **A 10–20x iteration advantage on the architecture that works** — that, not
+518, is the asymmetry worth having. Its pixel cache is ~9 GB against 458 GB of NIfTI.
 
 ### 7. The corpus — 81.7% available, 60% actually cached
 
@@ -493,44 +513,61 @@ One submission exists — an unmodified `pilkwang` fork at **0.891**.
 5. **The fork is the base, not a reference.** It scores 0.891 and its inference path demonstrably
    works. `kaggle_03_submit.py` has never executed against a real test DICOM.
 
-### Phase 1 — get an instrument (this week)
+### Phase 0 — one submission, today, with no new infrastructure
 
-1. **Re-submit the unmodified fork** to confirm reproducibility, and establish its CV on the
-   *full 4,407* studies — not on 37 gold. That CV is the local proxy; its correlation with the LB
-   is the thing being calibrated.
-2. **Two or three submissions of deliberately varied strength** to fit CV↔LB. Without this
-   mapping every local number remains unreadable.
+Run the fork **unchanged except for the label table**, swapping `pilkwang`'s targets for
+`data/pseudo_labels.csv`. One change, one submission, measured on the instrument that works.
 
-### Phase 2 — port the differentiators, one per submission
+This is the §7.2 A/B finally run against the field instead of against `nekkon`'s CSV, and it
+tests the one asset this project has actually proven (0.777 vs 0.672 on gold). If our labels are
+worth what we think, the LB moves off 0.891. If they are not, we learn that for the cost of one
+submission instead of another month.
 
-Each is a single change against the 0.891 base, kept only if the LB moves:
+### Phase 1 — move the fine-tuning local, because that is the real asymmetry
 
-- **(a) Our labels vs its extractor.** `pseudo_labels.csv` is a drop-in target swap. This is the
-  §7.2 A/B finally run against the field rather than against `nekkon`'s CSV.
-- **(b) Our fusion head vs its pooling.** `PLAN.md` §7.1 calls ours "likely ahead" — **untested,
-  and the largest unmeasured claim in the project.** Test it or drop the assumption.
-- **(c) The 86 hand labels** as a validation set the field does not have.
+Adopt the fork's architecture — DINOv2-small at 336, last six blocks open, `SlotHead` over six
+slots — and run its **training** on the M5 against local pixels.
+
+The case is arithmetic, not preference (§2e): a study is six encoder inputs, so a full
+`EPOCHS = 10` run is **~2 h locally**, against Kaggle's 8 h budget, a 30 h weekly quota, and a
+GPU lottery that refuses four draws in five. That is **10–20x more experiments on the
+architecture that actually works** — and unlike 518, it is an advantage the field cannot get by
+forking harder.
+
+1. **Pixel cache at 336, ~9 GB** (26,442 slot images, 3 × 336² uint8) from the NIfTI already on
+   disk. Two orders of magnitude smaller than the 458 GB it comes from, and once it exists the
+   NIfTI mirror is deletable.
+2. **K16's per-series direction bit is now on the critical path and justified.** Local pixels
+   come from NIfTI, which carries no `ImagePositionPatient`, so slot assignment depends on it.
+   Extend `kaggle_01c` over all 24,371 series — CPU-only, no GPU lottery, ~20 min.
+   K18 rides along in the same cache.
+3. **Reproduce 0.891 locally before changing anything.** If a local run of the fork's own
+   configuration does not land near its LB score, the port is wrong and every later comparison
+   is noise.
+
+### Phase 2 — iterate locally, submit one change at a time
+
+Every experiment is ~2 h and free; every submission carries exactly one change. In rough order:
+our labels (Phase 0's answer, applied to the local loop), our fusion head against `SlotHead`
+— **the largest unmeasured claim in the project**, called "likely ahead of the public forks" in
+`PLAN.md` §7.1 and never once compared — then `UNFREEZE_LAST`, slot scheme, and augmentation.
 
 ### Phase 3 — the levers that measured largest
 
-Ranked by what has actually been measured, not by interest:
-
-1. **Data.** 1,000 → 2,649 studies was worth **+0.024**; 224 → 518 was worth **+0.013**. Data is
-   roughly twice resolution, and the corpus sits at 60% of 4,407. Finish it.
-2. **External data** (`PLAN.md` §3.4, "likely decisive", omitted by every route until now). MRNet
-   supervises three of the six weak labels with real expert reads; OAI covers the OA three.
-3. **Gold at weight 3.0.** The fork trains on all 58; we hold all 58 out. Measure the trade
-   rather than assuming the honest choice is the right one.
-4. **Rank-mean ensembling** across resolutions then backbones.
+1. **Data.** 1,000 → 2,649 studies was **+0.024**; 224 → 518 was **+0.013**. The corpus is at
+   60% of 4,407. Finish it.
+2. **External data** (`PLAN.md` §3.4, "likely decisive"). MRNet supervises three of the six weak
+   labels with real expert reads; OAI covers the OA three.
+3. **Gold at weight 3.0.** The fork trains on all 58; we hold all 58 out. Measure the trade.
+4. **Rank-mean ensembling** across seeds, then backbones.
 
 ### Explicitly not doing
 
-- The full 518 rebuild (~22 h). Measured **+0.013**, inside the CI. Revisit only if the LB
-  disagrees.
-- K16/K18 and the per-series direction export — **only if the local cache survives Phase 2.** On
-  the fork's DICOM path these defects cannot occur, so the fix may be moot.
-- Any further extractor refinement below the CI. §2.2 was worth +0.002 on gold.
-
+- **The full 518 rebuild** (~22 h). Measured **+0.013**, inside the CI.
+- **The frozen-feature architecture.** `kaggle_02` / `build_cache_local` / `fusion/train.py` are
+  kept for provenance and for the head comparison in Phase 2, but they are no longer the route:
+  a cached-embedding pipeline cannot fine-tune, and §2e says that is the gap.
+- **Any further extractor refinement below the CI.** §2.2 was worth +0.002 on gold.
 
 ## Status — 2026-08-09
 
