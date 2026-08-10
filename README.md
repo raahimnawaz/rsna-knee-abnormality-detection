@@ -79,6 +79,8 @@ extractor/             report -> 12-label extraction, method A and method B
   verify_claim.py        stress-tests the "labels aren't report-derived" claim
   calibrate_states.py    fits the soft-target ladder to P(gold=1|state). IMPROVEMENTS.md 1.3a.
                          The fit LOST (0.743 -> 0.699); kept as a measurement, not a setting
+  to_fork_table.py       our labels -> the 25-column table pilkwang's notebook reads.
+                         The __conf column is NEW and a guess -- see its docstring
 labeling/              hand-labelling workflow
   glossary.json          multilingual terms for 12 findings + negation/uncertainty/severity
   compartment_patch.py   adds _side_* / _compartment_struct. IMPROVEMENTS.md 2.2
@@ -152,6 +154,19 @@ python extractor/compare_methods.py           # the table above
 ```
 
 ## Kaggle-side work
+
+**Read the competition's code, never its description.** Every finding on 2026-08-10 came from
+pulling the notebook itself; three claims in "what is wrong" §6 had been written from the public
+description and two of them were wrong — including "it ensembles two backbones", and the belief
+that 0.891 was a *training* score when `find_weights()` makes it inference from 20 published
+members in 74 s.
+
+```bash
+python -m kaggle kernels pull raahimnawaz/rsna-knee-lb-baseline-fork -p /tmp/fork -m
+```
+
+Re-pull it rather than trusting any summary in these documents, including this one.
+
 
 The images are 570 GB and stay on Kaggle. The scripts run there in this order — the audits come
 first, because if laterality were unrecoverable then four of the twelve labels would be

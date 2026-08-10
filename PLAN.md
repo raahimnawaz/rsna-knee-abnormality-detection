@@ -401,6 +401,12 @@ cache is worth building against.
 
 ### 7.1 What the public leaderboard is actually doing — measured 2026-08-07
 
+> **Method note, added 2026-08-10.** Characterise the field from its **code**, not its
+> descriptions: `python -m kaggle kernels pull raahimnawaz/rsna-knee-lb-baseline-fork -p /tmp/fork -m`.
+> Reading the description produced three wrong claims about the leading notebook, two of which
+> shaped a route for a day — most importantly that its 0.891 was a training score, when
+> `find_weights()` short-circuits it into inference from published weights.
+
 > **RE-MEASURED 2026-08-09.** Top **0.940** over **908 teams** (was 0.932 / ~296). Our own first
 > submission — an unmodified `pilkwang/rsna-knee-baseline-v1` fork — scored **0.891** at rank
 > **230/908**. The conclusion below strengthens rather than changes: two days of field-wide
