@@ -1,0 +1,227 @@
+# Reference — external facts, verbatim where it matters
+
+Things that are **true about the competition and the world**, not about our code. Separate from
+the other four documents on purpose:
+
+| doc | holds |
+|---|---|
+| `README.md` | current state, the ledger, the plan |
+| `PLAN.md` | strategy and architecture |
+| `FINDINGS.md` | measured facts about **our** data pull |
+| `IMPROVEMENTS.md` | friction log — what broke and why |
+| **`REFERENCE.md`** | **external ground truth: host statements, official criteria, forum facts, literature** |
+| `COMPETITION_RULES.txt` | the rules, verbatim |
+
+**Why this file exists.** README §9 records that this project's most expensive failures were
+claims about the world outside the repo — recorded once, then treated as constants. Four have
+now been retracted (§9.1, §2e, §2f, §2i-b). A claim in here carries its **source and the date it
+was read**, so the next reorder can check it instead of inheriting it.
+
+---
+
+## 1. Host rulings
+
+### 1.1 Commercially hosted LLMs are PERMITTED `HOST STATEMENT, read 2026-08-10`
+
+> "Use of commercially hosted LLMs and other external inference services is permitted, provided
+> that the service and method of use otherwise comply with the Competition Rules... submitting
+> Competition Data, including report text, to an external LLM or API for inference or other
+> computational processing (for example, extracting labels from reports) **will not, by itself,
+> be considered prohibited PRIVATE SHARING** of Competition Data outside the Team."
+>
+> "The PRIVATE SHARING restriction is intended to prohibit sharing Competition Data, code, or
+> competition-specific work product with **other participants, teams, or third parties for
+> collaboration or competitive use** outside the registered Team."
+>
+> Governed by **§2.6.b** (External Data and Tools), not §2.4.b. Constraints that do apply:
+> "reasonably accessible to all" and "minimal cost". The Host reserves the right to rule a
+> particular service prohibitively costly or unfair.
+
+**This reverses a reading recorded in `README.md` earlier the same day**, which took §2.4.b
+("not to transmit... the Competition Data to any party not participating") to forbid exactly
+this. That reading was wrong, and the error is instructive: **§2.4.b was read without the
+host's clarification, and a rule read without its official interpretation is the same class of
+mistake as a competitor's notebook read from its description** (§2e). Corrected in place; see
+§4.1 below for what it unblocks.
+
+`IMPROVEMENTS.md` §1.1 raised this worry in week one and blocked method B on it. The worry was
+reasonable and the answer is that it does not bind.
+
+### 1.2 What the rules themselves say
+
+Full text in `COMPETITION_RULES.txt`. The clauses that settle live questions:
+
+| § | effect |
+|---|---|
+| 2.2.a | **5 submissions/day**, 2 final. This is what makes leaderboard-driven iteration unaffordable. |
+| 2.6.a | External data must be "publicly available and equally accessible to all Participants... at no cost" → **MRNet qualifies** (free on request). |
+| 2.5.a | "input data or pretrained models with an **incompatible license**... you do not need to grant an open source license for that data" → explicit carve-out for MRNet's research-only terms. |
+| 1.6 | Winner licence **CC-BY-NC 4.0** — non-commercial, unusually compatible with research-only external data. |
+| 3.6.b | Public sharing on Kaggle is permitted and deemed OSI-licensed → **using the public LLM label tables is fine.** |
+| 3.4.b | No hand labelling "of the **validation dataset or test data records**" → `labeling/` works on train reports and is unaffected. |
+| 1.5 | Prizes to **10th place** ($5,000) + **$18,000 across three efficiency prizes**. `PLAN.md` §6 is a live second route. |
+
+No forum-disclosure requirement for external data appears anywhere in the rules.
+
+---
+
+## 2. The official label criteria `OFFICIAL OVERVIEW, read 2026-08-10`
+
+**The single most useful external document for this project, and it was not read until day
+four.** Every study was labelled independently by two subspecialty MSK radiologists with a
+third adjudicating.
+
+> **In each case, ambiguous or borderline findings ("on the fence") were graded as NEGATIVE to
+> favour specificity.**
+
+| label | positive requires | explicitly NEGATIVE |
+|---|---|---|
+| **ACL tear** | high-grade partial or full-thickness; complete discontinuity **or >50% of fibres** disrupted | mild signal change, degeneration, thickening **without discontinuity** |
+| **MCL tear** | high-grade partial or complete **acute** tear, disrupted fibres + edema | low-grade sprains; **chronic or remote** stress changes |
+| **Medial meniscus** | abnormal signal **definitely contacting the surface on ≥2 images**, or morphologic abnormality (truncated / diminutive / displaced fragment) | intrasubstance degeneration **not reaching the surface** |
+| **Lateral meniscus** | same criteria | same |
+| **Medial OA** | **≥ ~1 cm** area of **>50% thickness** cartilage loss | lesser cartilage loss |
+| **Lateral OA** | same | same |
+| **PF OA** | same, patella vs femoral trochlea | same |
+| **Effusion** | **moderate or large** fluid distending the joint | trace / small |
+| **Synovitis** | inflammation **and thickening** of the synovial lining | — |
+| **Baker's cyst** | **moderate or large**, characteristic location | small |
+| **Contusion** | marrow edema-like signal from impact, **without a discrete fracture line** | — |
+| **Acute fracture** | **acute** cortical break or fracture line | — |
+
+### 2.1 Why this matters more than it looks: gold thresholds SEVERITY, reports report MENTIONS
+
+Eight of the twelve carry an explicit severity or acuity threshold. A radiologist writing
+"trace effusion", "mild chondromalacia", "intrasubstance degeneration", "low-grade MCL sprain"
+or "chronic ACL changes" is describing something the gold labels **negative** — while any
+mention-detector, ours or the public LLMs, scores it positive.
+
+**This is very likely the mechanism behind `IMPROVEMENTS.md` §2b**, which measured careful
+report reading at 84.7% agreement with gold and found *"~2/3 of that gap is one-directional
+threshold error"*. §2b found the symptom from the data; this document states the cause and the
+exact cut-points.
+
+The consequence is about **ranking**, which is what the metric reads. If an extractor scores
+"trace effusion" and "large effusion" the same, the sub-threshold cases are false positives
+ranked level with true ones and the AUC is spent. Our `rule_extractor.py` grades on
+**diagnostic certainty** (definite / probable / possible / negated) — a different axis from
+severity. "Definite trace effusion" is certain and below threshold; "possible large effusion"
+is uncertain and above it. **Grading the wrong axis is worth testing as a contributor to
+§1.3a's calibration failure.** Not yet measured — see §4.2.
+
+### 2.2 One hypothesis this generated, TESTED AND NOT SUPPORTED
+
+"Contusion = edema *without a discrete fracture line*" reads like a mutual exclusion, which
+would mean a study with a fracture should tend to be Contusion-negative. Measured on gold-58:
+
+| | P(Contusion=1) |
+|---|---:|
+| Fracture = 1 (n=18) | **0.556** |
+| Fracture = 0 (n=40) | 0.225 |
+
+They **co-occur positively**, because the exclusion is per-lesion, not per-study — a fracture
+site commonly has marrow edema elsewhere in the knee. The public labels put the same
+conditional at 0.723 against gold's 0.556, which is the right direction for an over-call but
+~1.4σ at n=18. **Not resolvable, not actionable.** Recorded because the hypothesis was
+plausible and someone will have it again.
+
+### 2.3 Anatomy, for reading the plane/slot design
+
+Three compartments — medial, lateral, patellofemoral — and OA is graded separately in each.
+Cruciates and menisci are best evaluated on **sagittal and coronal**; patellofemoral cartilage
+on **axial**. Fluid-sensitive sequences (PD/T2, usually fat-suppressed) are where most
+abnormalities are detected: *"a meniscal tear appears as abnormally increased signal that
+reaches the surface of the meniscus on more than one image."* For this competition
+"fluid sensitive" means edema/haemorrhage bright **and fat suppressed in some way** — which is
+why `Fluid_Sensitive` and `Fat_Suppression` are identical on all 24,371 series.
+
+---
+
+## 3. Corpus facts from the forum, checked against our own data
+
+| claim | source | our check |
+|---|---|---|
+| 58 of 4,407 labelled, all-or-nothing | multiple | **confirmed**, `eda_01` |
+| `Fluid_Sensitive` ≡ `Fat_Suppression`, all 24,371 series | `nekkon` | **confirmed exactly** |
+| Every study has all three **planes** | `nekkon` | **confirmed — 4,407/4,407** |
+| "no fallback path needed for a fixed-shape input" | `nekkon` | **FALSE for a 6-slot design.** Only **12.8%** of studies carry all six plane×contrast slots; **87.2% miss at least one**. Axial-FS 100%, Axial non-FS **19.4%**, Coronal non-FS 77.3%. True for planes, false for slots — masking is mandatory. Matches `FINDINGS.md` §3.2. |
+| Turkish negates **after** the term (`efüzyon izlenmedi`) | `nekkon` | plausible and unverified by us; would silently invert the 2nd-largest language under a left-only window. Relevant only if we build our own reader — `IMPROVEMENTS.md` §2.7 flagged the directionality gap independently |
+| gold is enriched — ACL 41% vs ~20% corpus | `nekkon` | **confirmed**, and consistent with `IMPROVEMENTS.md` §0 |
+| 7 languages + 428 unplaceable | `nekkon` | ours is finer: **9 languages** via lingua (`eda_03`), which supersedes a stopword detector |
+| Site leakage = **0.053** | `zhukovoleksiy/rsna-metadata-probe` | adopted; see `IMPROVEMENTS.md` §2i-a |
+| LLM 0.8780 vs regex 0.8136 on gold | `stevenleehans` | **reproduced exactly** by `extractor/bench_public_labels.py` |
+| 25.4% of label cells "not addressed"; Synovitis 83.7% | `stevenleehans` | consistent with our per-label results |
+
+### 3.1 Public leaderboard anchors
+
+| | local | LB |
+|---|---|---|
+| public baseline notebook | OOF 0.632 | 0.664 |
+| `pilkwang/rsna-knee-baseline-v1` | — | **0.891** |
+| `prvsiyan` / `0.899 let me cook` | — | 0.899 |
+| Yash Bishnoi B3 (highest visible) | OOF 0.8544, gold-58 0.8568 | **0.903** |
+| **leaderboard top, 2026-08-10** | — | **0.942** |
+
+**The 0.04 between the best visible solution and the top is unexplained by anything public.**
+Every public team now trains on the same handful of report-derived label tables, which caps
+them at a shared ceiling. Worth holding as the real competitive question rather than assuming
+the public frontier is the frontier.
+
+---
+
+## 4. Literature
+
+### 4.1 CheXpert / VisualCheXbert — the same problem, already studied
+
+Chest X-ray labelling from reports is the closest well-studied analogue: silver-standard labels
+from text, an explicit *uncertain* class, and image labels that disagree with report labels.
+
+- **Uncertainty handling is not a free choice.** U-Ones and U-Zeros (map uncertain to 1 or 0)
+  "yielded minimal improvement". **U-Ignore — masking uncertain labels in the loss — is
+  reported as *ineffective***, notably on borderline cases like "minimal cardiac enlargement".
+  The strategies that worked were **U-MultiClass** (uncertain as a third class) and
+  **U-SelfTrained** (self-predicted soft labels for uncertain cells).
+  → **This is evidence against `PLAN.md` Phase 3's "mask `absent` rather than re-target it".**
+  It is also support for what `stevenleehans` did to Synovitis, which is U-SelfTrained by
+  another name and is the one label repair that measurably worked.
+- **VisualCheXbert** ([paper](https://www.researchgate.net/publication/349546850_VisualCheXbert_Addressing_the_Discrepancy_Between_Radiology_Report_Labels_and_Image_Labels))
+  attacks exactly §2.1: it trains the labeller to predict **image** labels rather than report
+  labels, lifting weighted F1 **0.55 → 0.73**. The technique needs many image-labelled examples
+  and we have **58**, so it cannot be copied directly — but it names the right target, and it
+  is the strongest external argument that the report→image threshold gap is worth attacking
+  rather than accepting.
+
+### 4.2 Achievable per-label ceilings — MRNet
+
+[MRNet](https://journals.plos.org/plosmedicine/article?id=10.1371%2Fjournal.pmed.1002699)
+(Stanford, 1,370 exams, expert **image** reads): abnormality **0.937**, ACL **0.965**,
+meniscal **0.847**. Our gold-37: ACL 0.702, meniscus 0.634 / 0.526. The split is diagnostic —
+gross-appearance findings work, fine local texture at a specific site does not.
+
+MRNet also supervises three of the labels we are worst at, with expert image reads rather than
+report text, and §2.6.a/§2.5.a admit it.
+
+### 4.3 Localize-then-classify
+
+The RSNA 2024 Lumbar Spine winner used a two-stage
+[localize-then-classify pipeline](https://www.rsna.org/news/2024/november/2024-ai-challenge-winners):
+3D localisation, then classification on multiview 2.5D crops. The 0.903 recipe here already
+does a mm-based crop, which is the same idea in weaker form.
+
+---
+
+## 5. What this file says we should do that we are not yet doing
+
+1. **§1.1 unblocks our own LLM read.** Not because the public labels are bad — they are good —
+   but because §2g measured the public readers as near-duplicates (|r| 0.87–0.95), so they
+   ensemble poorly. A genuinely independent good reader is worth more than a sixth near-copy,
+   and our rule extractor is independent-but-wrong (§2f). Cost is a few dollars of API calls
+   over 4,407 short documents.
+2. **§2.1 is unexploited by everyone.** No public post discusses severity thresholding, and the
+   official criteria are explicit about it. A reader prompted with the **actual grading
+   criteria** — ">50% of fibres", "≥1 cm and >50% thickness", "moderate or large", "acute" —
+   should place sub-threshold mentions below threshold ones *in rank order*, which is the only
+   thing the metric reads. This is the cheapest untested idea on the board and it is grounded
+   in §4.1's VisualCheXbert result.
+3. **§4.1 contradicts a planned Phase 3 item.** Masking `absent` is reported ineffective in the
+   closest studied analogue. Re-rank it below U-SelfTrained-style imputation.

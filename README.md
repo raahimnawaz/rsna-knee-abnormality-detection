@@ -9,6 +9,8 @@ Twelve-label knee-MRI classification, macro-AUROC. Final submission **2026-10-22
 | **`PLAN.md`** | strategy, architecture, timeline, efficiency-track maths |
 | **`FINDINGS.md`** | measured facts about the data — label coverage, languages, series structure |
 | **`IMPROVEMENTS.md`** | **running friction log.** Open decisions, ranked weaknesses, resolved-bug provenance. Read before touching the extractor. |
+| **`REFERENCE.md`** | **external ground truth — host rulings, the official label criteria, forum facts checked against ours, literature.** New 2026-08-10; four retracted beliefs are why it exists |
+| `COMPETITION_RULES.txt` | the competition rules, verbatim |
 | `labeling/README.md` | hand-labelling workflow |
 
 ## The five facts that shape everything
@@ -609,6 +611,7 @@ Four rules follow, and they are cheap:
 | 5. **Gold-58 into training** | 58 image-read labels currently discarded | free | the fork does it; we hold all 58 out |
 | 6. **Our head vs `SlotHead`** | unknown — largest unmeasured claim | one instrument run | `PLAN.md` §7.1, never once compared |
 | 7. **Rank-mean over seeds** | mechanical, ~+0.01 | linear in runs | every public solution does it |
+| **NEW: severity-thresholded label read** | unknown, plausibly large | a few $ of API calls | 8 of 12 gold criteria carry an explicit severity/acuity cut that no mention-detector applies (`REFERENCE.md` §2.1); no public post discusses it |
 
 **Unknown → now measured, and it binds.**
 
@@ -626,7 +629,7 @@ Read in full, not summarised from the competition page. Four things settle open 
 
 | § | text | consequence |
 |---|---|---|
-| **2.4.b** | "not to transmit... or otherwise provide or make available the **Competition Data** to any party not participating" | **Sending report text to a hosted LLM API is out.** `IMPROVEMENTS.md` §1.1's week-one worry was correct. If we ever generate our own LLM labels, the model runs **locally** — which §2h shows is cheap. It is very likely why the 0.903 author served Qwen3.6-35B locally rather than calling an API. |
+| ~~**2.4.b**~~ | ~~"not to transmit... the Competition Data to any party not participating"~~ | ~~Sending report text to a hosted LLM API is out.~~ **WRONG — RETRACTED 2026-08-10, same day, on a host statement.** The Host has ruled explicitly that hosted LLMs are **permitted** and that sending report text to an external API for label extraction "will not, by itself, be considered prohibited PRIVATE SHARING". It is governed by §2.6.b (accessible to all, minimal cost), not §2.4.b, and PRIVATE SHARING means sharing with *other participants or teams*. Full quote in `REFERENCE.md` §1.1. **The error is the same class as reading a competitor's notebook from its description (§2e): a rule read without its official interpretation.** |
 | **3.6.b** | "You are permitted to publicly share Competition Code... deemed to have licensed the shared code under an OSI-approved license" | **Using the public LLM label tables is fine.** They are public Kaggle datasets, equally accessible to every participant. Whether their *producer* complied with 2.4.b is not our exposure, and nothing prohibits consuming publicly shared derived work. The Phase 2 risk note is **closed**. |
 | **2.6.a / 2.5.a** | external data must be "publicly available and equally accessible to all Participants... at no cost"; and "input data or pretrained models with an incompatible license... you do not need to grant an open source license for that data" | **MRNet is very likely admissible.** Free on request, so accessible at no cost, and 2.5.a carves out its research-only licence explicitly. The winner licence is **CC-BY-NC 4.0** — non-commercial, unusually compatible. **No forum-disclosure requirement appears anywhere in the rules.** |
 | **2.2.a / 3.4.b** | 5 submissions/day, 2 final; no hand labelling "of the validation dataset or test data records" | The submission budget that killed "the leaderboard is the instrument" is confirmed. 3.4.b constrains *test* labelling only — `labeling/` works on train reports and is unaffected. |
