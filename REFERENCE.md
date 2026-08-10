@@ -54,14 +54,55 @@ Full text in `COMPETITION_RULES.txt`. The clauses that settle live questions:
 | § | effect |
 |---|---|
 | 2.2.a | **5 submissions/day**, 2 final. This is what makes leaderboard-driven iteration unaffordable. |
-| 2.6.a | External data must be "publicly available and equally accessible to all Participants... at no cost" → **MRNet qualifies** (free on request). |
-| 2.5.a | "input data or pretrained models with an **incompatible license**... you do not need to grant an open source license for that data" → explicit carve-out for MRNet's research-only terms. |
+| 2.6.a | External data must be "publicly available and equally accessible to all Participants... at no cost" → **argues for MRNet, but see §1.3: the host was asked twice and has not answered.** |
+| 2.5.a | "input data or pretrained models with an **incompatible license**... you do not need to grant an open source license for that data" → explicit carve-out for research-only terms. |
 | 1.6 | Winner licence **CC-BY-NC 4.0** — non-commercial, unusually compatible with research-only external data. |
 | 3.6.b | Public sharing on Kaggle is permitted and deemed OSI-licensed → **using the public LLM label tables is fine.** |
 | 3.4.b | No hand labelling "of the **validation dataset or test data records**" → `labeling/` works on train reports and is unaffected. |
 | 1.5 | Prizes to **10th place** ($5,000) + **$18,000 across three efficiency prizes**. `PLAN.md` §6 is a live second route. |
 
 No forum-disclosure requirement for external data appears anywhere in the rules.
+
+### 1.3 External MRI datasets — ASKED TWICE, NOT ANSWERED `read 2026-08-10`
+
+`discussion/733652` asks directly whether MRNet, fastMRI+, OAI and SKM-TEA count as "publicly
+available and equally accessible at no cost", given that all are free but all require a
+click-through research-use agreement. A second participant re-asked under the host's own LLM
+post, noting most such datasets forbid commercial use while the prizes are money. **The host
+replied to the thread but answered only the LLM question and left this one open.**
+
+So: §2.6.a and §2.5.a *argue* MRNet is admissible, a participant (`NNMax`) reads it that way,
+and no host has confirmed it. **Downgraded from "very likely admissible" to "unresolved".**
+It gates a Phase 2 lever, so ask directly rather than assume — that is one forum post and it
+costs nothing.
+
+### 1.4 What the host confirmed about the labels `discussion/733826, read 2026-08-10`
+
+A participant audited 20 gold studies report-only (240 decisions) and put agreement at
+**82.5%** — within noise of `IMPROVEMENTS.md` §2b's independently measured 84.7%. Their error
+split is the important part: **FP 25 against FN 17**, i.e. report reading **over-calls**. That
+is the direction §2.1 below predicts, measured by someone else.
+
+The host's answers, verbatim where they matter:
+
+| question | host |
+|---|---|
+| Were labels assigned independently from the images, rather than extracted from the reports? | **"Yes"** |
+| If image interpretation and report text disagree, is the image-derived label authoritative? | **"Yes."** |
+| Do negative labels mean confirmed-absent, or possibly not-annotated? | **"the finding was annotated as absent"** |
+| Are the discrepancies annotation issues? | *"Discrepancies are plausible and expected because clinical reports typically involve one signing radiologist who created it for clinical care, and the image-based labels uses **multiple readers with stricter image-based thresholds**."* |
+
+**That last line is §2.1 below, confirmed by the host in their own words**, and it upgrades
+`IMPROVEMENTS.md` §2b from an inference to a documented design property of the dataset.
+
+**And one new fact with design consequences:** *"both knees may occasionally be scanned under
+one StudyInstanceUID. For the challenge, each bilateral study or bilateral report was
+individually reviewed, and the released report text or DICOM metadata was adjusted as needed to
+provide sufficient information for participants to disambiguate."* So bilateral studies exist,
+the labels are for **one** knee, and the disambiguation lives in the report text or the DICOM
+metadata. `FINDINGS.md` §6.2's laterality work and `IMPROVEMENTS.md` §2b-iii's "some studies
+carry more than one report" are the same phenomenon seen from two sides — and neither currently
+handles the case where one study contains two knees.
 
 ---
 
@@ -201,7 +242,37 @@ gross-appearance findings work, fine local texture at a specific site does not.
 MRNet also supervises three of the labels we are worst at, with expert image reads rather than
 report text, and §2.6.a/§2.5.a admit it.
 
-### 4.3 Localize-then-classify
+### 4.3 Fingerprint biometrics — a different field with our exact failure mode
+
+Suggested as an analogy and it holds better than expected. Latent-fingerprint recognition is
+fine ridge-level texture at specific locations, which is destroyed by global pooling — the same
+shape as ours, where gross-appearance labels work (Baker's 0.919, Medial OA 0.913) and
+localized fine-texture labels sit at chance (Fracture 0.494, Lateral Meniscus 0.526).
+
+What that field converged on:
+
+- **Minutiae patch embedding** ([MinNet, CVPRW 2022](https://openaccess.thecvf.com/content/CVPR2022W/Biometrics/papers/Ozturk_MinNet_Minutia_Patch_Embedding_Network_for_Automated_Latent_Fingerprint_Recognition_CVPRW_2022_paper.pdf)):
+  crop patches around detected keypoints, embed each patch, aggregate. Not one embedding of the
+  whole image.
+- **Dual global + local streams**: a global texture representation *plus* local descriptors,
+  fused — neither alone is sufficient.
+- **Multi-scale patches** at several sizes around the same keypoint.
+- **Patch-level attention** ([DeFraudNet](https://arxiv.org/pdf/2002.08214)): learn which
+  patches are discriminative end-to-end rather than pooling uniformly.
+
+**Two unrelated fields — fingerprint biometrics and the RSNA-2024 lumbar-spine winner (§4.4) —
+independently answer our failure mode the same way: localize first, then embed crops.** That
+convergence is worth more than either result alone.
+
+The direct transfer here is cheap because knee anatomy is stereotyped and the compartments are
+already named by the labels themselves: **medial, lateral, patellofemoral, and the
+intercondylar notch** for the cruciates. Four anatomical crops fed as additional slots, rather
+than one whole-FOV image per plane, is the minimal version — and it targets exactly the labels
+that are failing, since meniscal tears live at the tibial plateau margins and the ACL lives in
+the notch. No detector is needed for a first pass: `FOV_MM`/`TARGET_MM` already put the volume
+in millimetre space, so fixed relative crops are available for free.
+
+### 4.4 Localize-then-classify
 
 The RSNA 2024 Lumbar Spine winner used a two-stage
 [localize-then-classify pipeline](https://www.rsna.org/news/2024/november/2024-ai-challenge-winners):

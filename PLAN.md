@@ -315,6 +315,21 @@ Assuming `maxAUC ≈ 0.85`:
 > **Exchange rate: 0.001 macro-AUC ≈ 93 seconds.** (0.01 AUC ≈ 15.4 min.)
 > Robust to `maxAUC`: 108 s per 0.001 at 0.80, 81 s per 0.001 at 0.90.
 
+> **Would a C++ rewrite be worth it at, say, 0.96? No — and §6.1's own exchange rate is why.
+> `ANSWERED 2026-08-10`** At 93 seconds per 0.001 AUC, a rewrite has to save *minutes* to be
+> worth anything measurable. It cannot: the runtime is dominated by DICOM decode and GPU
+> forward passes, and **both are already native code** — the decoder is C, the forward is CUDA.
+> Python contributes orchestration only, plausibly under 5% of wall time, so a full port of a
+> ~12-minute run saves well under a minute ≈ **under 0.001 AUC equivalent**, against weeks of
+> work and a much harder §2.8 winner's-obligation deliverable (training code, inference code,
+> weights, and a reproducible environment).
+>
+> The levers that *are* worth it are all above the language line and are already ranked in §6.3:
+> slice count, backbone size, batching, and the decode backend — though note §3.1 measured the
+> corpus as **200/200 Explicit VR Little Endian at 3.1 ms/slice**, so even the dicomsdl lever is
+> gone. **The efficiency track rewards a strong model with a tuned I/O path, not a rewritten
+> one**, and §6.2 below is the argument.
+
 ### 6.2 The strategic consequence — accuracy dominates here
 **The test set is only ~1,300 studies.** At 3 series × 16 slices that's ~62,000 slices — a lean
 pipeline should finish in **5–15 minutes**, i.e. a runtime term of only 0.009–0.028. Even a heavy

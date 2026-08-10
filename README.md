@@ -612,11 +612,21 @@ Four rules follow, and they are cheap:
 | 5. **Gold-58 into training** | 58 image-read labels currently discarded | free | the fork does it; we hold all 58 out |
 | 6. **Our head vs `SlotHead`** | unknown — largest unmeasured claim | one instrument run | `PLAN.md` §7.1, never once compared |
 | 7. **Rank-mean over seeds** | mechanical, ~+0.01 | linear in runs | every public solution does it |
-| **NEW: severity-thresholded label read** | unknown, plausibly large | a few $ of API calls | 8 of 12 gold criteria carry an explicit severity/acuity cut that no mention-detector applies (`REFERENCE.md` §2.1); no public post discusses it |
+| **NEW: severity-thresholded label read** | unknown, plausibly large | a few $ of API calls | **HOST-CONFIRMED 2026-08-10**: "the image-based labels uses multiple readers with stricter image-based thresholds". An independent audit puts report-reading at FP 25 vs FN 17 — over-calling, the predicted direction. `REFERENCE.md` §1.4, §2.1 |
+| **NEW: anatomical crops as slots** | targets exactly the failing labels | cheap — volumes are already in mm space | fingerprint biometrics and the RSNA-2024 lumbar winner independently answer our failure mode the same way: localize, then embed crops (`REFERENCE.md` §4.3–4.4) |
+| **NEW: text as auxiliary supervision** | unknown | one head | `extract_states.csv` has held structured attributes since week one and **nothing has ever consumed it**; the public tables ship 12 numbers and nothing else (§2k) |
 
 **Unknown → now measured, and it binds.**
 
-- **Site leakage is worth 0.053** (`zhukovoleksiy/rsna-metadata-probe`, §2i-a): DICOM headers
+- **External MRI datasets (MRNet, OAI, fastMRI+, SKM-TEA) — asked twice on the forum, NOT
+  answered by the host.** Free but click-through. §2.6.a/§2.5.a argue yes; nobody official has
+  said so. It gates a Phase 2 lever, so **ask directly** — one forum post, costs nothing.
+  `REFERENCE.md` §1.3.
+- **Bilateral studies exist** — the host confirms both knees are occasionally scanned under one
+  `StudyInstanceUID`, with labels for one knee. Nothing here detects that, and `canonicalise()`
+  would mirror both to the same handedness. Needs a count before it is worth fixing (§2k).
+- ~~Site leakage is worth 0.053~~ **MEASURED for us: +0.024** (§2j). Original note:
+  **the public probe's 0.053** (`zhukovoleksiy/rsna-metadata-probe`, §2i-a): DICOM headers
   with no pixels score 0.6516 under random folds and 0.5981 grouped on a scanner fingerprint.
   **`data/folds.csv` is ungrouped, so our §2g instrument carries an unknown share of this.**
   Fixed-target A/Bs mostly survive (both arms inflate together); the **reproduction gate does

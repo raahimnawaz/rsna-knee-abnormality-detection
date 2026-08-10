@@ -955,6 +955,87 @@ with neither is untestable.
 
 ---
 
+## 2k. Pipeline audit — normalisation, hashing, dtype, split unit `AUDITED 2026-08-10`
+
+Six questions asked of the code rather than of memory. Three clean, three with a caveat worth
+carrying.
+
+### Is the intensity normalisation a leakage path? **No.**
+
+`pipeline/preprocess.py::normalise_and_resample` takes **per-volume** robust percentiles —
+`np.percentile(vol, [0.5, 99.5])` over *that series only* — then scales to [0,1] and clamps.
+`imagenet_normalise` applies fixed ImageNet constants. **No statistic is ever computed across
+studies**, so there is nothing for train to learn about test. This is also the right choice on
+its merits: MRI has no HU standard, so a fixed window would be meaningless.
+
+Two caveats that are not train/test leakage but are worth knowing:
+
+- **`LATERALITY_X_THRESHOLD = -62.0` is a fitted constant** — fit on the tagged half of train,
+  cross-validated at 97.32% ± 0.72% with the threshold itself stable at −62.4 ± 4.5. Fitting on
+  train and applying at test is legitimate, but it is the one number in the preprocessing that
+  came from data rather than from physics, and it is baked into the fingerprint.
+- **Per-volume normalisation does not remove scanner signature.** Residual contrast and texture
+  remain scanner-specific, and §2j measured what that is worth: **+0.024**. Not leakage between
+  splits — leakage between *sites*, which is why `folds_site.csv` now exists.
+
+### Is the preprocessing config hashed? **Yes, with two known holes — both already in the code.**
+
+`_fingerprint()` → SHA-256 over `{model, img_size, slices, target_mm, fov_mm, embed_dim,
+canonical_side, norm, stack, lat_x_threshold}`, truncated to 12 hex and written into every
+cache manifest (`preprocess_version: cdaee5e66c6b` for `features_224`).
+
+- **It hashes the DESCRIPTION, not the implementation.** `norm` is the literal string
+  `"pct_0.5_99.5"`. When the implementation moved from `torch.quantile` to `np.percentile` — a
+  forced change, `torch.quantile` raises above 2²⁴ elements and the corpus has 768×768 series —
+  the fingerprint could not have detected it. It happened to be a no-op, and nothing was cached
+  yet. **A hash over a description cannot police the code it describes.**
+- `SLICES_PER_SERIES_TRAIN` is excluded on purpose (it describes the head, not the cache) and is
+  stamped into each checkpoint instead — K19, §6.2. `SAGITTAL_LR_SLICE_FLIP` is hashed only when
+  enabled, so leaving it off is a genuine no-op.
+
+### What is the dtype?
+
+| | dtype | why |
+|---|---|---|
+| `feats` | **float16** `(94, 1536)` | post-LayerNorm embeddings, well inside fp16 range; halves a 2.2 GB cache |
+| `series_idx` | int16 | ≤ 24,371 series |
+| `plane`, `fluid_sensitive`, `laterality` | int8 | 3–6 categories |
+| **slot pixel cache (to build)** | **uint8** | 3 × 336² per slot image, ~9 GB; what the fork uses |
+
+The uint8 choice is a real decision, not a default: after percentile normalisation to [0,1] it
+gives 256 levels across the 0.5–99.5 range, ~0.4% intensity resolution. The public 0.891 fork
+quantises the same way, so it is evidently adequate for these findings — but it is the kind of
+constant that should be in the fingerprint of the new cache, and it was never in the old one.
+
+### Are the images split by patient or by study? **By study, and there is no alternative.**
+
+Re-confirmed against the header parquet, which is a stronger source than the earlier
+`kaggle_01b` pass: **4,407 studies, 4,407 distinct `PatientID`s, zero patients with more than
+one study.** The IDs are de-identified per study, so patient linkage does not exist in this
+dataset and `fusion/folds.py`'s module docstring is correct.
+
+**But the host has now stated that bilateral studies exist** — both knees occasionally scanned
+under one `StudyInstanceUID`, with the report text or DICOM metadata adjusted so participants
+can disambiguate (`REFERENCE.md` §1.4). The labels are for **one** knee. Nothing in this
+pipeline currently detects a two-knee study, and `canonicalise()` would mirror both into the
+same handedness. Related to §2b-iii. Unmeasured; needs a count before it is worth fixing.
+
+### Has the text branch been exploited? **No, and half of it is structurally impossible.**
+
+`test.csv` has no `Report` column, so a text branch has nothing to read at inference and can
+never be part of the model. Text can only ever produce **targets**.
+
+What is *not* impossible and has never been tried: **text as auxiliary supervision.** The image
+model can be trained to predict report-derived quantities beyond the twelve bits — an auxiliary
+head, or a report-embedding alignment objective in the ConVIRT / GLoRIA family. `PLAN.md` §2.1
+explicitly asked for "structured attributes, not just the 12 bits" and
+`extractor/run_extract.py` has been emitting them to `data/extract_states.csv` since week one.
+**Nothing has ever consumed that file as a training signal.** It is the one asset the retired
+extractor track produced that is not superseded by the public labels, because the public tables
+ship twelve numbers and nothing else.
+
+---
+
 ## 3. Resolved (kept for provenance — these are the failure *patterns* to watch for)
 
 | # | Issue | Root cause | Fix |
