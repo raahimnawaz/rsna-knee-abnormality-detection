@@ -22,5 +22,4 @@ Thumbs.db
 data/features/
 data/features_224/
 data/nifti/
-fusion/runs/
-fusion/runs_cal/
+fusion/runs*/

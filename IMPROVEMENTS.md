@@ -141,6 +141,21 @@ fold, each fitted only on gold *outside* that fold. Across folds they are stable
 `0.743 → 0.699` on the 224 cache, 37 gold studies, identical folds and seed. **The recalibrated
 targets are worse than the guessed ones**, and the mechanism is measurable rather than inferred:
 
+> **BASELINE CORRECTION 2026-08-09 (later).** The `0.743` arm is **no longer reproducible** and
+> the current default-target baseline on the same cache is **0.719**. Two things happened after
+> it was measured: K17 destroyed the run's artefacts, so old-vs-new OOF cannot be diffed; and the
+> `_nifti_axes` fix deleted 43 mis-reformatted cache entries, leaving those studies with fewer
+> series. Two identical re-runs on the post-deletion cache give **0.719 and 0.719** — every
+> per-label AUC agreeing to three decimals — so **training is fully deterministic on MPS** and
+> the 0.024 is attributable to the deleted entries, not to run noise. Removing corrupt series
+> lowered the score because it removed *data*, not because the corruption helped.
+>
+> That determinism is worth more than the correction itself: **every A/B in this file measures a
+> real difference, with no run-to-run floor underneath it.** The ±0.038 bootstrap CI is still
+> the sampling limit on n=37 and still governs whether a difference *generalises* — but it is
+> not masking nondeterminism. Re-read the ladder comparison as `0.719-equivalent → 0.699`; the
+> sign and the mechanism below are unaffected, since both arms shared folds, seed and cache.
+
 | label | absent 0.08 → | share `absent` | ΔAUC |
 |---|---:|---:|---:|
 | Synovitis | 0.307 | 87.6% | **−0.182** |
@@ -286,10 +301,15 @@ silently inverts findings. Worth a proper sentence segmenter.
 negation (cue → following N tokens, stopping at contrastive markers like *but/however/ancak/
 но/αλλά*). Currently handled only by luck of punctuation.
 
-### 2.8 Laterality of the KNEE is not used at all `LOW for text, HIGH for vision`
+### 2.8 Laterality of the KNEE is not used at all `LOW for text, PARTLY FIXED for vision`
 The extractor never reads left/right. Irrelevant for text labels, but the vision pipeline
 **must** canonicalise handedness or Medial/Lateral labels are meaningless — see `PLAN.md`
 §3.2. Confirm `(0020,0060) Laterality` survived the 86-tag allowlist.
+
+> **CORRECTION 2026-08-09.** This item read as satisfied by `canonicalise()`. It was satisfied
+> for **half the corpus**: axial and coronal only. Sagittal carries medial/lateral on the slice
+> axis, which nothing in the pipeline reversed — 40.5% of series, 43.0% of them left knees.
+> See **K18**. Do not treat this item as closed until `SAGITTAL_LR_SLICE_FLIP` is on.
 
 ### 2.9 Two sources of truth for terms `LOW`
 `glossary.json` now serves both the labeler (highlighting) and the extractor (classification),
@@ -451,6 +471,62 @@ Intra-rater consistency: **100%** on the 2 duplicate pairs seen so far (small, b
 
 ---
 
+## 2d. The vision model's ceiling is resolution, not labels `MEASURED 2026-08-09`
+
+The obvious reading of a 0.719 macro is that the pseudo-labels cap it: the model is trained on
+extractor output, so it cannot be better than the extractor. **That is measurable, and it is
+false.**
+
+Per-label, extractor-vs-gold against vision-OOF-vs-gold, same 12 labels:
+
+| label | extractor | vision | Δ |
+|---|---:|---:|---:|
+| Lateral Meniscus | 0.858 | 0.526 | **−0.332** |
+| Fracture | 0.768 | 0.494 | **−0.274** |
+| ACL | 0.908 | 0.702 | −0.206 |
+| Medial Meniscus | 0.819 | 0.634 | −0.185 |
+| Contusion | 0.741 | 0.603 | −0.138 |
+| MCL | 0.813 | 0.694 | −0.119 |
+| PF OA | 0.760 | 0.767 | +0.007 |
+| Baker's | 0.850 | 0.919 | +0.069 |
+| Synovitis | 0.607 | 0.685 | +0.078 |
+| Lateral OA | 0.714 | 0.824 | +0.110 |
+| Effusion | 0.743 | 0.863 | +0.120 |
+| Medial OA | 0.715 | 0.913 | **+0.198** |
+
+**Spearman between the two columns is −0.17 (p=0.60).** Label quality does not predict vision
+performance at all. Lateral Meniscus has the second-*cleanest* labels in the set and vision sits
+at chance; Synovitis has the *worst* and vision beats it by +0.078. A label ceiling would bind
+only if the noise were correlated with image appearance, and over 4,349 studies it plainly is
+not — the model exceeds its own training labels on six of twelve.
+
+**What the split tracks instead is the physical size of the finding.** The six vision wins are
+centimetre-scale and high-contrast: osteophytes and joint-space narrowing, bulk fluid, a
+popliteal cyst. The six losses are millimetre-scale structural lines: a meniscal tear, a
+non-displaced fracture, ligament fibre discontinuity. *(The size reading is anatomical
+interpretation; the correlation above is not.)*
+
+**And the 224 cache resolves 0.71 mm/px.** `normalise_and_resample` resamples to
+`TARGET_MM` = 0.35 and centre-fits to `round(FOV_MM/TARGET_MM)` = **457 px** — the full 160 mm
+knee, correctly — and then `imagenet_normalise` interpolates that straight down to `IMG_SIZE`:
+
+| IMG_SIZE | mm/px over the 160 mm FOV | tokens/slice |
+|---:|---:|---:|
+| 224 | **0.714** — the 0.35 mm resample is discarded | 261 |
+| 518 | 0.309 ≈ as designed | 1,374 |
+
+At 0.71 mm/px a meniscal tear line or a non-displaced fracture line is about one pixel. That is a
+resolution-limited signature, and it says the 518 rebuild is a **larger lever than the ordering
+fixes** — K16 and K18 target the four medial/lateral labels, resolution targets six including
+the two sitting at chance.
+
+**Consequence for sequencing.** The ordering fixes require a cache rebuild anyway. Rebuild at
+518 rather than 224 and the two land in one job instead of two. Before committing the ~16 h,
+`--limit` keeps all gold, so a 518 subset build (~5 h) compared against the *same* subset of the
+existing 224 cache (free) isolates resolution from corpus size and answers it the same day.
+
+---
+
 ## 3. Resolved (kept for provenance — these are the failure *patterns* to watch for)
 
 | # | Issue | Root cause | Fix |
@@ -524,7 +600,12 @@ failed at the modelling. Recorded in the same format as §3 because the failure 
 | K13 | `--self-test` covered **neither** of K7's or K8's mechanisms | probe thresholds started at 25 series and the synthetic corpus holds 21; `self_test` always passed `_SerialPool`, so the spawn pool was never constructed | thresholds are a constant the test lowers; a pool test asserts fan-out, thread pinning, and no re-glob |
 | K14 | **The backbone cannot run at `IMG_SIZE=224` at all.** The kernel sets it (`os.environ.setdefault("IMG_SIZE", "224")`) and `forward_features` raises `AssertionError: Input height (224) doesn't match model (518)` on the **first series** — past the GPU guard, past the corpus walk, past the weights download | `vit_base_patch14_reg4_dinov2.lvd142m` is 518-native (1,369 position tokens) and timm will not interpolate the position embedding unless asked. `create_model(MODEL, pretrained=True, num_classes=0)` has carried no size argument since `ab5be8a` | `dynamic_img_size=True` in **both** `kaggle_02` and `kaggle_03`, plus a one-slice smoke of the real `embed()` immediately after the model is built. Reproduced and fixed locally on timm 1.0.28, 2026-08-08 |
 | K15 | **`normalise_and_resample` raises on any large series.** `torch.quantile` has a hard ceiling at 2**24 (16,777,216) elements and a 32-slice series at 768×768 is 18,874,368. The corpus contains 768×768 series, so this is not a corner case — it is every large series | `torch.quantile()` is documented as limited but the limit is not in its signature, and the call sits in the **shared** path, so `kaggle_02` would have hit it mid-build after hours of GPU. The five failed attempts all died on the GPU lottery or mount latency before reaching a series this big | `np.percentile` — same statistic, same linear interpolation, agrees to 6.3e-8, no ceiling. Found 2026-08-09 on the **first real run** of `build_cache_local.py`, on the 12th study |
-| K16 | **A third of NIfTI series are stored back-to-front**, and nothing in the file says which. Measured on a stratified sample: 66.7% forward overall — Axial 12/12, Coronal 14/18, **Sagittal 8/21** | The affine carries no direction cosines (see §9.1's correction), so `load_series_nifti` cannot know. `load_series` always sorts ascending by IPP projection, so train and test disagree on ~1/3 of series — in the axis medial/lateral depends on, and invisible to `PREPROCESS_VERSION` | **OPEN.** Needs a per-series direction bit exported from the DICOMs (Phase 0.1). Not predictable from plane: a plane rule is ~72% accurate. The first verdict said 100% forward because every thumbnail in that sample was Axial_0 |
+| K16 | **A third of NIfTI series are stored back-to-front**, and nothing in the file says which. Measured on a stratified sample: 66.7% forward overall — Axial 12/12, Coronal 14/18, **Sagittal 8/21** | The affine carries no direction cosines (see §9.1's correction), so `load_series_nifti` cannot know. `load_series` always sorts ascending by IPP projection, so train and test disagree on ~1/3 of series — in the axis medial/lateral depends on, and invisible to `PREPROCESS_VERSION` | **OPEN.** Needs a per-series direction bit exported from the DICOMs (`PLAN.md` §9 Phase 0 step 2). **K18 composes with this** — the sagittal handedness fix is an XOR against this bit and cannot be enabled without it. Not predictable from plane: a plane rule is ~72% accurate. The first verdict said 100% forward because every thumbnail in that sample was Axial_0 |
+
+| K17 | **A `--synthetic` smoke run overwrote the real result directory**, and the guard that should have caught it passed. `fusion/runs/` held the fold checkpoints, pooled OOF and summary of the 0.743 run; a smoke run replaced all three at 15:55 on 2026-08-09. The directory is gitignored, so nothing survived | `--out` defaulted to `fusion/runs` regardless of `--synthetic`, and the smoke command in the file's own docstring inherits that default. The second half is worse: synthetic mode left `cache_meta` as `None` and therefore wrote **no** manifest, so the genuine `manifest.json` from the previous run stayed in place and vouched for the random-tensor weights. `assert_matches()` reads only `preprocess_version`, which still said `cdaee5e66c6b`, so a Dataset bundled from that directory would have passed every guard and submitted noise | `--out` resolves **after** parsing to `fusion/runs_synthetic` under `--synthetic`; synthetic mode writes a self-marking manifest so a collision fails closed; `assert_matches()` refuses `synthetic: true` **before** the version check. Verified against all three manifests on disk — the archived clobbered directory still passes the version check, which is the hole demonstrated rather than argued |
+| K18 | **`canonicalise()` never corrected handedness for sagittal series.** Medial/lateral is the image x-axis for axial and coronal but the **slice axis** for sagittal, and `vol[:, :, ::-1]` is the only reversal in the whole pipeline — nothing ever touched axis 0. Exposure: sagittal is the largest plane at **9,864 of 24,371 series (40.5%)**, and **1,894 of 4,407 studies (43.0%)** resolve to left knees | The docstring argued that flipping a sagittal series "would mirror the knee front-to-back for no gain" — true of the *in-plane* axis, since sagittal's image x-axis is anterior-posterior, and it simply never considered the slice axis. `spatial_order` sorts ascending along the slice normal; for sagittal that normal is the patient's left-right axis, on which medial is +x for a right knee and −x for a left one, so one sort yields lateral→medial for one knee and medial→lateral for the other. `FusionHead.slice_pos` is a **learned per-index** embedding, so slice 5 meant lateral in one study and medial in the next | **OPEN — code written and gated off.** `canonicalise(..., slice_direction=)` reverses the slice axis for sagittal left knees, as an **XOR against the K16 bit** so the two corrections compose instead of colliding. Behind `SAGITTAL_LR_SLICE_FLIP`: **one** switch consulted by both readers, because `load_series` knows its direction and `load_series_nifti` does not, and a per-call decision would canonicalise the test set but not the training cache. Off is a byte-level no-op — the fingerprint is still `cdaee5e66c6b`, so the existing cache is not invalidated by a no-op. Needs K16's per-series bit to turn on; `preprocess.py --self-test` asserts the axis table both ways |
+
+| K19 | **The slice count reached inference through the cache manifest, where nothing could check it.** `kaggle_03` read `slices_per_series_train` from the manifest with a silent fallback to its own constant. `SLICES_PER_SERIES_TRAIN` is deliberately outside `PREPROCESS_VERSION` — the cache always stores 32 slices and the head samples a subset, so the count changes no cached feature value — which means `assert_matches()` was structurally blind to it | The exclusion from the fingerprint is right; reading it from the *cache* manifest was not. The number describes the **head**, not the cache. Feeding the wrong count is a silent scorer rather than a crash: `slice_pos` is a learned per-index embedding, so the head's positions are simply read at the wrong indices and every guard still passes | `fusion/train.py` stamps `n_slices_train` into each checkpoint, taken from the validation `StudyDataset` that actually fed the head rather than from the constant. `load_heads()` reads it from there, **exits** if folds disagree (they were not one run and must not be ensembled), and exits if it contradicts the manifest. A checkpoint from before 2026-08-09 warns and falls back. All three branches exercised against crafted checkpoints |
 
 **The recurring pattern, and it is not the extractor's.** There, guessed *vocabulary* was wrong
 far more often than the logic. Here, three of fourteen entries (K3, K4, K5) are the same guard
@@ -578,9 +659,13 @@ session run for hours.
 - **The ~19 ms/open cost model is not measured.** It is inferred from the failed runs and
   mis-attributed to `kaggle_01b`, which does not time opens (`FINDINGS.md` §6.1). The PROBE
   replaces it with a real number on the next shard — record it.
-- **`SLICES_PER_SERIES_TRAIN` is deliberately excluded from the fingerprint**, so a train/serve
+- ~~**`SLICES_PER_SERIES_TRAIN` is deliberately excluded from the fingerprint**, so a train/serve
   mismatch on the slice count is not caught by `assert_matches()`. It travels in the manifest as
-  data and `kaggle_03` reads it from there; if that indirection ever breaks, nothing raises.
+  data and `kaggle_03` reads it from there; if that indirection ever breaks, nothing raises.~~
+  **CLOSED 2026-08-09 — K19.** The exclusion is correct and stays: the count changes no cached
+  feature value, so it does not belong in a *cache* fingerprint. The error was reading it from
+  the cache manifest at all. It describes the **head**, so it is now stamped into each
+  checkpoint from the Dataset that fed it, and `kaggle_03` reads it from there.
 - **Two device pickers became one** (`pick_device(allow_mps=...)`), but the `"unusable"` sentinel
   still leaks into callers, each of which special-cases it differently — exit in `kaggle_02`, CPU
   in `kaggle_03` and `fusion/train.py`. That is deliberate (the right answer genuinely differs per

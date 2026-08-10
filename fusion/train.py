@@ -206,7 +206,7 @@ def run_fold(fold, folds, store, targets, args, dev):
             print(f"    fold {fold} ep {ep + 1}/{args.epochs}  loss {tot / max(n, 1):.4f}")
 
     uids, preds = predict(model, va_dl, dev)
-    return model, uids, preds, len(tr_ids)
+    return model, uids, preds, len(tr_ids), va_ds.n_slices
 
 
 def main() -> None:
@@ -232,12 +232,20 @@ def main() -> None:
     ap.add_argument("--series-dropout", type=float, default=0.25)
     ap.add_argument("--feature-noise", type=float, default=0.01)
     ap.add_argument("--seed", type=int, default=20260807)
-    ap.add_argument("--out", default=str(PROJ / "fusion" / "runs"))
+    ap.add_argument("--out", default=None,
+                    help="default fusion/runs, or fusion/runs_synthetic under --synthetic. "
+                         "On 2026-08-09 a --synthetic smoke run inherited this default and "
+                         "overwrote the fold*.pt, oof_gold.csv and summary.json of the 0.743 "
+                         "result; the directory is gitignored, so nothing survived")
     ap.add_argument("--limit", type=int, default=0,
                     help="train on the first N studies only -- fast iteration on the M5 "
                          "while the full cache downloads")
     ap.add_argument("--verbose", action="store_true")
     args = ap.parse_args()
+
+    # Resolved after parsing, not as an argparse default, because it depends on --synthetic.
+    if args.out is None:
+        args.out = str(PROJ / "fusion" / ("runs_synthetic" if args.synthetic else "runs"))
 
     # Before the device probe and the ~2.4 GB cache load: a bad flag combination here should
     # cost a second, not the minute it takes to page the features in.
@@ -272,6 +280,14 @@ def main() -> None:
                              seed=args.seed)
         print(f"SYNTHETIC features for {len(store)} studies ({len(g)} gold) -- shapes only, "
               f"AUCs are chance by construction")
+        # Written beside the checkpoints so the marker travels WITH the weights. --out already
+        # keeps a smoke run off fusion/runs; this is what catches the case where someone points
+        # it there anyway. Leaving cache_meta None instead would skip the write and let a real
+        # manifest left over from an earlier run vouch for synthetic weights -- which is exactly
+        # the state fusion/runs was found in: 15:55 fold*.pt beside a 14:41 manifest whose
+        # fingerprint assert_matches accepted.
+        cache_meta = {"synthetic": True, "preprocess_version": None,
+                      "note": "random features from fusion/train.py --synthetic; not submittable"}
     else:
         fdir = Path(args.features)
         if not fdir.exists():
@@ -298,13 +314,19 @@ def main() -> None:
     oof: dict[str, np.ndarray] = {}
     for f in sorted(folds.fold.unique()):
         tgt = targets if cal is None else calibrated_targets(cal, f, states, ids)
-        model, uids, preds, n_tr = run_fold(f, folds, store, tgt, args, dev)
+        model, uids, preds, n_tr, va_n_slices = run_fold(f, folds, store, tgt, args, dev)
         oof.update(dict(zip(uids, preds)))
         print(f"  fold {f}: trained on {n_tr:,}, predicted {len(uids):,}")
         outdir = Path(args.out)
         outdir.mkdir(parents=True, exist_ok=True)
+        # n_slices_train is read off the validation Dataset rather than off the constant, so it
+        # records what this head was ACTUALLY fed. It is deliberately absent from
+        # PREPROCESS_VERSION -- it changes no cached feature value, only how many of the 32
+        # cached slices the head ever saw -- so the fingerprint cannot police it and kaggle_03
+        # has to check the checkpoint instead (IMPROVEMENTS 6.2).
         torch.save({"state_dict": model.state_dict(), "d": args.d,
-                    "labels": LABELS, "fold": int(f)}, outdir / f"fold{f}.pt")
+                    "labels": LABELS, "fold": int(f),
+                    "n_slices_train": int(va_n_slices)}, outdir / f"fold{f}.pt")
         if cache_meta is not None:
             # Beside the checkpoints, not in a report file: this Dataset is what gets attached
             # to the submission notebook, and the manifest has to travel WITH the weights or

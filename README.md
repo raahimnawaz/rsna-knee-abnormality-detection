@@ -23,7 +23,9 @@ Twelve-label knee-MRI classification, macro-AUROC. Final submission **2026-10-22
 4. **The leaderboard hit 0.932 within 48 hours of opening, on forks of public DINOv2
    notebooks** — and weak labels for all 12 findings are public too. So 0.9 is table stakes,
    the backbone cannot differentiate us, and "the extractor is the solution" is a claim to be
-   earned rather than assumed. Measured in `PLAN.md` §7.1.
+   earned rather than assumed. Measured in `PLAN.md` §7.1. As of 2026-08-09 the top is **0.940**
+   over **908 teams**, and an unmodified public fork scores **0.891** at rank 230 — so the entire
+   spread from mid-table to first is about **0.05 AUC**.
 
 ## Does our extractor actually beat the free one?
 
@@ -282,11 +284,41 @@ and MCL lands at zero positives in two of them.
 
 ## Where this stands, and what is wrong — 2026-08-09
 
-The pipeline works end to end and produced **macro AUC 0.743** (37 gold studies, images only,
-224px, 61% of the corpus, no tuning). Six defects stand between that and a competitive
-submission. They are listed by cost, and every claim here is measured.
+The pipeline works end to end and produces **macro AUC 0.719** (37 gold studies, images only,
+224px, 60% of the corpus, no tuning). Defects are listed **by cost**, and every claim here is
+measured.
 
-### 1. Slice direction is mixed — this blocks a valid submission
+> The headline was `0.743` until 2026-08-09. That run's artefacts were destroyed by K17 and the
+> `_nifti_axes` fix then deleted 43 mis-reformatted cache entries; `0.719` is the same
+> configuration on the corrected cache. Two identical re-runs agree to three decimals on every
+> label, so **training is deterministic** and A/B differences here are real. See
+> `IMPROVEMENTS.md` §1.3a.
+
+### 1. Resolution — the 224 cache throws away half the detail, and it is the biggest lever
+
+`normalise_and_resample` resamples to `TARGET_MM` = 0.35 mm/px and centre-fits to
+`round(FOV_MM/TARGET_MM)` = **457 px**, the full 160 mm knee. Then `imagenet_normalise`
+interpolates that straight down to `IMG_SIZE`:
+
+```
+224   0.714 mm/px over the 160 mm FOV    261 tokens/slice   <-- the 0.35 resample is discarded
+518   0.309 mm/px  ~= as designed      1,374 tokens/slice
+```
+
+**The labels this costs are exactly the ones failing.** Against the extractor's own per-label
+AUC as a control, vision *beats* text on six labels (Medial OA +0.198, Effusion +0.120) and
+collapses on six (Lateral Meniscus −0.332, Fracture −0.274, ACL −0.206). Spearman between the
+two columns is **−0.17 (p=0.60)** — label quality does not predict vision performance, which
+rules out the pseudo-labels as the ceiling. What the split tracks is the physical size of the
+finding: centimetre-scale fluid and bone morphology succeed, millimetre-scale tear and fracture
+lines fail. At 0.71 mm/px those lines are about one pixel. Full table and method in
+`IMPROVEMENTS.md` §2d.
+
+This outranks the two ordering defects below: they target the four medial/lateral labels,
+resolution targets six including the two at chance. Since §2 and §3 force a rebuild anyway,
+**rebuild at 518 rather than 224** and both land in one job.
+
+### 2. Slice direction is mixed — this blocks a valid submission
 
 `validate_nifti.py` check 4b, stratified across all six series types (n=51):
 
@@ -304,22 +336,57 @@ opposite to the test path, in the axis medial/lateral discrimination depends on,
 
 Not predictable from plane: a plane rule scores ~72%. It must be resolved per series.
 
-**This depresses 0.743 rather than inflating it.** The first verdict said "100% forward" because
-every thumbnail in that sample was `Axial_0` — see §7.
+**This depresses 0.719 rather than inflating it.** The first verdict said "100% forward" because
+every thumbnail in that sample was `Axial_0` — see §8.
 
-### 2. There is no leaderboard anchor
+### 3. Sagittal handedness was never corrected — K18
 
-Nothing has ever been submitted. `0.743` is pooled-OOF on 37 **enriched** gold studies —
-§1.1 of `FINDINGS.md` records that the 58 were "clearly curated to cover every finding", positive
-rates 16–60%. The public LB is ~390 natural-prevalence studies.
+`canonicalise()` mirrors left knees onto the right, but only **in-plane**, and only for axial and
+coronal. For sagittal, medial/lateral is the **slice axis**, and `vol[:, :, ::-1]` is the only
+reversal in the pipeline — nothing ever touched axis 0. The docstring's argument that a sagittal
+flip "would mirror the knee front-to-back for no gain" is true of the in-plane axis and never
+considered the other one.
 
-That makes our instrument the harder one: on an enriched set the negatives for ACL are frequently
-knees positive for meniscus or OA, so the model must separate pathology from pathology rather
-than from healthy. AUC is insensitive to the prevalence *ratio*, which `PLAN.md` §8 records, but
-not to how hard the negatives are. **0.743 and a public 0.899 are not on the same scale, and the
-gap is unmeasured.**
+`spatial_order` sorts ascending along the slice normal; for sagittal that normal is the patient's
+left-right axis, on which medial is +x for a right knee and −x for a left one. So one sort gives
+lateral→medial for one knee and medial→lateral for the other, and `FusionHead.slice_pos` is a
+**learned per-index** embedding — slice 5 meant lateral in one study and medial in the next.
 
-### 3. The moat comparison is stale
+Exposure: sagittal is the largest plane at **9,864 of 24,371 series (40.5%)**, and **1,894 of
+4,407 studies (43.0%)** are left knees. Four of twelve labels are medial/lateral pairs.
+
+Code is written and **gated off** behind `SAGITTAL_LR_SLICE_FLIP` — one switch for both readers,
+because a per-call decision would canonicalise the test set and not the training cache. It is an
+XOR against §2's direction bit, so the two corrections compose; it cannot be turned on until that
+bit exists. Off is a byte-level no-op and the fingerprint is unchanged.
+
+### 4. The leaderboard anchor exists — and it is not ours
+
+| | score | note |
+|---|---:|---|
+| LB top | **0.940** | 908 teams |
+| ours, submitted 2026-08-09 | **0.891** | unmodified fork of `pilkwang/rsna-knee-baseline-v1`; rank **230/908** |
+| our own pipeline | — | never submitted |
+
+So Phase 1's first half is done and the reference implementation reproduces. **The whole spread
+from rank 230 to rank 1 is ~0.05 AUC**, which sets the scale for everything below.
+
+What is still unmeasured is the mapping from *our* CV to the LB. `0.719` is pooled-OOF on 37
+**enriched** gold studies — §1.1 of `FINDINGS.md` records the 58 as "clearly curated to cover
+every finding", positive rates 16–60% — while the public LB is ~390 natural-prevalence studies.
+Ours is the harder instrument: on an enriched set the negatives for ACL are frequently knees
+positive for meniscus or OA, so the model must separate pathology from pathology rather than from
+healthy. AUC is insensitive to the prevalence *ratio* (`PLAN.md` §8) but not to how hard the
+negatives are. **0.719 and 0.891 are not on the same scale.**
+
+In its current state — 224 px, 60% of the corpus, a third of series back-to-front — our own
+pipeline would very likely score *below* the 0.891 already banked. Submitting it is therefore not
+a score move. It is still worth one run, because `kaggle_03_submit.py` has **never executed
+against a real test DICOM** and every untested path in this repo has held defects. Treat the
+first own-pipeline submission as a dry run of the inference path that returns the CV↔LB mapping
+as a side effect.
+
+### 5. The moat comparison is stale
 
 `0.777 vs 0.672` was measured against `nekkon`'s published label CSV. The canonical public
 notebook today (`pilkwang/rsna-knee-baseline-v1`, 251 votes) ships its own extractor: clause
@@ -329,67 +396,105 @@ augmentation refused for the same medial/lateral reason as ours — and it indep
 Greek **MICRO SIGN U+00B5** issue that `FINDINGS.md` §2.2 treats as a distinguishing discovery.
 
 The §7.2 A/B therefore answers a question the field has moved past. Re-point it at that
-extractor.
+extractor — which we have now forked and run: **0.891**, see §4.
 
-### 4. Mechanically behind
+### 6. Mechanically behind
 
 They ensemble DINOv2 **and** EfficientNet across 224/336 by **rank mean**, and train on the gold
 studies at weight 3.0. We run one backbone, one resolution, no ensemble, and hold all 58 gold
 out. Our backbone is already the same checkpoint theirs is — there is no "switch to DINOv2" step
 remaining.
 
-### 5. The corpus is 81.7%
+### 7. The corpus — 81.7% available, 60% actually cached
 
 The NIfTI mirror has parts 1–12 and 16–18; **13–15 return 403**. That is 3,599/4,407 studies and
 47/58 gold. Re-check periodically — parts appeared twice on 2026-08-09.
 
-### 6. Two defects found by review, now closed
+Separately from availability, the built cache currently holds **2,649 of 4,407 studies (60%)**,
+which is why the pooled OOF covers 37 of the 58 gold rather than 47. Finishing the build against
+what is already downloaded is free data before any new part appears.
+
+### 8. Defects found by review, now closed
 
 `kaggle_03` still carried a fourth hand-written copy of the embedding loop — on the *test* side,
 under a docstring in `preprocess.embed` asserting that copies had been consolidated so train and
 test could not drift. Migrated, and verified bit-identical. And `IMPROVEMENTS.md` §1.3 stated the
 shrink picked `m = 20` when the cross-fitted folds actually run 20/50/20/50/50.
 
-### 7. The failure mode this project keeps repeating
+**K17 — a `--synthetic` smoke run overwrote the real result directory, and the guard passed it.**
+`fusion/train.py --out` defaulted to `fusion/runs` regardless of `--synthetic`, so the smoke
+command in its own docstring destroyed the 0.743 checkpoints, OOF and summary; the directory is
+gitignored, so nothing survived. Worse, synthetic mode wrote **no** manifest, leaving the genuine
+one in place to vouch for random-tensor weights — `assert_matches()` reads only
+`preprocess_version` and would have passed a submission of pure noise. Now: `--out` resolves to
+`fusion/runs_synthetic` under `--synthetic`, synthetic runs write a self-marking manifest, and
+`assert_matches()` refuses it before the version check.
 
-K13, K14, K15, K16 and the three defects found on 2026-08-09 are one species: **a claim about the
+### 9. The failure mode this project keeps repeating
+
+K13, K14, K15, K16, K17, K18 and the defects found on 2026-08-09 are one species: **a claim about the
 data written as reasoning and never measured**, guarded by a self-test that shares the same
 assumption. The clearest case is a docstring that justified picking the slice axis by voxel
 spacing as "~10x separation, unambiguous"; measured across all 19,859 series the minimum ratio is
 **1.005** and 84 series are under 1.5x, which silently reformatted 27 axial acquisitions into
 sagittal ones.
 
-Three rules follow, and they are cheap:
+Four rules follow, and they are cheap:
 
 1. No claim about the data in a docstring without the measurement that produced it.
 2. Every self-test must build the **real** backbone at least once. K14 and the `no_grad`
    regression both hid behind an injected `embed_fn`.
 3. Any validation that samples must print its **coverage per stratum**. The Axial-only verdict
    passed three documents unchallenged because nothing printed the breakdown.
+4. When a correction is axis-dependent, enumerate **every** axis before concluding. K18's
+   docstring reasoned correctly about the in-plane axis and never mentioned the slice axis, so
+   half the fix read as the whole of it for three months.
 
 ## Where this goes next
 
-**Phase 0 — restore measurement (~1 day).** Export a per-series slice-direction bit from the
-DICOMs (`kaggle_01c`, CPU-only, no GPU lottery), resolve it locally, rebuild the 224 cache, and
-**submit**. Then the train-vs-OOF diagnostic: if train AUC is also ~0.75 the head is underfitting
-and wants capacity or epochs; if it is ~0.95 it is overfitting 2,700 studies and wants
-regularisation or more data. Those point in opposite directions and one run separates them.
+Reordered 2026-08-09 by measured cost. The previous route led with the ordering fixes and put
+resolution in Phase 2; §1 shows that ranking was backwards, and §4 shows Phase 1's first half is
+already done.
 
-**Phase 1 — calibrate against the field.** Fork `pilkwang/rsna-knee-baseline-v1`, reproduce its
-LB score, and re-run the §7.2 A/B against its extractor. That buys a reference implementation and
-a CV↔LB mapping in one move.
+**Phase 0 — one rebuild, at 518, with every known correction in it.**
 
-**Phase 2 — close the mechanical gap.** 518 cache (~26 h at the measured rate). Rank-mean
-ensembling across resolutions, then backbones. Measure the gold-in-training trade instead of
-assuming it.
+1. **Buy the resolution answer before the rebuild (~5 h).** `--limit` keeps all gold, so a 518
+   subset build compared against the *same* subset of the existing 224 cache — free, already
+   built — isolates resolution from corpus size and settles §1 the same day. If Fracture and
+   Lateral Meniscus move off the floor, the full build is justified and its size is known.
+2. **Per-series slice direction** (§2). Extend `kaggle_01c` over all 24,371 series, CPU-only, no
+   GPU lottery. This is the long-pole dependency: §3's correction cannot be enabled without it,
+   and both belong in the same rebuild.
+3. **Finish the corpus** (§7). 2,649 of 4,407 studies are cached against 3,599 downloaded; the
+   gap is free data. Re-check parts 13–15.
+4. **Rebuild once at 518** with `SAGITTAL_LR_SLICE_FLIP=1` and the direction bit.
+5. **Submit** — as a dry run of `kaggle_03`, which has never touched a real test DICOM, not as a
+   score attempt. Then the train-vs-OOF diagnostic: if train AUC is also ~0.72 the head is
+   underfitting and wants capacity or epochs; if it is ~0.95 it is overfitting and wants
+   regularisation or more data. Those point in opposite directions and one run separates them.
 
-**Phase 3 — the actual differentiators.** Mask `absent` from the loss rather than re-targeting it
+**Phase 1 — close the mechanical gap.** Rank-mean ensembling across resolutions, then backbones —
+the public baseline does both and we do neither (§6). Measure the gold-in-training trade instead
+of assuming it. Re-point the §7.2 A/B at `pilkwang`'s extractor rather than `nekkon`'s CSV.
+
+**Phase 2 — external data, which `PLAN.md` §3.4 calls "likely decisive" and no previous route
+included.** 4,407 studies, nearly all pseudo-labelled, is small for a 12-label 3D task, and the
+rules explicitly permit external data and pre-trained models. **MRNet** (ACL, meniscal tear) and
+**OAI** (expert OA grading) between them supervise six of the twelve labels — and MRNet covers
+three of the six that §1 shows are failing. Licence checks and the forum posting requirement make
+this worth starting earlier than its position suggests.
+
+**Phase 3 — the differentiators.** Mask `absent` from the loss rather than re-targeting it
 (`IMPROVEMENTS.md` §1.3a makes this a sharp hypothesis: gains should be largest where
 `absent_raise x absent_share` was largest). Finish the 217 hand labels — the one asset no
-competitor has. Then attention+mean+max pooling and per-pathology query tokens.
+competitor has, and per `IMPROVEMENTS.md` §0 the only fix for the ±0.038 CI that makes half these
+numbers unresolvable. Then `PLAN.md` §3.5's own top and bottom items, which no route has carried:
+aux heads + soft labels ("cheapest real gain") and the label-correlation stacker on the 12 OOF
+logits ("+0.003–0.008 macro AUC for ~zero runtime"). Attention+mean+max pooling and per-pathology
+query tokens last.
 
 
-## Status — 2026-08-08
+## Status — 2026-08-09
 
 - [x] Data logistics, language ID, series structure
 - [x] Rule extractor v1 — macro AUC **0.777** on gold, 95% CI [0.74, 0.82]
@@ -400,7 +505,9 @@ competitor has. Then attention+mean+max pooling and per-pathology query tokens.
 - [x] Series-metadata shortcut tested and rejected (0.471, below chance)
 - [x] **Soft-target ladder fitted against gold — and the fit LOST** (`IMPROVEMENTS.md` §1.3a).
       `absent` is 52% of the target matrix and sits at 0.08 against a measured 0.167; correcting
-      that scored **0.743 → 0.699**. How far each label's `absent` was raised predicts how much
+      that scored **0.743 → 0.699** (both arms pre-K17, on the pre-deletion cache whose default
+      baseline is now 0.719; the sign and mechanism are unaffected — see `IMPROVEMENTS.md`
+      §1.3a). How far each label's `absent` was raised predicts how much
       AUC it lost (corr **−0.776**), because the `absent` bucket is heterogeneous and re-targeting
       it to its mean teaches the mean instead of the discrimination. Better calibration, worse
       ranking. Kept as a measurement, not a setting
@@ -420,17 +527,30 @@ competitor has. Then attention+mean+max pooling and per-pathology query tokens.
       DICOMs first (`pipeline/validate_nifti.py`, 5 checks). In-plane layout is `as-is` at
       **median r = 1.0000**, best for 98% of series across all six types — identical pixels, so
       the repackaging is faithful. **Slice direction is not**: see "What is wrong" below
-- [x] **First vision-model result: macro AUC 0.743** on 37 gold studies, images only, 224px, on
-      61% of the corpus with default hyperparameters. A floor, not a ceiling — 518px, the rest of
-      the corpus and any tuning at all are still unspent. Synovitis scores **0.777** despite being
+- [x] **First vision-model result: macro AUC 0.719** on 37 gold studies, images only, 224px, on
+      60% of the corpus with default hyperparameters. A floor, not a ceiling — 518px, the rest of
+      the corpus and any tuning at all are still unspent. Synovitis scores **0.685** despite being
       the extractor's *worst* label (0.607), which is the first evidence for §2.1's option (b)
+- [x] **Training is deterministic** — two identical re-runs give 0.719 and 0.719, agreeing to
+      three decimals on every label. Every A/B in these documents measures a real difference with
+      no run-to-run floor beneath it; the ±0.038 CI remains the *sampling* limit on n=37
+- [x] **The pseudo-labels are not the ceiling — measured** (`IMPROVEMENTS.md` §2d). Vision beats
+      the extractor on six of twelve labels and Spearman between the two per-label columns is
+      **−0.17 (p=0.60)**. The bottleneck is the image path: the 224 cache resolves **0.71 mm/px**
+- [x] **First LB submission — 0.891**, an unmodified fork of `pilkwang/rsna-knee-baseline-v1`,
+      2026-08-09. Rank **230/908**; LB top is **0.940**. Phase 1's first half is done and the
+      reference implementation reproduces. Our *own* pipeline has still never been submitted, and
+      in its current state would likely score below this — see "What is wrong" §4
 - [ ] ~~**DINOv2 feature cache built and published (`kaggle_02`)**~~ — superseded by the local
       build above. Kaggle-side remains the path for the TEST set, which `kaggle_03` always did.
       The five failed attempts are tabulated in `PLAN.md` §9
 - [ ] Hand-labelling — 86/303 done; the remaining 217 are the only validation set we will have
-- [ ] **First LB submission — now the single highest-value action.** See Phase 0 below
+- [ ] **First own-pipeline submission** — a dry run of `kaggle_03`, which has never executed
+      against a real test DICOM. Needs two Kaggle Datasets that do not exist yet
+      (`rsna-knee-fusion` with `fold*.pt` + `manifest.json`, and `dinov2-weights` — there is no
+      internet in the kernel). `rsna-knee-code` exists and needs updating to HEAD
 - [ ] **The §7.2 A/B** — but against the *current* public extractor, not `nekkon`'s CSV. See
-      "What is wrong" §3
+      "What is wrong" §5
 - [ ] LLM extractor (method B) — host undecided (`IMPROVEMENTS.md` §1.1); ~$44 batched on the
       API, or ~30–90 min a pass on a 5090
 - [ ] External data — MRNet, OAI, fastMRI+ cover ~6 of 12 labels with real expert image reads

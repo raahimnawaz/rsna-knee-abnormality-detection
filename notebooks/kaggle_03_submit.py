@@ -142,18 +142,36 @@ def load_backbone(dev: str):
     return model.eval().to(dev)
 
 
-def load_heads(dev: str) -> list:
+def load_heads(dev: str) -> tuple[list, int | None]:
+    """-> (heads, n_slices_train). The second value is what the heads were actually FED.
+
+    It cannot come from the cache manifest, which is what this file used to do. The manifest
+    describes the CACHE, and the slice count is the one parameter that does not change a single
+    cached feature value -- the cache always stores 32 and the head samples a subset -- so it is
+    deliberately outside PREPROCESS_VERSION and `assert_matches()` is blind to it (IMPROVEMENTS
+    6.2). Read it off the checkpoints, which is the only artefact that knows.
+    """
     ckpts = sorted(FUSION_DIR.glob("fold*.pt"))
     if not ckpts:
         sys.exit(f"no fold*.pt under {FUSION_DIR}")
-    heads = []
+    heads, counts = [], set()
     for c in ckpts:
         obj = torch.load(c, map_location="cpu")
         m = FusionHead(d=obj.get("d", 256))
         m.load_state_dict(obj["state_dict"])
         heads.append(m.eval().to(dev))
+        counts.add(obj.get("n_slices_train"))
     print(f"fusion heads: {len(heads)} folds from {FUSION_DIR.name}")
-    return heads
+
+    if len(counts) > 1:
+        sys.exit(f"fold checkpoints disagree on n_slices_train: {sorted(map(str, counts))}. They "
+                 f"were not produced by one training run and must not be ensembled.")
+    n = counts.pop()
+    if n is None:
+        print(f"WARNING: checkpoints carry no n_slices_train -- written by a fusion/train.py "
+              f"older than 2026-08-09. Falling back to the manifest, then to "
+              f"SLICES_PER_SERIES_TRAIN={SLICES_PER_SERIES_TRAIN}. Re-train to remove the guess.")
+    return heads, n
 
 
 def embed_series(backbone, vol, dev):
@@ -250,7 +268,19 @@ def main() -> None:
     print(f"placeholder {OUT} written for {len(preds)} studies")
 
     backbone = load_backbone(dev)
-    heads = load_heads(dev)
+    heads, head_n_slices = load_heads(dev)
+    if head_n_slices is not None and head_n_slices != n_slices:
+        # The manifest and the checkpoints disagree about how many slices the head saw. Feeding
+        # the wrong count is a silent scorer: slice_pos is a learned per-index embedding, so the
+        # positions simply mean something else, and nothing raises.
+        sys.exit(f"slice-count mismatch: the heads were trained on {head_n_slices} slices per "
+                 f"series, the manifest says {n_slices}. The head's learned slice positions "
+                 f"would be read at the wrong indices and this would score badly with no error. "
+                 f"Re-upload the fusion Dataset and its manifest from one training run.")
+    if head_n_slices is not None:
+        n_slices = head_n_slices
+    print(f"slices per series at inference: {n_slices} "
+          f"({'from checkpoints' if head_n_slices is not None else 'from manifest'})")
 
     index = build_study_index(COMP)     # one pass; per-study rglob is O(n^2) over 570 GB
     failures, t0 = 0, time.time()

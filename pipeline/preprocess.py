@@ -21,6 +21,8 @@ where the images never land and pydicom is deliberately not a dependency.
 import hashlib
 import json
 import os
+import sys
+from pathlib import Path
 
 import numpy as np
 import torch
@@ -62,6 +64,20 @@ BATCH_HINT = 16
 # for a left vs a right knee, so four of the twelve labels are noise without this (PLAN 3.2).
 CANONICAL_SIDE = "R"
 
+# Reverse the SLICE axis of sagittal left knees, where medial/lateral is the slice axis rather
+# than the image x-axis. See canonicalise(). OFF until the K16 direction bit exists.
+#
+# One switch consulted by BOTH readers, rather than a per-call argument, because the correction
+# is only meaningful if train and test apply it together. load_series knows its direction (it
+# just sorted by IPP) while load_series_nifti does not, so a per-call decision would silently
+# canonicalise the test set and not the training cache -- the preprocessing-parity failure with
+# no symptom that PREPROCESS_VERSION exists to catch, arriving through the one door the
+# fingerprint could not see (the NIfTI conversion sits upstream of it).
+#
+# Turning this on is PLAN 9 Phase 0 step 3: it needs the per-series direction bit from step 2, and
+# it invalidates the 224 cache by design.
+SAGITTAL_LR_SLICE_FLIP = bool(int(os.environ.get("SAGITTAL_LR", "0")))
+
 # Boundary on the median ImagePositionPatient x-coordinate below which a knee is the RIGHT one.
 #
 # NOT zero, which is the obvious guess and is wrong. Measured over the 2,203 studies that carry
@@ -81,13 +97,19 @@ LATERALITY_X_THRESHOLD = -62.0
 
 def _fingerprint() -> str:
     """Hash of everything that changes a cached feature value."""
-    payload = json.dumps({
+    keys = {
         "model": MODEL, "img_size": IMG_SIZE, "slices": SLICES_PER_SERIES,
         "target_mm": TARGET_MM, "fov_mm": FOV_MM, "embed_dim": EMBED_DIM,
         "canonical_side": CANONICAL_SIDE, "norm": "pct_0.5_99.5", "stack": "2.5d_prev_cur_next",
         "lat_x_threshold": LATERALITY_X_THRESHOLD,
-    }, sort_keys=True)
-    return hashlib.sha256(payload.encode()).hexdigest()[:12]
+    }
+    # Added only when ENABLED, so that switching it on invalidates every existing cache while
+    # leaving it off is a genuine no-op. The alternative -- always hashing the flag -- would
+    # renumber the fingerprint of the 224 cache without changing a single feature value, and
+    # force a 2.5 h rebuild to reproduce bytes it already holds.
+    if SAGITTAL_LR_SLICE_FLIP:
+        keys["canon_sagittal_lr"] = True
+    return hashlib.sha256(json.dumps(keys, sort_keys=True).encode()).hexdigest()[:12]
 
 
 PREPROCESS_VERSION = _fingerprint()
@@ -380,21 +402,56 @@ def read_laterality(headers) -> tuple[str | None, str]:
 
 
 # --------------------------------------------------------------------------- volume ops
-def canonicalise(vol: np.ndarray, laterality: str | None, plane: str | None) -> np.ndarray:
-    """Mirror left knees onto CANONICAL_SIDE so 'medial' is always the same image side.
+def canonicalise(vol: np.ndarray, laterality: str | None, plane: str | None,
+                 slice_direction: str | None = None) -> np.ndarray:
+    """Mirror left knees onto CANONICAL_SIDE so 'medial' is always the same place.
 
-    Only in-plane left-right matters, and only for planes that HAVE a left-right axis in the
-    image: axial and coronal put medial/lateral along the image x-axis, sagittal does not (its
-    x-axis is anterior-posterior), so flipping a sagittal series would mirror the knee
-    front-to-back for no gain. Returns the volume unchanged when laterality is unknown --
-    guessing is worse than a recorded miss, which the cache stores per series so coverage can
-    be audited afterwards.
+    `vol` is [S,H,W]. Medial/lateral lives on a DIFFERENT AXIS depending on the plane, and this
+    function has to handle both:
+
+      Axial, Coronal   medial/lateral is the image x-axis  -> mirror axis 2 (in-plane)
+      Sagittal         medial/lateral is the SLICE axis    -> reverse axis 0
+
+    The sagittal case was missed until 2026-08-09. The previous docstring argued that "flipping a
+    sagittal series would mirror the knee front-to-back for no gain", which is true of the
+    in-plane axis -- sagittal's image x-axis IS anterior-posterior -- and simply never considered
+    the slice axis. But `spatial_order` sorts every series ascending along the slice normal, and
+    for sagittal that normal is the patient's left-right axis, on which medial is +x for a right
+    knee and -x for a left one. So the same sort yields lateral->medial for one knee and
+    medial->lateral for the other, and `FusionHead.slice_pos` is a LEARNED per-index embedding
+    (fusion/model.py:77), so slice 5 meant lateral in one study and medial in the next.
+
+    Measured exposure: sagittal is the largest plane at 9,864 of 24,371 series (40.5%), and 1,894
+    of 4,407 studies resolve to left knees (43.0%, tag first then geometry). Four of the twelve
+    labels are medial/lateral pairs.
+
+    `slice_direction` is how this composes with K16 (a third of NIfTI series are stored
+    back-to-front and the file cannot say which). The sagittal correction is defined relative to
+    ascending spatial order, so it must be applied to a volume KNOWN to be in that order:
+
+      'forward'   already ascending -- what spatial_order guarantees on the DICOM path
+      'reversed'  restore ascending first, then correct
+      None        unknown; the slice axis is left alone entirely, including for sagittal
+
+    None is honest rather than safe, matching how unknown laterality is handled: with the K16 bit
+    missing, a sagittal reversal would land on a substrate that is itself reversed for ~62% of
+    sagittal series (8/21 forward, README 1) and would be wrong exactly where it fired. Pass the
+    bit from kaggle_01c once it exists (PLAN 9 Phase 0 step 2) and both corrections apply together.
     """
-    if laterality is None or laterality == CANONICAL_SIDE:
-        return vol
-    if plane not in ("Axial", "Coronal"):
-        return vol
-    return np.ascontiguousarray(vol[:, :, ::-1])
+    flip_slices = slice_direction == "reversed"
+
+    left = laterality is not None and laterality != CANONICAL_SIDE
+    if SAGITTAL_LR_SLICE_FLIP and left and plane == "Sagittal" and slice_direction is not None:
+        # XOR: restoring ascending order and then reversing for handedness cancel out.
+        flip_slices = not flip_slices
+
+    if flip_slices:
+        vol = vol[::-1]
+
+    if left and plane in ("Axial", "Coronal"):
+        vol = vol[:, :, ::-1]
+
+    return np.ascontiguousarray(vol)
 
 
 def center_fit(v: torch.Tensor, side: int) -> torch.Tensor:
@@ -528,7 +585,9 @@ def load_series(paths, plane: str | None = None):
         return None, lat, lat_src
 
     v = normalise_and_resample(np.stack(vol), spacing)
-    return canonicalise(v, lat, plane), lat, lat_src
+    # 'forward' is a fact here, not an assumption: idx came from spatial_order, which sorts
+    # ascending by IPP projection onto the slice normal a few lines above.
+    return canonicalise(v, lat, plane, slice_direction="forward"), lat, lat_src
 
 
 # --------------------------------------------------------------------------- NIfTI source
@@ -682,7 +741,7 @@ def study_laterality(meta_path) -> dict:
 
 
 def load_series_nifti(path, plane: str | None = None, laterality: str | None = None,
-                      laterality_source: str = "none"):
+                      laterality_source: str = "none", slice_direction: str | None = None):
     """One .nii -> the same ([S,side,side] float32 in [0,1], laterality, source) as load_series.
 
     Everything after the read is the SHARED code path -- pick_slices, normalise_and_resample,
@@ -711,7 +770,10 @@ def load_series_nifti(path, plane: str | None = None, laterality: str | None = N
     if len(vol) < 3:
         return None, laterality, laterality_source
     v = normalise_and_resample(np.ascontiguousarray(vol), g["in_plane_mm"])
-    return canonicalise(v, laterality, plane), laterality, laterality_source
+    # None until kaggle_01c exports the per-series bit (K16). The NIfTI carries no direction
+    # cosines, so there is nothing here to derive it from -- see the section header.
+    return (canonicalise(v, laterality, plane, slice_direction=slice_direction),
+            laterality, laterality_source)
 
 
 def manifest(**extra) -> dict:
@@ -724,7 +786,20 @@ def manifest(**extra) -> dict:
 
 
 def assert_matches(cache_manifest: dict) -> None:
-    """Fail loudly when the features were built by a different version of this file."""
+    """Fail loudly when the features were built by a different version of this file.
+
+    The synthetic check comes first because it is the failure with no symptom: a version
+    mismatch scores badly and looks wrong, but heads trained on random tensors produce a
+    perfectly well-formed submission of noise.
+    """
+    if cache_manifest.get("synthetic"):
+        raise SystemExit(
+            "these fusion heads were trained on SYNTHETIC features -- random tensors, so every "
+            "AUC is chance by construction and this submission would be noise.\n"
+            "fusion/train.py --synthetic writes this marker beside its checkpoints so a smoke "
+            "run cannot reach the leaderboard. Re-train on the real cache:\n"
+            "  python fusion/train.py --features data/features_224"
+        )
     got = cache_manifest.get("preprocess_version")
     if got != PREPROCESS_VERSION:
         raise SystemExit(
@@ -735,5 +810,73 @@ def assert_matches(cache_manifest: dict) -> None:
         )
 
 
+def self_test() -> None:
+    """The canonicalise axis table, asserted rather than reasoned about.
+
+    Worth its own test because the sagittal correction is an XOR against `slice_direction`, and
+    the two properties that matter are both invisible to the existing self-tests: that leaving
+    SAGITTAL_LR_SLICE_FLIP off is a byte-level no-op, and that with it on the two readers agree.
+    build_cache_local and kaggle_02 both pass either way -- they assert on npz SHAPE, which no
+    axis flip changes.
+    """
+    # slice i carries value i; column 0 is marked, so both axes are traceable through a flip.
+    vol = np.zeros((4, 2, 3), np.float32)
+    for i in range(4):
+        vol[i] = i
+    vol[:, :, 0] += 0.1
+
+    def order(o):
+        return "".join(str(int(s[0, 1])) for s in o)
+
+    def xflipped(o):
+        return bool(o[0, 0, 0] < o[0, 0, 2])
+
+    # (laterality, plane, slice_direction) -> (slice order, in-plane mirrored)
+    off = {("R", "Sagittal", "forward"): ("0123", False),
+           ("L", "Sagittal", "forward"): ("0123", False),     # the bug: left runs opposite
+           ("L", "Sagittal", None): ("0123", False),
+           ("L", "Coronal", "forward"): ("0123", True),
+           ("R", "Coronal", "forward"): ("0123", False)}
+    on = {("R", "Sagittal", "forward"): ("0123", False),
+          ("L", "Sagittal", "forward"): ("3210", False),      # corrected onto the right knee
+          ("L", "Sagittal", "reversed"): ("0123", False),     # XOR: K16 flip cancels the fix
+          ("R", "Sagittal", "reversed"): ("3210", False),     # K16 restore alone
+          ("L", "Sagittal", None): ("0123", False),           # unknown direction -> hands off
+          ("L", "Coronal", "forward"): ("0123", True),        # in-plane, unaffected by the switch
+          ("L", "Coronal", "reversed"): ("3210", True)}
+
+    expect = on if SAGITTAL_LR_SLICE_FLIP else off
+    for (lat, plane, d), (want_order, want_x) in expect.items():
+        o = canonicalise(vol, lat, plane, slice_direction=d)
+        got = (order(o), xflipped(o))
+        assert got == (want_order, want_x), (
+            f"canonicalise({lat}, {plane}, {d!r}) -> {got}, expected {(want_order, want_x)}")
+        assert o.flags["C_CONTIGUOUS"], f"{lat}/{plane}/{d} returned a non-contiguous view"
+    print(f"  canonicalise table OK ({len(expect)} cases, "
+          f"SAGITTAL_LR_SLICE_FLIP={SAGITTAL_LR_SLICE_FLIP})")
+
+    # The fingerprint must move when the switch does, and must NOT move when it does not --
+    # otherwise turning it on silently keeps a stale cache, or leaving it off forces a rebuild
+    # of features that are already correct.
+    import os as _os
+    import subprocess
+    here = str(Path(__file__).resolve())
+    vs = {}
+    for flag in ("0", "1"):
+        env = {**_os.environ, "SAGITTAL_LR": flag}
+        vs[flag] = subprocess.run(
+            [sys.executable, "-c",
+             f"import sys; sys.path.insert(0, {str(Path(here).parent)!r}); "
+             "from preprocess import PREPROCESS_VERSION as v; print(v)"],
+            env=env, capture_output=True, text=True, check=True).stdout.strip()
+    assert vs["0"] != vs["1"], f"fingerprint did not move with the switch: {vs}"
+    print(f"  fingerprint off={vs['0']} on={vs['1']} -- distinct OK")
+
+    print("\nself-test PASSED")
+
+
 if __name__ == "__main__":
-    print(json.dumps(manifest(), indent=2))
+    if "--self-test" in sys.argv:
+        self_test()
+    else:
+        print(json.dumps(manifest(), indent=2))

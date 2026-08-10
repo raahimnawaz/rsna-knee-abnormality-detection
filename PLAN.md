@@ -212,6 +212,13 @@ Only **4,407** training studies, nearly all pseudo-labelled. That is small for a
 task, and the rules explicitly permit "freely & publicly available external data, including
 pre-trained models." Candidates, in rough order of value:
 
+> **PROMOTED 2026-08-09.** This section was never carried into any phased route, despite its own
+> heading. It is now **Phase 2** in §9. The reason it moved up: IMPROVEMENTS §2d shows the six
+> failing labels are millimetre-scale structural findings, and **MRNet supervises three of those
+> six directly** (ACL, meniscal tear) with real expert image reads rather than pseudo-labels.
+> OAI covers the three OA labels, which are already our strongest — so MRNet is the higher-value
+> of the two despite being the smaller corpus.
+
 - **OAI (Osteoarthritis Initiative)** — thousands of knee MRIs with expert OA gradings.
   Directly supervises Medial OA / Lateral OA / PF OA, three of the twelve.
 - **MRNet (Stanford)** — 1,370 knee MRIs labelled for ACL tear, meniscal tear, abnormality.
@@ -394,6 +401,12 @@ cache is worth building against.
 
 ### 7.1 What the public leaderboard is actually doing — measured 2026-08-07
 
+> **RE-MEASURED 2026-08-09.** Top **0.940** over **908 teams** (was 0.932 / ~296). Our own first
+> submission — an unmodified `pilkwang/rsna-knee-baseline-v1` fork — scored **0.891** at rank
+> **230/908**. The conclusion below strengthens rather than changes: two days of field-wide
+> tuning moved the top by 0.008, and the whole distance from mid-table to first is ~0.05 AUC.
+> A public fork now *is* mid-table, so the fork is the floor to beat, not a milestone.
+
 Top score 0.932; ranks 2–20 spread 0.900 → 0.811; **every submission dated 2026-08-06/07**. Nobody
 built a weakly-supervised 12-label 3D pipeline in 48 hours — the field forked shared notebooks.
 Six of the top 20 public notebooks are DINOv2-based (`DINOv2 at meniscus resolution`,
@@ -506,31 +519,50 @@ of the fourteen fixes have still never touched a real DICOM. That is the whole o
 risk, and §9.1 is the cheapest way to retire it.
 
 > **SUPERSEDED 2026-08-09.** The cache exists — built locally from NIfTI (§9.1), not on Kaggle,
-> and the fusion head has produced its first real number: **macro AUC 0.743** on 37 gold studies.
+> and the fusion head has produced its first real number: **macro AUC 0.719** on 37 gold studies.
 > The list below is replaced by the phased route in `README.md` ("Where this goes next"), which is
 > now the operative plan. Summarised here so this section is not misleading:
 
-**Phase 0 — restore measurement (~1 day), in this order.**
+> **REORDERED 2026-08-09 (later), by measured cost.** Two things moved. **Resolution outranks the
+> ordering fixes**: the 224 cache resolves 0.71 mm/px because `imagenet_normalise` interpolates
+> the correctly-built 457 px volume down to `IMG_SIZE`, and the per-label evidence says that,
+> not the pseudo-labels, is the ceiling (IMPROVEMENTS §2d). **And the leaderboard step is done** —
+> an unmodified `pilkwang` fork scored **0.891** on 2026-08-09, rank 230/908, top 0.940. What is
+> still unmeasured is the CV↔LB mapping for *our* pipeline.
 
-1. **Per-series slice direction.** `validate_nifti.py` check 4b, stratified, measures **33% of
+**Phase 0 — one rebuild, at 518, carrying every known correction.**
+
+1. **Settle resolution first, cheaply (~5 h).** `--limit` keeps all gold, so a 518 subset build
+   compared against the *same* subset of the existing 224 cache — free — isolates resolution from
+   corpus size before ~16 h is committed.
+2. **Per-series slice direction.** `validate_nifti.py` check 4b, stratified, measures **33% of
    series stored back-to-front** — Sagittal 8/21 forward. The NIfTI affine has no direction
    cosines, so it must be exported from the DICOMs: extend `kaggle_01c` over all 24,371 series,
    CPU-only, no GPU lottery. Cheap route is 2–3 header reads per series (~50k opens, ~20 min);
-   full-header reads (~700k opens, 3.7 h) are the fallback. Then rebuild the 224 cache.
-2. **Submit.** Nothing downstream is calibrated until a leaderboard number exists, and our gold
-   set is *enriched* so 0.743 and a public 0.9 are not on one scale (README §2).
-3. **Train-vs-OOF diagnostic.** Under- and over-fitting want opposite fixes; one run separates
-   them.
+   full-header reads (~700k opens, 3.7 h) are the fallback. Note §6.2 records that the ~19 ms/open
+   figure those estimates rest on is **itself unmeasured** — have the PROBE replace it.
+3. **Sagittal handedness (K18).** Medial/lateral is the slice axis for sagittal and nothing ever
+   reversed it: 40.5% of series, 43.0% of studies left knees. Code is written and gated behind
+   `SAGITTAL_LR_SLICE_FLIP`; it is an XOR against step 2's bit, so the two ship together.
+4. **Finish the corpus.** 2,649 of 4,407 studies cached against 3,599 downloaded — free data.
+5. **Rebuild once, at 518,** with 2–4 applied. Then **submit** as a dry run of `kaggle_03`, which
+   has never executed against a real test DICOM, and take the CV↔LB mapping as the side effect.
+   Then the train-vs-OOF diagnostic — under- and over-fitting want opposite fixes and one run
+   separates them.
 
-**Phase 1 — calibrate against the field.** Fork `pilkwang/rsna-knee-baseline-v1`, reproduce its
-LB score, and re-point the §7.2 A/B at *its* extractor rather than `nekkon`'s CSV — that notebook
-independently reproduces most of what §7.2 treats as our edge (README §3).
+**Phase 1 — close the mechanical gap.** Rank-mean ensembling across resolutions then backbones;
+the public baseline does both and we do neither. Measure the gold-in-training trade. Re-point the
+§7.2 A/B at `pilkwang`'s extractor rather than `nekkon`'s CSV (README §5).
 
-**Phase 2 — close the mechanical gap.** 518 cache (~26 h measured). Rank-mean ensembling across
-resolutions then backbones. Measure the gold-in-training trade.
+**Phase 2 — external data (§3.4), which no previous route included despite §3.4 calling it
+"likely decisive".** MRNet and OAI supervise six of the twelve labels between them, and MRNet
+covers three of the six that IMPROVEMENTS §2d shows are failing. Licence checks and the forum
+posting requirement make it worth starting earlier than its position implies.
 
 **Phase 3 — the differentiators.** Mask `absent` rather than re-target it (§1.3a). Finish the 217
-hand labels. Attention+mean+max pooling, per-pathology query tokens.
+hand labels — per IMPROVEMENTS §0 the only fix for the ±0.038 CI. Then §3.5's own first and last
+items, which no route has carried: aux heads + soft labels, and the label-correlation stacker on
+the 12 OOF logits. Attention+mean+max pooling and per-pathology query tokens last.
 
 ### 9.1 The cache may not need a Kaggle GPU at all — measured 2026-08-08
 
