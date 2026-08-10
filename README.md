@@ -578,6 +578,7 @@ Four rules follow, and they are cheap:
 | | evidence |
 |---|---|
 | Report-derived OOF as the instrument | ±0.0046 over 2,612 vs gold-37's ±0.031 — **6.7× tighter** (§2g) |
+| Site-grouped folds | our own leakage measured at **+0.024**, ~5σ; baseline is now **0.7229** (§2j) |
 | Public LLM labels as targets | `steven_v2` **0.887** vs ours 0.777 on gold-58, 4.5σ (§2f, §2i-c) |
 | The training port is affordable | **28.5 img/s**, 2.6 h/fold, cache builds in **~16 min** (§2h) |
 | NIfTI conversion | 5 checks against the DICOMs, all pass (`pipeline/validate_nifti.py`) |
@@ -756,15 +757,14 @@ Ordered so that each step is validated by the one before it. Nothing here needs 
    - **The instrument is valid at fixed targets only.** It cannot arbitrate label *sources*,
      because the reference is itself a label source. Gold-58 keeps that job; §2f has already
      settled it. Everything the port needs is a fixed-target comparison, so this costs nothing.
-2b. **Site-grouped folds — new prerequisite, 2026-08-10 (§2i-a).** A header pass over the
-   corpus for `Manufacturer / ManufacturerModelName / SoftwareVersions / ImagingFrequency /
-   ReceiveCoilName`, then `GroupKFold` on the fingerprint. CPU-only, no GPU lottery, ~20 min.
-   Report the instrument both ways: the ungrouped-minus-grouped gap is our own site-leakage
-   number, and the grouped one is what the reproduction gate must use. **This is the same
-   header pass that was demoted earlier today for carrying the slice-direction bit** — that
-   demotion stands on its own reasoning (the fork takes slices around each series *centre*, and
-   reversal does not move a centre), and this is a different, measured justification. K16/K18
-   still ride along for free once the pass is running, but they are not what pays for it.
+2b. **Site-grouped folds. `DONE 2026-08-10 — our leakage is +0.024.`** `pipeline/
+   site_fingerprint.py` + `fusion/folds.py --group-by site`. No Kaggle notebook was needed:
+   the probe author published `headers.parquet`, 24,371 series × 43 fields, so
+   `kaggle kernels output` replaced the whole header pass — **rule 4 paying for itself a third
+   time.** Same targets, same cache, folds the only difference: **0.7468 ungrouped → 0.7229
+   site-grouped, a gap of +0.0239 at ~5σ.** That is larger than the resolution effect this
+   project dismissed as unmeasurable and the same size as the entire label swap. §2j.
+   **The honest baseline is now 0.7229 ± 0.0048.**
 
 3. **Time it before building it. `DONE 2026-08-10 — gate passed at 1.29×.`**
    `pipeline/bench_port.py` + `pipeline/bench_cache_build.py`. §2e's cost model was inferred and

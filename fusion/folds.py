@@ -48,12 +48,42 @@ SEED = 20260807
 
 
 def group_key(row) -> str:
-    """The grouping key. Currently the study itself -- i.e. no grouping. See the module docstring.
+    """The default grouping key: the study itself -- i.e. no grouping.
 
-    Swap this for a real patient identifier the moment one exists; everything downstream
-    already treats groups as the unit of assignment.
+    The module docstring explains why this is right for *patients* (there are none) and for
+    *report templates* (the leak cannot occur for an image-only model). It is NOT right for
+    scanners -- see `site_groups()`.
     """
     return row.StudyInstanceUID
+
+
+def site_groups(uids: pd.Series) -> pd.Series:
+    """Scanner-fingerprint grouping. `IMPROVEMENTS.md` §2i-a.
+
+    This is the one grouping that survived scrutiny, and unlike the other two it is backed by a
+    number rather than an argument: a public probe scores DICOM headers alone at 0.6516 under
+    random folds and 0.5981 grouped on this fingerprint, so **0.053 of macro AUC is available
+    from recognising the scanner instead of the knee**. A model given pixels can reach the same
+    shortcut through image appearance, and ungrouped folds reward it.
+
+    Not a replacement for the default. Report both: the ungrouped-minus-grouped gap is our own
+    site-leakage number, and the grouped one is what the reproduction gate must use, because
+    that gate compares our score against someone else's.
+    """
+    p = D / "site_fingerprint.csv"
+    if not p.exists():
+        sys.exit(f"{p} not found -- run: python pipeline/site_fingerprint.py")
+    m = pd.read_csv(p).set_index("StudyInstanceUID").site_id
+    g = uids.map(m)
+    if g.isna().any():
+        # A study with no header row cannot be grouped, and silently dropping it into a shared
+        # "unknown" bucket would put every such study in one fold. Give each its own group,
+        # which is the ungrouped behaviour for exactly those rows and nothing else.
+        miss = g.isna()
+        print(f"  {int(miss.sum())} studies have no header row; each becomes its own group")
+        g = g.astype("object")
+        g[miss] = ["nofp_" + u for u in uids[miss]]
+    return g.astype(str)
 
 
 def assign(groups: list, y: np.ndarray, n_folds: int, seed: int) -> np.ndarray:
@@ -95,9 +125,13 @@ def assign(groups: list, y: np.ndarray, n_folds: int, seed: int) -> np.ndarray:
     return out
 
 
-def build(soft_labels: bool = True) -> pd.DataFrame:
+def build(soft_labels: bool = True, group_by: str = "study",
+          labels_csv: Path | None = None) -> pd.DataFrame:
     tr = pd.read_csv(D / "train.csv")
-    tr["group"] = [group_key(r) for r in tr.itertuples()]
+    if group_by == "site":
+        tr["group"] = site_groups(tr.StudyInstanceUID).values
+    else:
+        tr["group"] = [group_key(r) for r in tr.itertuples()]
     tr["is_gold"] = tr[LABELS].notna().all(axis=1)
 
     # Stratify on the labels we will actually train against. Gold where it exists, otherwise
@@ -105,9 +139,14 @@ def build(soft_labels: bool = True) -> pd.DataFrame:
     # positive distribution, not calibrated truth.
     y = tr[LABELS].to_numpy(dtype=float)
     if soft_labels:
-        pl = D / "pseudo_labels.csv"
+        # Default moved off pseudo_labels.csv 2026-08-10: the rule extractor is retired as a
+        # target source (IMPROVEMENTS §2f) and stratifying on it would shape the folds around
+        # labels nothing trains on any more.
+        pl = Path(labels_csv) if labels_csv else (D / "targets.csv")
+        if not pl.exists() and not labels_csv:
+            pl = D / "pseudo_labels.csv"
         if not pl.exists():
-            sys.exit("data/pseudo_labels.csv missing -- run extractor/run_extract.py first")
+            sys.exit(f"{pl} missing -- see README Phase 0 step 1 (ship steven_v2 as targets.csv)")
         soft = (pd.read_csv(pl).set_index("StudyInstanceUID")[LABELS]
                   .reindex(tr.StudyInstanceUID).to_numpy(dtype=float))
         gold_rows = tr.is_gold.to_numpy()[:, None]
@@ -147,9 +186,15 @@ def report(folds: pd.DataFrame) -> None:
 def main() -> None:
     ap = argparse.ArgumentParser(description=__doc__.splitlines()[0])
     ap.add_argument("--out", default=str(D / "folds.csv"))
+    ap.add_argument("--group-by", choices=["study", "site"], default="study",
+                    help="'site' groups on the scanner fingerprint (IMPROVEMENTS §2i-a). "
+                         "Build BOTH: the gap between them is our site-leakage number, and "
+                         "the grouped one is what the reproduction gate must use")
+    ap.add_argument("--labels", default=None,
+                    help="soft-target CSV for stratification; default data/targets.csv")
     args = ap.parse_args()
 
-    folds = build()
+    folds = build(group_by=args.group_by, labels_csv=args.labels)
     folds.to_csv(args.out, index=False)
     report(folds)
 

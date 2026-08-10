@@ -909,6 +909,52 @@ keyword heuristic that `eda_03`'s lingua-based ID supersedes. Recorded so it is 
 
 ---
 
+## 2j. Our own site leakage: **+0.024** `MEASURED 2026-08-10`
+
+Phase 0 step 2b, done. `pipeline/site_fingerprint.py` + `fusion/folds.py --group-by site`.
+Same targets (`steven_v2`), same `features_224` cache, same seed — **the folds are the only
+difference**:
+
+| folds | n | report-OOF macro | bootstrap SD |
+|---|---:|---:|---:|
+| ungrouped (`data/folds.csv`) | 2,612 | 0.7468 | ±0.0045 |
+| **site-grouped (`data/folds_site.csv`)** | 2,612 | **0.7229** | ±0.0048 |
+| **our site leakage** | | **+0.0239** | ~5σ |
+
+**About half the metadata-only probe's 0.0534** (§2i-a), which is the right shape: our model
+reads pixels through a frozen encoder, and those features carry less scanner identity than raw
+headers do. But 0.024 is **larger than the resolution effect (+0.013) this project dismissed as
+unmeasurable, and the same size as the entire label-swap gain (+0.025)**. Every OOF number
+produced here before today was inflated by roughly this much.
+
+**The honest baseline going forward is 0.7229 ± 0.0048, site-grouped.** Ungrouped numbers stay
+usable for A/Bs where both arms share the fold policy, but nothing gets compared against an
+external score except under site-grouped folds.
+
+Note the gold-37 macro moves the *other* way — 0.7389 ungrouped vs 0.7465 grouped. With 5–19
+positives per label that is noise, and it is a good example of why §2g retired it: the
+37-study instrument cannot see a 0.024 effect and here it reports the wrong sign.
+
+### The bug that would have made this look fine
+
+The first version of `site_fingerprint.py` produced **215 groups, largest 1,077 studies** — 24%
+of the corpus in one group, which would have forced a quarter of the data into a single fold
+while the fold report printed a healthy-looking group count. Cause: the parquet's string columns
+are pyarrow-backed, so `.astype(str)` leaves `pd.NA` intact, `pd.NA + "|"` is `pd.NA`, one
+missing field nulls the whole fingerprint, and **`pd.factorize` maps NaN to −1** — collecting
+every such study into one bucket. Fixed by forcing each field through a real `str` first, plus
+two asserts.
+
+This is the failure mode that module's own docstring warns about, committed inside the module.
+After the fix: **265 fingerprints, top 20 covering 45.5%** — an *exact* match to the published
+probe, which is what a correct reproduction looks like and what the first version did not have.
+
+Two things made it visible, and both are cheap to repeat: **the fold report prints
+`max N studies` per group**, and there was a published number to reproduce. A grouping guard
+with neither is untestable.
+
+---
+
 ## 3. Resolved (kept for provenance — these are the failure *patterns* to watch for)
 
 | # | Issue | Root cause | Fix |
