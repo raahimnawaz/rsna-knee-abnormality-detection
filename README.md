@@ -128,7 +128,10 @@ labeling/              hand-labelling workflow
   error_direction.py     splits disagreement into calibration vs true divergence
 pipeline/              shared by BOTH machines -- the one definition of preprocessing
   preprocess.py          DICOM *and NIfTI* -> model input. Fingerprinted; see "Preprocessing parity"
-  build_cache_local.py   the feature cache, built on the M5 from NIfTI. 1,062 studies/h @224
+  build_cache_local.py   the FROZEN-EMBEDDING cache, M5 from NIfTI. 1,062 studies/h @224.
+                         Provenance only -- a cached embedding cannot fine-tune (IMPROVEMENTS 2e)
+  bench_port.py          times the training port for real: 28.5 img/s, 2.6 h/fold. IMPROVEMENTS 2h
+  bench_cache_build.py   times the 336 slot-pixel cache: ~16 min for the corpus. IMPROVEMENTS 2h
   validate_nifti.py      5 checks that the NIfTI repackaging matches the DICOMs. All pass
 fusion/                the differentiator (PLAN.md 3.3). Trains on the M5, MPS
   model.py               slice transformer -> attention pool -> series attention -> 12 logits
@@ -673,14 +676,13 @@ Ordered so that each step is validated by the one before it. Nothing here needs 
    - **The instrument is valid at fixed targets only.** It cannot arbitrate label *sources*,
      because the reference is itself a label source. Gold-58 keeps that job; §2f has already
      settled it. Everything the port needs is a fixed-target comparison, so this costs nothing.
-3. **Time one training step before building the 9 GB cache. (~30 min)** The "~12 min/epoch,
-   ~2 h for 10 epochs" in §2e is **inferred** from our measured 9.9 img/s for DINOv2-base@518,
-   scaled by parameter and token counts to small@336 with six blocks open. It has never been
-   run. Build ~50 studies' worth of slot images, take one optimiser step, and record real
-   img/s. Everything after this depends on that number, and every previous route in this
-   project that committed to a multi-hour build on an inferred cost model has lost the hours
-   (§9.1's four Kaggle sessions, the 21 h unsharded cache, the 9 h serial-curve run). **Gate:
-   if the measured epoch cost is worse than ~3× the estimate, stop and re-plan.**
+3. **Time it before building it. `DONE 2026-08-10 — gate passed at 1.29×.`**
+   `pipeline/bench_port.py` + `pipeline/bench_cache_build.py`. §2e's cost model was inferred and
+   is now run: **28.5 img/s training** → 15.4 min/epoch, **2.6 h per fold-run**, 12.9 h for
+   5 folds × 10 epochs. And the cache build is **~16 minutes** for the whole corpus, not hours —
+   it stores pixels rather than embeddings, so its cost is a NIfTI read, not an encoder pass.
+   §2h. The entry price for the architecture that *can* fine-tune turns out to be a coffee
+   break; the architecture that cannot cost 21 h, 9 h and four Kaggle sessions.
 4. **Port the training. (~2 h/run)** The frozen-cache architecture cannot fine-tune (§2e), so
    it cannot be fixed downstream. Build the ~9 GB pixel cache at 336 (26,442 slot images) from
    the NIfTI already on disk and train `UNFREEZE_LAST=6` locally. K16's slice-direction bit is

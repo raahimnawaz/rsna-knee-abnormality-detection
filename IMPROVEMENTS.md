@@ -766,6 +766,54 @@ the strongest available argument against ever using it as a label.
 
 ---
 
+## 2h. The port is affordable — measured, not inferred `MEASURED 2026-08-10`
+
+§2e's "~12 min/epoch, ~2 h for `EPOCHS=10`" was scaled from our 9.9 img/s for base@518 by
+parameter and token counts. `pipeline/bench_port.py` and `pipeline/bench_cache_build.py` run it.
+
+**A. Training** — dinov2-small @336, last 6 blocks open (10.7M of 21.8M params trainable),
+batch 8 studies × 6 slots = 48 images, MPS:
+
+| | measured |
+|---|---:|
+| step | 1,683 ms |
+| throughput | **28.5 img/s** (train) · 74 img/s (inference) |
+| epoch, 4,407 studies × 6 slots | **15.4 min** |
+| 10 epochs, one fold | **2.6 h** |
+| 5 folds × 10 epochs | **12.9 h** |
+
+**Estimate was 1.29× optimistic — inside the ~3× gate, so the port proceeds.** For scale, the
+public 0.903 five-fold B3 run took 12.4 h, so 12.9 h locally is the same order for a full
+ensemble, and **2.6 h is the single-fold iteration unit**. Against Kaggle's 8 h cap, 30 h weekly
+quota and four-in-five GPU refusals, the asymmetry §2e claimed is now measured rather than
+argued.
+
+**B. Cache build** — the surprise, and it is in our favour:
+
+| | |
+|---|---:|
+| per study, single process | 0.22 s median (4.8 series read) |
+| **full corpus, single process** | **~16 min** |
+| the 3,599 studies with NIfTI on disk | ~13 min |
+
+**Two orders of magnitude cheaper than any cache this project has built**, and the reason is
+structural rather than lucky: the frozen cache was slow because it ran DINOv2 over ~155 slices
+per study, so its cost was *encoder* time. The slot cache stores **pixels** — 6 slots × 3 slices
+= 18 per study — so its cost is a NIfTI read and an in-plane resample off a local SSD. The
+encoder work moves into training, where it belongs, because that is the only place it can be
+adapted.
+
+So the entry price for the architecture that can actually fine-tune is **~16 minutes**, against
+the 21 h unsharded attempt, the 9 h serial-curve run and four failed Kaggle sessions spent on
+the architecture that cannot. That comparison is the cost of §2e having gone unexamined.
+
+**One thing to carry into the build:** slot coverage is uneven, as `FINDINGS.md` §3.2 predicted —
+over 20 sampled studies, Axial-FS hit 20/20 and **Axial non-FS hit 4/20**. Masked slots are the
+normal case, not an edge case, and `fusion/model.py` already treats series dropout as a real
+augmentation for exactly this reason.
+
+---
+
 ## 3. Resolved (kept for provenance — these are the failure *patterns* to watch for)
 
 | # | Issue | Root cause | Fix |
