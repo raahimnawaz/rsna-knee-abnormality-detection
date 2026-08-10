@@ -706,6 +706,66 @@ the port is validated against the targets we will actually ship rather than agai
 
 ---
 
+## 2g. The large-n instrument works — for one class of question `MEASURED 2026-08-10`
+
+Run before committing to the plan that depends on it, on the `features_224` cache that already
+exists. `fusion/train.py` now writes `oof_all.csv` (every study, not just the 37 gold);
+`fusion/instrument_test.py` scores it.
+
+| instrument | n | macro | bootstrap SD |
+|---|---:|---:|---:|
+| gold-37 (image-read, current) | 37 | 0.744 | **±0.031** |
+| report-derived OOF (proposed) | 2,612 | 0.771 | **±0.0046** |
+
+**6.7× tighter**, and the two land 0.026 apart while measuring different references. That is the
+result the plan needed and it holds: a local instrument that can resolve ~0.01 exists, costs
+one CSV, and needs no new cache.
+
+### But it does not license label-source A/Bs, and the first attempt at one was confounded
+
+The test tried to go further: score arm A (trained on our labels) and arm B (trained on
+`steven_v4`) against `lixin_gpt56` as a *neutral* third reader neither trained on. It returned
++0.039 at 6.0σ — and the "neutral" reader is not neutral. **`steven_v4` predicts `lixin` at
+AUC 0.9998.** Arm B was scored against a near-copy of its own training targets. **The 6.0σ is
+void; do not quote it.**
+
+Pairwise mean |r| over the twelve labels, n=4,406:
+
+| | steven_v4 | steven_full | pilkwang_v2 | pilkwang_v1 | lixin | ours |
+|---|---:|---:|---:|---:|---:|---:|
+| **steven_v4** | 1.000 | 0.936 | 0.918 | 0.726 | **0.947** | 0.685 |
+| **steven_full** | 0.936 | 1.000 | 0.885 | 0.641 | 0.795 | 0.592 |
+| **pilkwang_v2** | 0.918 | 0.885 | 1.000 | 0.700 | 0.866 | 0.657 |
+| **lixin** | 0.947 | 0.795 | 0.866 | 0.715 | 1.000 | 0.706 |
+| **ours** | 0.685 | 0.592 | 0.657 | 0.695 | 0.706 | 1.000 |
+
+**Two consequences, and one of them cancels planned work.**
+
+**The public readers are near-duplicates of each other** (0.87–0.95 among the good ones). There
+is almost no diversity to ensemble, which retro-explains §2f: the rank-mean of all five (0.885)
+is *worse* than `steven_v4` alone (0.893). So the per-label accuracy-weighted fusion the 0.903
+writeup recommends — and which Phase 0 step 1 was going to build — is **not worth building
+here**. It pays when readers are independent. These are not. **Ship `steven_v4` and move on.**
+
+**Our extractor is the only genuinely independent source in the table** (0.59–0.71 against
+everything else, where the public readers sit at 0.87–0.95 against each other). That is the one
+interesting property it has, and §2f already shows the diversity is *error* rather than signal —
+it is uncorrelated because it is wrong in its own direction, and adding it to a rank-mean loses
+0.005. This is the strongest available support for the §1.1 disagreement-detector framing and
+the strongest available argument against ever using it as a label.
+
+### What the instrument is therefore for
+
+- **Valid:** architecture, hyperparameters, pooling, slice count, augmentation, the training
+  port's reproduction gate — anything compared **at fixed targets**, where both arms stand in
+  the same relation to the reference.
+- **Not valid:** comparing label *sources*. The reference is itself a label source, so the arm
+  whose targets resemble it wins by construction. Gold-58 remains the only arbiter there, it is
+  noisy, and at the target level it is also already decisive (0.777 vs 0.893, §2f) — so this
+  limitation costs nothing we currently need.
+
+---
+
 ## 3. Resolved (kept for provenance — these are the failure *patterns* to watch for)
 
 | # | Issue | Root cause | Fix |

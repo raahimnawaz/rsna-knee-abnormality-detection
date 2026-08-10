@@ -333,6 +333,15 @@ def main() -> None:
             # kaggle_03 cannot check that it preprocesses the test set the same way.
             (outdir / "manifest.json").write_text(json.dumps(cache_meta, indent=2))
 
+    # ---- full OOF, every study ---------------------------------------------------------
+    # Written before the gold evaluation because it is the larger instrument and the one that
+    # can carry error bars: gold is 37 studies with 5-19 positives per label, this is every
+    # cached study. Costs one CSV; `oof_gold.csv` below stays as it was so nothing downstream
+    # has to change. See README "Where this goes next" 0.
+    all_uids = list(oof)
+    pd.DataFrame(np.stack([oof[u] for u in all_uids]), columns=LABELS).assign(
+        StudyInstanceUID=all_uids).to_csv(Path(args.out) / "oof_all.csv", index=False)
+
     # ---- pooled OOF evaluation on gold ------------------------------------------------
     tr = pd.read_csv(D / "train.csv")
     gold = tr.dropna(subset=LABELS)

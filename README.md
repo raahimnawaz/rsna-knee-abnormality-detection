@@ -11,7 +11,7 @@ Twelve-label knee-MRI classification, macro-AUROC. Final submission **2026-10-22
 | **`IMPROVEMENTS.md`** | **running friction log.** Open decisions, ranked weaknesses, resolved-bug provenance. Read before touching the extractor. |
 | `labeling/README.md` | hand-labelling workflow |
 
-## The four facts that shape everything
+## The five facts that shape everything
 
 1. **58 of 4,407 training studies carry labels (1.3%).** The rest must be derived from the
    free-text radiology reports.
@@ -134,7 +134,10 @@ fusion/                the differentiator (PLAN.md 3.3). Trains on the M5, MPS
   model.py               slice transformer -> attention pool -> series attention -> 12 logits
   dataset.py             cached features -> padded batches. `python fusion/dataset.py` self-tests
   folds.py               5-fold, grouped by patient-proxy. NB: there is no patient column
-  train.py               training loop + pooled-OOF gold eval. --synthetic needs no cache
+  train.py               training loop + pooled-OOF gold eval. --synthetic needs no cache.
+                         Also writes oof_all.csv -- every study, which is the real instrument
+  instrument_test.py     proves oof_all is 6.7x tighter than gold-37, and finds the one thing
+                         it CANNOT arbitrate: label sources. IMPROVEMENTS.md 2g
 notebooks/             Kaggle-side only; the 570 GB of pixels never come local
   kaggle_01_dicom_audit.py    did (0020,0060) Laterality survive? + decode cost per syntax
   kaggle_01b_patients_laterality.py  header-only pass over all 4,407: PatientID + laterality
@@ -586,9 +589,28 @@ and it is free to run.
 
 Three things have to be right for it to work, and all three are cheap:
 
-1. **Group the split by a hash of the report text.** Some reports are byte-identical across
-   studies — a template read for an unremarkable knee. Splitting such a group across the divide
-   scores the model on a target whose source it trained on.
+1. ~~**Group the split by a hash of the report text.**~~ **CORRECTED 2026-08-10 before it was
+   built — `fusion/folds.py` already tested this and rejected it, and its reasoning beats the
+   public notebook's.** The mechanism the 0.899 notebook names — "scores the model on a target
+   whose source it trained on" — **cannot happen for an image-only model**: the report is the
+   target's source and never an input, so two studies sharing a target vector leak nothing
+   through the text. `folds.py` also measured the cost: forcing the 49 template groups whole
+   damaged fold balance to 664–1,077 studies per fold, to prevent a leak that does not exist.
+   183 of 4,407 studies share a report; the largest group is 37 studies on one Turkish
+   boilerplate normal.
+
+   **The concern that does survive is a different one, and report-hash is only a proxy for it.**
+   37 studies carrying one radiologist's boilerplate are plausibly one site and one scanner, so
+   a model can learn *site appearance → that site's label distribution* and carry it to holdout
+   members of the same group. That is **site** leakage, it would exist between same-site studies
+   whether or not they share report text, and it is the thing to measure. There is no site
+   column: `study_meta.csv` carries only UID, PatientID (unique per study — no patient linkage
+   exists in this dataset), laterality and geometry. `Manufacturer` / `InstitutionName` /
+   `StationName` would have to come from a header pass — which is nearly free if it rides along
+   with the `kaggle_01c` slice-direction extension already required by step 3.
+
+   So this becomes a measurement, not a mandate: report holdout OOF with and without template
+   groups held whole, and adopt grouping only if the gap is real.
 2. **Validate the proxy against gold, then stop looking at gold.** Report-derived OOF is the
    instrument; cross-fitted gold-58 is the check that the instrument is pointed at the right
    thing. If they diverge, the proxy is wrong. If they agree, use the proxy — it is the one
@@ -613,30 +635,61 @@ Three things have to be right for it to work, and all three are cheap:
 6. **The fork is the base, not a reference.** It scores 0.891 and its inference path
    demonstrably works. `kaggle_03_submit.py` has never executed against a real test DICOM.
 
+### Two standing decisions `SET 2026-08-10`
+
+These bind how every step below is built, not just which steps run.
+
+**Reproduce the fork, then diverge — but in our own code.** The port's job is to hit a
+reproduction gate against a known-good configuration, because a baseline that reproduces is the
+only thing that makes a later A/B trustworthy. That is a reason to copy the fork's
+*configuration*, not its file. So `pipeline/` and `fusion/` grow modules that reproduce
+`pilkwang`'s slot scheme, `UNFREEZE_LAST=6` and its optimiser settings, written as ours, with
+the reproduction gate as the test. If a component here cannot be explained from first
+principles it does not ship, no matter what it scores.
+
+**Rank-weighted, both objectives.** Chase the leaderboard, but nothing enters the repo that
+could not be defended line by line. Practical consequences: forks are measurement baselines and
+never the submitted artifact; public label tables *are* shipped, because using better data is
+not the same as using someone else's model, and §2f is the honest record of why; ensembling is
+allowed and must be reproducible from our own checkpoints.
+
 ### Phase 0 — supervision, then instrument, then port (this week)
 
 Ordered so that each step is validated by the one before it. Nothing here needs a Kaggle GPU.
 
-1. **Swap the labels. (~1 h)** `extractor/bench_public_labels.py --download` already pulls
-   them. Ship the rank-mean of `steven_v4 + steven_full` (0.890 on gold-58) or `steven_v4`
-   alone (0.893) as `data/targets.csv`, replacing `pseudo_labels.csv` everywhere. Then do what
-   the 0.903 system does and we do not: **fuse per target, weighted by each reader's measured
-   per-label accuracy**, rather than picking one reader globally. §2f has the per-label table;
-   `pilkwang_v2` wins Fracture (0.870) and MCL (0.976) while `steven_v4` wins eight others, so
-   a per-label choice is worth having and is free.
-2. **Build the instrument. (~3 h)** Report-text-hash grouping in `fusion/folds.py`; hold out
-   20%; report macro OOF against the fused targets *and* cross-fitted gold-58 side by side, the
-   way the 0.903 system does. **Gate: the two must agree to within ~0.01.** If they do not, the
-   targets are wrong and step 1 is not finished.
-3. **Port the training. (~2 h/run)** The frozen-cache architecture cannot fine-tune (§2e), so
+1. **Swap the labels. (~15 min)** `extractor/bench_public_labels.py --download` already pulls
+   them. Ship **`steven_v4` as `data/targets.csv`**, replacing `pseudo_labels.csv` everywhere,
+   and stop there. ~~Then fuse per target, weighted by each reader's measured per-label
+   accuracy, the way the 0.903 system does.~~ **Cut 2026-08-10 before building it:** that
+   technique pays when readers are independent, and §2g measures these at mean |r| **0.87–0.95**
+   — `steven_v4` predicts `lixin` at AUC **0.9998**. There is no diversity to fuse, which is
+   why §2f's five-reader rank-mean (0.885) *loses* to `steven_v4` alone (0.893).
+2. **Build the instrument. `DONE 2026-08-10 — it works.`** `fusion/train.py` now writes
+   `oof_all.csv`; `fusion/instrument_test.py` scores it. Measured on the cache that already
+   exists: **gold-37 ±0.031 vs report-OOF ±0.0046 over 2,612 studies, 6.7× tighter**, with the
+   two landing 0.026 apart. §2g. Two corrections came out of building it, both of which
+   cancelled planned work rather than adding any:
+   - **Report-hash grouping is not required** — see the corrected item 1 above.
+   - **The instrument is valid at fixed targets only.** It cannot arbitrate label *sources*,
+     because the reference is itself a label source. Gold-58 keeps that job; §2f has already
+     settled it. Everything the port needs is a fixed-target comparison, so this costs nothing.
+3. **Time one training step before building the 9 GB cache. (~30 min)** The "~12 min/epoch,
+   ~2 h for 10 epochs" in §2e is **inferred** from our measured 9.9 img/s for DINOv2-base@518,
+   scaled by parameter and token counts to small@336 with six blocks open. It has never been
+   run. Build ~50 studies' worth of slot images, take one optimiser step, and record real
+   img/s. Everything after this depends on that number, and every previous route in this
+   project that committed to a multi-hour build on an inferred cost model has lost the hours
+   (§9.1's four Kaggle sessions, the 21 h unsharded cache, the 9 h serial-curve run). **Gate:
+   if the measured epoch cost is worse than ~3× the estimate, stop and re-plan.**
+4. **Port the training. (~2 h/run)** The frozen-cache architecture cannot fine-tune (§2e), so
    it cannot be fixed downstream. Build the ~9 GB pixel cache at 336 (26,442 slot images) from
    the NIfTI already on disk and train `UNFREEZE_LAST=6` locally. K16's slice-direction bit is
    on the critical path here — NIfTI carries no `ImagePositionPatient`, so extend `kaggle_01c`
    over all 24,371 series first (CPU-only, ~20 min); K18 handedness rides along.
-4. **Reproduce the fork's own configuration before changing one line of it.** If a local run
+5. **Reproduce the fork's own configuration before changing one line of it.** If a local run
    with *its* labels does not land near its published score, the port is wrong and every
    comparison after it is noise. This is the gate; do not pass it by reasoning.
-5. **Submit once**, as a dry run of the inference path, and record the CV↔LB mapping for *our*
+6. **Submit once**, as a dry run of the inference path, and record the CV↔LB mapping for *our*
    pipeline rather than the interpolated estimate in "The four facts" §5.
 
 ### Phase 1 — the labels that are at chance
