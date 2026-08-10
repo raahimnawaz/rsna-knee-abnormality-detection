@@ -561,6 +561,61 @@ Four rules follow, and they are cheap:
 > still the diagnosis of it, but the fix has changed: the previous version's answer was to stop
 > measuring locally and let the leaderboard decide. That was wrong too, and expensively so —
 > see §0.
+>
+> **The churn is over, and the ledger below is why.** Four things were measured on 2026-08-10
+> and three of them cancelled work rather than adding any. Every row now carries the
+> measurement that put it there, so a future reorder has to beat evidence rather than
+> reinterpret it.
+
+### The ledger — everything, with the evidence that settled it
+
+**Works — keep, do not re-litigate.**
+
+| | evidence |
+|---|---|
+| Report-derived OOF as the instrument | ±0.0046 over 2,612 vs gold-37's ±0.031 — **6.7× tighter** (§2g) |
+| Public LLM labels as targets | `steven_v4` **0.893** vs ours 0.777 on gold-58, 4.5σ (§2f) |
+| The training port is affordable | **28.5 img/s**, 2.6 h/fold, cache builds in **~16 min** (§2h) |
+| NIfTI conversion | 5 checks against the DICOMs, all pass (`pipeline/validate_nifti.py`) |
+| Laterality | tag on 50%, geometry fallback agrees **97.7%** at `x < −62` (`FINDINGS.md` §6.2) |
+| Fold assignment ungrouped | measured call; no patient linkage exists (4,407 IDs / 4,407 studies) |
+| Four of twelve labels | Baker's **0.919**, Medial OA **0.913**, Effusion **0.863**, Lateral OA 0.824 |
+
+**Dead — closed, with the number that closed it. Do not reopen without new evidence.**
+
+| | why |
+|---|---|
+| Rule extractor as a label source | **0/12** labels, and *subtracts* from a rank-mean (§2f) |
+| Frozen-embedding architecture | cannot fine-tune at any resolution, under any head (§2e) |
+| The 518 rebuild (~22 h) | **+0.013**, inside the CI (§2d) |
+| Soft-target calibration ladder | fitted against gold and **lost**, 0.743 → 0.699 (§1.3a) |
+| Series-metadata shortcut | **0.471**, below chance (`eda_04`) |
+| Per-label reader fusion | readers are near-duplicates, |r| 0.87–0.95 (§2g) — killed before built |
+| Report-hash fold grouping | the leak cannot occur for an image-only model (`fusion/folds.py`) |
+| "The leaderboard is the instrument" | unaffordable: 5/day against ~8 h runs and a 30 h quota |
+| Gold-37 as arbiter | ±0.031 cannot resolve 0.04; superseded, kept as the *check* on the instrument |
+| Further extractor refinement | §2.2 was worth **+0.002** on gold |
+
+**Promising — ranked by (measured payoff) / (measured cost).**
+
+| | expected | cost | basis |
+|---|---|---|---|
+| 1. **The training port** | the primary constraint | 16 min + 2.6 h/run | §2e diagnosis, §2h cost |
+| 2. **The three labels at chance** | **~0.08 macro** | per-label specialists | Fracture 0.494, Lat Meniscus 0.526, Contusion 0.603 |
+| 3. **External data (MRNet)** | supervises exactly those three | licence + a fine-tune | 1,370 exams, image-read; MRNet reaches ACL 0.965 |
+| 4. **Finish the corpus** | **+0.024** per 1.6× data | download time | 1,000 → 2,649 measured |
+| 5. **Gold-58 into training** | 58 image-read labels currently discarded | free | the fork does it; we hold all 58 out |
+| 6. **Our head vs `SlotHead`** | unknown — largest unmeasured claim | one instrument run | `PLAN.md` §7.1, never once compared |
+| 7. **Rank-mean over seeds** | mechanical, ~+0.01 | linear in runs | every public solution does it |
+
+**Unknown and worth one cheap check each.**
+
+- **Site leakage.** The surviving form of the grouping concern. No site column exists; needs
+  `Manufacturer` / `InstitutionName` from a header pass, which rides along with the `kaggle_01c`
+  direction export already required by the port. ~20 min, CPU-only.
+- **External-data rules.** Whether MRNet is admissible, and whether the forum-disclosure
+  requirement applies, gates promising item 3 entirely. The rules page needs a logged-in
+  browser; **not yet read** — see the risk note in Phase 2.
 
 ### 0. There is no working instrument, and the leaderboard is not the fix
 
@@ -660,9 +715,9 @@ allowed and must be reproducible from our own checkpoints.
 
 Ordered so that each step is validated by the one before it. Nothing here needs a Kaggle GPU.
 
-1. **Swap the labels. (~15 min)** `extractor/bench_public_labels.py --download` already pulls
-   them. Ship **`steven_v4` as `data/targets.csv`**, replacing `pseudo_labels.csv` everywhere,
-   and stop there. ~~Then fuse per target, weighted by each reader's measured per-label
+1. **Swap the labels. (~15 min, but read the rules first — see the risk note in Phase 2.)**
+   `extractor/bench_public_labels.py --download` already pulls them. Ship **`steven_v4` as
+   `data/targets.csv`**, replacing `pseudo_labels.csv` everywhere, and stop there. ~~Then fuse per target, weighted by each reader's measured per-label
    accuracy, the way the 0.903 system does.~~ **Cut 2026-08-10 before building it:** that
    technique pays when readers are independent, and §2g measures these at mean |r| **0.87–0.95**
    — `steven_v4` predicts `lixin` at AUC **0.9998**. There is no diversity to fuse, which is
@@ -719,8 +774,24 @@ once compared.
 
 1. **External data.** MRNet (1,370 exams, image-read ACL / meniscus / abnormality) supervises
    exactly the three labels we are worst at, with expert reads rather than report text. OAI
-   covers the OA three. **Check the competition's external-data rules and the forum posting
-   requirement first** — this is gated on a rule, not on effort.
+   covers the OA three. **Gated on a rule, not on effort — and the rule has not been read.**
+   The Kaggle rules page is JS-rendered and needs a logged-in browser; what is confirmed from
+   elsewhere is only that this is a code competition, **≤9 h runtime, internet off, entry
+   deadline 2026-10-15**, final 2026-10-22. Read the rules page before any MRNet work.
+
+> **RISK, OPEN — read the rules before Phase 0 step 1 ships, not after.** `IMPROVEMENTS.md`
+> §1.1 flagged in week one that Competition Rule 4.b (Data Security) may forbid sending report
+> text to a hosted LLM API. That concern was about *us* running one. It now applies to the
+> public label tables we are adopting: several were plausibly produced that way, and adopting
+> their output is not obviously the same act as producing it. One signal that the question is
+> live rather than paranoid — the 0.903 system's author went to the trouble of serving
+> **Qwen3.6-35B locally**, at temperature zero, rather than calling an API.
+>
+> This does not change the measurement in §2f, which stands. It changes whether the best label
+> source is *usable*, and the fallback if it is not is the local-LLM route §1.1 originally
+> scoped — now much cheaper than in week one, because §2h shows the M5 handles work of this
+> size and the reports are 4,407 short documents. **Do not build on the swap until this is
+> read.**
 2. **Data.** 1,000 → 2,649 studies was **+0.024**. The corpus is at 60% of 4,407. Finish it.
 3. **Gold at weight 3.0** — folded into Phase 0 step 2, listed here because it is a lever, not
    only a validation fix.
