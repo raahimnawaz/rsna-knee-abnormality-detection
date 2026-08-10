@@ -530,6 +530,18 @@ risk, and §9.1 is the cheapest way to retire it.
 > an unmodified `pilkwang` fork scored **0.891** on 2026-08-09, rank 230/908, top 0.940. What is
 > still unmeasured is the CV↔LB mapping for *our* pipeline.
 
+> **SUPERSEDED 2026-08-10. Do not follow the Phase list below.** The resolution reordering above
+> was tested and returned **+0.013** — inside the CI (IMPROVEMENTS §2d). The operative plan is
+> now README "Where this goes next", which starts from a different diagnosis: **every macro this
+> project has produced spans 0.695–0.719, a range of 0.024 against a ±0.038 CI, so no local
+> experiment here has ever been resolvable.** §7.2 called this "out of instrument" for the
+> extractor on 2026-08-07; the vision model was then scored on the same 37 gold studies and
+> inherited it. The route that follows from that is: use the **leaderboard** as the instrument,
+> build on the 0.891 fork rather than beside it, change one thing per submission, and decline
+> anything the instrument cannot see — including the 22 h 518 rebuild and, conditionally, the
+> K16/K18 direction export, which exists only because the NIfTI converter discarded
+> `ImagePositionPatient` that the DICOM path carries for free.
+
 **Phase 0 — one rebuild, at 518, carrying every known correction.**
 
 1. **Settle resolution first, cheaply (~5 h).** `--limit` keeps all gold, so a 518 subset build

@@ -452,46 +452,84 @@ Four rules follow, and they are cheap:
 
 ## Where this goes next
 
-Reordered 2026-08-09 by measured cost. The previous route led with the ordering fixes and put
-resolution in Phase 2; §1 shows that ranking was backwards, and §4 shows Phase 1's first half is
-already done.
+> **REWRITTEN 2026-08-10 after the resolution test returned +0.013.** This section has now been
+> reordered three times in two days. That churn is itself the symptom, and §0 below is the
+> diagnosis. The plan that follows is built to stop it, and its rules matter more than its steps.
 
-**Phase 0 — one rebuild, at 518, with every known correction in it.**
+### 0. The root cause: there is no working instrument
 
-1. **Buy the resolution answer before the rebuild (~5 h).** `--limit` keeps all gold, so a 518
-   subset build compared against the *same* subset of the existing 224 cache — free, already
-   built — isolates resolution from corpus size and settles §1 the same day. If Fracture and
-   Lateral Meniscus move off the floor, the full build is justified and its size is known.
-2. **Per-series slice direction** (§2). Extend `kaggle_01c` over all 24,371 series, CPU-only, no
-   GPU lottery. This is the long-pole dependency: §3's correction cannot be enabled without it,
-   and both belong in the same rebuild.
-3. **Finish the corpus** (§7). 2,649 of 4,407 studies are cached against 3,599 downloaded; the
-   gap is free data. Re-check parts 13–15.
-4. **Rebuild once at 518** with `SAGITTAL_LR_SLICE_FLIP=1` and the direction bit.
-5. **Submit** — as a dry run of `kaggle_03`, which has never touched a real test DICOM, not as a
-   score attempt. Then the train-vs-OOF diagnostic: if train AUC is also ~0.72 the head is
-   underfitting and wants capacity or epochs; if it is ~0.95 it is overfitting and wants
-   regularisation or more data. Those point in opposite directions and one run separates them.
+Every macro this project has produced, across every experiment:
 
-**Phase 1 — close the mechanical gap.** Rank-mean ensembling across resolutions, then backbones —
-the public baseline does both and we do neither (§6). Measure the gold-in-training trade instead
-of assuming it. Re-point the §7.2 A/B at `pilkwang`'s extractor rather than `nekkon`'s CSV.
+```
+0.695   0.699   0.708   0.719        range 0.024
+```
 
-**Phase 2 — external data, which `PLAN.md` §3.4 calls "likely decisive" and no previous route
-included.** 4,407 studies, nearly all pseudo-labelled, is small for a 12-label 3D task, and the
-rules explicitly permit external data and pre-trained models. **MRNet** (ACL, meniscal tear) and
-**OAI** (expert OA grading) between them supervise six of the twelve labels — and MRNet covers
-three of the six that §1 shows are failing. Licence checks and the forum posting requirement make
-this worth starting earlier than its position suggests.
+against a macro CI of **±0.038**. **Every result is statistically indistinguishable from every
+other.** The soft-target ladder "losing", resolution "winning", the calibrated arm, the full
+cache — none of those conclusions are supported by the instrument that produced them.
 
-**Phase 3 — the differentiators.** Mask `absent` from the loss rather than re-targeting it
-(`IMPROVEMENTS.md` §1.3a makes this a sharp hypothesis: gains should be largest where
-`absent_raise x absent_share` was largest). Finish the 217 hand labels — the one asset no
-competitor has, and per `IMPROVEMENTS.md` §0 the only fix for the ±0.038 CI that makes half these
-numbers unresolvable. Then `PLAN.md` §3.5's own top and bottom items, which no route has carried:
-aux heads + soft labels ("cheapest real gain") and the label-correlation stacker on the 12 OOF
-logits ("+0.003–0.008 macro AUC for ~zero runtime"). Attention+mean+max pooling and per-pathology
-query tokens last.
+`PLAN.md` §7.2 diagnosed this for the extractor on 2026-08-07 and called it "out of instrument".
+The fix chosen was a vision model — scored on the **same 37 gold studies**, so it inherited the
+same blindness rather than escaping it.
+
+This is why README §9's failure pattern keeps recurring. When measurement cannot decide,
+decisions get made by reasoning, and reasoning is exactly what K3–K5, K14, K16 and K18 were. The
+pattern is not a discipline problem. It is what a blind instrument does to a project.
+
+**Meanwhile there is a working instrument that has been used once.** The leaderboard: ~390+
+natural-prevalence studies, several submissions a day, and 1,025 teams' worth of calibration.
+One submission exists — an unmodified `pilkwang` fork at **0.891**.
+
+### The rules (these bind the steps below)
+
+1. **The leaderboard is the instrument.** Gold OOF is a smoke test, not evidence. Nothing is
+   "better" until the LB says so.
+2. **One change per submission.** Two changes in one submission measure nothing.
+3. **Nothing below the instrument's resolution.** If an effect cannot be seen, it does not get
+   worked on — regardless of how interesting the mechanism is.
+4. **No infrastructure that is not on the critical path to a submission.** The NIfTI route cost
+   K16 and K18 — both impossible on DICOMs, which carry `ImagePositionPatient` — to buy an
+   effect measured at +0.013.
+5. **The fork is the base, not a reference.** It scores 0.891 and its inference path demonstrably
+   works. `kaggle_03_submit.py` has never executed against a real test DICOM.
+
+### Phase 1 — get an instrument (this week)
+
+1. **Re-submit the unmodified fork** to confirm reproducibility, and establish its CV on the
+   *full 4,407* studies — not on 37 gold. That CV is the local proxy; its correlation with the LB
+   is the thing being calibrated.
+2. **Two or three submissions of deliberately varied strength** to fit CV↔LB. Without this
+   mapping every local number remains unreadable.
+
+### Phase 2 — port the differentiators, one per submission
+
+Each is a single change against the 0.891 base, kept only if the LB moves:
+
+- **(a) Our labels vs its extractor.** `pseudo_labels.csv` is a drop-in target swap. This is the
+  §7.2 A/B finally run against the field rather than against `nekkon`'s CSV.
+- **(b) Our fusion head vs its pooling.** `PLAN.md` §7.1 calls ours "likely ahead" — **untested,
+  and the largest unmeasured claim in the project.** Test it or drop the assumption.
+- **(c) The 86 hand labels** as a validation set the field does not have.
+
+### Phase 3 — the levers that measured largest
+
+Ranked by what has actually been measured, not by interest:
+
+1. **Data.** 1,000 → 2,649 studies was worth **+0.024**; 224 → 518 was worth **+0.013**. Data is
+   roughly twice resolution, and the corpus sits at 60% of 4,407. Finish it.
+2. **External data** (`PLAN.md` §3.4, "likely decisive", omitted by every route until now). MRNet
+   supervises three of the six weak labels with real expert reads; OAI covers the OA three.
+3. **Gold at weight 3.0.** The fork trains on all 58; we hold all 58 out. Measure the trade
+   rather than assuming the honest choice is the right one.
+4. **Rank-mean ensembling** across resolutions then backbones.
+
+### Explicitly not doing
+
+- The full 518 rebuild (~22 h). Measured **+0.013**, inside the CI. Revisit only if the LB
+  disagrees.
+- K16/K18 and the per-series direction export — **only if the local cache survives Phase 2.** On
+  the fork's DICOM path these defects cannot occur, so the fix may be moot.
+- Any further extractor refinement below the CI. §2.2 was worth +0.002 on gold.
 
 
 ## Status — 2026-08-09
@@ -537,6 +575,14 @@ query tokens last.
 - [x] **The pseudo-labels are not the ceiling — measured** (`IMPROVEMENTS.md` §2d). Vision beats
       the extractor on six of twelve labels and Spearman between the two per-label columns is
       **−0.17 (p=0.60)**. The bottleneck is the image path: the 224 cache resolves **0.71 mm/px**
+- [x] **Resolution tested and it is small** (2026-08-10). 1,000-study 518 cache, 3.88 h, trained
+      against the same 1,000 studies at 224: **+0.013 macro**, inside the ±0.038 CI. Right where
+      predicted — Lateral Meniscus +0.067, Fracture +0.051 — and too small to plan around. The
+      same run measured 1,000 → 2,649 studies at **+0.024**, so **data is worth ~2× resolution**
+- [x] **The real diagnosis: no working instrument.** All four macros this project has produced —
+      0.695, 0.699, 0.708, 0.719 — span 0.024 against a ±0.038 CI, so none of its conclusions are
+      supported by the measurement that produced them. The leaderboard is the instrument and has
+      been used once. See "Where this goes next"
 - [x] **First LB submission — 0.891**, an unmodified fork of `pilkwang/rsna-knee-baseline-v1`,
       2026-08-09. Rank **230/908**; LB top is **0.940**. Phase 1's first half is done and the
       reference implementation reproduces. Our *own* pipeline has still never been submitted, and

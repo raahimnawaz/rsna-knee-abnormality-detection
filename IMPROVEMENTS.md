@@ -473,6 +473,26 @@ Intra-rater consistency: **100%** on the 2 duplicate pairs seen so far (small, b
 
 ## 2d. The vision model's ceiling is resolution, not labels `MEASURED 2026-08-09`
 
+> **TESTED 2026-08-10 — the mechanism holds, the magnitude does not, and the title is wrong.**
+> A 1,000-study cache was built at 518 (3.88 h) and trained against the *same* 1,000 studies at
+> 224, identical folds and seed. Result: **+0.013 macro**, a third of the bottom of the predicted
+> +0.03–0.07 range and well inside the ±0.038 CI. Direction was right where it was called —
+> Lateral Meniscus **+0.067** (n=18) and Fracture **+0.051** (n=13), the two labels named in
+> advance as the sharpest tests — and the predicted group averaged +0.034 against −0.008 for the
+> rest. Restricted to labels the CI can see (n_pos ≥ 12) that narrows to +0.024 vs +0.006.
+>
+> So resolution is real, concentrated where predicted, and **too small to build a plan around**.
+>
+> **The finding that replaces it:** the same run measured 1,000 → 2,649 studies at 224 as
+> **+0.024**. *Data is worth about twice resolution*, and the corpus sits at 60% of 4,407. That
+> inverts the ranking this section argued for and promotes §3.4's external data.
+>
+> What survives untouched is the part below that rules out the **labels** as the ceiling —
+> Spearman −0.17 (p=0.60) is a property of the label/vision relationship, not of resolution.
+> What was wrong was inferring from "not labels" that it must be resolution, and then reordering
+> the whole route on an untested inference. The 518 rebuild is now explicitly **not** planned
+> (README "Where this goes next").
+
 The obvious reading of a 0.719 macro is that the pseudo-labels cap it: the model is trained on
 extractor output, so it cannot be better than the extractor. **That is measurable, and it is
 false.**
