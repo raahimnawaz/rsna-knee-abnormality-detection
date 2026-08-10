@@ -574,11 +574,20 @@ rather than its code:
 | claimed | actual |
 |---|---|
 | ensembles DINOv2 **and** EfficientNet | one backbone, DINOv2 only |
-| across 224/336 | one resolution, `CACHE_IMG = 336` |
+| across 224/336 | **correct — I was wrong to deny this.** `RUNS = [{"img":224},{"img":336}]`; `CACHE_IMG` is the cache size, not the only run |
 | "our backbone is already the same checkpoint theirs is" | theirs is DINOv2 **small**; ours is **base** with registers |
 
-So it beats us with a *smaller* backbone at *one* resolution. We are not behind on capacity or on
-resolution. We are behind on being able to train the thing.
+So it beats us with a *smaller* backbone. We are not behind on capacity. We are behind on being
+able to train the thing.
+
+> **AND THE FORK AS ATTACHED DOES NOT TRAIN AT ALL.** `main()` calls `find_weights()`, and when
+> `pilkwang/rsna-knee-weights` is mounted it takes `infer_from_package()` and returns —
+> 20 pre-trained members, rank-meaned, 74 seconds. The 0.891 is *inference from published
+> weights*, not a training run. So the first attempt at Phase 0 — swapping the label table —
+> changed nothing, because no training happened for the labels to enter. To test labels the
+> weights package must be **detached** so the training path executes, which costs a full ~8 h
+> Kaggle run per arm against a 30 h weekly quota. That is the argument for doing the local
+> training port *first*: two arms locally is ~4 h and free.
 
 It also already ships what our Phase 3 listed as differentiators: `SlotHead` is per-diagnosis
 attention over slot embeddings with per-target priors (`SLOT_PRIOR_STRENGTH = 0.55`) — the

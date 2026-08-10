@@ -412,10 +412,12 @@ us** — at any resolution, under any head, with any labels. That is why resolut
 and why everything lands near 0.70 whatever changes downstream. Full analysis in
 `IMPROVEMENTS.md` §2e.
 
-Three claims this section previously made were wrong, all from reading the description instead
-of the code: it uses **one** backbone (not DINOv2 + EfficientNet), at **one** resolution
-(`CACHE_IMG = 336`, not 224/336), and it is DINOv2 **small** — not the base checkpoint we run.
-It beats us with a smaller backbone at one resolution. It also already ships per-diagnosis slot
+Two claims this section previously made were wrong, from reading the description instead
+of the code: it uses **one** backbone (not DINOv2 + EfficientNet) and it is DINOv2 **small** — not the base
+checkpoint we run. The 224/336 claim was right and my denial of it was wrong: `RUNS` carries
+both, and `CACHE_IMG` is the cache size rather than the only run. **And as attached it does not
+train at all** — `find_weights()` short-circuits `main()` into inference from 20 published
+members in 74 s, so 0.891 is a published-weights score. It also already ships per-diagnosis slot
 attention, confidence-weighted targets and rank-mean TTA — three things listed as our
 differentiators.
 
@@ -513,46 +515,43 @@ One submission exists — an unmodified `pilkwang` fork at **0.891**.
 5. **The fork is the base, not a reference.** It scores 0.891 and its inference path demonstrably
    works. `kaggle_03_submit.py` has never executed against a real test DICOM.
 
-### Phase 0 — one submission, today, with no new infrastructure
+### Phase 0 — the training port, because nothing can be tested until something trains
 
-Run the fork **unchanged except for the label table**, swapping `pilkwang`'s targets for
-`data/pseudo_labels.csv`. One change, one submission, measured on the instrument that works.
+> **Attempt 1 failed usefully, 2026-08-10.** Phase 0 was "run the fork with our label table
+> swapped in". It ran in **74 seconds** and changed nothing: `main()` calls `find_weights()`, and
+> with `pilkwang/rsna-knee-weights` mounted it takes `infer_from_package()` — 20 pre-trained
+> members, rank-meaned — and never trains. **The 0.891 is inference from published weights.** No
+> training happened, so the labels never entered anything.
 
-This is the §7.2 A/B finally run against the field instead of against `nekkon`'s CSV, and it
-tests the one asset this project has actually proven (0.777 vs 0.672 on gold). If our labels are
-worth what we think, the LB moves off 0.891. If they are not, we learn that for the cost of one
-submission instead of another month.
+That reorders the route rather than just fixing a step. To test *any* of our assets — labels,
+head, targets — something has to actually train, and there are only two places to do it:
 
-### Phase 1 — move the fine-tuning local, because that is the real asymmetry
+| | per run | quota | lottery |
+|---|---|---|---|
+| Kaggle, weights package detached | ~8 h | 30 h/week → 3 runs | 4 draws in 5 refused |
+| **M5, locally** | **~2 h** | none | none |
 
-Adopt the fork's architecture — DINOv2-small at 336, last six blocks open, `SlotHead` over six
-slots — and run its **training** on the M5 against local pixels.
-
-The case is arithmetic, not preference (§2e): a study is six encoder inputs, so a full
-`EPOCHS = 10` run is **~2 h locally**, against Kaggle's 8 h budget, a 30 h weekly quota, and a
-GPU lottery that refuses four draws in five. That is **10–20x more experiments on the
-architecture that actually works** — and unlike 518, it is an advantage the field cannot get by
-forking harder.
+So the training port is not Phase 1, it is the precondition for everything, and it is also the
+only place our advantage lives. Do it first:
 
 1. **Pixel cache at 336, ~9 GB** (26,442 slot images, 3 × 336² uint8) from the NIfTI already on
-   disk. Two orders of magnitude smaller than the 458 GB it comes from, and once it exists the
-   NIfTI mirror is deletable.
-2. **K16's per-series direction bit is now on the critical path and justified.** Local pixels
-   come from NIfTI, which carries no `ImagePositionPatient`, so slot assignment depends on it.
-   Extend `kaggle_01c` over all 24,371 series — CPU-only, no GPU lottery, ~20 min.
-   K18 rides along in the same cache.
-3. **Reproduce 0.891 locally before changing anything.** If a local run of the fork's own
-   configuration does not land near its LB score, the port is wrong and every later comparison
-   is noise.
+   disk. Two orders of magnitude smaller than the 458 GB it comes from; once it exists the NIfTI
+   mirror is deletable.
+2. **K16's direction bit is on the critical path and now justified.** Local pixels come from
+   NIfTI, which carries no `ImagePositionPatient`, and slot assignment depends on it. Extend
+   `kaggle_01c` over all 24,371 series — CPU-only, no GPU lottery, ~20 min. K18 rides along.
+3. **Reproduce the fork's own configuration locally before changing one line of it.** If a local
+   run with *its* labels does not land near its published-weights score, the port is wrong and
+   every comparison after it is noise. This is the gate; do not pass it by reasoning.
 
-### Phase 2 — iterate locally, submit one change at a time
+### Phase 1 — iterate locally, submit one change at a time
 
 Every experiment is ~2 h and free; every submission carries exactly one change. In rough order:
-our labels (Phase 0's answer, applied to the local loop), our fusion head against `SlotHead`
+our labels (`extractor/to_fork_table.py` already writes the table), our fusion head against `SlotHead`
 — **the largest unmeasured claim in the project**, called "likely ahead of the public forks" in
 `PLAN.md` §7.1 and never once compared — then `UNFREEZE_LAST`, slot scheme, and augmentation.
 
-### Phase 3 — the levers that measured largest
+### Phase 2 — the levers that measured largest
 
 1. **Data.** 1,000 → 2,649 studies was **+0.024**; 224 → 518 was **+0.013**. The corpus is at
    60% of 4,407. Finish it.
