@@ -152,7 +152,9 @@ notebooks/             Kaggle-side only; the 570 GB of pixels never come local
 eda_01_labels.py       label coverage, prevalence, co-occurrence
 eda_02_langs.py        language identification + series structure
 eda_03_langid.py       lingua-based language detection (supersedes the heuristic)
-eda_04_metadata_baseline.py   series metadata alone scores 0.471 on gold. do not retest
+eda_04_metadata_baseline.py   series metadata alone scores 0.471 on gold. "do not retest" was
+                       written from n=58 and is retracted -- a public probe gets 0.5954 from the
+                       same four columns over 4,407 (IMPROVEMENTS 2i-b). Still not a shortcut
 ```
 
 ## Setup
@@ -574,7 +576,7 @@ Four rules follow, and they are cheap:
 | | evidence |
 |---|---|
 | Report-derived OOF as the instrument | ±0.0046 over 2,612 vs gold-37's ±0.031 — **6.7× tighter** (§2g) |
-| Public LLM labels as targets | `steven_v4` **0.893** vs ours 0.777 on gold-58, 4.5σ (§2f) |
+| Public LLM labels as targets | `steven_v2` **0.887** vs ours 0.777 on gold-58, 4.5σ (§2f, §2i-c) |
 | The training port is affordable | **28.5 img/s**, 2.6 h/fold, cache builds in **~16 min** (§2h) |
 | NIfTI conversion | 5 checks against the DICOMs, all pass (`pipeline/validate_nifti.py`) |
 | Laterality | tag on 50%, geometry fallback agrees **97.7%** at `x < −62` (`FINDINGS.md` §6.2) |
@@ -589,7 +591,7 @@ Four rules follow, and they are cheap:
 | Frozen-embedding architecture | cannot fine-tune at any resolution, under any head (§2e) |
 | The 518 rebuild (~22 h) | **+0.013**, inside the CI (§2d) |
 | Soft-target calibration ladder | fitted against gold and **lost**, 0.743 → 0.699 (§1.3a) |
-| Series-metadata shortcut | **0.471**, below chance (`eda_04`) |
+| Series-metadata shortcut | 0.5954 grouped-honest over 4,407 — real but far under the frontier (§2i-b) |
 | Per-label reader fusion | readers are near-duplicates, |r| 0.87–0.95 (§2g) — killed before built |
 | Report-hash fold grouping | the leak cannot occur for an image-only model (`fusion/folds.py`) |
 | "The leaderboard is the instrument" | unaffordable: 5/day against ~8 h runs and a 30 h quota |
@@ -608,14 +610,30 @@ Four rules follow, and they are cheap:
 | 6. **Our head vs `SlotHead`** | unknown — largest unmeasured claim | one instrument run | `PLAN.md` §7.1, never once compared |
 | 7. **Rank-mean over seeds** | mechanical, ~+0.01 | linear in runs | every public solution does it |
 
-**Unknown and worth one cheap check each.**
+**Unknown → now measured, and it binds.**
 
-- **Site leakage.** The surviving form of the grouping concern. No site column exists; needs
-  `Manufacturer` / `InstitutionName` from a header pass, which rides along with the `kaggle_01c`
-  direction export already required by the port. ~20 min, CPU-only.
-- **External-data rules.** Whether MRNet is admissible, and whether the forum-disclosure
-  requirement applies, gates promising item 3 entirely. The rules page needs a logged-in
-  browser; **not yet read** — see the risk note in Phase 2.
+- **Site leakage is worth 0.053** (`zhukovoleksiy/rsna-metadata-probe`, §2i-a): DICOM headers
+  with no pixels score 0.6516 under random folds and 0.5981 grouped on a scanner fingerprint.
+  **`data/folds.csv` is ungrouped, so our §2g instrument carries an unknown share of this.**
+  Fixed-target A/Bs mostly survive (both arms inflate together); the **reproduction gate does
+  not**, because it compares our number against someone else's. Site-grouped folds are now a
+  Phase 0 prerequisite. The fingerprint recipe is public: `Manufacturer |
+  ManufacturerModelName | SoftwareVersions | ImagingFrequency | ReceiveCoilName`, 265 values.
+
+### What the rules actually say `READ 2026-08-10`
+
+Read in full, not summarised from the competition page. Four things settle open questions:
+
+| § | text | consequence |
+|---|---|---|
+| **2.4.b** | "not to transmit... or otherwise provide or make available the **Competition Data** to any party not participating" | **Sending report text to a hosted LLM API is out.** `IMPROVEMENTS.md` §1.1's week-one worry was correct. If we ever generate our own LLM labels, the model runs **locally** — which §2h shows is cheap. It is very likely why the 0.903 author served Qwen3.6-35B locally rather than calling an API. |
+| **3.6.b** | "You are permitted to publicly share Competition Code... deemed to have licensed the shared code under an OSI-approved license" | **Using the public LLM label tables is fine.** They are public Kaggle datasets, equally accessible to every participant. Whether their *producer* complied with 2.4.b is not our exposure, and nothing prohibits consuming publicly shared derived work. The Phase 2 risk note is **closed**. |
+| **2.6.a / 2.5.a** | external data must be "publicly available and equally accessible to all Participants... at no cost"; and "input data or pretrained models with an incompatible license... you do not need to grant an open source license for that data" | **MRNet is very likely admissible.** Free on request, so accessible at no cost, and 2.5.a carves out its research-only licence explicitly. The winner licence is **CC-BY-NC 4.0** — non-commercial, unusually compatible. **No forum-disclosure requirement appears anywhere in the rules.** |
+| **2.2.a / 3.4.b** | 5 submissions/day, 2 final; no hand labelling "of the validation dataset or test data records" | The submission budget that killed "the leaderboard is the instrument" is confirmed. 3.4.b constrains *test* labelling only — `labeling/` works on train reports and is unaffected. |
+
+And the target is worth stating plainly: **prizes run to 10th place** ($5,000), plus **$18,000
+across three efficiency prizes** — `PLAN.md` §6 is a live second route, not a footnote. Tenth on
+the main board is currently ~0.926.
 
 ### 0. There is no working instrument, and the leaderboard is not the fix
 
@@ -715,9 +733,13 @@ allowed and must be reproducible from our own checkpoints.
 
 Ordered so that each step is validated by the one before it. Nothing here needs a Kaggle GPU.
 
-1. **Swap the labels. (~15 min, but read the rules first — see the risk note in Phase 2.)**
-   `extractor/bench_public_labels.py --download` already pulls them. Ship **`steven_v4` as
-   `data/targets.csv`**, replacing `pseudo_labels.csv` everywhere, and stop there. ~~Then fuse per target, weighted by each reader's measured per-label
+1. **Swap the labels. (~15 min.)** `extractor/bench_public_labels.py --download` already pulls
+   them. Ship **`steven_v2` as `data/targets.csv`**, replacing `pseudo_labels.csv` everywhere,
+   and stop there. ~~`steven_v4`~~ — **corrected 2026-08-10 (§2i-c):** v2's derivation is
+   published and our measurement reproduces it exactly (0.8873, Synovitis 0.678→0.790, and it
+   differs from v1 in that one column and no other). `v4_blend` measures 0.8927 with no
+   published derivation, and **+0.0054 is below what 58 studies can resolve**. Take the one
+   whose provenance can be defended. Rules cleared — see "What the rules actually say". ~~Then fuse per target, weighted by each reader's measured per-label
    accuracy, the way the 0.903 system does.~~ **Cut 2026-08-10 before building it:** that
    technique pays when readers are independent, and §2g measures these at mean |r| **0.87–0.95**
    — `steven_v4` predicts `lixin` at AUC **0.9998**. There is no diversity to fuse, which is
@@ -731,6 +753,16 @@ Ordered so that each step is validated by the one before it. Nothing here needs 
    - **The instrument is valid at fixed targets only.** It cannot arbitrate label *sources*,
      because the reference is itself a label source. Gold-58 keeps that job; §2f has already
      settled it. Everything the port needs is a fixed-target comparison, so this costs nothing.
+2b. **Site-grouped folds — new prerequisite, 2026-08-10 (§2i-a).** A header pass over the
+   corpus for `Manufacturer / ManufacturerModelName / SoftwareVersions / ImagingFrequency /
+   ReceiveCoilName`, then `GroupKFold` on the fingerprint. CPU-only, no GPU lottery, ~20 min.
+   Report the instrument both ways: the ungrouped-minus-grouped gap is our own site-leakage
+   number, and the grouped one is what the reproduction gate must use. **This is the same
+   header pass that was demoted earlier today for carrying the slice-direction bit** — that
+   demotion stands on its own reasoning (the fork takes slices around each series *centre*, and
+   reversal does not move a centre), and this is a different, measured justification. K16/K18
+   still ride along for free once the pass is running, but they are not what pays for it.
+
 3. **Time it before building it. `DONE 2026-08-10 — gate passed at 1.29×.`**
    `pipeline/bench_port.py` + `pipeline/bench_cache_build.py`. §2e's cost model was inferred and
    is now run: **28.5 img/s training** → 15.4 min/epoch, **2.6 h per fold-run**, 12.9 h for

@@ -814,6 +814,101 @@ augmentation for exactly this reason.
 
 ---
 
+## 2i. Three forum posts, read 2026-08-10 — two change decisions made the same day
+
+Rule 4 ("check what is free before building it") applied to the discussion forum rather than to
+Datasets. It paid twice.
+
+### 2i-a. Site leakage is measured at **0.053**, and it lands on our instrument
+
+`zhukovoleksiy/rsna-metadata-probe`. DICOM headers only, **no pixels**, targets report-derived,
+`HistGradientBoosting`:
+
+| | macro |
+|---|---:|
+| random 5-fold | **0.6516** |
+| GroupKFold on scanner fingerprint | **0.5981** |
+| **gap = site memorisation** | **0.0534** |
+| series composition alone, no DICOM reads | 0.5954 |
+
+The fingerprint is `Manufacturer | ManufacturerModelName | SoftwareVersions | ImagingFrequency |
+ReceiveCoilName` — **265 distinct values, top 20 covering 45.5% of studies.**
+
+**This is the concern §2g left open, now quantified by someone else for free — and it is a
+problem for us specifically, because `data/folds.csv` is ungrouped.** Our report-OOF instrument
+(§2g, macro 0.771) is scored under random folds, so some unknown part of it is the model
+recognising a scanner rather than a knee. Three consequences, in order of severity:
+
+1. **The reproduction gate is the real casualty.** Comparing our ungrouped OOF against the
+   fork's published OOF is not like-for-like, and the gate would pass on a number inflated by
+   an amount of the same order as the differences we intend to measure.
+2. **Fixed-target A/Bs mostly survive**, because both arms inflate together — but not
+   perfectly: a change that helps the model exploit scanner cues would score well spuriously.
+3. **The 6.7× variance claim is untouched.** That is arithmetic on n, not on fold policy.
+
+**So the header pass is back on the critical path — for a different reason than before, and this
+time a measured one.** It was demoted earlier the same day because the *slice-direction* bit it
+was carrying is not needed before the reproduction gate (the fork takes `GROUP=3` slices around
+each series centre, and reversing a volume does not move its centre). Site fingerprinting is a
+separate justification and it does bind. The author notes 265 fingerprints is finer than
+institution, so 0.053 is an **upper bound**.
+
+### 2i-b. `eda_04`'s "0.471 on gold, do not retest" was another 37-study artefact
+
+`README.md` records the series-metadata shortcut as **rejected at 0.471, below chance**. The
+probe above gets **0.5954 from series composition alone** — the same four columns already in
+`train_series.csv`, no DICOM reads. Both can be true (different reference, different features,
+and ours was n=58) but the instruction that followed — *"do not retest"* — was drawn from the
+instrument §2g has now retired. **This is the third finding this file has had to reopen because
+gold-37 could not see it.** Metadata is not a shortcut worth chasing; but "do not retest"
+should not have been written from n=58 at all.
+
+### 2i-c. Ship `steven_v2`, not `steven_v4_blend`
+
+`stevenleehans` published the derivation of their own label sets, and our measurements reproduce
+their published numbers **exactly**:
+
+| key | their post | `bench_public_labels.py` |
+|---|---:|---:|
+| v1 / `full` | 0.8780 | **0.8780** |
+| v2 (Synovitis repaired) | 0.8873 | **0.8873** |
+| Synovitis column, v1 → v2 | 0.678 → 0.790 | **0.678 → 0.790** |
+
+And v2 differs from v1 in **that one column and no other** — every other per-label AUC is
+identical, which is the signature of the targeted single-column repair they describe.
+
+The mechanism is worth knowing on its own: they ask the reader for an explicit *"the report does
+not address this"* answer mapped to 0.5, and **25.4% of all cells come back undecided** —
+Synovitis **83.7%**, ACL 8.3%. Filling only the undecided Synovitis cells from the **Effusion**
+field (never overriding an explicit statement) moves that column 0.678 → 0.790. A field that is
+not about synovitis predicts synovitis better than the synovitis field does, because
+radiologists report effusion readily and synovitis rarely, and the two co-occur.
+
+**And generalising it lost**: the blanket twelve-label learned imputation (v3) scored **0.8805**,
+*below* v2's 0.8873. Their explanation is the one to keep — silence means different things per
+finding. Gold-positive rate when the report is **silent** vs when it **speaks**: Baker's
+**0.03 vs 0.44**, Medial OA **0.00 vs 0.36**, Synovitis **0.34 vs 0.76**. For Baker's the silence
+*is* the label and overwriting it destroys information; for Synovitis the silence is genuinely
+uninformative. They also report that the *cheating* version — choosing which findings to impute
+using gold — scored 0.8845, still below the disciplined 0.8873.
+
+**`v4_blend` has no published derivation.** It measures 0.8927, which is +0.0054 over v2 — far
+below the ~0.02 that author states is resolvable on 58 studies, and below our own §0 floor. So
+the choice is between a documented, reproduced 0.8873 and an undocumented 0.8927 whose margin is
+unmeasurable. **Take v2.** This is also the "code you could explain in an interview" standing
+decision applied to a dependency rather than to our own source.
+
+One line from that post belongs in this file verbatim, because we measured it independently on
+the same day (§2f): *"A better key is not automatically a better model. We swapped these labels
+in and got no gain on the first attempt."* Ours bought **+0.025 of vision AUC for +0.116 of
+label AUC** — the same shape, and §2f explains why.
+
+*(The third post, `maximolorenzoylosada/4407-studies-and-58-labels`, contains nothing this repo
+does not already have — its prevalence figures match `eda_01` exactly and its language split is a
+keyword heuristic that `eda_03`'s lingua-based ID supersedes. Recorded so it is not re-read.)*
+
+---
+
 ## 3. Resolved (kept for provenance — these are the failure *patterns* to watch for)
 
 | # | Issue | Root cause | Fix |

@@ -50,6 +50,11 @@ LABELS = ["ACL", "MCL", "Medial Meniscus", "Lateral Meniscus", "Medial OA", "Lat
 # several of these datasets ship two or three variants and the differences matter.
 SOURCES = {
     "steven_v4":   ("stevenleehans/rsna-knee-llm-report-labels", "llm_labels_v4_blend.csv"),
+    # v2 is the author's own documented best: v1 plus filling ONLY the undecided Synovitis
+    # cells from the Effusion field. Their forum post publishes 0.8780 -> 0.8873 for that step
+    # and reports the blanket twelve-label version (v3) as WORSE at 0.8805. v4_blend has no
+    # published derivation, so v2 is the one whose provenance can be defended -- see §2i.
+    "steven_v2":   ("stevenleehans/rsna-knee-llm-report-labels", "llm_labels_v2.csv"),
     "steven_full": ("stevenleehans/rsna-knee-llm-report-labels", "llm_labels_full.csv"),
     "pilkwang_v2": ("pilkwang/rsna-knee-llm-labels", "report_labels_v2.csv"),
     "pilkwang_v1": ("pilkwang/rsna-knee-report-labels", "report_labels_v1.csv"),
