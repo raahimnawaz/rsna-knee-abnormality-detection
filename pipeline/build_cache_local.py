@@ -101,7 +101,7 @@ def series_table(path: Path) -> dict:
 
 
 def build(nifti_dir: Path, out: Path, by_study: dict, lat_of: dict, embed_fn,
-          limit: int = 0, probe_at: int = 25) -> dict:
+          limit: int = 0, probe_at: int = 25, only: set | None = None) -> dict:
     out.mkdir(parents=True, exist_ok=True)
     # A cache directory belongs to exactly one PREPROCESS_VERSION. Without this, running the 518
     # pass into a directory holding 224 features skips every study on the count check and then
@@ -115,6 +115,12 @@ def build(nifti_dir: Path, out: Path, by_study: dict, lat_of: dict, embed_fn,
             sys.exit(f"{out} holds a cache built by preprocess_version {prev}, but this run is "
                      f"{PREPROCESS_VERSION} (IMG_SIZE={IMG_SIZE}). Build into a different --out.")
     studies = sorted(by_study)
+    if only is not None:
+        missing = only - set(studies)
+        if missing:
+            sys.exit(f"--studies names {len(missing)} studies absent from {Path(out).name}'s "
+                     f"series table; first: {sorted(missing)[0]}")
+        studies = [s for s in studies if s in only]
     if limit:
         studies = studies[:limit]
 
@@ -215,6 +221,11 @@ def main() -> None:
     ap.add_argument("--series", default=str(D / "train_series.csv"))
     ap.add_argument("--meta", default=str(D / "study_meta.csv"))
     ap.add_argument("--limit", type=int, default=0, help="first N studies only")
+    ap.add_argument("--studies", default=None,
+                    help="file of StudyInstanceUIDs, one per line -- build ONLY these. "
+                         "--limit takes the lexicographically first N, which scatters the gold "
+                         "studies (~7 of 37 in an 800-study prefix) and leaves the pooled OOF "
+                         "unscoreable, so a controlled subset has to be named explicitly")
     ap.add_argument("--validated", action="store_true",
                     help="acknowledge that validate_nifti.py checks 4/4b have passed")
     args = ap.parse_args()
@@ -245,9 +256,13 @@ def main() -> None:
     dev = device()
     model = build_model(dev)
     with torch.no_grad():
+        only = None
+        if args.studies:
+            only = {ln.strip() for ln in Path(args.studies).read_text().splitlines() if ln.strip()}
+            print(f"--studies: {len(only)} named")
         stats = build(nd, Path(args.out), by_study, lat_of,
                       embed_fn=lambda x: embed(model, x, dev, BATCH_HINT),
-                      limit=args.limit)
+                      limit=args.limit, only=only)
 
     # The manifest must sit beside the features: fusion/train.py copies it out next to fold*.pt
     # and kaggle_03 refuses to submit heads that cannot prove what preprocessed them.
