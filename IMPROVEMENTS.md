@@ -1184,6 +1184,57 @@ the 66.7%-overall figure is a corpus-wide *average over planes*, not a per-plane
 
 ---
 
+## 2o. The three numbers near 0.89 are three different quantities `CLARIFIED 2026-08-10`
+
+Written because the question "why is the baseline 0.7229 and not the 0.89 we had?" is the right
+question, the docs contain **three** unrelated numbers near 0.89, and conflating any of them with
+the baseline silently invalidates every comparison made against it.
+
+| number | what it measures | reference | scale |
+|---|---|---|---|
+| **0.893 / 0.887** (§2f) | **a LABEL TABLE**, not a model. `steven_v4` / `steven_v2` as predictors of gold. `steven_v2` **is** `data/targets.csv` — our training data | gold-58, image-read | local, n=58 |
+| **0.891** (§2e) | the `pilkwang` fork — and it is **inference from published weights, not a training run** | competition test set | **leaderboard** |
+| **0.7229** (§2j) | **our model**, out-of-fold | `lixin_gpt56`, held out | local, n=2,612 |
+
+They differ on three axes at once — *what* is scored (labels vs a model), *against what*
+(report-derived vs gold image-read), and *on what scale* (local OOF vs leaderboard). Only the
+third is a model score computed on our pipeline, which is why it is the baseline.
+
+**Local and LB are not the same scale and the conversion is known** (README "five facts" §5):
+OOF 0.632 → LB 0.664, and OOF 0.8544 → LB 0.903. Local reads ~0.03–0.05 *below* LB, so 0.7229 is
+worth roughly **LB 0.76** — and site-grouping deliberately costs us a further 0.024 (§2j) that no
+external score pays. The gap to the fork is real and is about **0.13**, not the 0.17 the raw
+numbers suggest.
+
+### The bug this question found, before it could produce a wrong number
+
+**`0.7229` is NOT "OOF scored against the training targets".** `instrument_test.py::evaluate`
+scores against **`lixin73/labels_llm_gpt56sol` — a third label source the model never trained on
+— over NON-GOLD studies only**, binarised at 0.5.
+
+`fusion/train_port.py` as first written scored against `data/targets.csv`, i.e. `steven_v2`, its
+own training source, and printed the result directly beneath `baseline to beat: 0.7229`. That is
+upward-biased — a model is rewarded for reproducing one reader's idiosyncrasies rather than the
+signal — and placing it under that line makes it read as a comparison when it is a category
+error. Fixed before the first fold finished; **`fusion/score_oof.py` is now the single
+definition** and `train_port` calls it.
+
+Two consequences worth keeping:
+
+- **The baseline's own `oof_all.csv` was never kept.** `fusion/runs*/` hold `oof_gold.csv` only.
+  So *any* single number placed against 0.7229 is unpaired and on a different study set — the
+  frozen cache covers 2,650 studies, the tile cache 3,599, and a one-fold port run ~700.
+  `score_oof.py` restricts every arm to the studies they **share** when given more than one, and
+  says so loudly when given one. The honest A/B needs the frozen arm re-run under `folds_site`
+  (~32 min).
+- **Generalised: a metric is a triple — predictions, reference, population.** This project has
+  now been bitten at all three. Site leakage was the *population* (§2j, +0.024). Scoring an arm
+  against a near-copy of its own targets was the *reference* (§2g's retracted Q3, +0.039). And
+  this was the reference again, one level up. **When quoting a macro, quote all three or it is
+  not a number anyone can reuse.**
+
+---
+
 ## 3. Resolved (kept for provenance — these are the failure *patterns* to watch for)
 
 | # | Issue | Root cause | Fix |

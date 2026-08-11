@@ -345,26 +345,35 @@ def main() -> None:
     pd.DataFrame(np.stack([oof[u] for u in uids]), columns=LABELS).assign(
         StudyInstanceUID=uids).to_csv(out / "oof_all.csv", index=False)
 
-    # ---- score against the report-derived instrument, which is the one with error bars ------
-    # Gold-58 is the CHECK on the instrument, never the arbiter: +-0.031 cannot resolve 0.04,
-    # and the baseline this has to beat -- 0.7229 +- 0.0048, site-grouped, n=2,612 -- is a
-    # report-OOF number. Scoring against gold here as well, clearly separated, because they
-    # disagreeing is the signal that the instrument has come unpointed (README 0, item 2).
-    ref = targets.loc[[u for u in uids if u in targets.index], LABELS]
-    P = np.stack([oof[u] for u in ref.index])
-    print(f"\n{'=' * 62}\nreport-OOF over {len(ref):,} studies (the instrument)\n{'=' * 62}")
-    print(f"{'label':<18}{'AUC':>9}")
-    aucs = {}
-    for i, lab in enumerate(LABELS):
-        y = (ref[lab].to_numpy(float) > 0.5).astype(float)
-        if min(y.sum(), (1 - y).sum()) < 2:
-            print(f"{lab:<18}{'--':>9}")
-            continue
-        aucs[lab] = auc(y, P[:, i])
-        print(f"{lab:<18}{aucs[lab]:>9.3f}")
-    macro = float(np.mean(list(aucs.values()))) if aucs else float("nan")
-    print(f"{'-' * 27}\n{'MACRO':<18}{macro:>9.3f}")
-    print("  baseline to beat: 0.7229 +- 0.0048 (site-grouped report-OOF, frozen cache, 2j)")
+    # ---- score on the SAME scale as the baseline, via the one shared definition --------------
+    # NOT against `targets` -- that is this model's own training source (steven_v2), and scoring
+    # against it rewards reproducing that reader's idiosyncrasies rather than the signal. The
+    # 0.7229 in 2j is scored against lixin_gpt56, a THIRD source, over non-gold studies only.
+    # An earlier version of this file printed the targets-scored number directly beneath
+    # "baseline to beat: 0.7229", which reads as a comparison and is a category error.
+    # fusion/score_oof.py is now the single definition; this just calls it.
+    sys.path.insert(0, str(PROJ / "fusion"))
+    from score_oof import BASELINE, BASELINE_SD, NEUTRAL, score as score_run  # noqa: E402
+    macro, aucs = float("nan"), {}
+    if NEUTRAL.exists():
+        ref = pd.read_csv(NEUTRAL).drop_duplicates("StudyInstanceUID").set_index(
+            "StudyInstanceUID")
+        gold_ids = set(pd.read_csv(D / "train.csv").dropna(subset=LABELS).StudyInstanceUID)
+        try:
+            macro, sd, n, aucs = score_run(out, ref, gold_ids)
+            print(f"\n{'=' * 62}\nreport-OOF vs {NEUTRAL.name} (held out), n={n:,}\n{'=' * 62}")
+            for lab in LABELS:
+                print(f"{lab:<18}{aucs[lab]:>9.3f}")
+            print(f"{'-' * 27}\n{'MACRO':<18}{macro:>9.4f}  +-{sd:.4f}")
+            d = macro - BASELINE
+            print(f"  baseline {BASELINE} +-{BASELINE_SD} (site-grouped, frozen cache, 2j): "
+                  f"{d:+.4f} ({abs(d) / float(np.hypot(sd, BASELINE_SD)):.1f} sigma)")
+            print("  NOT a paired A/B -- see fusion/score_oof.py's closing note.")
+        except SystemExit as e:                                        # noqa: BLE001
+            print(f"\nscoring skipped: {e}")
+    else:
+        print(f"\nscoring skipped: {NEUTRAL} missing; run "
+              "extractor/bench_public_labels.py --download")
 
     gold = pd.read_csv(D / "train.csv").dropna(subset=LABELS)
     gold = gold[gold.StudyInstanceUID.isin(oof)]
