@@ -4,12 +4,38 @@ Twelve-label knee-MRI classification, macro-AUROC. Final submission **2026-10-22
 
 ---
 
-## START HERE — state as of 2026-08-10
+## START HERE — state as of 2026-08-11
 
 **Baseline: macro 0.7229 ± 0.0048**, site-grouped report-OOF over 2,612 studies. That is the
 honest number; every figure this project produced before 2026-08-10 was inflated by ~0.024 of
 site leakage (§2j) and measured on a 37-study instrument that could not resolve 0.04 (§2g).
 Leaderboard top is 0.942; the best *visible* public solution is 0.903.
+
+> ### The port exists, it trains, and fine-tuning is worth **+0.0171 ± 0.0088 (1.9σ)** `2026-08-11`
+>
+> Step 4 is built. `data/tiles336` (7.31 GB of uint8 pixels) + `fusion/train_port.py`
+> (dinov2-small@336, `UNFREEZE_LAST=6`). Fold 0 trained end to end on site-grouped folds, in our
+> own code. **Paired against a freshly re-run frozen-cache control on the 493 studies they
+> share: 0.7052 → 0.7223** (§2q). The control reproduces §2j's gold-37 **0.7465** exactly, which
+> is what makes it a control.
+>
+> **Read that as "the mechanism §2e diagnosed is real", not as a score.** One fold, 1.9σ, and the
+> per-label sign test is 6/12. Its value is that the pipeline can now test two things the frozen
+> cache structurally could not — the anatomical crops (it could not fine-tune) and any
+> label-quality change (it could not resolve one).
+>
+> **The gap is not seven increments.** We sit near LB 0.76 by the §5 conversion; an unmodified
+> fork is **0.891 — and that is a 20-member rank-mean of published weights, not a single model**
+> (§2e). Reaching ~0.89 is a *download*, and everything between here and there is public and
+> chunky: the remaining 18% of the corpus (data ≈ 2× resolution, §2d), ensembling,
+> multi-resolution, TTA, gold-in-training. **The 0.04 between the best visible public 0.903 and
+> the 0.942 top is what is unexplained by anything public**, because every public team trains on
+> the same handful of report-derived label tables and shares their ceiling. Two candidates aim at
+> it: the **severity-thresholded label read** (host-confirmed, a few dollars of API, `REFERENCE.md`
+> §2.1) and the **anatomical crops** (built, unbuilt tiles, aimed at the mm-scale labels).
+>
+> **Next run, and it is one run: step 5, the reproduction gate.** It discriminates whether that
+> 0.13 is one missing ingredient or many. Do it before spending 18 h on the other four folds.
 
 **Phase 0 is 4 of 5 done** — see "Where this goes next" for the full plan and the ledger.
 
@@ -19,17 +45,19 @@ Leaderboard top is 0.942; the best *visible* public solution is 0.903.
 | 2. Build the instrument | **done** — 6.7× tighter than gold-37 (§2g) |
 | 2b. Site-grouped folds | **done** — our leakage is +0.024 (§2j) |
 | 3. Time the port before building it | **done** — gate passed at 1.29×; cache is ~16 min (§2h) |
-| **4. Slot-pixel cache + training port** | **cache BUILT, port WRITTEN, fold 0 training** |
-| 5. Reproduction gate against the fork's own config | unblocked once fold 0 lands |
+| **4. Slot-pixel cache + training port** | **DONE — fold 0 trained and scored, +0.0171 ± 0.0088 paired (§2q)** |
+| **5. Reproduction gate against the fork's own config** | **NEXT — unblocked, and it is the highest-information run on the board** |
 | 6. One submission for the CV↔LB mapping | blocked on 5 |
 
-**Step 4 state as of 2026-08-10 evening.** Three files, all committed:
+**Step 4 as built.** Five files, all committed and pushed:
 
 | | |
 |---|---|
-| `pipeline/slot_cache.py` | the uint8 pixel cache. **Built: `data/tiles336`, 7.31 GB, 17,403 tiles over 3,599 studies, 21.3 min.** Slot fill matches FINDINGS §3.2 exactly — axial non-FS at 19.7% against a documented 19.4% |
-| `fusion/train_port.py` | dinov2-small@336, `UNFREEZE_LAST=6`, `LR_BACKBONE=8e-6`, `LR_HEAD=1e-3`, a `SlotHead` reconstruction at `SLOT_PRIOR_STRENGTH=0.55`, site-grouped folds. 10.9M of 22.0M params trainable, ~25 img/s settled → **~11.5 min/epoch, ~2 h for the fork's `EPOCHS=10`** |
-| `pipeline/resolve_slice_direction.py` | the K16 gate. Refuses to ship a bit it cannot justify — see below |
+| `pipeline/slot_cache.py` | the uint8 pixel cache. **Built: `data/tiles336`, 7.31 GB, 17,403 tiles over 3,599 studies, 21.3 min.** Slot fill matches FINDINGS §3.2 exactly — axial non-FS at 19.7% against a documented 19.4%. Six anatomical slots defined and **not yet built** |
+| `fusion/train_port.py` | dinov2-small@336, `UNFREEZE_LAST=6`, `LR_BACKBONE=8e-6`, `LR_HEAD=1e-3`, a `SlotHead` reconstruction at `SLOT_PRIOR_STRENGTH=0.55`, site-grouped folds. 10.9M of 22.0M params trainable. **Fold 0 took 3.6 h, not the budgeted 2.6 — see §2p, the machine has 17.2 GB and thrashes** |
+| **`fusion/score_oof.py`** | **the single scoring definition. If a number is going next to 0.7229 it comes from here.** Pairs two arms on shared studies and bootstraps the delta paired, not unpaired (§2o, §2q) |
+| `notebooks/kaggle_01e_direction_measure.py` | K16, **resolved**: 8,048 sagittal series, 50.4% reversed, cross-validated 21/21 against an independent instrument |
+| `pipeline/resolve_slice_direction.py` | the K16 gate. Refused the header-rule route at 56.9/60.8/56.9% (§2n); `--measured` is the route that worked |
 
 **Read §2l before touching the crop geometry.** The in-plane axes are canonical per plane
 (nearest signed LPS axis unanimous **132/132**, median obliquity 2.4–8.2°), so the geometry
@@ -38,17 +66,23 @@ kernel's "374 distinct IOP rows" is float obliquity, not mixed conventions. That
 index is medial** on axial/coronal, **anterior is low row index** on axial and **low column
 index** on sagittal. Confirmed visually on built tiles, not just derived.
 
-**K16 is NOT a header rule, and this closes a route the plan budgeted 3.7 h for (§2n).** Three
-candidate sort keys tested over all 24,371 series against the 51 the thumbnails settle:
-InstanceNumber 56.9%, filename 60.8%, SliceLocation 56.9%, against ~50% chance. Not a sampling
-limit — `inst` and `loc` are already at |rho| = 1.000, so a full header pass exports the same
-signs. The replacement measures the bit rather than inferring it
-(`notebooks/kaggle_01e_direction_measure.py`, sagittal only, ~20 min CPU).
+**K16 is RESOLVED — but not the way the plan said, and that closes a route it budgeted 3.7 h for
+(§2n).** The header-rule route *failed*: three candidate sort keys over all 24,371 series scored
+against the 51 the thumbnails settle give InstanceNumber **56.9%**, filename **60.8%**,
+SliceLocation **56.9%**, versus ~50% chance. Not a sampling limit — `inst` and `loc` are already
+at |rho| = 1.000, so a full header pass exports identical signs. **Do not re-attempt it.**
 
-**This does not block the gate.** The six protocol tiles sit at depth 0.5, where a reversal maps
-the middle slice to itself. K16 gates only `sag_med` / `sag_lat` — the divergence — and
-`slot_cache.py` refuses those slabs while the bit is missing rather than building a coin flip on
-the axis four of the twelve labels depend on.
+What worked was measuring the bit instead of inferring it: `kaggle_01e_direction_measure.py` →
+`resolve_slice_direction.py --measured` → **`data/slice_direction_resolved.csv`, 8,048 sagittal
+series, 50.4% reversed**, cross-validated **21/21** against the 01c thumbnails — a genuinely
+independent instrument, and the same 100% bar the header rules failed.
+
+> **HAZARD before building the anatomical slabs.** They need `SAGITTAL_LR=1`; `tiles_protocol`
+> was built with `SAGITTAL_LR=0`. Without the flip, "slice 25% is medial" is exactly inverted for
+> the 43% of studies that are left knees. `slot_cache.assert_caches_compatible()` raises on any
+> run consuming both — **rebuild protocol under the same flags first (~21 min)**. Fold 0's result
+> is unaffected: protocol tiles sit at depth 0.5, where a reversal maps the middle slice to
+> itself.
 
 **The anatomical slots are designed in and ready to build** — medial, lateral, patellofemoral,
 intercondylar notch (`REFERENCE.md` §4.3–4.4). Six of them, as an 84 mm box at the same 336 px,
