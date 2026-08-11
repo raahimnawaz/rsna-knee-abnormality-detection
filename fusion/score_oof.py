@@ -129,10 +129,47 @@ def main() -> None:
     print(f"{'MACRO':<18}" + "".join(f"{res[Path(r).name][0]:>12.4f}" for r in a.runs))
 
     if len(a.runs) == 2:
-        (mA, sA, _, _), (mB, sB, _, _) = (res[Path(a.runs[0]).name], res[Path(a.runs[1]).name])
-        se = np.hypot(sA, sB)
-        print(f"\n  delta = {mB - mA:+.4f} +-{se:.4f} (unpaired, conservative) "
-              f"-> {abs(mB - mA) / se:.1f} sigma")
+        # PAIRED bootstrap: resample studies once and score BOTH arms on that resample, so the
+        # shared-study variance cancels instead of being added twice.
+        #
+        # The first version of this printed hypot(sA, sB) and called it "conservative". It is
+        # conservative to the point of being the wrong test: the arms are scored on identical
+        # studies by construction (see `restrict` above), most of the macro's variance is which
+        # studies were drawn, and that component is COMMON. Measured 2026-08-11 on the first real
+        # A/B, the unpaired SE was +-0.0138 against a paired +-0.0088 -- the same +0.0171 delta
+        # reading 1.2 sigma instead of 1.9. Discarding the pairing throws away most of what
+        # pairing was for.
+        rA, rB = Path(a.runs[0]).name, Path(a.runs[1]).name
+        oA, oB = load_oof(Path(a.runs[0])), load_oof(Path(a.runs[1]))
+        ids = [u for u in restrict if u in ref.index and u not in gold_ids]
+        yy = ref.loc[ids, L].apply(pd.to_numeric, errors="coerce").to_numpy(float)
+        keep = ~np.isnan(yy).any(axis=1)
+        ids = list(np.asarray(ids)[keep])
+        yy = (yy[keep] > 0.5).astype(float)
+        pA, pB = oA.loc[ids, L].to_numpy(float), oB.loc[ids, L].to_numpy(float)
+
+        def mac(p, k):
+            return float(np.nanmean([auc(yy[k, i], p[k, i]) for i in range(len(L))]))
+
+        base = np.arange(len(yy))
+        d0 = mac(pB, base) - mac(pA, base)
+        rng = np.random.default_rng(0)
+        ds = []
+        for _ in range(2000):
+            k = rng.integers(0, len(yy), len(yy))
+            try:
+                ds.append(mac(pB, k) - mac(pA, k))
+            except Exception:                                          # noqa: BLE001, S112
+                continue
+        ds = np.asarray(ds)
+        sd = float(ds.std())
+        print(f"\n  PAIRED delta ({rB} - {rA}) = {d0:+.4f} +-{sd:.4f}"
+              f"  ->  {abs(d0) / sd:.1f} sigma,  P(delta>0) = {(ds > 0).mean():.3f}")
+        print(f"  (unpaired hypot SE would be +-{np.hypot(res[rA][1], res[rB][1]):.4f} = "
+              f"{abs(d0) / np.hypot(res[rA][1], res[rB][1]):.1f} sigma -- the WRONG test here)")
+        up = sum(res[rB][3][lab] > res[rA][3][lab] for lab in L)
+        print(f"  per-label: {up}/12 up. The macro rides on the largest few, so read the "
+              f"table, not the count.")
     else:
         print(f"\n  NOTE: a single arm against the recorded 0.7229 is NOT a paired comparison.")
         print("  The baseline's own oof_all.csv was never kept (fusion/runs*/ hold oof_gold.csv")

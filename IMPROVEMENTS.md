@@ -1340,6 +1340,48 @@ costume — reading a single under-powered comparison as a verdict on a mechanis
 rests on the fork scoring 0.891 while every frozen-cache arm here sits near 0.70, and one
 unpaired fold at 1.0σ does not touch it.
 
+### The paired A/B, run the same day — and it is the number that counts
+
+The frozen arm was re-run under `folds_site` (`fusion/runs_baseline`; it reproduces §2j's
+gold-37 **0.7465** exactly, which is what says it is the right control). Both arms scored through
+`score_oof.py`, restricted to the **493 studies they share**:
+
+| | macro |
+|---|--:|
+| frozen cache (`runs_baseline`) | 0.7052 |
+| **fine-tuned port** (`runs_port`) | **0.7223** |
+| **paired delta** | **+0.0171 ± 0.0088 → 1.9σ, P(delta>0) = 0.978** |
+
+**And the pairing had to be used, not just set up.** The first version of `score_oof.py` reported
+`hypot(sA, sB)` = ±0.0138 and called it conservative. It is conservative to the point of being
+the wrong test: both arms are scored on identical studies by construction, so most of the
+macro's variance is *which studies were drawn*, and that component is common and cancels. Same
+delta, **1.2σ unpaired against 1.9σ paired**. Fixed; the paired bootstrap is now what the script
+prints.
+
+Note also that neither arm's own number resembles the recorded 0.7229 — the frozen control
+scores **0.7052** on these 493 studies. That is a study-set effect, and it is the concrete
+demonstration of why §2o's unpaired warning mattered: comparing the port's 0.7323 against 0.7229
+was misleading in *both* directions at once.
+
+**The per-label pattern is weak evidence FOR §2e's mechanism, and should be quoted as weak.**
+
+| §2d's split | mean Δ |
+|---|--:|
+| mm-scale findings (predicted to move) | **+0.0347** |
+| cm-scale findings (already working) | −0.0005 |
+
+The three largest gains are **ACL +0.100, Contusion +0.093, Fracture +0.076** — precisely the
+findings §2d measured at or near chance and attributed to a frozen natural-image ViT being
+unable to resolve millimetre-scale lines. That is the predicted direction on the predicted
+labels.
+
+But the sign test is **6/12, which is chance**, and two members of the predicted set move the
+wrong way (MCL −0.050, Medial Meniscus −0.017) while Baker's (+0.064, cm-scale) is the
+fourth-largest gain. **So: consistent with the mechanism, not a demonstration of it.** The macro
+rides on three or four labels, which is exactly the situation where a sign pattern is worth more
+than a mean and this one is only half there.
+
 ---
 
 ## 3. Resolved (kept for provenance — these are the failure *patterns* to watch for)
