@@ -1151,6 +1151,37 @@ at depth 0.5, where a reversal maps the middle slice to itself, so the cache bui
 2026-08-10 is direction-invariant to within the channel order of one 3-slice group. K16 gates
 `sag_med` / `sag_lat` — the divergence — and nothing before it.
 
+### K16 IS NOW RESOLVED, by measurement `2026-08-10, same evening`
+
+`kaggle_01e` ran over all **9,864 sagittal series** (full header pass + 3 pixel decodes each,
+8 workers) and `resolve_slice_direction.py --measured` read the bit off for the **8,048** that
+have NIfTI on disk. `data/slice_direction_resolved.csv`.
+
+| | |
+|---|---|
+| reversed | **50.4%** (forward 49.6%) |
+| in-plane layout `as-is` | **97.9%**, median r = 1.0000 |
+| margin \|r_first − r_last\| | median 0.388; only **3.6%** under 0.05 |
+
+**Cross-validated 21/21 against the 01c thumbnails** — a genuinely independent instrument
+(64×64 float16 from one kernel run against 32×32 uint8 from another), and still 100% when
+restricted to series where both sides are confident. **That is the same 100% bar the three
+header rules failed at 56.9 / 60.8 / 56.9%**, which is the point: the bar was not too strict,
+the rules were wrong.
+
+Note sagittal is ~50/50 reversed against the 8/21 = 38% forward the small stratified sample
+suggested. Both are consistent — n=21 carries a ±10.6% binomial SE — but it is a reminder that
+the 66.7%-overall figure is a corpus-wide *average over planes*, not a per-plane rate.
+
+> **HAZARD, for whoever builds next: the two caches will disagree until protocol is rebuilt.**
+> `sag_med` / `sag_lat` are only meaningful with `SAGITTAL_LR=1`, because without the handedness
+> flip "slice 25% is medial" holds for right knees and is exactly inverted for the 43% that are
+> left. But `data/tiles336/tiles_protocol.npy` was built with `SAGITTAL_LR=0` and no direction
+> bit. Each cache records both flags in its manifest (`sagittal_lr_slice_flip`,
+> `direction_bits`), so the disagreement is *visible* — but nothing yet *enforces* it.
+> **Rebuild the protocol tiles with the same flags before any run that consumes both**; it is
+> 21 minutes. The fold-0 gate result is unaffected and stands, for the depth-0.5 reason above.
+
 ---
 
 ## 3. Resolved (kept for provenance — these are the failure *patterns* to watch for)

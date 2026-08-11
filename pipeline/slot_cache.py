@@ -144,6 +144,43 @@ ANATOMICAL = [
 BY_NAME = {s.name: s for s in PROTOCOL + ANATOMICAL}
 
 
+# Flags that change what a tile CONTAINS rather than which tiles exist. Two caches that
+# disagree on any of these cannot be fed to one model: the disagreement is per-study and
+# silent, which is the same class of failure PREPROCESS_VERSION exists to catch.
+CACHE_COMPAT_KEYS = ("preprocess_version", "tile", "group", "grid", "target_mm", "fov_mm",
+                     "canonical_side", "sagittal_lr_slice_flip", "slices_per_series")
+
+
+def assert_caches_compatible(*manifest_paths) -> None:
+    """Raise unless every manifest agrees on the keys that change pixel values.
+
+    CALL THIS BEFORE ANY RUN THAT CONSUMES MORE THAN ONE CACHE TAG. The live instance of this
+    hazard, 2026-08-10: `tiles_protocol` was built before the K16 bit existed
+    (`sagittal_lr_slice_flip=False`, `direction_bits=0`) and the anatomical tiles need
+    `SAGITTAL_LR=1`, because "slice 25% is medial" is exactly inverted for the 43% of studies
+    that are left knees. Mixing them puts half the sagittal slabs on the wrong compartment for
+    those studies, per study, with no symptom other than four labels quietly failing to improve.
+
+    `direction_bits` is deliberately NOT in the compat set: it is a count of how many series had
+    a resolved bit, so it grows as the corpus downloads and is not a property of the arithmetic.
+    `sagittal_lr_slice_flip` is the flag that actually changes the pixels.
+    """
+    import json as _json
+    mans = [(str(p), _json.loads(Path(p).read_text())) for p in manifest_paths]
+    if len(mans) < 2:
+        return
+    ref_name, ref = mans[0]
+    for name, m in mans[1:]:
+        bad = {k: (ref.get(k), m.get(k)) for k in CACHE_COMPAT_KEYS if ref.get(k) != m.get(k)}
+        if bad:
+            lines = "\n".join(f"    {k}: {a!r} vs {b!r}" for k, (a, b) in bad.items())
+            raise SystemExit(
+                f"incompatible caches -- these were built under different preprocessing:\n"
+                f"  {ref_name}\n  {name}\n{lines}\n\n"
+                "Rebuild the older one with the newer flags (~21 min for the whole corpus) "
+                "rather than\nmixing them. See IMPROVEMENTS.md 2n, 'HAZARD'.")
+
+
 def slot_set(which: str) -> list[Slot]:
     if which == "protocol":
         return list(PROTOCOL)
