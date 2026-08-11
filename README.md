@@ -19,16 +19,49 @@ Leaderboard top is 0.942; the best *visible* public solution is 0.903.
 | 2. Build the instrument | **done** — 6.7× tighter than gold-37 (§2g) |
 | 2b. Site-grouped folds | **done** — our leakage is +0.024 (§2j) |
 | 3. Time the port before building it | **done** — gate passed at 1.29×; cache is ~16 min (§2h) |
-| **4. Slot-pixel cache + training port** | **NEXT — not started** |
-| 5. Reproduction gate against the fork's own config | blocked on 4 |
+| **4. Slot-pixel cache + training port** | **cache BUILT, port WRITTEN, fold 0 training** |
+| 5. Reproduction gate against the fork's own config | unblocked once fold 0 lands |
 | 6. One submission for the CV↔LB mapping | blocked on 5 |
 
-**Step 4, with one design decision already taken:** build the ~9 GB uint8 slot cache at 336 and
-the `UNFREEZE_LAST=6` training loop (~16 min + 2.6 h/run, both measured). Design the
-**anatomical crop slots in from the start** rather than retrofitting — medial, lateral,
-patellofemoral and the intercondylar notch, which is where the failing labels live and which
-two unrelated fields independently point at (`REFERENCE.md` §4.3–4.4). Volumes are already in
-mm space, so fixed crops need no detector.
+**Step 4 state as of 2026-08-10 evening.** Three files, all committed:
+
+| | |
+|---|---|
+| `pipeline/slot_cache.py` | the uint8 pixel cache. **Built: `data/tiles336`, 7.31 GB, 17,403 tiles over 3,599 studies, 21.3 min.** Slot fill matches FINDINGS §3.2 exactly — axial non-FS at 19.7% against a documented 19.4% |
+| `fusion/train_port.py` | dinov2-small@336, `UNFREEZE_LAST=6`, `LR_BACKBONE=8e-6`, `LR_HEAD=1e-3`, a `SlotHead` reconstruction at `SLOT_PRIOR_STRENGTH=0.55`, site-grouped folds. 10.9M of 22.0M params trainable, ~25 img/s settled → **~11.5 min/epoch, ~2 h for the fork's `EPOCHS=10`** |
+| `pipeline/resolve_slice_direction.py` | the K16 gate. Refuses to ship a bit it cannot justify — see below |
+
+**Read §2l before touching the crop geometry.** The in-plane axes are canonical per plane
+(nearest signed LPS axis unanimous **132/132**, median obliquity 2.4–8.2°), so the geometry
+kernel's "374 distinct IOP rows" is float obliquity, not mixed conventions. That, plus
+`canonicalise` mirroring onto `'R'`, is what licenses detector-free boxes: **increasing column
+index is medial** on axial/coronal, **anterior is low row index** on axial and **low column
+index** on sagittal. Confirmed visually on built tiles, not just derived.
+
+**K16 is NOT a header rule, and this closes a route the plan budgeted 3.7 h for (§2n).** Three
+candidate sort keys tested over all 24,371 series against the 51 the thumbnails settle:
+InstanceNumber 56.9%, filename 60.8%, SliceLocation 56.9%, against ~50% chance. Not a sampling
+limit — `inst` and `loc` are already at |rho| = 1.000, so a full header pass exports the same
+signs. The replacement measures the bit rather than inferring it
+(`notebooks/kaggle_01e_direction_measure.py`, sagittal only, ~20 min CPU).
+
+**This does not block the gate.** The six protocol tiles sit at depth 0.5, where a reversal maps
+the middle slice to itself. K16 gates only `sag_med` / `sag_lat` — the divergence — and
+`slot_cache.py` refuses those slabs while the bit is missing rather than building a coin flip on
+the axis four of the twelve labels depend on.
+
+**The anatomical slots are designed in and ready to build** — medial, lateral, patellofemoral,
+intercondylar notch (`REFERENCE.md` §4.3–4.4). Six of them, as an 84 mm box at the same 336 px,
+which is **0.25 mm/px against 0.48** — twice the effective resolution over the compartment where
+the failing labels live, for identical compute. That is §2d's diagnosis answered directly.
+
+**One recorded divergence from the fork, for whoever runs the gate.** Its slots are
+`SAG_FLUID_FS, COR_FLUID_FS, AX_FLUID_FS, SAG_FLUID_NOFS, COR_T1, SAG_T1` — it separates
+fat-suppression from fluid-sensitivity. **That split is not reconstructable from the competition
+metadata**: `Fluid_Sensitive` and `Fat_Suppression` are byte-identical over all 24,371 series, so
+those columns yield exactly 3 planes × 2 and nothing finer. If the gate misses, recovering the
+finer split from `SeriesDescription` / `EchoTime` — already held for every series in
+`data/external/dicom_headers_zhukovoleksiy.parquet` — is the first thing to try.
 
 **Before running anything on a fresh clone:** `data/` is gitignored — see "Regenerating the
 derived data" under Setup. ~2 minutes, no GPU.
