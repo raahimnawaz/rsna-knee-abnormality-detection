@@ -1235,6 +1235,113 @@ Two consequences worth keeping:
 
 ---
 
+## 2p. The port is memory-bound, not compute-bound — the M5 has 17.2 GB `MEASURED 2026-08-11`
+
+Fold 0 ran. It trained, the loss fell cleanly from 0.4523 to 0.2877, and **it took 3.6 h against
+a 2.6 h budget** — with the cost arriving in a shape neither §2e's estimate nor §2h's measurement
+could see:
+
+| epoch | 1 | 2 | 3 | 4 | 5 | 6 | 7 | 8 | 9 | **10** |
+|---|--:|--:|--:|--:|--:|--:|--:|--:|--:|--:|
+| min | 10.7 | 9.6 | 10.3 | 9.7 | 9.5 | 17.8 | 15.4 | 32.9 | 22.2 | **79.8** |
+| img/s | ~27 | ~30 | ~29 | ~29 | ~29 | | | | | **1.2–3.5** |
+
+Throughput did not drift. It **collapsed by ~10×**, and the machine state says why:
+
+    RAM 17.2 GB total   ·   tile cache 7.31 GB, randomly accessed
+    swap 24.47 GB of 25.6 GB used   ·   33.5M pageins
+
+**This is the number that was missing from the plan: the M5 has 17.2 GB, not the 32–64 GB the
+"~9 GB cache is affordable" reasoning in §2e quietly assumed.** A 7.31 GB working set read in
+random study order does not fit alongside the model, two loader workers and the OS, so the page
+cache loses and every batch starts paying disk.
+
+**Why the benchmark could not have caught it, and this is the reusable part.**
+`pipeline/bench_port.py` measures throughput on **synthetic tensors**, and says so in its own
+docstring: *"Synthetic tensors on purpose: this isolates compute from I/O, and the cache exists
+precisely so that training never touches NIfTI."* That was the right call for the question it was
+asked — is the *architecture* affordable — and its 28.5 img/s reproduced exactly for five epochs.
+But **a benchmark that deliberately isolates compute cannot predict wall-clock for a workload
+that turns out to be memory-bound**, and §2h's "2.6 h/fold, gate passed at 1.29×" was read as a
+schedule when it was only ever a compute figure. Same family as README rule 6: the number was
+correct and answered a different question than the one being asked of it.
+
+**Honest confound:** the degradation begins at epoch 6, which is when the K16 resolver was run
+concurrently — thousands of NIfTI reads that evict exactly the pages training needs. So part of
+this is self-inflicted and a clean fold on an idle machine will do better than 3.6 h. It will not
+do 2.6 h at 17.2 GB with a 7.31 GB random-access cache, because swap at 24.5/25.6 GB is
+structural, not contention.
+
+**What follows, in order of payoff:**
+
+1. **Do not run anything heavy against `data/nifti` while a fold is training.** Free, and it is
+   the largest single factor here.
+2. **Hand the loader `uint8` and normalise on-device.** `SlotDataset.__getitem__` currently
+   returns float32: 8.1 MB per study against 2.03 MB, a **4× reduction** in everything the
+   workers hold and prefetch.
+3. **Shuffle with locality.** Random study order touches the whole 7.31 GB every epoch. Shuffling
+   within contiguous chunks keeps the working set to a slice of the memmap and costs almost
+   nothing in randomness at 2,871 studies.
+4. **Do NOT build the anatomical tiles as a second full-size cache and train on both at once.**
+   That is another ~7 GB, i.e. 14.6 GB of tiles on a 17.2 GB machine. Build it, but train one tag
+   at a time until 2 and 3 are in.
+
+Cross-check against the alternative before over-reacting: Kaggle is 8 h per run, a 30 h weekly
+quota, and a GPU lottery that refuses four draws in five. **3.6 h locally and unlimited still
+wins** — the asymmetry in §2e survives, it is just 3–4× rather than 10–20×.
+
+---
+
+## 2q. Fold 0 of the port: +0.0094 at 1.0σ — the port RUNS, it has not yet WON `MEASURED 2026-08-11`
+
+The first end-to-end fine-tuned fold. Scored through `fusion/score_oof.py`, i.e. against
+`lixin_gpt56` over non-gold studies, which is the only thing that sits on 2j's scale.
+
+| | n | macro | ±SD |
+|---|--:|--:|--:|
+| **port, fold 0** (dinov2-small@336, `UNFREEZE_LAST=6`) | 681 | **0.7323** | ±0.0086 |
+| baseline (§2j, frozen cache, 5-fold pooled) | 2,612 | 0.7229 | ±0.0048 |
+| delta | | **+0.0094** | **1.0σ** |
+
+**Read this as "no demonstrated improvement yet", not as a win.** One sigma is what the
+instrument returns when it cannot tell two things apart, and §0's own rule — nothing below the
+instrument's resolution — applies to results we like as much as to ones we do not.
+
+Three separate reasons the number cannot carry more weight than that:
+
+1. **It is unpaired.** The baseline's `oof_all.csv` was never kept (§2o), so this compares
+   different study sets — 681 single-fold studies against 2,612 pooled — and difficulty differs
+   between them. The frozen arm must be re-run under `folds_site` to settle it (~32 min).
+2. **One fold has ±0.0086, not ±0.0048.** The 6.7× instrument advantage in §2g is a *five-fold
+   pooled* property. A single fold is roughly 2× noisier, which is most of why +0.0094 lands at
+   1.0σ rather than 2σ.
+3. **The gold cross-check is empty.** Fold 0's OOF covers **10 gold studies**, 1–6 positives per
+   label. `summary.json`'s `macro_gold` of 0.757 is not a measurement and the per-label deltas
+   against §2d's frozen numbers (Fracture +0.256, Contusion −0.228) are noise on n=4. The check
+   that §0 item 2 asks for — do the two instruments agree? — **cannot be run on one fold**, and
+   that is a structural fact about running folds one at a time, not a result.
+
+**What this does establish, which is not nothing.** The architecture §2e said was required now
+exists and trains: 10.9M of 22.0M parameters open, loss 0.4523 → 0.2877 against a floor of
+0.2040 (§2p), on the honest site-grouped folds, in our own code rather than the fork's. Every
+number above is the first one this project has produced from a model that *could* adapt its
+encoder.
+
+**Next, in the order that makes the result interpretable:**
+
+1. **Re-run the frozen arm under `folds_site`** and score both through `score_oof.py`, which
+   pairs them on shared studies. Until then no delta here means anything. ~32 min.
+2. **Step 5, the reproduction gate.** We do not yet know the port is a faithful reconstruction,
+   and a +0.009 from an unfaithful port is uninterpretable in either direction.
+3. Only then the anatomical slots, which are the divergence aimed at the failing labels.
+
+**Do not conclude "fine-tuning does not help" from this.** That is the §2d error in a new
+costume — reading a single under-powered comparison as a verdict on a mechanism. §2e's diagnosis
+rests on the fork scoring 0.891 while every frozen-cache arm here sits near 0.70, and one
+unpaired fold at 1.0σ does not touch it.
+
+---
+
 ## 3. Resolved (kept for provenance — these are the failure *patterns* to watch for)
 
 | # | Issue | Root cause | Fix |
