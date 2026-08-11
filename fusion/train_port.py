@@ -219,6 +219,32 @@ def weighted_bce(logits: torch.Tensor, y: torch.Tensor, w: torch.Tensor) -> torc
     return (F.binary_cross_entropy_with_logits(logits, y, reduction="none") * w).mean()
 
 
+def loss_references(y: np.ndarray) -> tuple[float, float]:
+    """-> (irreducible floor, constant-prior loss). Printed so the loss is READABLE.
+
+    **This loss cannot reach zero and it is a mistake to read it as though it could.** The
+    targets are soft -- 19.7% of values are exactly 0.5, meaning "the report does not say" -- and
+    a model predicting p = y perfectly still pays the entropy H(y), which is ln 2 at 0.5. So the
+    whole meaningful range is [floor, prior], measured on the fold-0 training set as
+    **0.2040 to 0.4640**, and a raw "0.33" is 50% of the way across it rather than a bad number.
+
+    The constant per-label prior is the "learned nothing" end: it is what a model scores by
+    ignoring the images and emitting each label's base rate. Epoch 1 landing at 0.4523 against a
+    prior of 0.4640 is the honest picture of how little one epoch buys.
+
+    Added 2026-08-10 after "the loss is so high, should we keep going?" -- a fair question that
+    the printed number alone could not answer, and which cost a measurement to settle. Printing
+    both ends means it never costs one again. Neither number decides whether to continue: only
+    the OOF does, because training headroom can be consumed by memorising.
+    """
+    w = 0.25 + 0.75 * np.abs(2 * y - 1)
+    p = np.clip(y, 1e-9, 1 - 1e-9)
+    floor = float((w * -(p * np.log(p) + (1 - p) * np.log(1 - p))).mean())
+    q = np.clip(np.repeat(y.mean(0)[None, :], len(y), 0), 1e-9, 1 - 1e-9)
+    prior = float((w * -(y * np.log(q) + (1 - y) * np.log(1 - q))).mean())
+    return floor, prior
+
+
 # ----------------------------------------------------------------------------- loop
 def run_fold(fold: int, folds: pd.DataFrame, store: TileStore, targets: pd.DataFrame,
              a, dev: torch.device):
@@ -245,6 +271,9 @@ def run_fold(fold: int, folds: pd.DataFrame, store: TileStore, targets: pd.DataF
     n_all = sum(p.numel() for p in model.parameters())
     print(f"  fold {fold}: train {len(tr):,} / val {len(va):,} studies · "
           f"{n_tr / 1e6:.1f}M of {n_all / 1e6:.1f}M params trainable")
+    lo, hi = loss_references(tr_ds.y)
+    print(f"  loss scale: floor {lo:.4f} (perfect, p=y) .. {hi:.4f} (constant prior). "
+          f"It CANNOT reach 0 -- the targets are soft.")
 
     opt = torch.optim.AdamW(model.param_groups(), weight_decay=a.wd)
     sched = torch.optim.lr_scheduler.OneCycleLR(
