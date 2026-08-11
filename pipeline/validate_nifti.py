@@ -20,12 +20,15 @@ Five checks. ALL PASSED 2026-08-09; the verdicts below are results, not intentio
      2,203 by tag, 2,204 by geometry, 0 unresolved. This only works because kaggle_01b was run
      over the whole corpus first -- otherwise 4 of the 12 labels would be noise.
   3. STRUCTURAL INTEGRITY.  Series per study, shapes, spacings against the DICOM headers.
-  4. IN-PLANE ORIENTATION.  Layout `as-is` at **r = 1.0000**, runner-up 0.6513. r = 1.0 means
-     the pixel data is identical -- a faithful repackaging, not a re-render. **CAVEAT: the 60
-     thumbnails that established this were ALL Axial_0** (kaggle_01c v2 filled its budget from
-     the head of a group-ordered frame). Five of six series types are unvalidated. Fixed in
-     kaggle_01c; re-run it and re-check before trusting a submission-grade cache.
-  4b. SLICE DIRECTION.  **100% forward**; the stored k order matches the DICOM spatial sort.
+  4. IN-PLANE ORIENTATION.  Layout `as-is`, best for 98% of series, median r = 1.0000. r = 1.0
+     means the pixel data is identical -- a faithful repackaging, not a re-render. **Now covers
+     6/6 series types (n=51)**, so coronal and sagittal are confirmed rather than assumed. The
+     earlier caveat here -- that the 60 thumbnails were all Axial_0, from kaggle_01c v2 filling
+     its budget off the head of a group-ordered frame -- was resolved on 2026-08-10 by
+     downloading the stratified npz the fixed kernel had already written (IMPROVEMENTS.md 2m).
+  4b. SLICE DIRECTION.  **66.7% forward, 33.3% reversed** over the same stratified n=51: Axial
+     12/12, Coronal 14/18, Sagittal 8/21. Not predictable from plane (~72%). This is K16, it is
+     OPEN, and the docstring here previously said "100% forward" for exactly the reason above.
   5. SLICE COUNT + SHAPE + SPACING vs DICOM.  69/69, 69/69, spacing error 0.0000 mm.
 
 Checks 1-3 need only what kaggle_01b already exported. Checks 4/4b/5 need
