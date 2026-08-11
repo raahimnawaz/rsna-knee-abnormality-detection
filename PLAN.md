@@ -618,9 +618,34 @@ risk, and §9.1 is the cheapest way to retire it.
 2. **Per-series slice direction.** `validate_nifti.py` check 4b, stratified, measures **33% of
    series stored back-to-front** — Sagittal 8/21 forward. The NIfTI affine has no direction
    cosines, so it must be exported from the DICOMs: extend `kaggle_01c` over all 24,371 series,
-   CPU-only, no GPU lottery. Cheap route is 2–3 header reads per series (~50k opens, ~20 min);
-   full-header reads (~700k opens, 3.7 h) are the fallback. Note §6.2 records that the ~19 ms/open
-   figure those estimates rest on is **itself unmeasured** — have the PROBE replace it.
+   CPU-only, no GPU lottery. ~~Cheap route is 2–3 header reads per series (~50k opens, ~20 min);
+   full-header reads (~700k opens, 3.7 h) are the fallback.~~ ~~Note §6.2 records that the
+   ~19 ms/open figure those estimates rest on is **itself unmeasured** — have the PROBE replace
+   it.~~
+
+   > **BOTH ROUTES ARE DEAD — RETRACTED 2026-08-10, MEASURED (`IMPROVEMENTS.md` §2n).** The two
+   > costs above are the cost of *reproducing the converter's sort key*, and they silently
+   > assume such a key exists in the headers. It does not. Three candidates tested over all
+   > 24,371 series and scored against the 51 series the thumbnails settle: InstanceNumber
+   > **56.9%**, sorted-filename **60.8%**, SliceLocation **56.9%**, against ~50% chance.
+   >
+   > **The 3.7 h fallback is dead too, and it would have bought nothing** — `inst` and `loc`
+   > already return |rho| = 1.000, perfectly monotone in projection, so reading all 700k headers
+   > exports the same signs as reading six. The open-latency figure this paragraph fretted about
+   > was never the binding question.
+   >
+   > The route that works is to **measure the bit rather than infer it**:
+   > `notebooks/kaggle_01e_direction_measure.py` ships the spatially first/middle/last thumbnail
+   > per series and `pipeline/resolve_slice_direction.py --measured` reads direction off
+   > directly, exactly as check 4b does for 51. Scoped to **sagittal only** (9,864 of 24,371
+   > series) because medial/lateral is the slice axis only there — axial and coronal are already
+   > served by `canonicalise`'s in-plane mirror. ~296k opens, ~20 min at the 122 opens/s
+   > `kaggle_01d` actually measured.
+   >
+   > **The pattern to carry forward: this paragraph priced a route in two levels of detail and
+   > never once asked whether the route could work.** A cost estimate is not a feasibility
+   > check, and the cheapest experiment in the whole exercise — join three header rules against
+   > 51 known answers — would have killed it on day one for free.
 3. **Sagittal handedness (K18).** Medial/lateral is the slice axis for sagittal and nothing ever
    reversed it: 40.5% of series, 43.0% of studies left knees. Code is written and gated behind
    `SAGITTAL_LR_SLICE_FLIP`; it is an XOR against step 2's bit, so the two ship together.

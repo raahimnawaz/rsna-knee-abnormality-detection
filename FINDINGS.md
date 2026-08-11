@@ -240,3 +240,41 @@ projected `ImagePositionPatient` is safe. `BodyPartExamined` is 189/200 and **di
 include `ADRENAL`, `LIVER`, `LSPINE`, `ANKLE`. Do not route on it.
 
 ---
+
+### 6.5 The in-plane axes are canonical per plane — which way is medial `MEASURED 2026-08-10`
+
+**Look here before writing any code that says "the medial side of the image".** Measured over
+the 396-series geometry sample by projecting each direction cosine onto the nearest signed LPS
+axis. The nearest axis is **unanimous, 132/132, for every plane and every axis**:
+
+| plane | col index + | row index + | slice normal | median obliquity | p90 | max |
+|---|---|---|---|---:|---:|---:|
+| Axial | +x (Left) | +y (Posterior) | +z (Superior) | 4.1–4.9° | ≤15.1° | 41.8° |
+| Coronal | +x (Left) | −z (Inferior) | +y (Posterior) | 4.4–8.2° | ≤19.3° | 40.2° |
+| Sagittal | +y (Posterior) | −z (Inferior) | −x (Right) | 2.4–7.3° | ≤16.0° | 25.0° |
+
+`kaggle_01c`'s log reports **"distinct IOP rows: 374"** under a comment reading *"if this is ~3
+the protocol is clean per plane"*. That number is float obliquity, **not** a mixture of
+conventions, and reading it as one would rule out fixed anatomical crops for no reason.
+
+Composed with `canonicalise` mirroring left knees onto `CANONICAL_SIDE = 'R'`, and with a right
+knee's medial side facing the midline at +x, the three rules that follow are:
+
+- **increasing column index is MEDIAL** on axial and coronal
+- **anterior is LOW ROW index** on axial
+- **anterior is LOW COLUMN index** on sagittal
+
+Verified visually as well as arithmetically — a montage of built tiles shows the patella
+anterior on axial and sagittal and the condyles above the plateau on coronal. Do the visual
+check again if you change the reader: an axis table is exactly the kind of claim this project
+has got wrong twice from pure reasoning (K16's first verdict, K18's docstring).
+
+**Sagittal is the exception, and it is why K16 matters.** There medial/lateral is the *slice*
+axis, not an in-plane one: the normal is −x, so ascending spatial order runs medial → lateral
+for a canonical right knee. That holds only for a volume known to be in ascending order, and a
+third of the NIfTI series are not (K16, §2n). `pipeline/slot_cache.py` refuses the sagittal
+anatomical slabs while that bit is missing.
+
+**Re-measure if the corpus grows.** n=396, and it is the entire licence for detector-free crops.
+
+---
