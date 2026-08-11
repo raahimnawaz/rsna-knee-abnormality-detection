@@ -1384,6 +1384,110 @@ than a mean and this one is only half there.
 
 ---
 
+## 2r. Code review of the step-4 body — 15 findings, none fixed yet `REVIEWED 2026-08-11`
+
+Recall-oriented review of `git diff 1049bcf..HEAD -- '*.py'` — the 1,683 new lines that are
+`slot_cache.py`, `train_port.py`, `score_oof.py`, `resolve_slice_direction.py`,
+`kaggle_01e_direction_measure.py`. **Everything below is RECORDED, not repaired.** Fold 0's
+0.7323 and the paired +0.0171 (§2q) are *unaffected* — they ran on protocol tiles at depth 0.5,
+which is the one configuration none of the medial/lateral findings touch.
+
+**The headline: the medial/lateral safety story for the anatomical slabs is written in three
+docstrings and the README, and implemented in none of them.** A1, A3 and A4 are one gap seen from
+three angles. The anatomical build is the next thing PLAN.md says to run, so this is the cluster
+to close first — it is the difference between "the divergence didn't help" and "the divergence
+was inverted for 43% of studies and we read the result as a verdict."
+
+### A. The medial/lateral cluster — fix before `--slots anatomical`
+
+- **A1. The K16 refusal is global, not per-series.** `slot_cache.py:247`. `gated` fires only on
+  `not direction`, i.e. the CSV missing or empty. One resolved series opens the gate for all of
+  them; every series without a bit then hits `canonicalise(..., slice_direction=None)`, and
+  `preprocess.py:444` requires `slice_direction is not None` before it will apply the left-knee
+  sagittal flip. `load_direction()` also drops `direction == "unknown"` rows, so those look
+  identical to "never measured". For a left knee with no bit, **`sag_med` is the lateral
+  compartment and `sag_lat` is medial** — per study, silent, on the axis four labels depend on.
+  The module docstring says it REFUSES to do exactly this; it refuses only the empty-file case.
+  Gate per series, or write `has_sag_med=False` for series without a bit.
+- **A3. `assert_caches_compatible()` is never called.** `slot_cache.py:154`. Two hits in the whole
+  repo: the definition, and the README sentence claiming it raises. Both now annotated in place.
+- **A4. Nothing checks `SAGITTAL_LR=1` at build time.** `slot_cache.py:258`. The documented
+  invocation is `SAGITTAL_LR=1 python pipeline/slot_cache.py --slots anatomical`; the module
+  `setdefault`s `TARGET_MM` and not this. Forget the prefix and the manifest records
+  `sagittal_lr_slice_flip: false`, which **matches `tiles_protocol`** — so even a working A3
+  would call them compatible. The flag that changes the pixels is the one with no guard.
+- **A8. First-matching-series-only drops tiles that exist.** `slot_cache.py:300`. `m.iloc[0]`
+  then `continue` if that UID isn't on disk — but a study is admitted if *any* of its series is
+  present, and the corpus downloads incrementally. A study whose second Coronal FS series is the
+  downloaded one gets `has_cor_fs=False` permanently. Iterate `m.SeriesInstanceUID` until a path
+  resolves.
+
+### B. Correctness
+
+- **B2. `NameError` on the summary write when the neutral reference is absent.**
+  `train_port.py:419`. `ref` is bound only inside `if NEUTRAL.exists():`; the `else:` branch
+  prints "scoring skipped" and falls straight through to `len(ref)`. Lands *after* all folds have
+  trained (~13 h) and after `fold*.pt` + `oof_all.csv` are written, but before `summary.json`.
+  The most likely error path on a fresh checkout is the one that destroys the run record.
+- **B5. One bad DICOM kills the whole `01e` Kaggle run.**
+  `kaggle_01e_direction_measure.py:128`. `probe()` guards `glob`, `dcmread`, IOP and IPP — and
+  leaves `read_pixels(f)` bare. It raises → propagates out of `ex.map` at line 159 → `main()`
+  unwinds → `direction_index.csv` and `direction_thumbs.npz` (written only at 169–170, after the
+  loop) never appear. ~29,592 decodes of third-party pixel data, zero output, session spent.
+- **B6. The paired bootstrap is not reproducible.** `score_oof.py:144`. `ids` is built by
+  iterating `restrict`, a `set` of UID strings, so PYTHONHASHSEED randomisation reorders
+  `yy`/`pA`/`pB` per process while `default_rng(0)` draws the same indices. `d0` reproduces; the
+  **±0.0088, the σ and the P(δ>0) beside it do not.** In the file whose entire premise is that a
+  number quoted next to 0.7229 "is reproduced exactly". One `sorted()` closes it.
+- **B7. `n_oof` records the wrong quantity.** `train_port.py:419`. `len(ref)` is the reference
+  label table — **4,407 rows** — not the OOF count. The existing `runs_port/summary.json` still
+  reads `n_oof: 691` (correct, 691 oof rows) because it predates b3387e8, so every future summary
+  will silently contradict the ones already on disk. Want `len(oof)`, or the `n` `score_run`
+  already returns.
+- **B9. Augmentation is duplicated across DataLoader workers.** `train_port.py:106`. `self.rng`
+  is built once in `__init__`, so both forked workers inherit the same generator state and the
+  n-th sample each handles gets byte-identical slot-dropout and gamma/gain draws.
+  `persistent_workers=True` keeps them locked in step for all 10 epochs. `torch.manual_seed`
+  doesn't reach a numpy generator. Seed per worker via `worker_init_fn`.
+- **B15. `targets.loc[uids]` can `KeyError` before epoch 1.** `train_port.py:105`. `usable`
+  filters on the tile store only; a study in `folds_site.csv` + the cache but not in
+  `targets.csv` raises at dataset construction — after the 7.3 GB memmap and timm weights load.
+  Intersect `usable` with `targets.index` too.
+- **B10. `unfreeze_last` inverts past the block count.** `train_port.py:199`.
+  `blocks[len(blocks) - unfreeze_last:]` goes negative: on 12 blocks, `--unfreeze-last 13` gives
+  `blocks[-1:]` = **one** block, `20` gives eight. Asking for more unfreezes fewer. Needs
+  `max(0, ...)`.
+- **B11. `crop_box` can hand `tile_from` a non-square crop.** `slot_cache.py:206`. The clamp is
+  per-axis, so an off-grid box shrinks on one side only and `F.interpolate` (227) then stretches
+  it anisotropically to 336×336 — the exact failure the `box_mm` docstring forbids ("the backbone
+  has never seen a knee stretched 2:1"). Latent: all six current ANATOMICAL boxes fit inside 457
+  px. But this module exists to have slots added to it, and nothing asserts the invariant.
+- **B12. OneCycleLR makes `LR_BACKBONE` a peak, not the fork's constant.** `train_port.py:279`.
+  Defaults (`div_factor=25`, `final_div_factor=1e4`) start the backbone at 3.2e-7, touch 8e-6 at
+  25% of training, end at 3.2e-11. Line 60 says changing these constants voids the reproduction
+  gate; the file documents its slot-split divergence at length and this one not at all. **If the
+  step-5 gate misses, look here before looking at the slot split.**
+- **B13. The bootstrap's bare `except` can print `nan` as a result.** `score_oof.py:162`. If
+  `mac()` raises on all 2,000 resamples, `ds` is empty → `.std()` is `nan` → the line prints
+  `+0.0171 ±nan → nan sigma, P(δ>0) = nan` in the shape of a finding.
+
+### C. Cleanup
+
+- **C14. `--workers` is dead.** `slot_cache.py:243/362`. Parsed, passed into `build()`, never
+  read. `--workers 8` on the 458 GB pass silently does nothing. Wire it to a thread pool (the
+  NIfTI read is I/O bound — `01e` already assumes that at `WORKERS=8`) or delete the flag.
+- Minor, not itemised above: `ser[ser.StudyInstanceUID == st]` rescans a ~24k-row frame once per
+  study (`slot_cache.py:294`, O(N·M) — use `groupby`); `train.csv` is read twice in
+  `train_port.main()` (390, 407); `import json as _json` shadows the module-level import
+  (`slot_cache.py:168`); `first` is assigned and only `del`'d in `score_oof.main()` (124/178);
+  `n_tiles / (len(studies) * len(slots))` is a `ZeroDivisionError` when no NIfTI is on disk
+  (`slot_cache.py:350`); `--limit 0` means "no limit" via a falsy check (`slot_cache.py:270`);
+  and `resolve_slice_direction.py` writes a column named `rho` that holds |r_first − r_last| on
+  the `--measured` path and a header-rule correlation on the rule path — same name, same file,
+  two quantities.
+
+---
+
 ## 3. Resolved (kept for provenance — these are the failure *patterns* to watch for)
 
 | # | Issue | Root cause | Fix |

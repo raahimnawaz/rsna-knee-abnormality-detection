@@ -23,6 +23,14 @@ partially-trusted bit: `pipeline/slot_cache.py` refuses the sagittal anatomical 
 file is absent, which is the honest failure, and the fallback stated in `PLAN.md` 9 Phase 0 is to
 build the cache from DICOM instead.
 
+    !! "Nothing downstream reads a partially-trusted bit" IS FALSE -- code review 2026-08-11,
+    !! IMPROVEMENTS.md 2r-A1. slot_cache refuses only when the FILE is absent. A file that
+    !! covers some series and not others -- which is what --measured produces, since it writes
+    !! only series with NIfTI on disk, thumbnails present and a matching slice count -- passes
+    !! the gate, and the uncovered series are built with slice_direction=None. Note also that
+    !! this script's own `unknown` rows are dropped by load_direction(), making them
+    !! indistinguishable from series it never measured.
+
     python pipeline/resolve_slice_direction.py
 """
 from __future__ import annotations

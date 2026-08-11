@@ -37,6 +37,22 @@ Leaderboard top is 0.942; the best *visible* public solution is 0.903.
 > **Next run, and it is one run: step 5, the reproduction gate.** It discriminates whether that
 > 0.13 is one missing ingredient or many. Do it before spending 18 h on the other four folds.
 
+> ### Code review of the step-4 body — 15 open findings, none fixed `2026-08-11`
+>
+> §2r. Nothing here touches fold 0 or the paired +0.0171: those ran on protocol tiles at depth
+> 0.5, the one configuration the medial/lateral findings cannot reach. **But three of them
+> (§2r-A1, A3, A4) must close before `--slots anatomical` runs.** The short version: the promise
+> that a sagittal slab is never built without its K16 direction bit is made in three docstrings
+> and in this README, and is implemented in none of them — the refusal is global (whole file
+> missing) rather than per series, and `assert_caches_compatible()` is never called from
+> anywhere. A left knee with no bit gets `sag_med` pointing at the **lateral** compartment.
+> Build the anatomical tiles on top of that and the result is uninterpretable, not merely weak.
+>
+> Two more worth knowing before the next long run: `train_port.py` raises `NameError` on the
+> summary write if the neutral reference file is missing (§2r-B2 — after ~13 h of training, and
+> after the checkpoints are safe), and `score_oof.py`'s paired σ is not reproducible run to run
+> because it iterates a `set` (§2r-B6).
+
 **Three phases. Phase 0 is 5 of its 7 steps done** (1, 2, 2b, 3, 4 — steps 5 and 6 remain); Phase 1
 is the labels at chance, Phase 2 is external data and the largest measured levers. See "Where
 this goes next" for the full plan and the ledger.
@@ -84,10 +100,12 @@ independent instrument, and the same 100% bar the header rules failed.
 
 > **HAZARD before building the anatomical slabs.** They need `SAGITTAL_LR=1`; `tiles_protocol`
 > was built with `SAGITTAL_LR=0`. Without the flip, "slice 25% is medial" is exactly inverted for
-> the 43% of studies that are left knees. `slot_cache.assert_caches_compatible()` raises on any
-> run consuming both — **rebuild protocol under the same flags first (~21 min)**. Fold 0's result
-> is unaffected: protocol tiles sit at depth 0.5, where a reversal maps the middle slice to
-> itself.
+> the 43% of studies that are left knees. ~~`slot_cache.assert_caches_compatible()` raises on any
+> run consuming both~~ — **CORRECTED 2026-08-11 (§2r-A3): that function is defined and never
+> called, from anywhere. Nothing raises.** The guard is prose, not behaviour, and this sentence
+> was the reason to believe otherwise. **Rebuild protocol under the same flags first (~21 min)
+> and check the two manifests by hand** until §2r-A3 is closed. Fold 0's result is unaffected:
+> protocol tiles sit at depth 0.5, where a reversal maps the middle slice to itself.
 
 **The anatomical slots are designed in and ready to build** — medial, lateral, patellofemoral,
 intercondylar notch (`REFERENCE.md` §4.3–4.4). Six of them, as an 84 mm box at the same 336 px,

@@ -60,6 +60,14 @@ This module therefore REFUSES to build the sagittal anatomical slots when the bi
 rather than building them wrong. That is the same choice `canonicalise` makes with unknown
 laterality: honest beats safe, because a silently mirrored slab has no symptom.
 
+    !! NOT TRUE AS WRITTEN -- code review 2026-08-11, IMPROVEMENTS.md 2r-A1. The refusal in
+    !! build() is GLOBAL, not per-series: it fires only when slice_direction_resolved.csv is
+    !! missing or has zero usable rows. One resolved series lets the whole build through, and
+    !! every series without a bit then reaches canonicalise() with slice_direction=None, which
+    !! (preprocess.py:444) skips the left-knee sagittal flip entirely. For a left knee with no
+    !! bit, sag_med IS the lateral compartment. The paragraph above describes the intent; the
+    !! code implements only the empty-file case. Fix before trusting any anatomical slab.
+
     python pipeline/slot_cache.py --slots protocol          # the 6 the gate needs, ~16 min
     python pipeline/slot_cache.py --slots anatomical        # the divergence, second pass
     python pipeline/slot_cache.py --slots all --limit 40    # smoke test
@@ -153,6 +161,13 @@ CACHE_COMPAT_KEYS = ("preprocess_version", "tile", "group", "grid", "target_mm",
 
 def assert_caches_compatible(*manifest_paths) -> None:
     """Raise unless every manifest agrees on the keys that change pixel values.
+
+    !! NEVER CALLED -- code review 2026-08-11, IMPROVEMENTS.md 2r-A3. `grep -rn` finds exactly two
+    !! hits in the repo: this definition and the README sentence that claimed it was active. Not
+    !! build(), not TileStore.__init__, not train_port.main(). The imperative below is aspiration.
+    !! It also cannot catch the sibling hazard (2r-A4): a build that forgot `SAGITTAL_LR=1` writes
+    !! sagittal_lr_slice_flip=false, which MATCHES tiles_protocol, so the two compare as
+    !! compatible while half the slabs are on the wrong compartment.
 
     CALL THIS BEFORE ANY RUN THAT CONSUMES MORE THAN ONE CACHE TAG. The live instance of this
     hazard, 2026-08-10: `tiles_protocol` was built before the K16 bit existed
