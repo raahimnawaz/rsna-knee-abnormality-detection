@@ -1101,6 +1101,58 @@ with no symptom other than a stale caveat nobody re-reads.
 
 ---
 
+## 2n. K16 is not a header rule — the converter's order is unpredictable `MEASURED 2026-08-10`
+
+`PLAN.md` 9 Phase 0 step 2 budgets the direction bit as "2–3 header reads per series (~50k
+opens, ~20 min)", with a full-header pass (~700k opens, 3.7 h) as the fallback. Both rest on an
+assumption nobody wrote down: that the NIfTI converter sorted the slices by *something in the
+DICOM headers*, so the bit is recoverable by reproducing that sort.
+
+`notebooks/kaggle_01d_slice_direction.py` tested it over all 24,371 series, exporting three
+candidate sort keys and scoring each against the 51 series whose direction the thumbnails
+already settle:
+
+| rule | agrees with ground truth | \|rho\| median |
+|---|---:|---:|
+| InstanceNumber ascends in projection | **56.9%** | 1.000 |
+| sorted-filename order ascends | **60.8%** | 0.314 |
+| SliceLocation ascends | **56.9%** | 1.000 |
+
+Chance is ~50%. **No rule was adopted**, against a bar of 51/51 — a rule that really is the
+converter's sort key reproduces every case, and at n=51 a genuinely 90%-accurate rule clears
+that bar by luck only 0.5% of the time.
+
+Three things make this a settled negative rather than a weak measurement:
+
+- **It is not a sampling limit.** `inst` and `loc` both return |rho| = 1.000, i.e. perfectly
+  monotone in projection over the sampled slices. Reading all 700k headers instead of 146k would
+  export the same signs. **The 3.7 h fallback is dead, and it would have bought nothing.**
+- **It is not noise in the ground truth.** Restricting to the most confident half of the
+  thumbnail calls (margin ≥ 0.30, n=42) moves nothing: 59.5% / 59.5% / 57.1%.
+- **The marginals look like a match and are a coincidence.** `inst` is 38.1% descending against
+  a true 33.3% reversed, which is close enough to be tempting. Per series it is 56.9%. Worth
+  remembering as a pattern: **a matching rate is not a matching assignment**, and only the
+  join tells them apart.
+
+The `file` rule's |rho| of 0.314 is a second, free finding: filenames in this corpus carry no
+spatial order at all, so any future code that reaches for `sorted(glob("*.dcm"))` as a slice
+order is wrong.
+
+**The replacement is to stop inferring and measure** — `notebooks/kaggle_01e_direction_measure.py`
+ships the spatially first/middle/last thumbnail per series and
+`resolve_slice_direction.py --measured` reads the bit off directly, exactly as check 4b does for
+51 series. Scoped to **sagittal only** (9,864 of 24,371 series), because medial/lateral is the
+slice axis only there — axial and coronal are already served by `canonicalise`'s in-plane
+mirror. That scoping is what makes a full-header pass affordable: ~296k opens, ~20 min at 01d's
+measured 122 opens/s, against ~95 min for the whole corpus.
+
+**None of this blocks the protocol slots or the reproduction gate.** The six protocol tiles sit
+at depth 0.5, where a reversal maps the middle slice to itself, so the cache built on
+2026-08-10 is direction-invariant to within the channel order of one 3-slice group. K16 gates
+`sag_med` / `sag_lat` — the divergence — and nothing before it.
+
+---
+
 ## 3. Resolved (kept for provenance — these are the failure *patterns* to watch for)
 
 | # | Issue | Root cause | Fix |

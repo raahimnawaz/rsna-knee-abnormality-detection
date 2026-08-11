@@ -43,6 +43,79 @@ from validate_nifti import _orientations, thumb_of         # noqa: E402
 D = PROJ / "data"
 ADOPT_MIN = 1.00
 RULES = ["inst", "file", "loc"]
+THUMB = 32                     # must match kaggle_01e.THUMB -- the grids are correlated directly
+
+
+def thumb32(a: np.ndarray) -> np.ndarray:
+    """Line-for-line with kaggle_01e.thumb_of. Nearest-neighbour, 0.5/99.5 percentiles, uint8.
+
+    Duplicated rather than imported because the Kaggle side is a single-file script and cannot
+    import this one. The two must agree exactly: a different resample or a different intensity
+    reference would put the DICOM and NIfTI thumbnails on different scales and the correlation
+    would compare rendering rather than anatomy.
+    """
+    r = np.linspace(0, a.shape[0] - 1, THUMB).round().astype(int)
+    c = np.linspace(0, a.shape[1] - 1, THUMB).round().astype(int)
+    t = a[np.ix_(r, c)].astype(np.float32)
+    lo, hi = np.percentile(t, [0.5, 99.5])
+    return (np.clip((t - lo) / (hi - lo + 1e-6), 0, 1) * 255).round().astype(np.uint8)
+
+
+def measure(nifti_dir: Path, idx: pd.DataFrame, thumbs) -> pd.DataFrame:
+    """Read the bit off directly, per series: is NIfTI k=0 the DICOM's spatial first or its last?
+
+    No rule and no extrapolation -- this is check 4b's arithmetic applied to every series that
+    kaggle_01e shipped thumbnails for. `margin` is |r_first - r_last|, i.e. how far apart the two
+    hypotheses actually landed, so a series where the two ends look alike reports its own
+    weakness instead of contributing a coin flip as though it were a measurement.
+    """
+    import nibabel as nib
+    out = []
+
+    def corr(a, b) -> float:
+        c = float(np.corrcoef(np.asarray(a, np.float32).ravel(),
+                              np.asarray(b, np.float32).ravel())[0, 1])
+        return 0.0 if np.isnan(c) else c
+
+    for r in idx.itertuples():
+        key = f"{r.StudyInstanceUID}_{r.SeriesInstanceUID}"
+        if any(f"{key}|{t}" not in thumbs for t in ("first", "mid", "last")):
+            continue
+        p = nifti_dir / f"{key}.nii"
+        if not p.exists():
+            continue
+        info = nifti_geometry(p)
+        if info is None:
+            continue
+        arr = np.asanyarray(nib.load(str(p)).dataobj)
+        vol = np.transpose(arr, (info["slice_axis"], info["row_axis"], info["col_axis"]))
+        if len(vol) != int(r.n_slices):
+            continue                      # different slice count: not comparable slice-to-slice
+
+        # Layout first, direction second -- the middle slice is invariant to slice reversal, so
+        # it identifies the in-plane layout without presupposing the answer. check 4 measured
+        # 'as-is' winning for 98% of series across all six types, but it is resolved per series
+        # here rather than assumed, at no cost.
+        d_mid = thumbs[f"{key}|mid"]
+        best = (-2.0, "")
+        for name, cand in _orientations(np.asarray(vol[int(r.mid_index)], np.float32)):
+            if cand.shape[0] < 2 or cand.shape[1] < 2:
+                continue
+            c = corr(thumb32(np.ascontiguousarray(cand)), d_mid)
+            if c > best[0]:
+                best = (c, name)
+        if not best[1]:
+            continue
+        lay = dict(_orientations(np.asarray(vol[0], np.float32)))[best[1]]
+        t0 = thumb32(np.ascontiguousarray(lay))
+        c_first = corr(t0, thumbs[f"{key}|first"])
+        c_last = corr(t0, thumbs[f"{key}|last"])
+        out.append({"StudyInstanceUID": r.StudyInstanceUID,
+                    "SeriesInstanceUID": r.SeriesInstanceUID,
+                    "direction": "forward" if c_first >= c_last else "reversed",
+                    "rule": "measured", "layout": best[1], "layout_r": best[0],
+                    "rho": abs(c_first - c_last)})
+    return pd.DataFrame(out)
 
 
 def ground_truth(nifti_dir: Path, geom: pd.DataFrame, thumbs) -> pd.DataFrame:
@@ -103,7 +176,39 @@ def main() -> None:
     ap.add_argument("--geometry", default=str(D / "series_geometry.csv"))
     ap.add_argument("--thumbs", default=str(D / "series_thumbs.npz"))
     ap.add_argument("--out", default=str(D / "slice_direction_resolved.csv"))
+    ap.add_argument("--measured", action="store_true",
+                    help="read the bit off kaggle_01e's thumbnails directly, no rule to adopt")
+    ap.add_argument("--measured-index", default=str(D / "direction_index.csv"))
+    ap.add_argument("--measured-thumbs", default=str(D / "direction_thumbs.npz"))
     a = ap.parse_args()
+
+    if a.measured:
+        ip, tp = Path(a.measured_index), Path(a.measured_thumbs)
+        if not (ip.exists() and tp.exists()):
+            raise SystemExit(
+                f"need {ip.name} and {tp.name}. Run notebooks/kaggle_01e_direction_measure.py "
+                "on Kaggle (CPU), then\n  kaggle kernels output "
+                "raahimnawaz/rsna-knee-direction-measure -p data/")
+        idx = pd.read_csv(ip)
+        res = measure(Path(a.nifti), idx, np.load(tp))
+        print(__doc__.splitlines()[0])
+        print(f"shipped {len(idx):,} series; {len(res):,} have NIfTI on disk and were measured")
+        if res.empty:
+            raise SystemExit("no overlap between the shipped series and the downloaded NIfTI")
+        rev = (res.direction == "reversed").mean()
+        print(f"  reversed {rev:.1%}   forward {1 - rev:.1%}")
+        print(f"  in-plane layout 'as-is' for {(res.layout == 'as-is').mean():.1%} "
+              f"(median r {res.layout_r.median():.4f})")
+        # A near-zero margin means the two ends of that series look alike, so the call is weak.
+        # Reported, and kept: 'unknown' would drop the series from the sagittal slabs entirely,
+        # which is a worse trade than a 55/45 call on a series whose ends are near-symmetric.
+        weak = (res.rho < 0.05).mean()
+        print(f"  margin |r_first - r_last|: median {res.rho.median():.3f}, "
+              f"{weak:.1%} under 0.05")
+        res.to_csv(a.out, index=False)
+        print(f"\nwrote {a.out}: {len(res):,} series, measured not inferred")
+        print("\nNext: SAGITTAL_LR=1 python pipeline/slot_cache.py --slots anatomical")
+        return
 
     exp_path = Path(a.export)
     if not exp_path.exists():
