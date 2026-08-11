@@ -37,7 +37,12 @@ Leaderboard top is 0.942; the best *visible* public solution is 0.903.
 > **Next run, and it is one run: step 5, the reproduction gate.** It discriminates whether that
 > 0.13 is one missing ingredient or many. Do it before spending 18 h on the other four folds.
 
-**Phase 0 is 4 of 5 done** — see "Where this goes next" for the full plan and the ledger.
+**Three phases. Phase 0 is 5 of its 7 steps done** (1, 2, 2b, 3, 4 — steps 5 and 6 remain); Phase 1
+is the labels at chance, Phase 2 is external data and the largest measured levers. See "Where
+this goes next" for the full plan and the ledger.
+
+> The line here used to read "Phase 0 is 4 of 5 done" while the table below listed seven rows.
+> It was written when 2b and 6 did not exist yet and was never re-counted. Corrected 2026-08-11.
 
 | step | state |
 |---|---|
