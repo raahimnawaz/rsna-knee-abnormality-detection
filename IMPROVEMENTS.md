@@ -2659,3 +2659,41 @@ way on the same 58 studies.
    Pin V52 by hand if pinning at all.
 3. **Do not build the re-ranking programme on `prvsiyan`.** Build it on the pilkwang inference
    path, where a submission is 74 s and `oof.npz` gives a matching local instrument.
+
+---
+
+## 3d. The 0.899 kernel's advertised changes do not touch the scored path `MEASURED 2026-08-12`
+
+Built our own submission (`notebooks/build_tta_kernel.py`, pushed as
+`raahimnawaz/rsna-knee-per-target-tta-pooling`) by porting `aadigupta7686/0-899-let-me-cook`'s
+delta onto `pilkwang`. Reading the code rather than the description changed what the port *is*.
+
+**`0-899-let-me-cook` advertises itself as "Vertical Flip Test-Time Augmentation (TTA) and
+increased CACHE_SLICES (15)". Neither reaches a submitted score.**
+
+| advertised | reality |
+|---|---|
+| vertical-flip TTA | lives in `predict()`, called **only** at the three in-notebook TRAINING sites (val, gold AUC, post-training test). The scored path is `infer_from_package()` → `predict_member()` (line 2137), which never calls it. |
+| `CACHE_SLICES` 15 | **`N_GROUP_MAX = 1` is identical in both notebooks**, so `CACHE_SLICES = GROUP * N_GROUP` is identical too. Not a difference at all. |
+
+**The entire real delta is per-target pooling over TTA windows inside `predict_member`**: a
+logit-mean base (`TTA_POOL` `"prob"` → `"logit"`), overridden to **max** for Fracture, Contusion,
+both menisci and Baker's, and **top-2 mean** for ACL and MCL. Diffuse findings — the three OA
+labels, Effusion, Synovitis — are deliberately left on the mean.
+
+**That is a prior, not a hack, and it is why this is worth porting.** A focal finding appears in
+*some* TTA windows, so a mean over windows dilutes its evidence and a max does not; a diffuse
+finding is present in all of them and the mean is the better estimator. It is the same reasoning
+as the anatomical crops, one level cheaper — and it costs a config change on an inference-only
+notebook instead of a training run.
+
+**Built onto `pilkwang`, not forked from 0.899**, because the 0.899 copy is encoding-corrupted:
+**1,216 mojibake sequences and zero Greek/Cyrillic**, against pilkwang's 922 Greek + 858 Cyrillic
+(§2x). Dead code on the scored path — targets come from the mounted LLM table — but there is no
+reason to inherit it. `build_tta_kernel.py` **refuses to write** if its anchors do not appear
+exactly once or if the encoding check fails, so the patch cannot silently rot when pilkwang
+publishes a new version.
+
+This is the third time on this project that reading a competitor's *code* contradicted its
+*description* (§2f the extractor, §2x the leaderboard survey, §3d here). **The rule is now
+three-for-three and should be treated as a default, not a precaution.**
