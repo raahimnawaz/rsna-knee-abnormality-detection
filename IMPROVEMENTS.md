@@ -2757,3 +2757,120 @@ Top **0.946**, 10th **0.935** (was 0.934 this morning — the cutoff is still cl
 leaves the 0.891 plateau for the 0.899 one; ties break by earliest submission, so we enter at its
 bottom, ~rank 326 of ~1,280, up from 400. **The free public ceiling is now reached. Everything
 from here has to be something the field does not already have.**
+
+---
+
+## 3f. Opening the black box: where the 0.891 ensemble fails, and on whom `MEASURED 2026-08-12`
+
+With `oof.npz` local (§2y), the fork is auditable for the first time. `fusion/error_analysis.py`
+over 4,349 non-gold studies. **Several standing beliefs come out changed.**
+
+### Where the macro actually loses
+
+| label | prev | AUC | | label | prev | AUC |
+|---|--:|--:|---|---|--:|--:|
+| **Lateral Meniscus** | 0.148 | **0.767** | | Effusion | 0.590 | 0.855 |
+| MCL | 0.146 | 0.817 | | Medial OA | 0.359 | 0.872 |
+| PF OA | 0.451 | 0.822 | | Synovitis | 0.123 | 0.886 |
+| Lateral OA | 0.257 | 0.829 | | Baker's | 0.246 | 0.887 |
+| Medial Meniscus | 0.393 | 0.834 | | Fracture | 0.064 | **0.898** |
+
+**The lateral compartment is systematically harder than the medial** — Meniscus 0.834 → 0.767
+(−0.067), OA 0.872 → 0.829 (−0.043).
+
+**And that is a property of the TASK, not a pilkwang defect.** An independent study reports
+medial/lateral meniscus AUCs of **0.834 / 0.746**; pilkwang gets **0.834 / 0.767**. Nearly
+identical, arrived at independently. The literature localises it further — misclassification is
+highest at the **posterior horn of the lateral meniscus**. **So "fix Lateral Meniscus" is
+attacking a known-hard problem, and the anatomical crops are the intervention with the right
+shape** (a specific horn of a specific compartment), not a generic capacity increase.
+
+### LATERALITY: no disparity — but the question is not fully closed
+
+All 20 members run `rules: {lat: 'centre'}`, no mirroring, while medial/lateral **swap sides**
+between knees. Testing compartment labels against the eight non-compartment ones as a control:
+
+**mean gap compartment +0.0027, control +0.0041, DIFFERENCE −0.0014.** Nothing. Left knees
+(n=1,663) are predicted as well as right (n=2,686) on exactly the labels where sides swap.
+
+**Read this precisely.** It shows left knees are not *neglected*; it does **not** show mirroring
+would not help. A model trained on mixed L/R learns both orientations at the cost of splitting
+capacity, and would still score equally on each — the disparity test cannot see that. The
+circumstantial hint is that the *rarer* compartment is where performance collapses, which is what
+a capacity split would predict, but prevalence confounds it. **Settling it needs a trained arm,
+not an audit** — park it behind the cheap work.
+
+### Subgroup disparities, largest first
+
+| dimension | biggest gaps |
+|---|---|
+| **Manufacturer** | Synovitis 0.848 Siemens vs **0.914** GE (3.2σ) · Effusion 0.841 vs 0.892 (3.4σ) · Fracture 0.897 vs 0.946 · control mean **−0.0286** |
+| **Sex** | ACL **M 0.865 / F 0.820** (+0.044, 2.3σ) · Medial OA M 0.852 / F 0.889 (−0.037, 3.1σ) · Baker's +0.030 (2.1σ) · compartment vs control **−0.0213** |
+| **Field strength** | **Lateral Meniscus 1.5T 0.748 / 3T 0.801** (−0.054, 2.7σ) · Effusion 1.5T 0.872 / 3T 0.830 (+0.043, 3.5σ) · Contusion −0.036 |
+
+**The weakest label is weakest exactly where physics predicts**: Lateral Meniscus at 1.5T is
+**0.748**. A small structure at lower SNR. That is the same axis as §2d's resolution finding
+(224→518 = +0.013) and points at the same fix.
+
+### HARMONISING SITE AWAY COSTS 0.013–0.032, AND THAT INVERTS THE STANDARD ADVICE
+
+The harmonisation literature names scanner manufacturer as *the* dominant site effect and offers
+ComBat as the remedy. `fusion/harmonise_test.py` applies the parameter-free version — within-group
+rank normalisation, which cannot overfit:
+
+| grouping | groups | macro | delta | σ |
+|---|--:|--:|--:|--:|
+| site_id | 42 | 0.8149 | **−0.0319** | 18.2 |
+| ManufacturerModelName | 27 | 0.8209 | −0.0260 | 17.8 |
+| Manufacturer × field | 17 | 0.8273 | −0.0196 | 15.2 |
+| Manufacturer | 11 | 0.8337 | −0.0132 | 13.3 |
+
+**Why: case mix genuinely differs by scanner.** Medial OA prevalence is **0.479 / 0.353 / 0.338**
+across the three largest manufacturers; PF OA 0.579 / 0.454 / 0.405; Lateral OA 0.364 / 0.256 /
+0.232. The between-group score difference is **signal** — the model rightly scores OA higher at
+OA-heavy sites — and removing it destroys real ordering.
+
+### This reinterprets §2j's site leakage, and it matters for every fold decision
+
+§2j measured **+0.024** of "site leakage" and the project concluded the model memorises scanner
+signatures. **The more likely mechanism is that it learns site-level PREVALENCE** — and that is
+legitimately available whenever the test split is by *study*, which is how this competition splits.
+
+So the two fold schemes answer different questions, and the project has been conflating them:
+
+* **site-grouped** → *"how would this do at a NEW hospital?"* Right for reporting generalisation.
+* **random study-level** → *"how would this do on held-out studies from THESE hospitals?"* This is
+  what the leaderboard asks.
+
+**§2j's "nothing gets compared against an external score except under site-grouped folds" is the
+right rule for honesty and the wrong rule for predicting this leaderboard.** Both belong; they
+have to be labelled. (§2z already found the scheme makes no difference to low-dimensional
+*selection* — this is about the *estimate*, which is a separate thing.)
+
+### Consequence: add site signal rather than remove it — small, real, and the sign is the finding
+
+`fusion/site_prior_test.py`, random study-level folds, per-site per-label prevalence shrunk to the
+global rate (empirical Bayes, strength K), blended into the ranking at weight w:
+
+| w | 0.05 | **0.10** | 0.20 | 0.30 |
+|---|--:|--:|--:|--:|
+| delta | +0.0017 | **+0.0023** | −0.0000 | −0.0084 |
+
+Stable across K = 10, 25, 50, 100 (+0.0020 to +0.0023 at w = 0.10) and **unimodal in w** — noise
+does not produce a smooth curve across four independent shrinkage settings. Modest, and one
+quarter of what §3d's TTA pooling paid, but it is **free, post-hoc, and points opposite to the
+published remedy**. Per §3b, n = 4,349 puts selection optimism near +0.0005, so most of it should
+survive — but it is 16 (K, w) pairs scored on the studies they were chosen on, so **the
+leaderboard confirms it or it does not count.**
+
+### What this changes about what to build
+
+1. **Lateral Meniscus at 1.5T (0.748) is the single clearest target**, it is known-hard in the
+   literature, and it is localised to the posterior horn. The **anatomical crops** are the
+   intervention shaped for it. This is the strongest case yet for building them.
+2. **Site prior is a free +0.002** — batch it into the next submission rather than spending a
+   ~2 h run on it alone (§3e).
+3. **Do not harmonise.** Measured, costly, and contrary to the literature's default.
+4. **Sex disparities are real** (ACL 2.3σ, Medial OA 3.1σ) but a *per-study covariate cannot be
+   added post-hoc as a monotone transform* — same §3a filter. It is a training-time feature or a
+   group-conditional prior like the site one; test it the same way before believing it.
