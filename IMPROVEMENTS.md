@@ -2347,3 +2347,58 @@ above is one no submission could have bought:
    sagittal series, 50.4% reversed, cross-validated 21/21**. Consistent train/infer, so it is not
    a bug in their pipeline — it is *signal they are leaving on the floor*, and a member trained on
    the resolved direction would be genuinely diverse from all 20 rather than a 21st seed.
+
+---
+
+## 2z. Re-fitting their blend weights on site-grouped folds gains NOTHING `MEASURED 2026-08-12`
+
+§2y proposed this as "the cheapest remaining shot at a delta on 0.906": `prvsiyan` selects its
+per-target rank-blend weights on report-grouped folds, we hold site-grouped folds, and §2j
+measured site leakage at +0.024. **The hypothesis is wrong. Recorded here rather than left
+standing in §2y.**
+
+`fusion/fold_scheme_test.py`, nested selection over 4,349 non-gold studies — pick per-target
+weights on the training folds under each scheme, always score on the **site** held-out fold:
+
+| held-out fold | select on SITE | select on REPORT-like |
+|--:|--:|--:|
+| 0 | 0.8472 | 0.8471 |
+| 1 | 0.8430 | 0.8429 |
+| 2 | 0.8527 | 0.8528 |
+| 3 | 0.8510 | 0.8510 |
+| 4 | 0.8505 | 0.8508 |
+| **MEAN** | **0.8489** | **0.8489** |
+
+**Delta −0.0000.** The selector that could see scanner structure and the one that could not chose
+weights that perform identically on site-held-out data.
+
+And the whole selection is nearly free anyway: all-`ours` scores **0.8482**, per-target selection
+**0.8489** (+0.0007), fixed 50/50 **0.8424**, all-`imported` **0.8036**.
+
+### Why — and this is the transferable part
+
+**Site leakage inflates an absolute estimate; it does not necessarily reorder a low-dimensional
+selection.** One parameter per target over a 21-point grid, chosen on ~3,500 studies, is a
+very low-variance fit: leakage shifts every candidate's score together and leaves the argmax where
+it was. §2j's +0.024 is a statement about how good a model *looks*, not about which of two blend
+weights *wins*.
+
+So the standing rule needs a qualifier it never had: **"nothing gets compared against an external
+score except under site-grouped folds" is right for reporting a score and overkill for choosing
+one scalar.** Site-grouping earns its keep where the fitted object is big enough to memorise a
+scanner.
+
+**This makes §2y hypothesis 2 the better bet, not a worse one.** The argument above protects
+prvsiyan's *per-target weights* precisely because they are low-dimensional and fitted on
+thousands of studies. It gives **no protection at all** to their V34 PCA arm, whose claimed
++0.0273 was selected on the **58** image-adjudicated studies — high-variance selection on a tiny
+set is the regime where selection actually overfits, and they say themselves it "measures
+estimator stability rather than independent clinical generalization." That one is still live and
+is now the first thing to test.
+
+**Caveat on this experiment.** The "report-like" arm is a random 5-way split under their seed, not
+a reproduction of `assign_group_balanced_folds` (which also balances gold and pseudo-label mass).
+It is a fair proxy for *a selector that cannot see site structure* — which is the variable under
+test — but it is not their exact scheme. The two arms are `ours`/`imported` from `merge_gain.npz`,
+the only two aligned prediction matrices their artifacts expose; `oof.npz` ships the already-merged
+result, so **the 20 members cannot be re-weighted individually from anything published.**
