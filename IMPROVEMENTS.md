@@ -2106,13 +2106,17 @@ has been available the whole time.
 Prompted by a direct challenge — *"is our solution viable? why aren't we using the .89 repo?"* The
 answer is that there is no good reason, and the arithmetic has said so for a while.
 
+> **This table is the stale 08-10 read. E1 ran on 08-12 and every line moved against us — see
+> §2x for the live board.** 10th is **0.934**, top **0.946**, and our 0.891 is **rank 400 of
+> 1,276**. The course change below is correct and gets *stronger*; only its numbers were wrong.
+
 | | LB |
 |---|--:|
 | our own pipeline, best estimate (§5 conversion) | **~0.76** |
-| **the fork, already submitted 2026-08-09** | **0.891** — rank 230/908 |
-| best visible public (see caveat below) | 0.903 |
-| **10th place — the last prize** | **0.926** |
-| top | 0.942 |
+| **the fork, already submitted 2026-08-09** | **0.891** — rank 230/908 → **now 400/1,276 (§2x)** |
+| best visible public (see caveat below) | 0.903 — *writeup, not downloadable; the best kernel is 0.899* |
+| **10th place — the last prize** | ~~0.926~~ → **0.934 (§2x)** |
+| top | ~~0.942~~ → **0.946 (§2x)** |
 
 **Our own pipeline is 0.13 BELOW a thing we already have banked.** Phase 0 spent its whole budget
 rebuilding, in our own code, an architecture that is free to download, and reached 0.7229 with one
@@ -2171,6 +2175,10 @@ second time in three days that a belief about the outside world expired.
 2. **Rank-mean `pilkwang` + `prvsiyan`.** Two published notebooks, different lineages, both with a
    working inference path. This is the cheapest +0.01–0.02 available and it is a Kaggle run, not a
    training job. **Cost: 1 submission.**
+   > **§2x amends this: benchmark it against 0.899, not 0.891.** The free plateau is
+   > `aadigupta7686` at **0.899** (183 teams on it), so submitting *someone else's better kernel*
+   > is the zero-work competitor this step has to beat. A rank-mean landing 0.90–0.91 is rank
+   > ~75–130 — real, but it books a +0.01 that is only +0.002 over the free alternative.
 3. **Submit it.** Also retires the §2t-1 risk — `kaggle_03_submit.py` has still never run against
    a real test DICOM — and yields the single-model LB point that tests the boring hypothesis
    (§2t-5).
@@ -2192,3 +2200,66 @@ carry), the report-OOF instrument at fixed targets, K16 resolved by measurement,
 resume, and — as of today — the knowledge that this laptop was asleep inside every timing ever
 taken here (§2v). **That is the apparatus for judging an ensemble honestly. It was never going to
 BE the ensemble.**
+
+---
+
+## 2x. E1 has RUN: the board is worse than §2w assumed, in four places `MEASURED 2026-08-12 17:22 UTC`
+
+Full 1,276-team leaderboard pulled with `kaggle competitions leaderboard -d`, plus a live kernel
+list. **Every correction runs in the pessimistic direction**, which is the argument for having run
+it before spending a submission on the §2w plan.
+
+| | §2w believed (read 08-10) | **live 08-12** | |
+|---|--:|--:|---|
+| teams | 908 | **1,276** | +40% in three days |
+| top | 0.942 | **0.946** | |
+| 10th — the last prize | 0.926 | **0.934** | cutoff **+0.008 in three days** |
+| our banked 0.891 | rank 230 | **rank 400** | **−170 places for doing nothing** |
+| gap to the prize | 0.035 | **0.043** | |
+
+### The finding §2w did not anticipate: 0.891 is a commodity, and it is not even the free one
+
+Score plateaus with ≥15 teams — a plateau *is* a shared public kernel, since independent training
+runs do not agree to three decimals:
+
+| plateau | teams | best rank | what it is |
+|--:|--:|--:|---|
+| 0.900 | 15 | 129 | lightly-tuned `0.899` |
+| **0.899** | **183** | 144 | `aadigupta7686/0-899-let-me-cook`, unmodified |
+| 0.897 | 22 | 335 | |
+| **0.891** | **73** | **400** | the `pilkwang` fork, unmodified — **this is us** |
+| 0.500 | 102 | 1163 | degenerate submissions |
+
+**73 teams hold our exact score.** We are not on a floor we built; we are in a queue, and the
+queue is 183 teams deep one plateau above us. **The free plateau is 0.899, not 0.891** — the
+better public kernel is a download, worth ~256 places for one submission and no work.
+
+**Consequence for §2w step 2.** "Rank-mean `pilkwang` + `prvsiyan`, the cheapest +0.01–0.02
+available" now has a competitor it must beat: *just submit the 0.899 kernel*. If the rank-mean
+lands at 0.90–0.91 it is rank ~75–130 — real, and still ~0.025 short of a prize. Neither is
+wrong; both are cheap; but the ensemble must be benchmarked against **0.899**, not 0.891, or it
+will book a +0.01 that was +0.002 over the free alternative.
+
+### What this does to the strategy — it sharpens §2w rather than replacing it
+
+**The entire public field is compressed into 0.891–0.900.** 326 teams sit at or above 0.899;
+only 33 clear 0.92 and only 10 clear 0.934. So the real target was never our 0.043 to 10th — it
+is the **~0.035 between the free public plateau and the prize**, and that is the bar every idea
+on this board has to clear.
+
+That is the §2w "unexplained 0.04" restated with better evidence, and it now has a *mechanism
+visible in the distribution*: the public teams pile into a 0.01-wide band because they share the
+report-derived label tables, and the top ten are 0.035 clear of the band on something unpublished.
+**The two differentiators are therefore not garnish on an ensemble — they are the whole game**:
+the severity-thresholded label read (`REFERENCE.md` §2.1) and the anatomical crops. What changes
+is only where they get measured: as deltas on ~0.899, never on our own 0.72 pipeline.
+
+### And the clock is visible now
+
+The cutoff moved **+0.008 in three days** while the field grew 40%. Do not model that as linear to
+2026-10-22 — early-competition boards move fastest — but the direction is not in doubt, and
+**0.934 is a lower bound on what a prize costs**, not a target. Any plan that lands at 0.91 in
+October lands outside the money.
+
+**Standing rule, third time this project has needed it ([[check-whats-free-first]]): a leaderboard
+number older than a few days is not evidence. Re-run E1 before any submission decision.**

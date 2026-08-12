@@ -195,18 +195,46 @@ why `Fluid_Sensitive` and `Fat_Suppression` are identical on all 24,371 series.
 
 ### 3.1 Public leaderboard anchors
 
-| | local | LB |
-|---|---|---|
-| public baseline notebook | OOF 0.632 | 0.664 |
-| `pilkwang/rsna-knee-baseline-v1` | — | **0.891** |
-| `prvsiyan` / `0.899 let me cook` | — | 0.899 |
-| Yash Bishnoi B3 (highest visible) | OOF 0.8544, gold-58 0.8568 | **0.903** |
-| **leaderboard top, 2026-08-10** | — | **0.942** |
+**VERIFIED LIVE 2026-08-12 17:22 UTC** (E1), by `kaggle competitions leaderboard -d` over the
+full 1,276-team board. Supersedes the 08-10 read, which was wrong in four places. **Re-verify
+before any of this is load-bearing — the board moved 0.008 at the prize cutoff in three days.**
 
-**The 0.04 between the best visible solution and the top is unexplained by anything public.**
-Every public team now trains on the same handful of report-derived label tables, which caps
-them at a shared ceiling. Worth holding as the real competitive question rather than assuming
-the public frontier is the frontier.
+| | local | LB | read |
+|---|---|--:|---|
+| public baseline notebook | OOF 0.632 | 0.664 | 08-10 |
+| `pilkwang/rsna-knee-baseline-v1` — **our banked submission** | — | **0.891** | live |
+| `aadigupta7686/0-899-let-me-cook` (NOT prvsiyan) | — | **0.899** | live |
+| Yash Bishnoi B3 — **writeup only, no public kernel** | OOF 0.8544, gold-58 0.8568 | 0.903 | 08-10 |
+| **10th place — the last prize** | — | **0.934** | live |
+| **leaderboard top** | — | **0.946** | live |
+
+**The board as it actually is, 2026-08-12 — 1,276 teams (was 908 on 08-09, +40% in three days):**
+
+| plateau | teams | best rank | what it is |
+|--:|--:|--:|---|
+| 0.900 | 15 | 129 | lightly-tuned `0.899` |
+| **0.899** | **183** | 144 | `aadigupta7686` run unmodified — **the free plateau** |
+| 0.897 | 22 | 335 | |
+| **0.891** | **73** | **400** | the `pilkwang` fork unmodified — **this is us** |
+| 0.500 | 102 | 1163 | degenerate/all-constant submissions |
+
+Cumulative: **10** teams ≥ 0.934 · 33 ≥ 0.92 · 74 ≥ 0.91 · 105 ≥ 0.906 · 326 ≥ 0.899 · 472 ≥ 0.891.
+
+Four corrections to the 08-10 read, all in the pessimistic direction:
+
+1. **Top is 0.946, not 0.942.**
+2. **10th is 0.934, not 0.926.** The prize cutoff rose **+0.008 in three days**.
+3. **Our 0.891 is rank 400 of 1,276, not 230 of 908.** It decayed ~170 places in three days
+   without us doing anything. **A banked score is not a banked rank.**
+4. **0.891 is not a floor, it is a commodity** — 73 teams hold it exactly, and the *free*
+   plateau is 0.899 with 183 teams on it. A submission of someone else's better public kernel
+   is worth ~256 places and costs one submission and no work.
+
+**The whole public field lives in 0.891–0.900.** So the real gap is not our 0.043 to 10th; it is
+the **~0.035 from the free public plateau to the prize**, and that is the number every idea has to
+beat. This *strengthens* the standing read below rather than softening it: every public team
+trains on the same report-derived label tables and they all pile up in a 0.01-wide band, while the
+top ten sit 0.035 clear of it on something not published.
 
 ---
 

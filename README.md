@@ -10,12 +10,25 @@ Twelve-label knee-MRI classification, macro-AUROC. Final submission **2026-10-22
 >
 > **Our own pipeline is ~0.13 BELOW a score we already have banked.**
 >
-> | | LB |
-> |---|--:|
-> | our own pipeline, best estimate | ~0.76 |
-> | **the fork, submitted 2026-08-09** | **0.891** — rank 230/908 |
-> | **10th place — the last prize** | **0.926** |
-> | top | 0.942 |
+> **E1 HAS NOW RUN — the table below is the LIVE board, 2026-08-12 17:22 UTC (§2x).**
+>
+> | | LB | |
+> |---|--:|---|
+> | our own pipeline, best estimate | ~0.76 | never submitted |
+> | **the fork, submitted 2026-08-09** | **0.891** | **rank 400 / 1,276** — 73 teams tied |
+> | the *free* public plateau (`aadigupta7686`) | **0.899** | rank 144, 183 teams |
+> | **10th place — the last prize** | **0.934** | only 10 teams clear it |
+> | top | 0.946 | |
+>
+> **All four numbers moved against us since the 08-10 read** (§2x): top 0.942→0.946, 10th
+> 0.926→**0.934**, field 908→**1,276**, and our banked 0.891 decayed **230 → 400** for doing
+> nothing. **A banked score is not a banked rank.**
+>
+> **0.891 is not a floor we built — it is a commodity 73 teams share, and it is not even the free
+> one.** The whole public field is compressed into **0.891–0.900**; 326 teams sit at or above
+> 0.899. So the real bar is not our 0.043 to 10th, it is the **~0.035 from the free public plateau
+> to the prize** — and that is what the severity-labels and anatomical-crops bets have to clear.
+> They are not garnish on an ensemble; they are the whole game. Measure them on **0.899**.
 >
 > Phase 0 spent its entire budget rebuilding, in our own code, an architecture that is free to
 > download — reaching 0.7229, with one fold worth +0.0171. **Rule 6 of this README already said
@@ -27,12 +40,14 @@ Twelve-label knee-MRI classification, macro-AUROC. Final submission **2026-10-22
 > get more compute until it can show that **adding** it to that ensemble helps; at ~0.76 it would
 > hurt. Full reasoning and the live kernel survey in `IMPROVEMENTS.md` **§2w**.
 >
-> ### ⚠ E1 HAS NOT RUN — verify the leaderboard before quoting any number on this page
+> ### ✅ E1 RAN 2026-08-12 17:22 UTC — and found four errors, all pessimistic `§2x`
 >
-> **Including the 0.891 and 0.926 in the table above.** Every LB figure in this repo was read
-> **2026-08-10**. The 08-12 survey checked only which *kernels exist* — not their current scores —
-> and still found two errors (`0.899 let me cook` misattributed; no Yash/B3 kernel at all). The
-> whole E-plan rests on numbers that have not been re-read. It costs minutes.
+> It cost minutes and moved the prize cutoff +0.008, the field +40%, and our rank −170. The
+> corrected figures are in the table above and in `REFERENCE.md` §3.1; the analysis is §2x.
+>
+> **The rule stands for next time: a leaderboard number older than a few days is not evidence.
+> Re-run E1 before any submission decision.** This is the third belief about the outside world
+> this project has had expire in six days.
 >
 > The measurement apparatus below is not wasted — site-grouped folds, the report-OOF instrument,
 > K16, the guards, resume. **It is how you judge an ensemble honestly. It was never going to BE
@@ -41,13 +56,13 @@ Twelve-label knee-MRI classification, macro-AUROC. Final submission **2026-10-22
 **Baseline: macro 0.7229 ± 0.0048**, site-grouped report-OOF over 2,612 studies. That is the
 honest number; every figure this project produced before 2026-08-10 was inflated by ~0.024 of
 site leakage (§2j) and measured on a 37-study instrument that could not resolve 0.04 (§2g).
-Leaderboard top is 0.942; the best *visible* public solution is 0.903.
+Leaderboard top is **0.946** (live, §2x); the best *downloadable* public kernel is **0.899**.
 
-> **All LB figures on this page were read 2026-08-10 and are stale (§2w).** Two are known wrong:
-> `0.899 let me cook` is `aadigupta7686`, not `prvsiyan`, and **no public `Yash Bishnoi` / B3
-> kernel exists** — searches for `yash`, `b3` and `efficientnet` return nothing, so that 0.903 is
-> a *writeup*, and reproducing it is a training job rather than a download. Re-verify against the
-> live leaderboard before treating any of these as load-bearing.
+> **LB figures on this page are the live 08-12 read (§2x); anything else in the repo dated 08-10
+> is stale.** Two known-wrong attributions, corrected: `0.899 let me cook` is `aadigupta7686`, not
+> `prvsiyan`, and **no public `Yash Bishnoi` / B3 kernel exists** — searches for `yash`, `b3` and
+> `efficientnet` return nothing, so that 0.903 is a *writeup*, and reproducing it is a training job
+> rather than a download. The best kernel you can actually download is `aadigupta7686` at 0.899.
 
 > ### The port exists, it trains, and fine-tuning is worth **+0.0171 ± 0.0088 (1.9σ)** `2026-08-11`
 >
@@ -239,9 +254,10 @@ answered only the LLM half — `REFERENCE.md` §1.3), and how many studies are b
 4. **The leaderboard hit 0.932 within 48 hours of opening, on forks of public DINOv2
    notebooks** — and weak labels for all 12 findings are public too. So 0.9 is table stakes,
    the backbone cannot differentiate us, and "the extractor is the solution" is a claim to be
-   earned rather than assumed. Measured in `PLAN.md` §7.1. As of 2026-08-10 the top is **0.942**,
-   and an unmodified public fork scores **0.891** — so the entire spread from mid-table to first
-   is about **0.05 AUC**. The claim in the last sentence of point 4 was tested on 2026-08-10 and
+   earned rather than assumed. Measured in `PLAN.md` §7.1. Live 2026-08-12 (§2x) the top is
+   **0.946**, and an unmodified public fork scores **0.891 at rank 400/1,276** — so the entire
+   spread from mid-table to first is about **0.05 AUC**, and "0.9 is table stakes" is now
+   literal: 326 teams are at or above 0.899. The claim in the last sentence of point 4 was tested on 2026-08-10 and
    **failed**: see `IMPROVEMENTS.md` §2f.
 5. **Local scores and leaderboard scores are not the same scale, and the conversion is
    known.** Two public anchors give it: a baseline notebook reports OOF 0.632 → LB 0.664, and
@@ -675,12 +691,13 @@ bit exists. Off is a byte-level no-op and the fingerprint is unchanged.
 
 | | score | note |
 |---|---:|---|
-| LB top | **0.940** | 908 teams |
-| ours, submitted 2026-08-09 | **0.891** | unmodified fork of `pilkwang/rsna-knee-baseline-v1`; rank **230/908** |
+| LB top | ~~0.940~~ **0.946** | ~~908~~ **1,276** teams (live 08-12, §2x) |
+| ours, submitted 2026-08-09 | **0.891** | unmodified fork of `pilkwang/rsna-knee-baseline-v1`; rank ~~230/908~~ **400/1,276** |
 | our own pipeline | — | never submitted |
 
 So Phase 1's first half is done and the reference implementation reproduces. **The whole spread
-from rank 230 to rank 1 is ~0.05 AUC**, which sets the scale for everything below.
+from rank 400 to rank 1 is ~0.055 AUC**, which sets the scale for everything below — and note
+that the spread is that tight *because* the public field is stacked in a 0.891–0.900 band (§2x).
 
 What is still unmeasured is the mapping from *our* CV to the LB. `0.719` is pooled-OOF on 37
 **enriched** gold studies — §1.1 of `FINDINGS.md` records the 58 as "clearly curated to cover
@@ -915,7 +932,8 @@ Read in full, not summarised from the competition page. Four things settle open 
 
 And the target is worth stating plainly: **prizes run to 10th place** ($5,000), plus **$18,000
 across three efficiency prizes** — `PLAN.md` §6 is a live second route, not a footnote. Tenth on
-the main board is currently ~0.926.
+the main board is **0.934** (live 08-12, §2x — it was 0.926 two days earlier, so treat it as a
+lower bound on what a prize costs, not a target).
 
 ### 0. There is no working instrument, and the leaderboard is not the fix
 
@@ -1217,7 +1235,8 @@ for this task in their own ablation, for the reason above: the finding lives on 
       supported by the measurement that produced them. The leaderboard is the instrument and has
       been used once. See "Where this goes next"
 - [x] **First LB submission — 0.891**, an unmodified fork of `pilkwang/rsna-knee-baseline-v1`,
-      2026-08-09. Rank **230/908**; LB top is **0.940**. Phase 1's first half is done and the
+      2026-08-09. Rank **230/908**; LB top is **0.940**. *(Live 08-12: same score, rank
+      **400/1,276**, top **0.946** — §2x.)* Phase 1's first half is done and the
       reference implementation reproduces. Our *own* pipeline has still never been submitted, and
       in its current state would likely score below this — see "What is wrong" §4
 - [ ] ~~**DINOv2 feature cache built and published (`kaggle_02`)**~~ — superseded by the local

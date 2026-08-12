@@ -435,6 +435,11 @@ cache is worth building against.
 > **230/908**. The conclusion below strengthens rather than changes: two days of field-wide
 > tuning moved the top by 0.008, and the whole distance from mid-table to first is ~0.05 AUC.
 > A public fork now *is* mid-table, so the fork is the floor to beat, not a milestone.
+>
+> **RE-MEASURED AGAIN 2026-08-12 (IMPROVEMENTS §2x) — and "mid-table" was generous.** Top
+> **0.946** over **1,276 teams**; the same 0.891 is now rank **400**, having lost ~170 places in
+> three days without us touching it. **73 teams hold 0.891 exactly and 183 hold 0.899**, so a
+> public fork is not mid-table — it is a queue position, and one plateau *below* the free one.
 
 Top score 0.932; ranks 2–20 spread 0.900 → 0.811; **every submission dated 2026-08-06/07**. Nobody
 built a weakly-supervised 12-label 3D pipeline in 48 hours — the field forked shared notebooks.
@@ -661,7 +666,8 @@ risk, and §9.1 is the cheapest way to retire it.
 > ordering fixes**: the 224 cache resolves 0.71 mm/px because `imagenet_normalise` interpolates
 > the correctly-built 457 px volume down to `IMG_SIZE`, and the per-label evidence says that,
 > not the pseudo-labels, is the ceiling (IMPROVEMENTS §2d). **And the leaderboard step is done** —
-> an unmodified `pilkwang` fork scored **0.891** on 2026-08-09, rank 230/908, top 0.940. What is
+> an unmodified `pilkwang` fork scored **0.891** on 2026-08-09, rank 230/908, top 0.940
+> (**live 08-12: that same score is rank 400/1,276, top 0.946** — §2x). What is
 > still unmeasured is the CV↔LB mapping for *our* pipeline.
 
 > **2026-08-10, later — the direction is settled and it is architectural.** `pilkwang`'s notebook
