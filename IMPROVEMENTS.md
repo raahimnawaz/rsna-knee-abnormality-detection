@@ -2402,3 +2402,116 @@ It is a fair proxy for *a selector that cannot see site structure* — which is 
 test — but it is not their exact scheme. The two arms are `ours`/`imported` from `merge_gain.npz`,
 the only two aligned prediction matrices their artifacts expose; `oof.npz` ships the already-merged
 result, so **the 20 members cannot be re-weighted individually from anything published.**
+
+---
+
+## 3a. External survey: three rejects, two keeps, and one filter that does most of the work `2026-08-12`
+
+Searched GitHub and the literature for work on this problem shape. **The filter is §2w's: it must be
+measurable as a delta on the ~0.906 ensemble we are building on, without out-training a field
+whose floor already beats our trainer by 0.11 (§2y).** Most of what turned up fails it, and the
+failures are recorded here so they are not re-proposed.
+
+### THE FILTER: macro-AUROC is invariant to per-label monotone transforms
+
+Worth stating once, in this file, because it silently kills a whole class of attractive ideas.
+AUC depends only on the *order* of scores within a label. So **any per-label recalibration,
+threshold, prevalence/prior correction, or temperature applied to finished predictions is worth
+exactly zero.** `pilkwang`'s own notebook says the same thing — *"the scores for label i, so
+calibration and thresholds are worth nothing."*
+
+A re-ranking is different from a calibration and only the former can move the metric: it needs a
+**new per-study signal**, not a new function of the existing score.
+
+### REJECT — Gold Loss Correction / noise-transition-matrix methods
+
+[Hendrycks et al. GLC](https://arxiv.org/pdf/2111.14932) and the transition-matrix family estimate
+label noise from a small trusted clean set — which maps temptingly onto our **58 gold vs 4,407
+report-derived**, and onto §2b's "one-directional threshold error".
+
+**Rejected as a post-hoc method by the filter above**: a per-label transition correction applied to
+finished predictions is a monotone transform and cannot change macro-AUROC. GLC works by
+correcting the *loss during training*. Applying it means retraining, which is the activity §2y
+just measured us losing at. Keep the framing — the report→gold map really is a noisy-label
+problem with a trusted anchor set — and discard the method.
+
+### REJECT — CoPAS, despite being the closest published match
+
+[Paper](https://pmc.ncbi.nlm.nih.gov/articles/PMC11368947/) · [code, Apache 2.0](https://github.com/zqiuak/CoPAS).
+*Twelve* knee abnormalities, multi-sequence, multi-plane — the nearest thing in the literature to
+this competition's task. It still fails on four counts:
+
+- **Different twelve.** Theirs are MENI/ACL/CART/PCL/MCL/LCL/EFFU/CONT/PLICA/CYST/IFP/PR. Ours
+  split meniscus and OA by compartment and include Synovitis, Baker's and Fracture. Maybe five
+  overlap, none exactly.
+- **Weaker.** Average AUC **0.812** internal, against 0.906 we can download today.
+- **No pretrained weights** — the repo ships code and 50 sample studies. Using it is a
+  from-scratch training job.
+- **Needs 5 specific sequences** (PDW sag/cor/ax + cor T1 + sag T2). Our metadata resolves only
+  3 planes × 2, since `Fluid_Sensitive ≡ Fat_Suppression` over all 24,371 series.
+
+**Keep one idea from it.** Its ablation reports that cross-plane attention beats concatenation and
+max-pooling for multi-sequence fusion. All 20 `pilkwang` members aggregate their six slots with
+plain `cls_mean` (`manifest.json`), so slot fusion is a named weak point in the thing we are
+building on. That is a hypothesis about *their* architecture, not a plan — acting on it is a
+training job, so it stays parked behind everything below.
+
+### REJECT (for now) — MRI foundation models
+
+[Triad](https://pmc.ncbi.nlm.nih.gov/articles/PMC11952655/),
+[MRI-CORE](https://arxiv.org/html/2506.12186v1) (DINOv2-pretrained on 116,806 volumes),
+[RadFM](https://www.nature.com/articles/s41467-025-62385-7). A genuinely diverse encoder is
+exactly what pays here — `prvsiyan` gained 0.899 → 0.906 by adding RadImageNet ResNet-50. But
+these ship *encoders*, so using one means training a head and probably fine-tuning: a multi-week
+bet on the M5, in direct competition with the activity §2y measured us losing at by 0.11.
+**Revisit only if a submission-measured experiment shows encoder diversity is where the remaining
+0.03 lives.**
+
+### KEEP 1 — the submission budget changes the instrument problem, which is the project's #1 blocker
+
+The standing blocker since 08-10: *"the instrument does not cover Phase 1"* — report-OOF is valid
+at fixed targets only, and gold-58 reads at ±0.031 against effects of ~0.021. Every label-source
+idea has been stuck behind it.
+
+**It is no longer binding, and the reason is arithmetic we never did.** A submission is
+`infer_from_package()` — **74 seconds** of GPU (§2e). The 30 h quota was never the constraint on
+*inference-only* experiments; at 5 submissions/day that is **~6 minutes of quota per day for five
+independent leaderboard reads.** "The leaderboard is the instrument" was adopted and retracted the
+same day on 08-10 as unaffordable — **that retraction was correct for training runs and wrong for
+re-ranking experiments**, and nobody separated the two.
+
+So: **post-hoc re-ranking ideas can now be measured on the real target, five a day, for minutes of
+quota.** That is the unlock. It does not extend to anything that trains.
+
+### KEEP 2 — the ensemble-selection-overfitting literature indicts `prvsiyan`'s PCA arm specifically
+
+The [low-data ensembling work](https://arxiv.org/pdf/2010.06866) and the
+[cross-validation guide](https://pmc.ncbi.nlm.nih.gov/articles/PMC10388213/) both name the failure
+directly: *with small validation sets the ensembling process itself overfits*, and the standard fix
+is bootstrapped greedy selection rather than argmax on the raw set.
+
+`prvsiyan` selects on **58** image-adjudicated studies and says so — *"these tests reuse the same 58
+image-adjudicated subjects, so they measure estimator stability rather than independent clinical
+generalization."* Their V34 PCA arm's claimed **+0.0273** was chosen that way.
+
+§2z showed low-dimensional selection is robust to a bad fold scheme; **that argument gives their
+PCA arm no cover at all**, because 58 studies is the high-variance regime it excludes. This is
+free to test on OOF we already hold locally, needs no GPU, and — unusually — a **removal** can gain
+score. **First action.**
+
+### The severity re-rank, restated correctly
+
+Still the best idea on the board (`REFERENCE.md` §2.1), and the literature supports the mechanism:
+[VisualCheXbert](https://www.researchgate.net/publication/350736257) lifts weighted F1 0.55 → 0.73
+by training the labeller against *image* labels, and
+[uncertainty-adjusted LLM extraction](https://arxiv.org/pdf/2510.05664) is the same move.
+
+Two corrections to how this project has been framing it:
+
+1. **It must be a re-rank on a new per-study feature, not a relabel-and-recalibrate.** A graded
+   severity score blended into the ensemble's ranking changes order; a monotone repair of the
+   existing score cannot.
+2. **It cannot be scored against `lixin_gpt56` or any report-derived reference.** Those encode
+   P(mention), which is precisely the quantity a severity re-rank is trying to move away from —
+   scoring it there would *punish* a correct result. Gold-58 and the leaderboard are the only
+   valid arbiters, and KEEP 1 just made the second one affordable.
