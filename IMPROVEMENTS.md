@@ -2473,6 +2473,10 @@ The standing blocker since 08-10: *"the instrument does not cover Phase 1"* — 
 at fixed targets only, and gold-58 reads at ±0.031 against effects of ~0.021. Every label-source
 idea has been stuck behind it.
 
+> **NARROWED BY §3c (same day): this is true of the `pilkwang` lineage ONLY.** `prvsiyan`
+> trains its added arms in-notebook against an ~8.7 h limit, so a submission there costs hours,
+> not seconds. Read the paragraph below as being about `infer_from_package()` kernels.
+
 **It is no longer binding, and the reason is arithmetic we never did.** A submission is
 `infer_from_package()` — **74 seconds** of GPU (§2e). The 30 h quota was never the constraint on
 *inference-only* experiments; at 5 submissions/day that is **~6 minutes of quota per day for five
@@ -2588,3 +2592,70 @@ long-standing "the instrument does not cover Phase 1" note has been asking for s
 manufactures when there is nearly nothing to find. That is the right null for "is this noise?"
 and it is *not* an estimate of their arm's true effect. Their arm may be genuinely good; the
 point is that 58 studies cannot tell them, or us, which.
+
+---
+
+## 3c. Setting up the V52 submission: three blockers, and a correction to §3a `2026-08-12`
+
+Went to fork `prvsiyan` V52 and submit it. **It is not the download §2w assumed.** Findings, in
+the order they bite:
+
+### 1. §3a's "submissions are ~free" is TRUE OF THE `pilkwang` LINEAGE ONLY — correction
+
+§3a KEEP 1 argued the leaderboard is now an affordable instrument because a submission is
+`infer_from_package()` at **74 seconds**. **That is right for `pilkwang`/`aadigupta` and wrong for
+`prvsiyan`, and the difference decides how the remaining 71 days get spent.**
+
+| | submission cost |
+|---|---|
+| `pilkwang` / `aadigupta` **with the weights package attached** | short-circuits to `infer_from_package()` — **~74 s** |
+| `prvsiyan` | trains its added arms in-notebook: `_V49_TOTAL_LIMIT_SECONDS = 8.70 × 3600`, B3 runtime limit `9 × 60 × 60`, 66 sites of training machinery |
+
+So the instrument unlock is real but **narrower than stated**: five cheap leaderboard reads a day
+exist **on the pilkwang lineage**, where members are pre-trained and the notebook only infers.
+On `prvsiyan` a submission is a ~9 h GPU job — **~3 per week against a 30 h quota**, not 5 a day.
+§3a has been amended in place. Post-hoc re-ranking experiments should therefore be built on the
+**pilkwang** inference path, which is also where our `oof.npz` work already lives.
+
+### 2. `prvsiyan`'s 0.906 depends on a PRIVATE dataset we cannot attach
+
+Its V49 five-fold EfficientNet-B3 arm reads `/kaggle/input/rsna-knee-b3-v47-folds-0-3`.
+That dataset **does not exist publicly** — dataset search returns nothing, direct access returns
+**403**, and `prvsiyan`'s public datasets are ESC-50 and some Pokémon-TCG weights. Their five blank
+`dataset_sources` entries in `kernel-metadata.json` are private attachments.
+
+The notebook is explicit about what happens without it: *"the independently completed public .899
+family remains the fallback until every pinned artifact and output check passes"*, with
+`_V49_BASELINE = /kaggle/working/submission_public_0899.csv`. **So a fork that cannot see their
+private B3 weights degrades toward 0.899, not 0.906.**
+
+**The V52 arm itself is reachable, though**, and that is the part worth having: it is an *official
+RadImageNet ResNet-50 **frozen** slice encoder*, loaded strictly from the **public**
+`marwanmath/resnet-50-radimagenet-marwan`. Frozen means no pretrained-arm dependency — but the
+512-dim head on top of it is fitted in-notebook under the grouped cross-fit protocol, which is
+where the ~9 h goes.
+
+### 3. The API will not serve a specific version, and their V52 gate is a 58-study gate
+
+`kaggle kernels pull <owner>/<kernel>/52` returns **403** — arbitrary versions of another user's
+kernel are not downloadable, so **pinning V52 has to be done by hand in the Kaggle UI**
+(version history → Copy & Edit from V52). A plain fork gets the newest version (~V64), whose
+score their own header calls *"diagnostic until Kaggle returns a completed official score"*.
+
+And the branch itself is gated on exactly the thing §3b just measured: *"V49 is preserved unless
+**exact 58-label outer-fold evidence** supports this branch."* **Their 0.906-vs-0.899 decision is
+made on 58 studies**, which §3b shows delivers −0.0034 on average and is negative in 92% of draws.
+That does not mean 0.906 is fake — it was a completed Kaggle row — but it does mean the *branch
+selection* rests on the weakest instrument in this competition, and a fork may well gate the other
+way on the same 58 studies.
+
+### Revised submission plan
+
+1. **`aadigupta`-style pilkwang + TTA knobs — minutes of quota.** Banks a score above our stale
+   0.891, and establishes the cheap, repeatable inference path that every post-hoc re-ranking
+   experiment will use. **This is the one to run first**, and it is nearly free.
+2. **One `prvsiyan` fork — ~9 h, a considered spend.** Its purpose is to measure *what a fork
+   actually scores without their private B3*, which nobody can predict from the notebook text.
+   Pin V52 by hand if pinning at all.
+3. **Do not build the re-ranking programme on `prvsiyan`.** Build it on the pilkwang inference
+   path, where a submission is 74 s and `oof.npz` gives a matching local instrument.
