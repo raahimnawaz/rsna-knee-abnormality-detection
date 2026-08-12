@@ -2263,3 +2263,87 @@ October lands outside the money.
 
 **Standing rule, third time this project has needed it ([[check-whats-free-first]]): a leaderboard
 number older than a few days is not evidence. Re-run E1 before any submission decision.**
+
+---
+
+## 2y. The fork ships its OOF, so the port's slot question is answered for free `MEASURED 2026-08-12`
+
+`pilkwang/rsna-knee-weights` contains **`oof.npz` (368 KB) and `manifest.json`** alongside the 20
+`.pt` files. `oof.npz` is honest out-of-fold predictions for **all 4,407 training studies** on the
+same 12 targets in the same order, with a `gold_mask` that sums to exactly **58**. So the 0.891
+fork can be scored on our instrument with **no GPU, no Kaggle run and no submission** — and every
+comparison against it before today was a number read off a web page.
+
+Imported with `fusion/import_pilkwang_oof.py` → `fusion/runs_pilkwang/oof_all.csv`, which makes it
+an ordinary arm for `fusion/score_oof.py`.
+
+### The 20 members are ONE config
+
+`manifest.json`: 20 members = **5 folds × 4 seeds** (2026, 7717, 20260808, 31337), and
+**`distinct_configs: 1`** — dinov2-small @336, 12 slices, group 3, `crop_mm` 130, band [0.2, 0.8],
+`unfreeze_last: 6`, `cls_mean`, the six `SAG/COR/AX` slots. Mean member holdout AUC **0.8398**,
+mean gold-58 **0.8375**.
+
+**0.891 is a seed-and-fold average of a single architecture, not a diverse ensemble.** That is why
+`prvsiyan` gained by bolting on RadImageNet ResNet-50 (0.899 → 0.906) and it says the
+architectural headroom above the fork is real. It also means **our port is a 21st sample of the
+same config** — it was built to reproduce this exact recipe.
+
+### The port does not earn a slot, and the result is clean because it is asymmetric
+
+`fusion/score_oof.py fusion/runs_pilkwang fusion/runs_port`, paired on the 681 shared scorable
+studies:
+
+| arm | macro |
+|---|--:|
+| `runs_pilkwang` | **0.8434 ± 0.0061** |
+| `runs_port` | 0.7323 ± 0.0086 |
+| **paired delta** | **−0.1111 ± 0.0072 — 15.4σ, 0/12 labels won** |
+
+**The reference leans toward the port and it lost anyway.** `lixin_gpt56` correlates 0.947 with
+`steven_v2` (the port's targets) and 0.866 with `pilkwang_v2` (theirs), the §2s asymmetry — so
+this measurement is handicapped *in our favour* and still reads −0.111. Only a positive delta
+would have been ambiguous. This one is not.
+
+`fusion/blend_test.py` then asks the actual §2w-step-4 question — not "is it better alone" but
+"does base+port beat base" — swept over the rank-blend weight:
+
+| w | macro | vs base |
+|--:|--:|--:|
+| 0.00 | 0.8434 | — |
+| 0.05 | 0.8429 | −0.0005 |
+| 0.10 | 0.8418 | −0.0016 |
+| 0.20 | 0.8380 | −0.0054 |
+| 0.50 | 0.8120 | −0.0314 |
+| 1.00 | 0.7323 | −0.1111 |
+
+**Monotonic. No weight helps.** And this is *not* the §2f near-duplicate trap: mean rank
+correlation between the arms is **0.639** (min 0.478), far below the 0.87–0.95 at which reader
+fusion died. **The port had genuine diversity to sell and is simply not good enough to pay for a
+slot.** That is a cleaner and more damning result than redundancy would have been.
+
+**§2w step 4 is therefore CLOSED, for free, in minutes.** The port gets no more compute as an
+ensemble member. It remains what §2e justified it for: a local loop for testing *our* ideas, one
+that the frozen cache structurally could not provide.
+
+### What we hold that DOES compose with the fork
+
+The apparatus, exactly as §2w predicted — and now with a demonstrated use, since the measurement
+above is one no submission could have bought:
+
+1. **Site-grouped folds vs theirs.** `prvsiyan`'s `assign_group_balanced_folds(seed=20260809)`
+   keeps **normalized-report groups atomic** — a duplicate-report guard, *not* a site guard. We
+   measured site leakage at **+0.024 (~5σ)** over 265 scanner fingerprints. Their blend weights
+   are OOF-selected on report-grouped folds, so they are fitted on an optimistically biased
+   signal. Re-selecting those weights on `data/folds_site.csv` is a **scoring change, no
+   training**, and it is the cheapest remaining shot at a delta on 0.906.
+2. **A 45× bigger selection set.** `prvsiyan` selects on the **58** image-adjudicated studies and
+   says so plainly — *"these tests reuse the same 58 image-adjudicated subjects, so they measure
+   estimator stability rather than independent clinical generalization."* Their V34 PCA arm's
+   claimed **+0.0273** was chosen that way. Our report-OOF reads ±0.0046 over 2,612. **Testing
+   whether their arms survive a real instrument is free, and a *removal* can gain score.**
+3. **K16.** Every one of the 20 members carries `rules: {order: 'normal', lat: 'centre'}` — no
+   per-series slice-direction handling at all. We resolved the bit by measurement for **8,048
+   sagittal series, 50.4% reversed, cross-validated 21/21**. Consistent train/infer, so it is not
+   a bug in their pipeline — it is *signal they are leaving on the floor*, and a member trained on
+   the resolved direction would be genuinely diverse from all 20 rather than a 21st seed.
