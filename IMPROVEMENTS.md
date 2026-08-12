@@ -2697,3 +2697,63 @@ publishes a new version.
 This is the third time on this project that reading a competitor's *code* contradicted its
 *description* (§2f the extractor, §2x the leaderboard survey, §3d here). **The rule is now
 three-for-three and should be treated as a default, not a precaution.**
+
+---
+
+## 3e. 0.899 SCORED — the code reading was right, and the "cheap instrument" claim was wrong twice `2026-08-12`
+
+`raahimnawaz/rsna-knee-per-target-tta-pooling`, submission **55465252**: **public LB 0.899**,
+against our banked **0.891**. **+0.008, and it exactly matches `aadigupta7686`'s score.**
+
+### This is a clean experimental confirmation of §3d, not just agreement
+
+§3d claimed from reading the code that `0-899-let-me-cook`'s two advertised features — vertical-flip
+TTA and `CACHE_SLICES 15` — **never touch the scored path**, and that the entire delta is
+per-target TTA pooling in `predict_member`.
+
+**We shipped only the pooling. We omitted both advertised features. We reproduced their score to
+three decimals.** That is a positive experiment, not an argument: had the vflip or the cache depth
+contributed anything, we would have landed below them. **Fourth time reading a competitor's code
+beat reading their description — and the first time it was confirmed on the leaderboard.**
+
+Also banked: our copy has pilkwang's 922 Greek + 858 Cyrillic intact against the 0.899 kernel's
+1,216 mojibake sequences, so we hold the same score on undamaged source.
+
+### The first same-model CV↔LB anchor this project has had
+
+§2t-1 noted the conversion was interpolated from **two foreign anchors**. Now there is a real one:
+
+| model | our instrument (report-OOF, `lixin`, non-gold) | public LB |
+|---|--:|--:|
+| `pilkwang` 20-member | **0.8434** | **0.891** |
+| + per-target TTA pooling | *(not yet scored locally)* | **0.899** |
+
+**These are the same weights measured two ways, not two quality levels** — the local number reads
+lower because it scores against a *report-derived* source while the LB scores against expert
+*image* labels. The ~0.048 gap is the report→image discrepancy, measured, and it is the same
+quantity `REFERENCE.md` §2.1's severity thesis is about. It means a local +0.01 is not an LB
++0.01, and nothing here has established the slope.
+
+### CORRECTION, second one on the same claim: a submission is NOT 74 seconds
+
+§3a KEEP 1 argued the leaderboard is affordable at "74 s per submission"; §3c narrowed that to the
+pilkwang lineage. **Both were wrong.** This submission was PENDING for **over 99 minutes**.
+
+The 74 s in §2e is the **20 members' forward passes**. A submission additionally decodes the
+**entire hidden test set from DICOM** — invisible in a public-sample run, which is why the local
+run took 376 s on 3 studies.
+
+**Corrected budget: order ~2 h per submission**, so roughly **15 runs a week against a 30 h
+quota** — not 5/day-for-free, and not prvsiyan's ~3/week either. Still enough to make the LB the
+selection instrument §3b showed gold-58 cannot be, but re-ranking experiments must be batched.
+
+**Three corrections to one claim in one day.** Each time a number measured on a small or partial
+configuration (74 s of forward passes, 3 public studies) was extrapolated to the full run without
+checking. Same shape as §2v's sleeping laptop.
+
+### Standing
+
+Top **0.946**, 10th **0.935** (was 0.934 this morning — the cutoff is still climbing). Our 0.899
+leaves the 0.891 plateau for the 0.899 one; ties break by earliest submission, so we enter at its
+bottom, ~rank 326 of ~1,280, up from 400. **The free public ceiling is now reached. Everything
+from here has to be something the field does not already have.**
