@@ -530,6 +530,102 @@ track we have most invested in. Path 2 is not reachable without it. Build it fir
 
 ## 9. Immediate next steps
 
+> # COURSE CHANGE 2026-08-12 — THIS SUPERSEDES EVERYTHING BELOW, INCLUDING THE 08-11 BLOCK
+>
+> **`IMPROVEMENTS.md` §2w.** Our own pipeline is ~0.76 LB. **The fork we submitted on 2026-08-09
+> scores 0.891 and is already banked.** We have spent Phase 0 rebuilding, in our own code, a thing
+> that is free to download, and we are 0.13 below it. Rule 6 of the README already said *"the fork
+> is the base, not a reference"*; it was never followed.
+>
+> **0.891 is the floor. Every number is a delta on top of it.**
+>
+> | # | step | cost |
+> |---|---|---|
+> | **E1** | Verify the live leaderboard and both lineages' real scores | minutes |
+> | **E2** | Rank-mean `pilkwang` + `prvsiyan` — two published notebooks | 1 Kaggle run |
+> | **E3** | Submit it (also retires the never-run inference path) | 1 of 5 daily |
+> | **E4** | Make the port earn a slot: does *adding* it help? | 1 scoring run |
+> | **E5** | Differentiators as deltas on the ensemble | ~1.6 h/fold |
+> | **E6** | Efficiency track, co-primary | TBD |
+>
+> **Corrections to what this file and `REFERENCE.md` assert about the field**, surveyed live
+> 2026-08-12: `0.899 let me cook` is `aadigupta7686`, not `prvsiyan`; and **no public
+> `Yash Bishnoi` / B3 kernel exists** — that 0.903 is a writeup, so reproducing it is a training
+> job and not a download. Every LB figure in this repo was read 08-10. Re-verify before use.
+>
+> **The compute budget doubles: a fold is ~1.6 h, not 3.6** (§2v — the laptop was asleep for ~2 h
+> of the run that produced 3.6). So ~40 five-fold experiments remain, not ~20. **Always launch
+> under `caffeinate -i`.**
+
+> **COURSE CHANGE 2026-08-11 — superseded by the block above, kept for provenance.**
+> `IMPROVEMENTS.md` **§2s** has the full argument; the operative consequences are:
+>
+> 1. **Step 5 is not a reproduction gate and cannot be one.** `pilkwang` publishes no local
+>    number (`REFERENCE.md` 3.1 records `—`); its 0.891 is a leaderboard score from 20
+>    rank-meaned published weights. There is nothing to land near. The fold-0 run started
+>    2026-08-11 is **renamed the label-swap arm** and is read against a *predicted delta* — the
+>    gate arm should land **0 to 0.021 below `runs_port`**, that being the gold-58 label-quality
+>    gap (`steven_v2` 0.8873 vs `pilkwang_v2` 0.866). Read it asymmetrically: the `lixin`
+>    confound handicaps the gate arm, so a negative delta is ambiguous and only a positive one
+>    is clean.
+> 2. **Step 5 depends on step 6, not the reverse.** The reproduction target lives on the
+>    leaderboard because that is the only place `pilkwang`'s number exists. If "did we reproduce
+>    the fork" is to be answered at all, it is answered by a submission. **Do not spend 18 h on
+>    folds 1–4 to answer it locally — that run cannot answer it.**
+> 3. **Before any A/B launches, state the reference and show it is neutral to both arms.**
+>    Four measurements have now been lost to one error class (§2d, §2i, §2o, §2s): the
+>    instrument entangled with the thing it measures. Every instance was caught after the run.
+>    This is the pre-run check that would have caught all four, and it costs minutes.
+> 4. **Phase 1 is priced wrong by ~5×.** Gold is the only instrument neutral to a label-source
+>    change, and fold 0 holds **10 of the 58 gold studies** (9–10 per fold). So a label
+>    experiment needs all five folds — ~18 h — and then reads at ±0.031 against differences of
+>    ~0.021. The report-OOF instrument is valid **at fixed targets only** and cannot arbitrate
+>    the severity-thresholded read, which is the best untested idea on the board. **Settle how
+>    Phase 1 will be judged before building any of it.**
+> 5. **Cheap thing to try first:** the rule extractor as a **referee**, not a label —
+>    0.685 vs steven, 0.657 vs `pilkwang_v2`, against `lixin`'s lopsided 0.947 / 0.866. A
+>    symmetric-but-noisy referee beats a sharp-but-lopsided one for a paired delta. It is a
+>    scoring change, not a training run. §2s-g, and note the caveat there.
+>
+> **Amended again the same day, from six external concerns — `IMPROVEMENTS.md` §2t.**
+>
+> 6. **Submit NOW, beside step 5, and the reason is risk not measurement.**
+>    `kaggle_03_submit.py` has never executed against a real test DICOM: the 9 h cap, no-internet,
+>    weights-as-a-Dataset, degenerate series, a study missing a plane. All schedule risk, none of
+>    it discoverable locally, none of it competing with the local instrument. And the CV↔LB
+>    conversion is currently an interpolation between **two foreign anchors** while carrying the
+>    claim that our gap is 0.19 rather than 0.22. §2s-e and §2t-1 reached "unblock 6" independently.
+> 7. **THE COMPUTE BUDGET, which this plan never had (§2t-3).** 72 days to the deadline; 3.6 h
+>    per fold measured; ~18 h per 5-fold experiment; ~40 h/week on the M5; 30 h/week Kaggle minus
+>    a lottery that refuses ~4 draws in 5. **That is ~20 five-fold experiments for the entire
+>    remaining project.** Phase 1 as written spends it several times over.
+>    **RULE: an item that does not name its cost in folds is not a plan item.**
+> 8. **The efficiency track is promoted to a live co-primary decision (§2t-4).** $18,000 over
+>    three places against $5,000 for 10th, a far thinner field, and it rewards the measurement
+>    discipline this project actually has. §6.2's "accuracy dominates" is true *of the formula*
+>    and says nothing about which track to enter — those were conflated.
+>    **Decide after the first submission:** LB below ~0.87 → efficiency primary; above → run both.
+> 9. **The boring hypothesis has a test now (§2t-5).** "The top just ensembles more" is usually
+>    right on Kaggle and was never argued against. It can be: **both anchors bracketing the gap
+>    are already ensembles** — `pilkwang` 0.891 is a 20-member rank-mean, Yash B3 0.903 is a
+>    5-fold mean — so the 0.04 sits *between ensembles*, where 5→20 members buys ~0.005–0.010.
+>    **The distinguishing measurement is our own single-model LB point against `pilkwang`'s
+>    20-member 0.891.** Large delta → boring wins, the answer is compute. Small → the label and
+>    crop bets are the right ones. One more reason step 6 runs now.
+>
+> **Verification.** Every claim above is checkable, and the checks are cheap:
+>
+> | claim | check |
+> |---|---|
+> | `pilkwang` publishes no local number | `REFERENCE.md` 3.1 — the local column reads `—` |
+> | public label tables are rules-clear | `REFERENCE.md` §1.2 clause **3.6.b**; `COMPETITION_RULES.txt` §6 |
+> | MRNet is *unresolved*, blocked on the host | `REFERENCE.md` §1.3 — asked twice, only the LLM half answered |
+> | the `lixin` referee is lopsided | `IMPROVEMENTS.md` §2i table: 0.947 steven vs 0.866 `pilkwang_v2` |
+> | the label gap is 0.021 | §2f gold-58: `steven_v2` 0.8873, `pilkwang_v2` 0.866 |
+> | gold cannot arbitrate on one fold | 10 of 58 gold studies in fold 0 (9–10 per fold) |
+> | 3.6 h/fold, memory-bound | §2p, `data/_train_port_fold0.log` |
+> | the paired σ is now reproducible | `for s in 1 2 3 4; do PYTHONHASHSEED=$s python fusion/score_oof.py fusion/runs_baseline fusion/runs_port \| grep PAIRED; done` → four identical lines |
+
 > Rewritten 2026-08-08. Item 1 of the previous list (the DICOM audit) is **done** — `kaggle_01`
 > plus `kaggle_01b` ran over all 4,407 studies and the results are in `FINDINGS.md` §6; laterality
 > is answered and the geometry fallback is adopted.

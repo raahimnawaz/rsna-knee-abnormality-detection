@@ -1237,6 +1237,25 @@ Two consequences worth keeping:
 
 ## 2p. The port is memory-bound, not compute-bound — the M5 has 17.2 GB `MEASURED 2026-08-11`
 
+> ### !! THE TIMING EVIDENCE BELOW IS CONFOUNDED — see §2v `2026-08-12`
+>
+> **The machine was ASLEEP for roughly 2 of this run's 3.6 hours.** `pmset -g log` over the run
+> window (~22:06–01:42) sums to **≈7,005 s** of Maintenance, Idle, Clamshell and **Thermal
+> Emergency** sleep, and every epoch below is ≈10 min of compute plus however long the machine
+> was out: epoch 7 = 15.4 min against 5.0 min of sleep, epoch 9 = 22.2 against 12.6, epoch 10 =
+> **79.8 against ~54**. Epochs 1–5 are clean at 9.5–10.7 min, and the first sleep in the window
+> lands at 22:59 — right where the times start moving.
+>
+> **`img/s` is computed against wall clock**, so sleep depresses it exactly as thrash would. The
+> "collapsed by ~10×" reading cannot distinguish the two, and the conclusion drawn from it is
+> therefore not established by this evidence.
+>
+> **What survives:** the swap figure (24.47/25.6 GB) is a direct memory reading and still says the
+> working set does not fit. **What does not survive:** that memory pressure is what made the run
+> slow, and the "1.2–3.5 img/s" collapse as its signature. Both need re-measuring under
+> `caffeinate -i`. This is the fifth instance of the §2s error class — an instrument entangled
+> with an uncontrolled variable — and the variable here was the laptop being asleep.
+
 Fold 0 ran. It trained, the loss fell cleanly from 0.4523 to 0.2877, and **it took 3.6 h against
 a 2.6 h budget** — with the cost arriving in a shape neither §2e's estimate nor §2h's measurement
 could see:
@@ -1384,11 +1403,15 @@ than a mean and this one is only half there.
 
 ---
 
-## 2r. Code review of the step-4 body — 15 findings, none fixed yet `REVIEWED 2026-08-11`
+## 2r. Code review of the step-4 body — 15 findings; the A-cluster is now FIXED `REVIEWED 2026-08-11`
+
+> **UPDATE 2026-08-11, same day.** A1, A3, A4 and B's `n_oof` are **repaired and verified** —
+> see the "As fixed" block at the end of this section. The rest of the findings stand as recorded.
 
 Recall-oriented review of `git diff 1049bcf..HEAD -- '*.py'` — the 1,683 new lines that are
 `slot_cache.py`, `train_port.py`, `score_oof.py`, `resolve_slice_direction.py`,
-`kaggle_01e_direction_measure.py`. **Everything below is RECORDED, not repaired.** Fold 0's
+`kaggle_01e_direction_measure.py`. **Everything below was RECORDED, not repaired, when first
+written.** Fold 0's
 0.7323 and the paired +0.0171 (§2q) are *unaffected* — they ran on protocol tiles at depth 0.5,
 which is the one configuration none of the medial/lateral findings touch.
 
@@ -1485,6 +1508,54 @@ was inverted for 43% of studies and we read the result as a verdict."
   and `resolve_slice_direction.py` writes a column named `rho` that holds |r_first − r_last| on
   the `--measured` path and a header-rule correlation on the rule path — same name, same file,
   two quantities.
+
+### As fixed `2026-08-11`
+
+The A-cluster and B's `n_oof` are repaired in `pipeline/slot_cache.py` and
+`fusion/train_port.py`. The one refusal became **four guards**, because A1/A3/A4 are one gap seen
+from three angles and no single check covers it:
+
+| | guard | fires when |
+|---|---|---|
+| 1 | the bit exists at all | `slice_direction_resolved.csv` missing/empty **and** a slot needs it (the old check, kept — it is the right check for "the resolver has not been run") |
+| 2 | `SAGITTAL_LR=1` required at build time | any `needs_direction` slot would be built with the flip off (**A4**) |
+| 3 | cache compatibility | a new cache would be written beside an incompatible manifest — checked **before the first NIfTI read**, not after 21 min (**A3**) |
+| 4 | **per-series** K16 refusal | a specific series has no bit → its direction-dependent slots get `False` in the mask (**A1**) |
+
+Guard 4 is the repair. Coverage of the bit is **partial by construction** — the corpus downloads
+incrementally and `--measured` writes a row only for a series with NIfTI on disk, thumbnails
+present and a matching slice count — so the refusal has to be per series or it is either useless
+or permanent. An unresolved series now costs a tile, never a wrong one. `load_direction()`'s
+habit of dropping `unknown` rows is safe *only* under this per-series form, and now says so.
+
+`assert_caches_compatible` takes a `(label, dict)` pair as well as a path, so guard 3 can check a
+manifest that does not exist yet; the compat fields moved into `cache_compat_fields()` so the
+manifest and the check cannot drift.
+
+**Verified, not assumed:**
+
+- Guard 2 refuses `--slots anatomical` with the flip off.
+- Guard 3 caught **the live hazard** against the real manifest: `sagittal_lr_slice_flip: True vs
+  False`, and `preprocess_version: 086ab411e129 vs 2eddb3ec68d0` — the fingerprint already
+  encodes the flag, so it is double-caught.
+- Guard 4, forcing partial coverage (every other bit dropped, 30 studies): `sag_med`/`sag_lat`
+  fell to **13/30** while **`sag_pf` stayed at 100%** from the same volume — slice-axis slots
+  gated, the sagittal in-plane box untouched. **34 tiles the old code would have built as coin
+  flips.**
+- `preprocess.py --self-test` passes under `SAGITTAL_LR=1`; protocol build path unchanged.
+
+`n_oof` is now `len(oof)`, which fixes both halves of B at once — the wrong count *and* the
+`NameError` on the missing-reference path, which fired only after every fold had trained.
+
+**Still open and deliberately not fixed here:** A8 (first-matching-series-only), C14 (dead
+`--workers`), the OneCycleLR divergence (a decision about what the gate tests, not a bug — and see
+**2s**, which questions whether that gate exists), `score_oof`'s set-iteration non-determinism,
+the per-worker RNG, and the C-list minor items.
+
+**The hazard itself is still live.** These guards mean a wrong build now *refuses*; they do not
+rebuild anything. `data/tiles336` is still `SAGITTAL_LR=0` and the ~21 min protocol rebuild is
+still required before anything consumes both caches. Guard 3 will now stop you rather than let it
+through.
 
 ---
 
@@ -1631,3 +1702,493 @@ session run for hours.
   still leaks into callers, each of which special-cases it differently — exit in `kaggle_02`, CPU
   in `kaggle_03` and `fusion/train.py`. That is deliberate (the right answer genuinely differs per
   caller), but it is the kind of shape that drifts.
+
+---
+
+## 2s. Step 5 has no operand, and the instrument does not cover Phase 1 `ANALYSED 2026-08-11`
+
+Written while fold 0 of the gate arm was training. Nothing here is a new measurement — it is
+four numbers already in this repo, read against each other for the first time. That is the point:
+each was recorded correctly and none of them was ever joined to the others.
+
+### a. The reproduction gate has nothing to reproduce against
+
+README Phase 0 step 5 reads *"if a local run with **its** labels does not land near its published
+score, the port is wrong."* `REFERENCE.md` 3.1 records `pilkwang`'s local column as **`—`**. It
+publishes no CV, no OOF, no gold number. Its **0.891 is a leaderboard score from
+`infer_from_package()`** — 20 pre-trained members, rank-meaned, two resolutions, multi-window
+TTA, 74 s, no training (2e). **The gate as specified cannot be run: there is no number to land
+near.**
+
+Converting does not rescue it. Two `(local, LB)` anchors exist — `0.632 -> 0.664` and
+`0.8544 -> 0.903` — giving "local reads 0.03–0.05 below LB" (2o). That band is **0.02 wide before**
+the unmeasured 20-member ensemble gain is added. Any pass margin is smaller than the slop.
+
+### b. The obvious comparison is confounded, and it is 2i's voided result a second time
+
+`score_oof.py` scores against `lixin_gpt56`. The two arms do not train on the same source:
+
+| | ↔ `lixin` |
+|---|--:|
+| steven family (`runs_port` trains on `steven_v2`) | **0.947** |
+| `pilkwang_v2` (the gate arm) | **0.866** |
+
+Scoring both through `lixin` **rewards the arm whose training source resembles the key**. That is
+exactly what voided the 6.0σ in 2i — *"Arm B was scored against a near-copy of its own training
+targets."* Here it runs against the gate arm rather than for it, and it is the same defect.
+
+**This is the fourth instance of one error class**, and the pattern is the finding:
+
+| | the entanglement |
+|---|---|
+| 2d | "labels are not the ceiling", measured while trainability was the binding constraint |
+| 2i | arm B scored against a near-copy of its own targets — 6.0σ **void** |
+| 2o | scored against `targets.csv`, the model's own training source — upward-biased, live bug |
+| **2s** | two differently-supervised arms scored through a reference correlated 0.947 / 0.866 |
+
+Every one was caught *after* the run and recorded honestly. **Nothing in the plan asks, before a
+run launches, whether the reference is neutral to both arms.** Catching-afterwards is the only
+mechanism this project has, and it has now cost four measurements.
+
+### c. The instrument built in step 2 is valid for Phase 0 and not for Phase 1
+
+The report-OOF instrument is excellent and is **valid at fixed targets only** — the reference is
+itself a label source. Now read the queue: the **severity-thresholded label read** (`REFERENCE.md`
+2.1, "best untested idea on the board") is a label-source change. Phase 1 is label-source changes.
+The shared-ceiling thesis says the remaining 0.04 *is* a label problem.
+
+**The best instrument this project has cannot arbitrate its most promising remaining idea.** Step 2
+solved the half of the measurement problem Phase 0 needed and the wrong half for what follows.
+This was never stated; 2g and 2o each record the fixed-targets caveat, and the plan then queues
+work that violates it.
+
+### d. So Phase 1 costs ~5x what the plan prices it at
+
+Gold is the only instrument neutral to a label-source change — it is an expert **image** read, not
+derived from reports, so it is external to every candidate source. But gold is 58 studies and
+**fold 0's validation set holds 10 of them**:
+
+    fold 0: 10   fold 1: 9   fold 2: 10   fold 3: 9   fold 4: 9
+
+So a label-source experiment needs **all five folds (~18 h) to see gold at all**, and then lands
+with the +-0.031 CI that 2g built the report instrument to escape — against differences of ~0.021.
+The plan prices label experiments as cheap. They are the most expensive kind here, and the
+arbiter is barely sharp enough to read them.
+
+### e. Step 5 depends on step 6, not the other way round
+
+README's table reads `6. One submission for the CV<->LB mapping | blocked on 5`. **It is
+backwards.** The reproduction target exists only on the leaderboard, because that is the only
+place `pilkwang`'s number exists. "Did we reproduce the fork" is a submission question. Phase 0
+has been ordered around reaching a trustworthy local reproduction of a number that was never
+local.
+
+### f. What the gate arm should actually be measured against
+
+No absolute target exists, so the target is **a predicted delta**, anchored on the one quantity
+measured for both sources on a common instrument (2f, gold-58):
+
+| training source | gold-58 macro |
+|---|--:|
+| `steven_v2` = `data/targets.csv` (`runs_port`) | **0.8873** |
+| `pilkwang/report_labels_v2` (gate arm) | **0.866 +- 0.016** |
+
+Gap **-0.021**, and label-quality gaps transfer at less than 1:1 through 2,871 training studies.
+
+> **Target: the gate arm lands 0 to 0.021 BELOW `runs_port`, paired through `score_oof.py`.**
+
+| paired delta (gate - port) | reading |
+|---|---|
+| -0.021 .. 0 | faithful port + the known label gap — **pass** |
+| ~0 or positive | pass *despite* the `lixin` handicap — **strong** |
+| < -0.04 | exceeds label gap **and** handicap — the port likely amplifies label noise |
+| clearly positive | contradicts a bench clearing its SE by 4.5σ — suspect port or scoring |
+
+Read it **asymmetrically**: b's confound handicaps the gate arm, so a negative delta is ambiguous
+(worse labels, or the confound) while a positive one is clean. This is a *plausibility band*, not
+the reproduction gate the README describes, and it should not be called one.
+
+### g. One candidate referee, out of 2i's own table
+
+As a **referee** rather than a label, the rule extractor is the most neutral instrument here:
+**0.685** against steven, **0.657** against `pilkwang_v2` — against `lixin`'s lopsided
+0.947 / 0.866. For a paired A/B where only the delta matters, **a symmetric-but-noisy referee
+beats a sharp-but-lopsided one**, because its bias cancels and `lixin`'s does not. 2f killed it as
+a *label source* — 0/12 labels, negative in a rank-mean — and that says nothing about its use as a
+yardstick. Untested. It is a scoring change, not a training run, so it costs minutes.
+
+**Do not read this as rehabilitating the extractor.** It is 0.777 and wrong in its own direction;
+the claim is only that its wrongness is *balanced* between these two arms, which is the single
+property a referee needs and `lixin` lacks.
+
+---
+
+## 2t. Six external concerns, fact-checked `ANSWERED 2026-08-11`
+
+Raised in `REFERENCE.md` (end of file, pushed as 873a394). Answered here in the order they were
+raised, each with a **status** and, where the claim is checkable, **the check**. Two are adopted
+outright, one is a correction to the concern itself, and one is answered by evidence already in
+this repo that nobody had pointed at the question.
+
+### 1. Submit now, beside step 5 — **ADOPTED, and independently arrived at**
+
+> *"The reason to submit now isn't measurement, it's risk retirement... Step 6 should run beside
+> step 5, not behind it."*
+
+**Agreed, and §2s-e reached the same conclusion from the other direction** — the reproduction
+target only exists on the leaderboard, so step 6 is what step 5 was trying to be. Two independent
+routes to "unblock 6" is the strongest signal in this document.
+
+The risk-retirement half is the part §2s missed and it is the better argument: `kaggle_03_submit.py`
+has **never executed against a real test DICOM**. The 9 h cap, no-internet, weights-as-a-Dataset,
+degenerate series, a study missing a plane — none of these are discoverable locally, all are
+schedule risk rather than score risk, and none competes with the local instrument for anything.
+
+The CV↔LB point is also correct and sharper than it looks: the conversion is an interpolation
+between **two** public anchors (`0.632→0.664`, `0.8544→0.903`) and it is load-bearing for the
+claim that our gap is 0.19 rather than 0.22. **Two foreign data points should not carry a
+headline number.** Submitting replaces both with one of ours.
+
+### 2. Rules risk on external data — **CORRECTED: already read, and the baseline is clear**
+
+> *"The same question applies to the public label tables you've already adopted as
+> data/targets.csv... the compliance question isn't sitting beside your plan, it's sitting
+> underneath your baseline. Read the page today."*
+
+**The page was read on 2026-08-10** and the finding is in `REFERENCE.md` §1.2, which cites
+clause **3.6.b**: *"Public sharing on Kaggle is permitted and deemed OSI-licensed → **using the
+public LLM label tables is fine.**"* `data/targets.csv` is `steven_v2`, a public Kaggle Dataset,
+free and equally accessible — the paradigm case under §2.6.a. **Fold 0 is not built on an
+unresolved compliance question.**
+
+What *is* open is narrower and it is not a reading task: **§1.3, external MRI datasets**
+(MRNet, fastMRI+, OAI, SKM-TEA). All are free but all sit behind a click-through research
+agreement, so "equally accessible at no cost" is genuinely arguable. The host was asked twice,
+replied to the thread, and **answered only the LLM question**. That gates a Phase 2 lever and it
+is blocked on a *host answer*, not on us. One forum post, costs nothing — and it is now the
+oldest unactioned item on the board.
+
+**Check:** `grep -n "3.6.b" REFERENCE.md` and clause 6 of `COMPETITION_RULES.txt`.
+
+### 3. No compute budget — **ADOPTED. Here is one, from measured numbers**
+
+The concern is correct and the gap was real. Budget, all figures measured rather than estimated:
+
+| | measured |
+|---|--:|
+| deadline | **2026-10-22 — 72 days, 10.3 weeks** |
+| one fold, port @336 | **3.6 h** (§2p, memory-bound, not the 2.6 h budgeted) |
+| one 5-fold experiment | **~18 h** |
+| Kaggle quota | 30 h/week, and the GPU lottery refuses ~4 draws in 5 |
+| M5 realistically available | ~40 h/week (it is also the daily-driver laptop) |
+
+**So the whole remaining project is ~20 five-fold experiments, and that is if nothing else runs.**
+Phase 1 as written — rank-means across seeds, then resolutions, then backbones — spends that
+budget several times over. **Any plan item that does not name its cost in folds is not a plan
+item.** This is the constraint the phase list never had.
+
+### 4. Promote the efficiency track to co-primary — **ADOPTED as a live decision, not yet decided**
+
+The argument is strong and the arithmetic favours it: **$18,000 across three efficiency prizes
+against $5,000 for 10th** in a field of 908, three places instead of ten, a far thinner field,
+and it rewards exactly what this project has been good at — measurement discipline, cheap decode,
+knowing what the pipeline costs. §6.2 concluded *accuracy dominates the efficiency formula*, which
+is true **of the formula** and says nothing about which track to enter. Those were conflated.
+
+**It is not free**: the efficiency track still needs a competitive score, so it is a constraint
+added on top of accuracy work, not a substitute for it. **Decision criterion, to be applied after
+the first submission:** if our measured LB lands below ~0.87, the accuracy track is out of reach
+inside the compute budget in §3 and efficiency becomes primary. If it lands above, run both.
+
+### 5. The boring hypothesis — **ENGAGED, and the repo already has evidence against it**
+
+> *"The boring hypothesis — the top teams simply ensemble more and bigger models over more data —
+> is the one that's usually correct on Kaggle, and the plan doesn't really argue against it."*
+
+Fair, and the plan should have argued it. **It can, from `REFERENCE.md` 3.1, and the argument
+mostly goes the other way:**
+
+**Both public anchors bracketing the gap are ALREADY ensembles.** `pilkwang` 0.891 is a
+**20-member rank-mean**; Yash B3 0.903 is a **mean of 5 fold sigmoids**. So the 0.04 to the 0.942
+top is a gap *between ensembles*, not between a single model and an ensemble. Ensembling 5 → 20
+members buys perhaps +0.005–0.010 on a task like this, and it is strongly diminishing — it does
+not plausibly produce +0.04 on top of a stack that is already ensembled.
+
+That does not prove the interesting hypothesis; more data and bigger backbones remain live and
+both are things money buys. But it does mean the boring hypothesis **cannot be assumed** here,
+and the specific "just ensemble more" form of it is weakly contradicted by numbers already in
+this file.
+
+**Distinguishing evidence, decided now as asked:** our own first submission gives a single-model
+LB point. Placed against `pilkwang`'s 20-member 0.891 — same architecture family, same slot
+scheme, ours single-model — the single→ensemble delta stops being a guess. **That is one more
+reason step 6 runs now** (§1). If the delta is large, boring wins and the answer is compute. If
+small, the 0.04 is something else and the label/crop bets are the right ones.
+
+### 6. Fix §2r-B6 first — **DONE AND VERIFIED, and the concern overstated the damage**
+
+> *"A paired sigma that isn't reproducible run-to-run because it iterates a set undermines every
+> number your plan is now built on, including the +0.0171."*
+
+Fixed (`sorted()` at `score_oof.py:144`). **But the scope was measured before fixing, and it is
+narrower than the concern says.** Four runs at different `PYTHONHASHSEED`, pre-fix:
+
+    +0.0171 +-0.0091 -> 1.9 sigma, P = 0.969
+    +0.0171 +-0.0087 -> 2.0 sigma, P = 0.978
+    +0.0171 +-0.0088 -> 1.9 sigma, P = 0.980
+    +0.0171 +-0.0086 -> 2.0 sigma, P = 0.978
+
+**The delta is identical every time.** It is computed on all studies at once (`base =
+arange(len(yy))`), so it is order-invariant by construction; only the *resamples* moved. What
+wobbled was the third decimal of the SD — 1.9–2.0σ, P 0.969–0.980. **§2q's +0.0171 and its 1.9σ
+were never in danger.** Post-fix, all four seeds give `+0.0171 +-0.0088 -> 1.9 sigma, P = 0.977`,
+which is the number §2q already published.
+
+`score()` itself was never affected: it iterates `oof.index` (deterministic CSV order) and uses
+`restrict` only as a membership test. So **0.7229 ± 0.0048 and every per-arm figure were always
+reproducible.** Worth stating plainly, because "undermines every number" would otherwise sit in
+the record as true.
+
+**Check:** `for s in 1 2 3 4; do PYTHONHASHSEED=$s python fusion/score_oof.py fusion/runs_baseline fusion/runs_port | grep PAIRED; done`
+
+---
+
+## 2u. The gate arm died at epoch 7 and left nothing — the loop had no checkpoint `2026-08-12`
+
+The label-swap arm (§2s-f) ran 7 of 10 epochs over ~3 h and was killed. **`fusion/runs_gate/` was
+empty afterwards.** No partial result, no weights, no OOF — the whole run was unrecoverable.
+
+**Cause of the kill: undetermined, and stated as undetermined.** No Python traceback reached the
+log, and `log show --predicate 'eventMessage CONTAINS "jetsam"'` over the window found nothing, so
+an OS memory kill and an external stop cannot be distinguished from this side. §2p makes a memory
+kill plausible — the previous fold 0 drove swap to 24.47/25.6 GB — but plausible is not measured
+and this is not being recorded as an OOM.
+
+**The finding is not the kill. It is that a kill cost everything.** `train_port.py` wrote
+`fold{f}.pt` only when `run_fold` RETURNED, and `oof_all.csv`/`summary.json` only after every fold.
+So any death inside a fold — OOM, a closed laptop, a stray Ctrl-C, a 9 h Kaggle cap — discarded the
+entire fold. Against §2t-3's budget of **~20 five-fold experiments for the whole remaining
+project**, an unrecoverable long run is the expensive class of bug, and this one had been sitting
+in the file since step 4 was built.
+
+**The arm was healthy when it died**, which is worth recording because the raw loss invited the
+opposite reading. Normalised to each arm's own span — the two differ, `runs_port` has floor 0.2040
+/ prior 0.4640 while the fork's 5-level labels give floor **0.2916** / prior 0.4525 — it tracked
+the completed run to within two points the whole way:
+
+| epoch | 1 | 2 | 3 | 4 | 5 | 6 | 7 |
+|---|--:|--:|--:|--:|--:|--:|--:|
+| `runs_port` % of span | 4% | 16% | 21% | 28% | 35% | 42% | 51% |
+| gate arm % of span | 2% | 13% | 20% | 26% | 33% | 41% | **50%** |
+
+**Raw losses across these two arms are not comparable and never were** — the floor differs by
+0.088. A gate arm finishing near 0.35 against `runs_port`'s 0.2877 would look far worse and would
+be roughly the same performance. That trap is now live for whoever reads the next run.
+
+### Fixed
+
+Per-epoch checkpointing in `run_fold`, plus `--resume`:
+
+- One `fold{N}_last.pt` per epoch, **overwritten** each time — 175 MB measured (it carries AdamW's
+  two moments as well as the state_dict), so the cost is 175 MB of disk and ~1 s per epoch.
+- Written to `.pt.tmp` and **renamed**, because a kill *during* the save would otherwise leave a
+  truncated checkpoint that fails to load — exactly when it is needed most. Rename is atomic
+  within a filesystem.
+- `--resume` is **opt-in** and guarded by `_fold_cfg()`, which must match exactly.
+
+**The config guard is the part that matters, and it is a §2s defence.** It includes the labels
+path, so resuming a `targets.csv` run into a `report_labels_v2` run **refuses** instead of
+silently producing an arm trained on two label sources with nothing in the output to say so —
+the provenance error class, arriving through the back door of a convenience feature. It also
+includes `epochs`, because `OneCycleLR`'s `total_steps = epochs x len(tr_dl)`: resuming across an
+epoch-count change would restore a scheduler state that no longer means anything.
+
+### Verified — and it took three attempts, two of which were bad tests
+
+Worth writing down in full, because the two failures were both *testing* errors of the kind §2r-A3
+is about: a guard nobody exercises, and then a test that does not exercise it either.
+
+1. **Attempt 1 — `--epochs 3` against an `--epochs 2` checkpoint. Correctly REFUSED.** The test
+   was wrong, not the guard: `epochs` is in `_fold_cfg` precisely because `OneCycleLR`'s
+   `total_steps = epochs x len(tr_dl)`.
+2. **Attempt 2 — hand-rewound `st['epoch']` to 1 without rewinding `st['sched']`.** Crashed:
+   `ValueError: Tried to step 16 times. The specified number of total steps is 15`. That is an
+   inconsistent checkpoint the real code **cannot** produce — a genuine death saves `epoch` and
+   `sched` together. **And the grep filter on that test was `"ep [0-9]+/|RESUMED"`, which
+   swallowed the traceback**, so the run looked silently empty rather than failed. Two errors in
+   one test.
+3. **Attempt 3 — a real `kill -9` mid-run, which is the only version that means anything.**
+
+```
+    ep 1/3  loss 0.5205  16.3 min          <- killed here
+  checkpoint holds epoch 1 of 3 | n_train 40
+  RESUMED from fold0_last.pt at epoch 1/3
+    ep 2/3  loss 0.4519  0.7 min
+    ep 3/3  loss 0.4348  15.3 min
+```
+
+**Attempt 2's crash paid for itself**, because the `ValueError` exposed a real gap the guard was
+missing: `total_steps` depends on `len(tr_dl)`, and the corpus downloads incrementally, so
+resuming after more studies land would restore a scheduler built for a different total. It would
+surface as that same error **at the end of the run** — loud, but hours late. `n_train` is now in
+`_fold_cfg`, so it fails in the first second instead.
+
+**A resumed run is NOT bit-identical to an unbroken one, and must not be quoted as one.** Against
+the uninterrupted baseline the resumed epochs differ — 0.4519 / 0.4348 against 0.4486 / 0.4387 —
+because `SlotDataset.rng` and the shuffle order restart rather than being checkpointed. Resume
+**recovers** a run; it does not **reproduce** it. For salvaging 3 h that is the right trade, but a
+resumed fold should not be A/B'd against an unbroken one at the third decimal.
+
+Also verified: `--resume` against a checkpoint written under **different labels** prints both
+configs and exits — the provenance defence, working.
+
+---
+
+## 2v. The laptop sleeps, and it has been inside every measurement `MEASURED 2026-08-12`
+
+The gate arm (§2u) did not crash and was not killed by anyone. **The machine went to sleep.**
+
+    kill / pkill in shell history ....... none
+    crash report / JetsamEvent ......... none          <- so not an OOM kill either
+    log show, 01:00-01:06 .............. 0 lines       <- the machine was not awake
+    pmset -g log ....................... 2026-08-12 01:04:37
+                                         Entering Sleep state due to 'Maintenance Sleep', 1025 secs
+
+01:04:37 is the minute the training log stops. During that run the machine slept ~20 times,
+including a **Clamshell Sleep at 22:23** and six thermal emergencies. The log holds **16 Thermal
+Emergency sleeps** overall.
+
+### This was not new, and that is the finding
+
+The same thing happened to the run in §2p, and nobody looked. `runs_port` fold 0 ran ~22:06-01:42
+on 08-10/11; sleeps inside that window sum to **≈7,005 s — about 2 of its 3.6 hours**:
+
+| epoch | wall clock | sleep in window | ≈10 min compute + sleep |
+|---|--:|--:|--:|
+| 1–5 | 9.5–10.7 min | none — sleeping starts 22:59 | clean |
+| 7 | 15.4 | 5.0 | 15.0 |
+| 9 | 22.2 | 12.6 | 22.6 |
+| 10 | **79.8** | **~54** | ~64+ |
+
+Epoch boundaries here are inferred from durations rather than logged timestamps, so this is a
+strong correlation and not a proof. It is more than enough to disqualify the timing evidence:
+**every slow epoch is explained by sleep without invoking memory at all.**
+
+### Consequences
+
+- **§2p's headline is not established by its evidence.** Annotated in place. The swap reading
+  stands; "memory pressure is what made it slow" does not, and `bench_port.py`'s exoneration was
+  argued from the same contaminated timings.
+- **Every wall-clock figure taken on this machine before 2026-08-12 is suspect**, including the
+  3.6 h/fold that §2t-3's compute budget is built on. The budget's *shape* is right — the machine
+  is the scarce resource — but the number needs re-deriving under `caffeinate`.
+- **`caffeinate -i` is now mandatory for any long run.** It prevents idle and maintenance sleep.
+  It **cannot** prevent Thermal Emergency Sleep, which is hardware protection, and 16 of those
+  says the box is thermally saturated under sustained MPS load.
+- **If the real ceiling is thermal rather than memory, the tuning advice inverts.** A *smaller*
+  sustained load (batch, workers) could finish sooner by not tripping emergencies. Untested, and
+  it should be tested before anyone spends 18 h on folds 1-4.
+- **§2u's checkpointing is not a nicety.** On a machine that sleeps ~20 times per run, resume is
+  the only reason a multi-hour job ever finishes.
+
+### The pattern, stated plainly
+
+Five instances now: §2d, §2i, §2o, §2s, and this. **An instrument entangled with something
+uncontrolled.** Four of the five were caught only after the measurement was quoted. The one
+mechanism that would have caught this one is not a rule about references — it is that nobody
+asked what the machine was doing while it was being measured. `pmset -g log` costs one second and
+has been available the whole time.
+
+---
+
+## 2w. Course change: stop out-building the fork, start out-ensembling it `DECIDED 2026-08-12`
+
+Prompted by a direct challenge — *"is our solution viable? why aren't we using the .89 repo?"* The
+answer is that there is no good reason, and the arithmetic has said so for a while.
+
+| | LB |
+|---|--:|
+| our own pipeline, best estimate (§5 conversion) | **~0.76** |
+| **the fork, already submitted 2026-08-09** | **0.891** — rank 230/908 |
+| best visible public (see caveat below) | 0.903 |
+| **10th place — the last prize** | **0.926** |
+| top | 0.942 |
+
+**Our own pipeline is 0.13 BELOW a thing we already have banked.** Phase 0 spent its whole budget
+rebuilding, in our own code, an architecture that is free to download, and reached 0.7229 with one
+fold worth +0.0171. At that increment the port needs ~8 more equivalent wins to reach its own
+starting line.
+
+**README rule 6 already says "The fork is the base, not a reference."** It was written and then
+not followed; every step since has treated it as a reference. This section is the correction.
+
+### Where the "own code" standing decision is right, and where it is not
+
+*"If a component cannot be explained from first principles it does not ship, no matter what it
+scores"* is a good **research** value and a bad **competition** value, and the plan never split
+them. It holds for what we intend to CHANGE — you cannot modify what you do not understand. It
+does not hold for what we intend to KEEP. Rebuilding `SlotHead` bought understanding of a
+component we were never going to alter.
+
+**The local trainer itself remains justified** and that argument is unchanged: the fork cannot be
+fine-tuned on Kaggle for under ~8 h/arm against a 30 h quota, so testing *our* ideas needs a local
+loop (§2e). What was wrong is treating the local trainer's SCORE as the project's score.
+
+### The public field, surveyed live 2026-08-12 — and REFERENCE was stale
+
+`kaggle kernels list --competition rsna-knee-abnormality-detection --sort-by voteCount`:
+
+| kernel | votes | last run |
+|---|--:|---|
+| `pilkwang/rsna-knee-baseline-v1` | **295** | 08-08 |
+| `prvsiyan/rsna-knee-read-the-report-then-the-knee` | **192** | 08-11 |
+| `ryanholbrook/rsna-knee-abnormalities-efficiency-lb` | 131 | 08-11 |
+| `romanrozen/rsna-knee-data-structure-eda-baseline` | 91 | 08-10 |
+| `aadigupta7686/0-899-let-me-cook` | 79 | **08-12** |
+| `sakhawathossen/rsna-knee-enhanced-ensemble` | 72 | 08-10 |
+| `romantamrazov/rsna-knee-dinosaur-v2` | 69 | **08-12** |
+
+Three corrections to `REFERENCE.md` 3.1, which was read 08-10 and has moved:
+
+- **`0.899 let me cook` is `aadigupta7686`, not `prvsiyan`.** 3.1 attributes it to prvsiyan.
+- **No `Yash Bishnoi` / B3 kernel exists publicly.** Searches for `yash`, `b3` and `efficientnet`
+  return only fuzzy matches. So **the 0.903 B3 line is a writeup, not a downloadable kernel** —
+  reproducing it is a TRAINING JOB, not a download. That was the assumption the first version of
+  this course change rested on, and it is wrong.
+- **`prvsiyan` is a second strong lineage with a public notebook**, heavily forked already
+  (`hyunseop1`, `bang1850`, `gengsr` all carry copies). 3.1 lists it at 0.899.
+
+**All LB figures here come from `REFERENCE.md` and are two days stale. Re-verify against the live
+leaderboard before any of them is load-bearing** — see [[check-whats-free-first]]; this is the
+second time in three days that a belief about the outside world expired.
+
+### The plan
+
+**0.891 is the FLOOR. Every number is a delta on top of it.**
+
+1. **Verify the live leaderboard and the two lineages' actual scores.** Minutes. Everything below
+   depends on numbers that are currently two days old.
+2. **Rank-mean `pilkwang` + `prvsiyan`.** Two published notebooks, different lineages, both with a
+   working inference path. This is the cheapest +0.01–0.02 available and it is a Kaggle run, not a
+   training job. **Cost: 1 submission.**
+3. **Submit it.** Also retires the §2t-1 risk — `kaggle_03_submit.py` has still never run against
+   a real test DICOM — and yields the single-model LB point that tests the boring hypothesis
+   (§2t-5).
+4. **Make the port EARN a slot.** At ~0.76 it would *hurt* a 0.891 rank-mean. Its bar is: does
+   adding it to the ensemble improve a held-out score? Until it clears that, it gets no more
+   compute. This is the decision the plan has never made.
+5. **Then spend the differentiators where they compound** — severity-thresholded labels and
+   anatomical crops, measured as deltas on the ensemble rather than on our own 0.72 pipeline. The
+   label bet still has no valid instrument (§2s); solve that first or it is 18 h for a number
+   nobody can read.
+6. **Treat efficiency as co-primary (§2t-4).** $18,000 over three places, a thinner field, and
+   `ryanholbrook/rsna-knee-abnormalities-efficiency-lb` is a Kaggle-staff kernel that makes the
+   target measurable. In the accuracy track 0.891 is rank 230.
+
+### What we keep
+
+Not wasted, just not score: the site-grouped folds (+0.024 of leakage most public teams still
+carry), the report-OOF instrument at fixed targets, K16 resolved by measurement, the four guards,
+resume, and — as of today — the knowledge that this laptop was asleep inside every timing ever
+taken here (§2v). **That is the apparatus for judging an ensemble honestly. It was never going to
+BE the ensemble.**

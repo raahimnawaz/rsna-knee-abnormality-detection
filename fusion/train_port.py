@@ -246,6 +246,29 @@ def loss_references(y: np.ndarray) -> tuple[float, float]:
 
 
 # ----------------------------------------------------------------------------- loop
+def _fold_cfg(a, store: TileStore, fold: int, n_train: int) -> dict:
+    """Everything a resumed checkpoint must agree with to be the SAME experiment.
+
+    Deliberately includes the label path: resuming a `targets.csv` run into a `report_labels_v2`
+    run would silently produce an arm trained on two different label sources and no output would
+    say so. That is the §2s error class -- a comparison whose provenance is not what it claims --
+    arriving through the back door of a convenience feature.
+    """
+    return {"labels": str(a.labels), "folds": str(a.folds), "cache": str(a.cache),
+            "tag": a.tag, "fold": int(fold), "slots": list(store.slots),
+            # n_train is in here because OneCycleLR's total_steps is epochs x len(tr_dl). The
+            # corpus downloads incrementally (81.5% and rising), so resuming after more studies
+            # land would restore a scheduler built for a different total. That surfaces as
+            # "Tried to step N times. The specified number of total steps is M" at the END of the
+            # run -- loud, but hours late. Catching it here fails in the first second instead.
+            "n_train": int(n_train),
+            "img": a.img, "epochs": a.epochs, "batch": a.batch,
+            "unfreeze_last": a.unfreeze_last, "lr_backbone": LR_BACKBONE, "lr_head": LR_HEAD,
+            "wd": a.wd, "dropout": a.dropout, "slot_dropout": a.slot_dropout,
+            "seed": a.seed, "limit": a.limit,
+            "preprocess_version": store.manifest.get("preprocess_version")}
+
+
 def run_fold(fold: int, folds: pd.DataFrame, store: TileStore, targets: pd.DataFrame,
              a, dev: torch.device):
     have_any = store.have.any(1)
@@ -280,7 +303,29 @@ def run_fold(fold: int, folds: pd.DataFrame, store: TileStore, targets: pd.DataF
         opt, max_lr=[LR_BACKBONE, LR_HEAD], total_steps=max(a.epochs * len(tr_dl), 1),
         pct_start=0.25)
 
-    for ep in range(a.epochs):
+    # Resume point. `fold{f}.pt` is only written when a fold RETURNS, so before 2026-08-12 a run
+    # that died mid-fold left nothing at all -- the gate arm lost 7 of 10 epochs and ~3 h that way
+    # (§2u). On a box that thrashes (§2p) and a budget of ~20 five-fold experiments (§2t-3), an
+    # unrecoverable long run is the expensive kind of bug. The per-epoch checkpoint is 175 MB
+    # (measured -- it carries AdamW's two moments as well as the full state_dict) and is
+    # OVERWRITTEN each epoch, so the cost is 175 MB of disk and about a second of wall clock.
+    ck = Path(a.out) / f"fold{fold}_last.pt"
+    start_ep = 0
+    if a.resume and ck.exists():
+        st = torch.load(ck, map_location=dev, weights_only=False)
+        if st.get("cfg") != _fold_cfg(a, store, fold, len(tr)):
+            raise SystemExit(
+                f"{ck} was written under a different configuration:\n"
+                f"  checkpoint {st.get('cfg')}\n  this run   {_fold_cfg(a, store, fold, len(tr))}\n"
+                "Resuming across a config change would silently mix two experiments. Delete it "
+                "or drop --resume.")
+        model.load_state_dict(st["state_dict"])
+        opt.load_state_dict(st["opt"])
+        sched.load_state_dict(st["sched"])
+        start_ep = st["epoch"]
+        print(f"  RESUMED from {ck.name} at epoch {start_ep}/{a.epochs}", flush=True)
+
+    for ep in range(start_ep, a.epochs):
         model.train()
         tot = n = 0
         t0 = time.time()
@@ -301,6 +346,14 @@ def run_fold(fold: int, folds: pd.DataFrame, store: TileStore, targets: pd.DataF
                       f"{ips:.1f} img/s", flush=True)
         print(f"    ep {ep + 1}/{a.epochs}  loss {tot / max(n, 1):.4f}  "
               f"{(time.time() - t0) / 60:.1f} min", flush=True)
+
+        # Written to a temp path and renamed, so a kill DURING the save cannot leave a truncated
+        # checkpoint that then fails to load -- rename is atomic on the same filesystem.
+        tmp = ck.with_suffix(".pt.tmp")
+        torch.save({"state_dict": model.state_dict(), "opt": opt.state_dict(),
+                    "sched": sched.state_dict(), "epoch": ep + 1,
+                    "cfg": _fold_cfg(a, store, fold, len(tr))}, tmp)
+        tmp.replace(ck)
 
     model.eval()
     uids, preds = [], []
@@ -331,6 +384,8 @@ def main() -> None:
     ap.add_argument("--limit", type=int, default=0, help="studies per fold, for a smoke test")
     ap.add_argument("--out", default=str(PROJ / "fusion" / "runs_port"))
     ap.add_argument("--verbose", action="store_true")
+    ap.add_argument("--resume", action="store_true",
+                    help="continue from fold{N}_last.pt if it matches this run's config")
     a = ap.parse_args()
 
     torch.manual_seed(a.seed)
@@ -416,7 +471,12 @@ def main() -> None:
 
     (out / "summary.json").write_text(json.dumps(
         {"macro_report_oof": macro, "per_label": aucs, "macro_gold": gmacro,
-         "n_oof": len(ref), "folds": which, "epochs": a.epochs, "batch": a.batch,
+         # len(oof), NOT len(ref): `ref` is the neutral label TABLE (4,407 rows) and is bound
+         # only inside the `if NEUTRAL.exists()` branch above, so reading it here recorded the
+         # wrong count on every run and raised NameError on the path where the reference file is
+         # missing -- after every fold had trained. Existing summaries read n_oof: 691, which is
+         # len(oof) and correct; they predate b3387e8.
+         "n_oof": len(oof), "folds": which, "epochs": a.epochs, "batch": a.batch,
          "img": a.img, "unfreeze_last": a.unfreeze_last, "slots": store.slots,
          "lr_backbone": LR_BACKBONE, "lr_head": LR_HEAD,
          "minutes": (time.time() - t0) / 60}, indent=2))

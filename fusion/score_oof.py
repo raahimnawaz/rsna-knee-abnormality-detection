@@ -141,7 +141,16 @@ def main() -> None:
         # pairing was for.
         rA, rB = Path(a.runs[0]).name, Path(a.runs[1]).name
         oA, oB = load_oof(Path(a.runs[0])), load_oof(Path(a.runs[1]))
-        ids = [u for u in restrict if u in ref.index and u not in gold_ids]
+        # sorted(), not set order: `restrict` is a set of UID strings, and str hashing is
+        # randomised per process, so iterating it laid `yy`/`pA`/`pB` out in a different order
+        # every run while `default_rng(0)` drew the SAME integer indices into them -- a different
+        # resample each time from a fixed seed. Measured before the fix over four PYTHONHASHSEEDs:
+        # the delta was IDENTICAL at +0.0171 every time (it is order-invariant, being computed on
+        # all studies at once), but the SD ranged +-0.0086 .. +-0.0091, i.e. 1.9-2.0 sigma and
+        # P(delta>0) 0.969-0.980. So this never threatened +0.0171 or the 1.9 sigma headline; it
+        # moved the third decimal of the interval. Fixed anyway -- the single scoring definition
+        # should not move at all, and "reproduced exactly" has to be literally true here.
+        ids = sorted(u for u in restrict if u in ref.index and u not in gold_ids)
         yy = ref.loc[ids, L].apply(pd.to_numeric, errors="coerce").to_numpy(float)
         keep = ~np.isnan(yy).any(axis=1)
         ids = list(np.asarray(ids)[keep])

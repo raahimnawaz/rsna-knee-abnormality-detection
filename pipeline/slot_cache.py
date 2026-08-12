@@ -60,13 +60,20 @@ This module therefore REFUSES to build the sagittal anatomical slots when the bi
 rather than building them wrong. That is the same choice `canonicalise` makes with unknown
 laterality: honest beats safe, because a silently mirrored slab has no symptom.
 
-    !! NOT TRUE AS WRITTEN -- code review 2026-08-11, IMPROVEMENTS.md 2r-A1. The refusal in
-    !! build() is GLOBAL, not per-series: it fires only when slice_direction_resolved.csv is
-    !! missing or has zero usable rows. One resolved series lets the whole build through, and
-    !! every series without a bit then reaches canonicalise() with slice_direction=None, which
-    !! (preprocess.py:444) skips the left-knee sagittal flip entirely. For a left knee with no
-    !! bit, sag_med IS the lateral compartment. The paragraph above describes the intent; the
-    !! code implements only the empty-file case. Fix before trusting any anatomical slab.
+That refusal is PER SERIES, and it has to be. The bit is resolved per series and the corpus
+downloads incrementally, so coverage is partial by construction -- `--measured` writes a row only
+for a series with NIfTI on disk, thumbnails present and a matching slice count. A whole-build
+refusal would either block every anatomical build forever or, as it did until 2026-08-11, pass
+the moment ONE series resolved and let the rest through with `slice_direction=None`, which
+(`preprocess.py` 444) silently skips the left-knee sagittal flip. A series with no bit gets a
+False in the mask for its direction-dependent slots, exactly like a series that is not on disk.
+The loader already consults the mask, so an unresolved series costs a tile, never a wrong one.
+
+Two guards sit beside it, both cheap and both there because the failure has no symptom:
+`SAGITTAL_LR=1` is required at build time for any slot that needs the bit (without it the
+handedness flip never fires and "slice 25% is medial" is inverted for the 43% of studies that are
+left knees), and a new cache is checked against every manifest already in its output directory
+before the first tile is read -- see `assert_caches_compatible`.
 
     python pipeline/slot_cache.py --slots protocol          # the 6 the gate needs, ~16 min
     python pipeline/slot_cache.py --slots anatomical        # the divergence, second pass
@@ -159,15 +166,29 @@ CACHE_COMPAT_KEYS = ("preprocess_version", "tile", "group", "grid", "target_mm",
                      "canonical_side", "sagittal_lr_slice_flip", "slices_per_series")
 
 
-def assert_caches_compatible(*manifest_paths) -> None:
+def cache_compat_fields() -> dict:
+    """The part of a manifest that must agree between two caches fed to one model.
+
+    Split out from the full manifest so `build()` can check compatibility BEFORE it reads the
+    first NIfTI rather than after 21 minutes of work: every one of these is known at import time,
+    while `n_studies` / `n_tiles` / `built` are not. The full manifest merges this dict, so there
+    is one definition of what these values are and not two that can drift.
+    """
+    return {"preprocess_version": pp.PREPROCESS_VERSION, "tile": TILE, "group": GROUP,
+            "grid": GRID, "target_mm": pp.TARGET_MM, "fov_mm": pp.FOV_MM,
+            "canonical_side": pp.CANONICAL_SIDE,
+            "sagittal_lr_slice_flip": pp.SAGITTAL_LR_SLICE_FLIP,
+            "slices_per_series": pp.SLICES_PER_SERIES}
+
+
+def assert_caches_compatible(*manifests) -> None:
     """Raise unless every manifest agrees on the keys that change pixel values.
 
-    !! NEVER CALLED -- code review 2026-08-11, IMPROVEMENTS.md 2r-A3. `grep -rn` finds exactly two
-    !! hits in the repo: this definition and the README sentence that claimed it was active. Not
-    !! build(), not TileStore.__init__, not train_port.main(). The imperative below is aspiration.
-    !! It also cannot catch the sibling hazard (2r-A4): a build that forgot `SAGITTAL_LR=1` writes
-    !! sagittal_lr_slice_flip=false, which MATCHES tiles_protocol, so the two compare as
-    !! compatible while half the slabs are on the wrong compartment.
+    Each argument is a path to a `manifest_*.json`, or a `(label, dict)` pair for a manifest that
+    does not exist yet -- which is what `build()` passes for the cache it is about to write, so
+    the incompatibility is refused at the moment it would be CREATED and not merely when it is
+    later consumed. That is the only check point that helps: once both caches are on disk the
+    21 minutes are already spent.
 
     CALL THIS BEFORE ANY RUN THAT CONSUMES MORE THAN ONE CACHE TAG. The live instance of this
     hazard, 2026-08-10: `tiles_protocol` was built before the K16 bit existed
@@ -179,9 +200,15 @@ def assert_caches_compatible(*manifest_paths) -> None:
     `direction_bits` is deliberately NOT in the compat set: it is a count of how many series had
     a resolved bit, so it grows as the corpus downloads and is not a property of the arithmetic.
     `sagittal_lr_slice_flip` is the flag that actually changes the pixels.
+
+    This check alone cannot catch a build that simply FORGOT `SAGITTAL_LR=1`: that build writes
+    `sagittal_lr_slice_flip=false`, which matches the existing `tiles_protocol`, so the two agree
+    on every key here while half the slabs sit on the wrong compartment. Agreement is only
+    evidence that two caches were built the same way, never that either was built right. The
+    build-time requirement in `build()` is what covers that case, and the two are not redundant.
     """
-    import json as _json
-    mans = [(str(p), _json.loads(Path(p).read_text())) for p in manifest_paths]
+    mans = [m if isinstance(m, tuple) else (str(m), json.loads(Path(m).read_text()))
+            for m in manifests]
     if len(mans) < 2:
         return
     ref_name, ref = mans[0]
@@ -244,7 +271,14 @@ def tile_from(vol: np.ndarray, slot: Slot) -> np.ndarray | None:
 
 
 def load_direction() -> dict[str, str]:
-    """SeriesInstanceUID -> 'forward'|'reversed', from the resolved K16 export. {} if absent."""
+    """SeriesInstanceUID -> 'forward'|'reversed', from the resolved K16 export. {} if absent.
+
+    A series whose resolved direction is `unknown` is dropped here, which makes it
+    indistinguishable from one that was never measured. That is deliberate and it is safe only
+    because the gate in `build()` is per series: both cases mean "no trustworthy bit", and both
+    get a False in the mask rather than a tile. It would NOT be safe under a whole-build gate,
+    where the two differ -- one should block the build and the other should not.
+    """
     p = D / "slice_direction_resolved.csv"
     if not p.exists():
         return {}
@@ -258,18 +292,37 @@ def load_direction() -> dict[str, str]:
 def build(which: str, limit: int | None, out_dir: Path, workers: int) -> None:
     slots = slot_set(which)
     direction = load_direction()
+    needs_bit = [s.name for s in slots if s.needs_direction]
 
-    gated = [s.name for s in slots if s.needs_direction and not direction]
-    if gated:
+    # --- guard 1: the bit has to exist at all. This is the "you have not run the resolver yet"
+    # case, and it is the only one that is a whole-build error -- see guard 4 in the loop for the
+    # per-series half, which is what partial coverage calls for. The route named here is 01e and
+    # --measured: the header-rule route in 01d scored 56.9/60.8/56.9% and is dead (IMPROVEMENTS 2n).
+    if needs_bit and not direction:
         raise SystemExit(
-            f"slots {gated} need the K16 per-series direction bit and "
+            f"slots {needs_bit} need the K16 per-series direction bit and "
             f"data/slice_direction_resolved.csv is missing or empty.\n"
             "Medial/lateral is the SLICE axis for sagittal and 33% of series are stored "
             "back-to-front (validate_nifti check 4b), so these slabs would be a coin flip on "
             "the axis four of the twelve labels depend on.\n"
-            "Run notebooks/kaggle_01d_slice_direction.py on Kaggle, then "
-            "pipeline/resolve_slice_direction.py. Or build --slots protocol, which does not "
-            "need the bit.")
+            "Run notebooks/kaggle_01e_direction_measure.py on Kaggle, then "
+            "pipeline/resolve_slice_direction.py --measured. Or build --slots protocol, which "
+            "does not need the bit.")
+
+    # --- guard 2: having the bit is useless if the flip it feeds is switched off. Without
+    # SAGITTAL_LR=1, canonicalise() takes the `left and plane == 'Sagittal'` branch never, so the
+    # handedness correction does not fire and "slice 25% is medial" is exactly inverted for the
+    # 43% of studies that are left knees. The manifest would record False, matching an existing
+    # protocol cache, so assert_caches_compatible cannot see this one -- it has to be caught here.
+    if needs_bit and not pp.SAGITTAL_LR_SLICE_FLIP:
+        raise SystemExit(
+            f"slots {needs_bit} depend on the slice axis, but SAGITTAL_LR_SLICE_FLIP is OFF.\n"
+            "canonicalise() would skip the left-knee sagittal flip entirely and 'slice 25% is "
+            "medial' would be inverted for the 43% of studies that are left knees -- silently, "
+            "with no symptom other than four labels failing to improve.\n"
+            f"  SAGITTAL_LR=1 python pipeline/slot_cache.py --slots {which}\n"
+            "NOTE the existing data/tiles336 protocol cache was built with SAGITTAL_LR=0, so it "
+            "must be rebuilt under the same flag (~21 min) before anything consumes both.")
 
     ser = pd.read_csv(D / "train_series.csv")
     path_of, have = {}, set()
@@ -290,6 +343,16 @@ def build(which: str, limit: int | None, out_dir: Path, workers: int) -> None:
     # on disk, so this is the common case, not a corner one.
     out_dir.mkdir(parents=True, exist_ok=True)
     tag = which if which in ("protocol", "anatomical", "all") else "custom"
+
+    # --- guard 3: refuse to write a cache that cannot be fed to one model alongside the caches
+    # already sitting in this directory. Checked HERE, before the first NIfTI read, because after
+    # the loop the 21 minutes are spent and the incompatible file exists.
+    compat = cache_compat_fields()
+    siblings = [p for p in sorted(out_dir.glob("manifest_*.json"))
+                if p.name != f"manifest_{tag}.json"]
+    if siblings:
+        assert_caches_compatible((f"{tag} (about to be built)", compat), *siblings)
+
     mm_path = out_dir / f"tiles_{tag}.u8"
     shape = (len(studies), len(slots), GROUP, TILE, TILE)
     mm = np.lib.format.open_memmap(mm_path.with_suffix(".npy"), mode="w+",
@@ -305,6 +368,8 @@ def build(which: str, limit: int | None, out_dir: Path, workers: int) -> None:
 
     t0 = time.time()
     n_tiles = 0
+    n_no_bit = 0
+    series_no_bit = set()
     for i, st in enumerate(studies):
         rows = ser[ser.StudyInstanceUID == st]
         side = lat.get(st, (None, "none"))
@@ -316,16 +381,30 @@ def build(which: str, limit: int | None, out_dir: Path, workers: int) -> None:
             p = path_of.get((st, se))
             if p is None:
                 continue
+
+            # --- guard 4, the per-series half of the K16 refusal. Coverage of the resolved bit is
+            # partial by construction, so this is decided per series and not once for the build.
+            # A slot whose compartment IS the slice position gets built only for a series whose
+            # direction is known; otherwise it is left False in the mask, exactly like a series
+            # that is not on disk. The slots that do not read the slice axis are unaffected and
+            # still come out of this same volume.
+            dirn = direction.get(se)
+            active = [(j, s) for j, s in members if not (s.needs_direction and dirn is None)]
+            if len(active) < len(members):
+                n_no_bit += len(members) - len(active)
+                series_no_bit.add(se)
+            if not active:
+                continue
             try:
                 vol, _, _ = pp.load_series_nifti(
                     p, plane=plane, laterality=side[0], laterality_source=side[1],
-                    slice_direction=direction.get(se))
+                    slice_direction=dirn)
             except Exception as e:                                     # noqa: BLE001
                 print(f"    ! {st[:16]} {plane}_{fluid}: {type(e).__name__} {str(e)[:50]}")
                 continue
             if vol is None:
                 continue
-            for j, slot in members:
+            for j, slot in active:
                 tile = tile_from(vol, slot)
                 if tile is None:
                     continue
@@ -345,12 +424,10 @@ def build(which: str, limit: int | None, out_dir: Path, workers: int) -> None:
     idx.to_csv(out_dir / f"index_{tag}.csv", index=False)
 
     man = {
-        "preprocess_version": pp.PREPROCESS_VERSION, "tile": TILE, "group": GROUP,
-        "grid": GRID, "target_mm": pp.TARGET_MM, "fov_mm": pp.FOV_MM,
-        "canonical_side": pp.CANONICAL_SIDE,
-        "sagittal_lr_slice_flip": pp.SAGITTAL_LR_SLICE_FLIP,
-        "slices_per_series": pp.SLICES_PER_SERIES,
+        **compat,
         "direction_bits": len(direction),
+        "tiles_skipped_no_direction": int(n_no_bit),
+        "series_skipped_no_direction": len(series_no_bit),
         "slots": [asdict(s) for s in slots],
         "n_studies": len(studies), "n_tiles": int(n_tiles),
         "built": time.strftime("%Y-%m-%dT%H:%M:%S"),
@@ -366,6 +443,11 @@ def build(which: str, limit: int | None, out_dir: Path, workers: int) -> None:
     for j, s in enumerate(slots):
         print(f"    {s.name:<9} {mask[:, j].sum():>6,} / {len(studies):,}  "
               f"({mask[:, j].mean():>5.1%})")
+    if needs_bit:
+        print(f"  K16: {len(direction):,} series carry a resolved direction bit. "
+              f"{n_no_bit:,} tiles over {len(series_no_bit):,} series were SKIPPED for want of "
+              f"one\n       and are False in the mask -- not coin flips. "
+              f"sagittal_lr_slice_flip={pp.SAGITTAL_LR_SLICE_FLIP}.")
 
 
 def main() -> None:

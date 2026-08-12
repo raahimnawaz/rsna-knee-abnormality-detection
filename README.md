@@ -4,12 +4,43 @@ Twelve-label knee-MRI classification, macro-AUROC. Final submission **2026-10-22
 
 ---
 
-## START HERE — state as of 2026-08-11
+## START HERE — state as of 2026-08-12
+
+> # COURSE CHANGE — 0.891 is the FLOOR, not the target `2026-08-12, §2w`
+>
+> **Our own pipeline is ~0.13 BELOW a score we already have banked.**
+>
+> | | LB |
+> |---|--:|
+> | our own pipeline, best estimate | ~0.76 |
+> | **the fork, submitted 2026-08-09** | **0.891** — rank 230/908 |
+> | **10th place — the last prize** | **0.926** |
+> | top | 0.942 |
+>
+> Phase 0 spent its entire budget rebuilding, in our own code, an architecture that is free to
+> download — reaching 0.7229, with one fold worth +0.0171. **Rule 6 of this README already said
+> "the fork is the base, not a reference." It was written and not followed.**
+>
+> **Every number from here is a delta on top of 0.891.** The next moves are: verify the live
+> leaderboard (the figures below are stale), **rank-mean `pilkwang` + `prvsiyan`** — two published
+> notebooks, two lineages, a Kaggle run rather than a training job — and submit. The port does not
+> get more compute until it can show that **adding** it to that ensemble helps; at ~0.76 it would
+> hurt. Full reasoning and the live kernel survey in `IMPROVEMENTS.md` **§2w**.
+>
+> The measurement apparatus below is not wasted — site-grouped folds, the report-OOF instrument,
+> K16, the guards, resume. **It is how you judge an ensemble honestly. It was never going to BE
+> the ensemble.**
 
 **Baseline: macro 0.7229 ± 0.0048**, site-grouped report-OOF over 2,612 studies. That is the
 honest number; every figure this project produced before 2026-08-10 was inflated by ~0.024 of
 site leakage (§2j) and measured on a 37-study instrument that could not resolve 0.04 (§2g).
 Leaderboard top is 0.942; the best *visible* public solution is 0.903.
+
+> **All LB figures on this page were read 2026-08-10 and are stale (§2w).** Two are known wrong:
+> `0.899 let me cook` is `aadigupta7686`, not `prvsiyan`, and **no public `Yash Bishnoi` / B3
+> kernel exists** — searches for `yash`, `b3` and `efficientnet` return nothing, so that 0.903 is
+> a *writeup*, and reproducing it is a training job rather than a download. Re-verify against the
+> live leaderboard before treating any of these as load-bearing.
 
 > ### The port exists, it trains, and fine-tuning is worth **+0.0171 ± 0.0088 (1.9σ)** `2026-08-11`
 >
@@ -34,41 +65,88 @@ Leaderboard top is 0.942; the best *visible* public solution is 0.903.
 > it: the **severity-thresholded label read** (host-confirmed, a few dollars of API, `REFERENCE.md`
 > §2.1) and the **anatomical crops** (built, unbuilt tiles, aimed at the mm-scale labels).
 >
-> **Next run, and it is one run: step 5, the reproduction gate.** It discriminates whether that
-> 0.13 is one missing ingredient or many. Do it before spending 18 h on the other four folds.
+> **Step 5 is NOT a reproduction gate and cannot be one — `IMPROVEMENTS.md` §2s, 2026-08-11.**
+> `pilkwang` publishes no local number at all (`REFERENCE.md` 3.1 records `—`); its 0.891 is a
+> leaderboard score from `infer_from_package()`, 20 rank-meaned published weights, no training.
+> **There is nothing to land near.** The fold-0 run started 2026-08-11 is the **label-swap arm**
+> and is read against a *predicted delta*: it should land **0 to 0.021 below `runs_port`**, that
+> being the gold-58 label-quality gap (`steven_v2` 0.8873 vs `pilkwang_v2` 0.866). Read it
+> asymmetrically — scoring through `lixin` handicaps the gate arm (0.947 vs 0.866 correlation),
+> so a negative delta is ambiguous and only a positive one is clean.
+>
+> **Do not spend 18 h on folds 1–4 to answer the reproduction question. That run cannot answer
+> it.** The target lives on the leaderboard, so step 6 answers step 5 and not the reverse.
+>
+> ### And the first submission goes NOW, beside step 5 `§2t-1, 2026-08-11`
+>
+> Not for measurement — for **risk retirement**. `kaggle_03_submit.py` has never executed against
+> a real test DICOM: the 9 h cap, no-internet, weights-as-a-Dataset, degenerate series, a study
+> missing a plane. Schedule risk, not score risk, and none of it is discoverable locally. It also
+> replaces a CV↔LB conversion currently interpolated from **two foreign anchors** while carrying
+> the claim that our gap is 0.19 rather than 0.22 — and it yields the single-model LB point that
+> tests the boring hypothesis (§2t-5).
+>
+> **The compute budget, which this plan never had (§2t-3): 72 days, ~40 h/week local.**
+> An item that does not name its cost in folds is not a plan item.
+>
+> **REVISED 2026-08-12 (§2v): a fold is ~1.6 h, not 3.6.** The 3.6 h figure was taken on a laptop
+> that was asleep for ~2 of those hours. Held awake with `caffeinate -i`, the same three epochs run
+> 10.2 / 9.5 / 9.5 min against 20.3 / 16.4 / 9.9 — identical losses, half the wall clock. So the
+> budget is **~40 five-fold experiments, not ~20**. The constraint was never as tight as the plan
+> believed, and the reason we thought otherwise is that nobody checked whether the machine was
+> awake while it was being measured.
 
-> ### Code review of the step-4 body — 15 open findings, none fixed `2026-08-11`
+> ### Code review of the step-4 body — 15 findings; the A-cluster is FIXED `2026-08-11`
 >
 > §2r. Nothing here touches fold 0 or the paired +0.0171: those ran on protocol tiles at depth
-> 0.5, the one configuration the medial/lateral findings cannot reach. **But three of them
-> (§2r-A1, A3, A4) must close before `--slots anatomical` runs.** The short version: the promise
-> that a sagittal slab is never built without its K16 direction bit is made in three docstrings
-> and in this README, and is implemented in none of them — the refusal is global (whole file
-> missing) rather than per series, and `assert_caches_compatible()` is never called from
-> anywhere. A left knee with no bit gets `sag_med` pointing at the **lateral** compartment.
-> Build the anatomical tiles on top of that and the result is uninterpretable, not merely weak.
+> 0.5, the one configuration the medial/lateral findings cannot reach. Three of them (§2r-A1, A3,
+> A4) had to close before `--slots anatomical` ran: the promise that a sagittal slab is never
+> built without its K16 direction bit was made in three docstrings and in this README, and was
+> implemented in none of them.
 >
-> Two more worth knowing before the next long run: `train_port.py` raises `NameError` on the
-> summary write if the neutral reference file is missing (§2r-B2 — after ~13 h of training, and
-> after the checkpoints are safe), and `score_oof.py`'s paired σ is not reproducible run to run
-> because it iterates a `set` (§2r-B6).
+> **ALL THREE ARE FIXED, same day — §2r "As fixed".** One refusal became **four guards**: the bit
+> must exist; `SAGITTAL_LR=1` is required at build time; a new cache is checked against every
+> manifest in its directory *before the first NIfTI read*; and the K16 refusal is now **per
+> series**, so a series with no bit gets `False` in the mask instead of a coin flip. Verified with
+> coverage forced to half — `sag_med`/`sag_lat` fell to **13/30 while `sag_pf` stayed at 100%**
+> from the same volume, i.e. **34 tiles that would have been coin flips**. Guard 3 caught the live
+> hazard in test (`sagittal_lr_slice_flip: True vs False`).
+> **The hazard is still live in one sense:** `data/tiles336` remains `SAGITTAL_LR=0`. The guards
+> refuse a bad build; they do not rebuild anything. The ~21 min protocol rebuild is still owed.
+>
+> Two more from that review, **both now fixed too**: `train_port.py`'s `NameError` on the summary
+> write when the neutral reference is missing (§2r-B2 — it fired after ~13 h of training, and
+> recorded `n_oof` wrong on every run besides), and `score_oof.py`'s paired σ (§2r-B6). On B6 the
+> **damage was smaller than reported** — measured over four `PYTHONHASHSEED`s before the fix, the
+> delta was **identical at +0.0171 every time** (it is order-invariant by construction) and only
+> the SD moved, ±0.0086–0.0091, i.e. 1.9–2.0σ. `score()` was never affected at all, so
+> **0.7229 ± 0.0048 was always reproducible**. Post-fix all seeds give `+0.0171 ±0.0088 → 1.9σ`,
+> which is what §2q published. See §2t-6.
 
-**Three phases. Phase 0 is 5 of its 7 steps done** (1, 2, 2b, 3, 4 — steps 5 and 6 remain); Phase 1
-is the labels at chance, Phase 2 is external data and the largest measured levers. See "Where
-this goes next" for the full plan and the ledger.
+### The plan, rewritten 2026-08-12 (§2w)
 
-> The line here used to read "Phase 0 is 4 of 5 done" while the table below listed seven rows.
-> It was written when 2b and 6 did not exist yet and was never re-counted. Corrected 2026-08-11.
+**Phase 0 is closed.** It built a measurement apparatus and a local trainer, both of which we
+keep, and a score 0.13 below one we already had. The ordering below replaces it.
 
-| step | state |
-|---|---|
-| 1. Swap labels → `steven_v2` | **done** — `data/targets.csv` |
-| 2. Build the instrument | **done** — 6.7× tighter than gold-37 (§2g) |
-| 2b. Site-grouped folds | **done** — our leakage is +0.024 (§2j) |
-| 3. Time the port before building it | **done** — gate passed at 1.29×; cache is ~16 min (§2h) |
-| **4. Slot-pixel cache + training port** | **DONE — fold 0 trained and scored, +0.0171 ± 0.0088 paired (§2q)** |
-| **5. Reproduction gate against the fork's own config** | **NEXT — unblocked, and it is the highest-information run on the board** |
-| 6. One submission for the CV↔LB mapping | blocked on 5 |
+| # | step | cost | state |
+|---|---|---|---|
+| **E1** | **Verify the live leaderboard and both lineages' real scores** | minutes | **NEXT** — every LB figure in this repo was read 08-10 and two are known wrong (§2w) |
+| **E2** | **Rank-mean `pilkwang` + `prvsiyan`** — two published notebooks, two lineages | 1 Kaggle run, no training | the cheapest +0.01–0.02 on the board |
+| **E3** | **Submit it** | 1 of 5 daily | also retires the never-executed inference path (§2t-1) and yields the single-model LB point that tests the boring hypothesis (§2t-5) |
+| **E4** | **Make the port earn a slot** — does *adding* it to the ensemble help? | 1 scoring run | at ~0.76 it would hurt. **No more compute until it clears this bar** |
+| **E5** | Differentiators as deltas *on the ensemble* — severity labels, anatomical crops | ~1.6 h/fold | blocked: the label bet still has no valid instrument (§2s) |
+| **E6** | **Efficiency track, co-primary** | TBD | $18,000 over three places, thinner field; `ryanholbrook/…-efficiency-lb` makes it measurable |
+
+**Kept from Phase 0, and still true:** labels are `steven_v2` (§2i-c); the instrument is 6.7×
+tighter than gold-37 *at fixed targets* (§2g); folds are site-grouped and our leakage is +0.024
+(§2j); the port trains and fine-tuning is worth +0.0171 ± 0.0088 on one fold (§2q); K16 is
+resolved by measurement (§2n); the four medial/lateral guards and per-epoch resume exist
+(§2r, §2u).
+
+**The label-swap arm** (the step formerly called the reproduction gate) reached epoch 3 of 10
+under `caffeinate` and is checkpointed at `fusion/runs_gate/fold0_last.pt`. It is **paused, not
+abandoned** — resume costs ~70 min and it is the prerequisite for E4. But E1–E3 come first,
+because they decide whether the port is worth finishing at all.
 
 **Step 4 as built.** Five files, all committed and pushed:
 
@@ -100,10 +178,13 @@ independent instrument, and the same 100% bar the header rules failed.
 
 > **HAZARD before building the anatomical slabs.** They need `SAGITTAL_LR=1`; `tiles_protocol`
 > was built with `SAGITTAL_LR=0`. Without the flip, "slice 25% is medial" is exactly inverted for
-> the 43% of studies that are left knees. ~~`slot_cache.assert_caches_compatible()` raises on any
-> run consuming both~~ — **CORRECTED 2026-08-11 (§2r-A3): that function is defined and never
-> called, from anywhere. Nothing raises.** The guard is prose, not behaviour, and this sentence
-> was the reason to believe otherwise. **Rebuild protocol under the same flags first (~21 min)
+> the 43% of studies that are left knees. `slot_cache.assert_caches_compatible()` **now does
+> raise** — **FIXED 2026-08-11 (§2r "As fixed"), after a day in which it was defined and never
+> called from anywhere.** `build()` calls it against every manifest already in the output
+> directory *before the first NIfTI read*, and it caught this exact hazard in test:
+> `sagittal_lr_slice_flip: True vs False`. A second guard refuses any `needs_direction` build
+> with `SAGITTAL_LR` off, which the compat check structurally cannot see. **Rebuild protocol
+> under the same flags first (~21 min)
 > and check the two manifests by hand** until §2r-A3 is closed. Fold 0's result is unaffected:
 > protocol tiles sit at depth 0.5, where a reversal maps the middle slice to itself.
 
@@ -968,9 +1049,17 @@ Ordered so that each step is validated by the one before it. Nothing here needs 
    the NIfTI already on disk and train `UNFREEZE_LAST=6` locally. K16's slice-direction bit is
    on the critical path here — NIfTI carries no `ImagePositionPatient`, so extend `kaggle_01c`
    over all 24,371 series first (CPU-only, ~20 min); K18 handedness rides along.
-5. **Reproduce the fork's own configuration before changing one line of it.** If a local run
+5. ~~**Reproduce the fork's own configuration before changing one line of it.** If a local run
    with *its* labels does not land near its published score, the port is wrong and every
-   comparison after it is noise. This is the gate; do not pass it by reasoning.
+   comparison after it is noise. This is the gate; do not pass it by reasoning.~~
+   **REWRITTEN 2026-08-11 (§2s).** "Its published score" does not exist as a local number —
+   `REFERENCE.md` 3.1 records `pilkwang`'s local column as `—`, and 0.891 is a 20-member
+   rank-mean of published weights on the leaderboard. Converting cannot rescue it: the two
+   `(local, LB)` anchors give a band 0.02 wide before the ensemble gain is counted.
+   **What this step is now:** train the port on the fork's labels and read the delta against
+   `runs_port` — predicted **0 to −0.021** from the gold-58 label gap. A *plausibility band*,
+   not a gate. **And before it launches: state the scoring reference and show it is neutral to
+   both arms.** Four measurements have been lost to skipping that (§2d, §2i, §2o, §2s).
 6. **Submit once**, as a dry run of the inference path, and record the CV↔LB mapping for *our*
    pipeline rather than the interpolated estimate in "The four facts" §5.
 
