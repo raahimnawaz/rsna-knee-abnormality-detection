@@ -27,6 +27,13 @@ Twelve-label knee-MRI classification, macro-AUROC. Final submission **2026-10-22
 > get more compute until it can show that **adding** it to that ensemble helps; at ~0.76 it would
 > hurt. Full reasoning and the live kernel survey in `IMPROVEMENTS.md` **§2w**.
 >
+> ### ⚠ E1 HAS NOT RUN — verify the leaderboard before quoting any number on this page
+>
+> **Including the 0.891 and 0.926 in the table above.** Every LB figure in this repo was read
+> **2026-08-10**. The 08-12 survey checked only which *kernels exist* — not their current scores —
+> and still found two errors (`0.899 let me cook` misattributed; no Yash/B3 kernel at all). The
+> whole E-plan rests on numbers that have not been re-read. It costs minutes.
+>
 > The measurement apparatus below is not wasted — site-grouped folds, the report-OOF instrument,
 > K16, the guards, resume. **It is how you judge an ensemble honestly. It was never going to BE
 > the ensemble.**
@@ -130,7 +137,7 @@ keep, and a score 0.13 below one we already had. The ordering below replaces it.
 
 | # | step | cost | state |
 |---|---|---|---|
-| **E1** | **Verify the live leaderboard and both lineages' real scores** | minutes | **NEXT** — every LB figure in this repo was read 08-10 and two are known wrong (§2w) |
+| **E1** | **Verify the live leaderboard and both lineages' real scores** | minutes | **NOT RUN — DO THIS FIRST.** Every LB figure in this repo was read **08-10**. The 08-12 survey verified only which *kernels exist*, not what they score (§2w) |
 | **E2** | **Rank-mean `pilkwang` + `prvsiyan`** — two published notebooks, two lineages | 1 Kaggle run, no training | the cheapest +0.01–0.02 on the board |
 | **E3** | **Submit it** | 1 of 5 daily | also retires the never-executed inference path (§2t-1) and yields the single-model LB point that tests the boring hypothesis (§2t-5) |
 | **E4** | **Make the port earn a slot** — does *adding* it to the ensemble help? | 1 scoring run | at ~0.76 it would hurt. **No more compute until it clears this bar** |
