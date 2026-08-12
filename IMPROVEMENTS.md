@@ -2515,3 +2515,76 @@ Two corrections to how this project has been framing it:
    P(mention), which is precisely the quantity a severity re-rank is trying to move away from —
    scoring it there would *punish* a correct result. Gold-58 and the leaderboard are the only
    valid arbiters, and KEEP 1 just made the second one affordable.
+
+---
+
+## 3b. What a gain selected on 58 studies is actually worth `MEASURED 2026-08-12`
+
+§3a made `prvsiyan`'s V34 PCA arm the first action, on the argument that its **+0.0273** was
+selected on 58 studies and therefore probably overfit. **The measurement refines that and partly
+contradicts it. Read this before acting on §3a.**
+
+Their per-arm predictions are not published — their artifact datasets are the blank entries in
+`kernel-metadata.json` — so the arm cannot be scored directly. What *can* be measured exactly is
+the **procedure**: `fusion/selection_optimism.py` selects a per-target rank-blend weight on a
+random n-study subset and scores that choice on the studies it never saw. 4,349 non-gold studies,
+`ours`/`imported` as stand-in arms.
+
+| n | mode | CLAIMED | REALIZED | optimism | P(realized ≤ 0) |
+|--:|---|--:|--:|--:|--:|
+| **58** | argmax | **+0.0137** | **−0.0034** | +0.0170 | **92%** |
+| **58** | bagged | +0.0092 | −0.0015 | +0.0107 | **72%** |
+| 150 | argmax | +0.0068 | −0.0008 | +0.0076 | 59% |
+| 400 | argmax | +0.0043 | +0.0008 | +0.0035 | 18% |
+| 1000 | argmax | +0.0030 | +0.0018 | +0.0012 | 0% |
+
+**A weight chosen on 58 studies reports a gain and delivers a loss.** Not a small gain — a loss,
+in 92% of draws. And **bagging does not rescue it**: resampling within 58 studies cuts the
+optimism from +0.0170 to +0.0107 and still lands negative, because *resampling does not create
+information*. That is `prvsiyan`'s own procedure — "99.4% of 500 partitions" is 500
+re-partitions of the same 58 subjects — and their own sentence is the correct description of it:
+it measures **estimator stability, not generalization**.
+
+### The correction to §3a, which called for removing their PCA arm
+
+Under this null, how often does selection on 58 studies *claim* at least their +0.0273?
+
+| threshold | argmax | bagged |
+|---|--:|--:|
+| ≥ +0.0100 | 69% | 35% |
+| ≥ +0.0200 | 14% | 7% |
+| **≥ +0.0273** | **4%** | **2%** |
+
+**So their number is a 2–4% tail event, not a typical noise draw. It is probably not pure noise,
+and §3a's "a removal can gain score" was too confident.** The defensible statement is narrower and
+still useful:
+
+> Their +0.0273 is likely measuring *something*, but the CLAIMED magnitude carries almost no
+> information about the REALIZED one. Expected realized value of any 58-selected choice here is
+> ≈0. Removing the arm is a coin flip, not an edge.
+
+**Action, revised: do not remove it and do not trust it — submit it both ways.** This is exactly
+the class of question §3a's KEEP 1 made affordable: two inference-only runs, ~74 s of GPU each,
+against a 5/day allowance. **The leaderboard is the arbiter for this, and it now costs minutes.**
+
+### The rule that generalises, and it lands on our own plan
+
+**Never select on gold-58.** The crossover where selection starts reliably paying is **n ≈ 400**
+(+0.0008 realized, 18% failure); at n = 1000 it is +0.0018 at 0%. Gold-58 is an order of magnitude
+short and always will be — it is 58 studies because that is all the competition adjudicated.
+
+This is a direct hit on **our** plan, not just theirs. The standing assumption has been that gold
+is "the only neutral arbiter" for label-source changes, and §2s/§2w both route the severity bet
+through it. **Gold-58 can *evaluate* a fixed decision at ±0.031. It cannot *choose* one.** Any
+severity-read variant selected on gold-58 — which threshold, which prompt, which blend weight —
+inherits the −0.0034 above.
+
+So the severity work needs its selection done on the leaderboard or not at all, and that is
+affordable now (§3a KEEP 1). **Settle this before building any of it**, which is what the
+long-standing "the instrument does not cover Phase 1" note has been asking for since 08-10.
+
+**Caveat, stated because it bounds the claim.** The stand-in arms have little true gain available
+(§2z: +0.0007 at full data), so this is a **null model** — it says what selection on 58 studies
+manufactures when there is nearly nothing to find. That is the right null for "is this noise?"
+and it is *not* an estimate of their arm's true effect. Their arm may be genuinely good; the
+point is that 58 studies cannot tell them, or us, which.
