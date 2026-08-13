@@ -16,9 +16,18 @@ Twelve-label knee-MRI classification, macro-AUROC. Final submission **2026-10-22
 > * **Lands near 0.90** → the offset is wrong. **Re-price §3o and §3p before building anything
 >   on them.** That is the higher-priority branch and it is cheap to act on.
 >
-> **2. Then: DINOv3 (`PLAN.md` §9h)** — complete architecture spec, read off the weights, not yet
-> transcribed. It is the only remaining free family likely to earn a slot. **Highest-risk part is
-> the RoPE branch when the slot token is inserted; copy it, do not reimplement.**
+> **2. DINOv3 — the ARCHITECTURE HALF IS DONE (`fusion/dinov3_model.py`, §9h).**
+> `python fusion/dinov3_model.py --check` → **5/5 folds load strict, 23.5 M params**, on timm
+> 1.0.28. Forward pass runs. The RoPE branch was the flagged risk and it turns out to **fail
+> loudly** (442 vs 441), not silently — measured by ablation.
+> **What is left is `dinov3_pixels.py`, and §9h's four corrections change it:** the 16 slices are
+> **input channels** (`in_chans=16`), the slot scheme is **(plane, fat-suppression) pairs in a
+> different order from pilkwang's** so `slots_pilkwang.csv` must NOT be reused, the band is
+> `(0.12, 0.88)` with per-slice windowing and **no ImageNet normalisation**, and slices order by
+> **InstanceNumber — K16 must not be applied here.** Slot selection is free: it reads the
+> competition's own `Anatomical_Plane`/`Fat_Suppression` columns.
+> **⚠️ But do not build it until item 1 settles** — the pixel path is scored on gold, and if the
+> +0.046 offset is wrong that instrument needs re-pricing first.
 >
 > **3. Then: Workstream C (`PLAN.md` §9f)** — fine-tune **RadImageNet R50**, already on disk and
 > verified to load strict into a torchvision trunk. A CNN, radiology-pretrained, and the whole

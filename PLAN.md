@@ -867,8 +867,63 @@ small pixel sample, judged on `score_gold.py`, before any training commitment.
 
 ### 9h. DINOv3 — the complete architecture spec, read off the WEIGHTS `2026-08-13 late`
 
-Everything below is established from `m_f0.pt` and the kernel source. **The transcription is not
-written yet; this is so it can start cold without re-deriving any of it.**
+> **✅ THE ARCHITECTURE HALF IS BUILT — `fusion/dinov3_model.py`, 2026-08-13 late.**
+> `python fusion/dinov3_model.py --check` → **all 5 folds load strict, 23.5 M params each**, on
+> **timm 1.0.28** despite the dataset shipping a `timm-1.0.22` wheel (162/162 encoder tensors
+> matched, nothing unexpected). A forward pass runs. **The pixel path is NOT built** — see the
+> four corrections below, two of which change what a `dinov3_pixels.py` has to do.
+>
+> **The kernel source is now saved**, which it was not when this section was written:
+> `data/external/kernel_sources/mattiaangeli_bend-the-knee-to-dinov3-ensembled.py` (extracted
+> from the `.ipynb` beside it). `data/` is gitignored, so re-pull with
+> `kaggle kernels pull mattiaangeli/bend-the-knee-to-dinov3-ensembled -p <dir> -m`. §9h below was
+> derived from source that was read and not kept — the same [[record-findings-durably]] gap that
+> cost a day on `kaggle_01c`.
+
+**⛔ FOUR CORRECTIONS FROM THE ACTUAL TRANSCRIPTION `2026-08-13 late`. Read these before building
+the pixel path — two of them are silent-error traps.**
+
+1. **`stem: 'native'` means THE 16 SLICES ARE INPUT CHANNELS, not 16 forward passes.**
+   `patch_embed.proj.weight` is **(384, 16, 16, 16)** — the encoder is built
+   `in_chans=cfg['n_slice']`. The spec below said `native` only *removes* `DepthCompress`; it also
+   *replaces* what "a slice" means. One series = one forward pass of a (16, 336, 336) tensor.
+2. **⛔ THE SLOT SCHEME IS NOT PILKWANG'S, AND `data/slots_pilkwang.csv` DOES NOT TRANSFER.**
+   This arm's slots are **`[(Sagittal,1), (Sagittal,0), (Coronal,1), (Coronal,0), (Axial,1),
+   (Axial,0)]`** — (plane, fat-suppression) pairs — against pilkwang's recovered
+   `[SAG_FLUID_FS, COR_FLUID_FS, AX_FLUID_FS, SAG_FLUID_NOFS, COR_T1, SAG_T1]`. **Different
+   membership AND different order**, and `enc.tok.weight` is indexed by that order, so reusing our
+   table would condition every series on the wrong token and still run. **The good news: it is
+   free.** `build_study` selects on the competition's own `Anatomical_Plane` and `Fat_Suppression`
+   columns and takes `sub.iloc[0]` — one series per slot, first match. No `annotate()`, no header
+   parquet, no slot recovery. (`Fat_Suppression` being byte-identical to `Fluid_Sensitive` over all
+   24,371 series does not matter here — the arm was *trained* against this column as it stands.)
+3. **The pixel constants differ from pilkwang's and from `ft_b`'s.** `CROP_MM 130.0` (same),
+   **`SLICE_BAND (0.12, 0.88)`** against pilkwang's `(0.2, 0.8)`, `SIZE 336`, `N_SLICE 16`,
+   `INTENSITY 'slice'` (per-slice 1/99 percentile — note `ft_b` is per-*series* 0.5/99.5, and
+   mixing them is silent). `norm: 'none'`, so pixels are just `uint8 / 255` with **no ImageNet
+   normalisation** — again unlike `ft_b`. Laterality: flip in-plane iff `plane != 'Sagittal'` and
+   `ImagePositionPatient[0] < 0`; **sagittal is never flipped.**
+4. **Slice order is `int(InstanceNumber)` ascending — nothing geometric.** §2n measured
+   InstanceNumber at **56.9%** concordance with the true direction, but that is irrelevant to
+   *reproducing* this arm: it was trained on InstanceNumber order, so InstanceNumber order is
+   correct here and K16 must **not** be applied. This is the one place where our better instrument
+   is the wrong one to use.
+
+**And one fear that turns out to be unfounded.** §9h below calls the RoPE branch "the single
+highest-risk part — get it wrong and the model loads strict, runs, and is quietly wrong." **On
+timm 1.0.28 it is not quiet.** `ViTSlotToken.__init__` bumps `vit.num_prefix_tokens` *and* every
+block's `attn.num_prefix_tokens` by one; ablating the bump raises `RuntimeError: The size of
+tensor a (442) must match the size of tensor b (441)` immediately, because `EvaAttention.forward`
+applies rope to `q[:, :, npt:, :]` against a 441-entry table. Measured by ablation, not assumed.
+The branch is still copied verbatim — but it fails loudly, so it is not the thing to fear.
+
+**The remaining subtlety, which IS silent:** `Net.forward` keeps `torch.cat([f[:, :1],
+f[:, orig:]], 1)` = **CLS ++ slot_token ++ patches**. So `CodexResidualPool` pools CLS in `base`
+and attends over **the slot token together with the patches** in the delta. Dropping the slot
+token from the KV changes nothing about shapes and quietly changes the model.
+
+Everything below is established from `m_f0.pt` and the kernel source, and is confirmed by the
+transcription except where the four corrections above amend it.
 
 ```
 cfg: backbone vit_small_patch16_dinov3.lvd1689m · img 336 · n_slice 16 · stem 'native'
