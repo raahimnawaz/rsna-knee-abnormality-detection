@@ -45,6 +45,7 @@ measures the teacher rather than the target. Read it first; it reprices everythi
 | **3q** | **`tonylica` DROPPED** — free to run, loads strict into our pilkwang loader, but 0.788 vs 0.852 and *more* correlated (0.704). 3-arm blend −0.0089 |
 | **3p** | **THE LABELS WERE NEVER THE CEILING.** Teacher 0.898 vs model→teacher 0.849; a perfect learner of the FREE labels scores ~0.944 LB. All headroom is in 5 focal labels |
 | **3o** | **F6 IS GO.** Fold recovery validated at 87.8%; `ft_b` OOF **0.8522** vs pilkwang **0.8516**, Spearman **0.632**, **blend +0.0284** (100% of draws). §3n's degraded-path worry is disproved |
+| **3s** | **THE DINOv3 BLACK BOX IS OPENED, AND IT IS SIMPLER THAN ITS CONFIG.** Its two headline features are both nearly inert — the `xcodex` cross-attention is **gated to ~0.001** (deleting it: **+0.0003 macro**, 9.7% of forward) and slot conditioning enters at **2.1%** of a patch token. Slot ablation is **anatomically correct** (axial-fluid → Baker's 0.136) |
 
 ---
 
@@ -3520,3 +3521,120 @@ methods, both negative, on the instrument that matters. Strike §3.5 item 5.
 **NOT closed:** whether a model *trained* with a decorrelating objective would do better. That is a
 training-side question and this measurement says nothing about it — but note the prior is now
 poor, because the correlation the model over-expresses turns out to be mostly real.
+
+---
+
+## 3s. THE DINOv3 BLACK BOX, OPENED: ITS TWO HEADLINE FEATURES ARE BOTH NEARLY INERT `MEASURED 2026-08-13 late`
+
+`fusion/dinov3_audit.py`. Written because §2y and §3q both went wrong the same way — an arm that
+looked fine and did not earn its slot — and because §3f's audit of pilkwang reframed the plan.
+**Blending a model nobody has looked inside is how that repeats.**
+
+**What §9h's config advertises:** `pool: 'xcodex'` (a gated label-query cross-attention over patch
+tokens, on top of a CLS base) and `cond: 'token'` (per-slot-type conditioning injected into the
+encoder). Those are the two things that make this arm architecturally interesting. **Both are
+nearly inert, and each was measured two independent ways.**
+
+### 1. The `xcodex` cross-attention is gated OFF, and cutting it costs nothing
+
+`CodexResidualPool.forward` returns `base + gate * delta`, and `gate` is a (12,) parameter
+**initialised at 0.0**. Trained value, over all 12 labels × 5 folds:
+
+| | |
+|---|--:|
+| mean \|gate\| | **0.0010** |
+| max \|gate\| over every label and fold | **0.0138** |
+
+**It never left initialisation.** And it is not an unreachable branch — `readout.pool.q` moved
+from its 0.0200 init to 0.0237 and `db` from exactly 0 to std 0.0079, so gradients did flow. **The
+model was able to turn this on and chose not to.**
+
+**Ablation, 5 folds × 47 gold studies, paired on identical weights and studies:**
+
+| | gold macro |
+|---|--:|
+| delta kept | 0.86209 |
+| **delta deleted** | **0.86239** |
+| paired difference | **+0.00030** |
+
+max \|Δsigmoid\| **0.0547**, mean **0.0012** — so it does perturb individual probabilities, but it
+does not change the **ranking**, which is all macro-AUROC reads. **Cost of carrying it: 8.0 ms of
+an 82.5 ms forward (9.7%), and a materialised (1, 2210, 384) KV tensor at 3.4 MB fp32 per study.**
+
+⚠️ **§3b is not engaged and this is not a selection** — the comparison is a paired ablation on
+fixed weights, and the decision it licenses ("cut a branch that provably does nothing") does not
+depend on which side scored higher. But note the absolute 0.862 is an **all-member read and is
+biased up**; it is not comparable to pilkwang's honest 0.8516.
+
+### 2. Slot conditioning is a whisper, not a switch
+
+`enc.tok.weight` is (7, 384), row 0 the padding index (verified exactly zero). Two measurements:
+
+* **Magnitude at the point of insertion.** The slot token enters with L2 norm **0.391**, among 441
+  patch tokens of norm **18.4** and 5 prefix tokens of norm 2.9. That is **2.1% of one patch
+  token**, against 441 of them.
+* **Effect on the output.** Swapping the slot ids moves the logits **0.0568**, against a
+  fold-to-fold spread of **0.686** on identical input — about **8%** of a model swap.
+
+The tokens sit at per-element std **0.0198–0.0202** across all five folds, and the **same slot in
+two different folds has cosine ≈ 0** (+0.005, −0.034, +0.005, −0.065, +0.055, +0.058). So there is
+**no shared slot semantics** — each fold carries its own arbitrary small code. Whether they were
+initialised small or decayed there is not decidable from the weights alone; either way they are
+tags, not learned descriptions of an acquisition.
+
+### 3. So what the arm actually is
+
+Strip the two inert features and this is the whole model:
+
+```
+DINOv3 ViT-S/16 @336, 16 slices as input CHANNELS
+  -> CLS token per series
+  -> segment mean ++ max over the study's series, ++ presence embedding
+  -> LayerNorm -> Linear -> 12 logits
+```
+
+`base.2.weight` (12, 832) splits **42.5% mean / 51.0% max / 6.5% presence** overall, and the split
+is remarkably uniform across labels. **Max outweighs mean for every label except Synovitis**
+(47.6/45.8) — consistent with "does *any* series show this", which is what an abnormality read is.
+
+### 4. The reassuring part: its slot usage is anatomically correct
+
+Leave-one-slot-out, 47 gold studies × 5 folds, paired. `mean|Δp|` is the behavioural measure;
+**the ΔAUC column is NOT readable at n=47 and must not be used to pick anything (§3b).**
+
+| slot removed | ΔmacroAUC | mean\|Δp\| | most-affected labels |
+|---|--:|--:|---|
+| **AXI_FS** | −0.0415 | **0.0574** | **Baker's 0.136**, Synovitis 0.085, Effusion 0.084 |
+| SAG_FS | −0.0187 | 0.0445 | **ACL 0.066**, Synovitis 0.059, Medial Meniscus 0.058 |
+| COR_FS | −0.0166 | 0.0431 | Fracture 0.070, Medial Meniscus 0.057, ACL 0.048 |
+| SAG_NO | −0.0080 | 0.0515 | **PF OA 0.122**, Lateral OA 0.075, Medial Meniscus 0.061 |
+| COR_NO | +0.0021 | 0.0295 | Synovitis 0.067, Effusion 0.057, PF OA 0.054 |
+| **AXI_NO** | +0.0032 | **0.0079** | ACL 0.019, Baker's 0.012, Contusion 0.009 |
+
+**Every strong dependency is the anatomically right one.** Axial fluid-sensitive dominates
+**Baker's cyst, synovitis and effusion** — the fluid findings. Sagittal fluid-sensitive dominates
+**ACL**. Sagittal *structural* dominates **PF OA**. Coronal fluid-sensitive dominates **fracture
+and medial meniscus**. **A model that had learned a shortcut would not produce this table**, so
+this is the single strongest evidence we have that the arm is reading anatomy.
+
+**`AXI_NO` is barely used at all** — `mean|Δp|` **0.0079**, an order of magnitude below every other
+slot. It is also the rarest slot (present in 19.7% of studies, §9h). That is a *behavioural*
+finding, not a selection: the model hardly consumes that input.
+
+### What this licenses, and what it does not
+
+1. **Cut the delta branch.** Provably ranking-neutral, saves 9.7% of forward and 3.4 MB/study.
+   Modest in absolute terms — §9g established that a submission is **decode**-dominated — so this
+   is tidiness and headroom, not a score.
+2. **`AXI_NO` is a candidate to skip at decode time**, which *is* the dominant cost. But its ΔAUC
+   is +0.0032 on n=47, far inside gold's ±0.038 — **the behavioural claim is clean and the AUC
+   claim is not.** If this is done it must be justified by the 0.0079, and pre-registered.
+3. **⛔ It does NOT license "improve the arm by turning the delta back on" or "strengthen the slot
+   conditioning".** Those are *training-side* changes to someone else's frozen weights, i.e. a new
+   training run, and §3l-2 applies: gold, not report-OOF, and a pre-registered gate.
+4. **It raises the prior that this arm is genuinely diverse from pilkwang.** pilkwang pools
+   `cls_mean` over six *header-parsed* slots; this pools CLS mean+max over six *(plane ×
+   fluid-sensitive)* slots at a different resolution with a different pretraining corpus. Two
+   simple models over differently-partitioned inputs. **That is a reason to expect the blend to
+   pay — but §3q's bar still has to be cleared with a fold-resolved number, which does not exist
+   yet.**
