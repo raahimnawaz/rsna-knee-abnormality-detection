@@ -1,5 +1,5 @@
 {
-  "id": "raahimnawaz/rsna-knee-f6-two-arm",
+  "id": "raahimnawaz/rsna-knee-f6-two-arm-blend",
   "title": "RSNA Knee - F6 two-arm blend",
   "code_file": "rsna-knee-f6-two-arm.ipynb",
   "language": "python",
@@ -18,5 +18,7 @@
   ],
   "kernel_sources": [],
   "competition_sources": ["rsna-knee-abnormality-detection"],
-  "model_sources": ["metaresearch/dinov2/PyTorch/small/1"]
+  "model_sources": ["metaresearch/dinov2/PyTorch/small/1"],
+  "docker_image": "gcr.io/kaggle-private-byod/python@sha256:37c64f7dd9c54116ecd1bcc88817c5469b88387388fade02bfa8bf3fc647d461",
+  "machine_shape": "NvidiaTeslaT4"
 }
