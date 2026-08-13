@@ -27,8 +27,39 @@ Twelve-label knee-MRI classification, macro-AUROC. Final submission **2026-10-22
 > **Next: F3** — the only unblocked differentiator, and it needs no GPU, no quota and no pixel
 > path. **F1's +0.0023 is live but companionless.** **F4 is blocked on an arbiter, not on money.**
 
+> ### ⚠️ SUPERSEDED THE SAME AFTERNOON — `IMPROVEMENTS.md` §3l, 2026-08-13 pm
+>
+> The block above is kept for provenance; two of its premises are gone.
+>
+> 1. **THE FREE PUBLIC CEILING CLAIM EXPIRED IN 24 HOURS.** It was surveyed 08-12 and was true
+>    then. By 08-13 the field runs a **three-family** vote — 20-member DINOv2 + 5-fold **DINOv3
+>    ViT-S/16** + 5-fold **RadImageNet ResNet-50** + tonylica's 4-fold — all from **published,
+>    downloadable weights**. **We are at 0.899 running pilkwang alone.** A single independent
+>    5-fold DINOv2 **ViT-B/14 @336** (`sadamtorres/rsna-ft-b`, 1.61 GB) claims **0.883 solo**.
+>    **This is the strong-and-diverse member §2y proved we could not build ourselves** — our port
+>    had the diversity (rank corr 0.639) and lacked the strength. It is now a download.
+> 2. **`score_oof.py` MEASURES THE TEACHER, NOT THE TARGET.** It scores against a report-derived
+>    source; the board scores expert **image** reads. A model that gets better at *seeing* departs
+>    from the report exactly where the report was wrong, so **real vision gains are partly booked
+>    as disagreement**. An independent competitor measured the amplification at **3–5×** and
+>    nearly archived their best model on it.
+> 3. **NEW INSTRUMENT: `fusion/score_gold.py`.** pilkwang on the 58 image-read studies =
+>    **0.8400**, and **gold + 0.046 predicts the LB across four independent systems** (ours is the
+>    fourth, offset +0.051). A ~2 h submission becomes a 0 s local read **for direction questions
+>    only** — §3b's ban on *selecting* on 58 studies is unrepealed. Routing rule in §3l.
+> 4. **Lateral Meniscus is 0.642 on gold, not the 0.767 §3f reported** — nearly double the
+>    headroom. **Synovitis looked 3rd best (0.886) and is 3rd worst (0.742).** Four of twelve
+>    labels put the report reading outside the gold CI; chance gives ~0.6.
+>
+> **Next is no longer F3. It is F6: blend the free diverse arms** — biggest measurable move on
+> the board, needs no training run, and `score_gold.py` can price it before a submission is spent.
 
-> # WE ARE AT 0.899, AND THE FREE PUBLIC CEILING IS NOW REACHED
+
+> # WE ARE AT 0.899 — ~~AND THE FREE PUBLIC CEILING IS NOW REACHED~~
+>
+> **⛔ THE STRUCK CLAUSE IS FALSE AS OF 2026-08-13 pm (§3l-1).** It held for one day. The public
+> field added two model families with published weights while this heading said the ceiling was
+> reached. Read §3l before planning anything off this section.
 >
 > **Banked: submission `55465252` = 0.899** (was 0.891). Top **0.946**, 10th/prize **0.935**.
 > **Read `PLAN.md` §9a for the F-series — that is the current plan.** The E-series is closed.

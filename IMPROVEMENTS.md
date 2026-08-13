@@ -3302,3 +3302,138 @@ reference on a comparable set. **The reconstruction reproduces their OOF to with
 AUC level**, because per-prediction noise averages out of a ranking metric. So the instrument was
 good enough for this question after all, and §3j's neutrality test was measuring the right thing.
 The pixel path is imprecise per study and sound in aggregate.
+
+---
+
+## 3l. THE PUBLIC CEILING CLAIM EXPIRED IN 24 HOURS, AND OUR INSTRUMENT MEASURES THE WRONG TARGET `MEASURED 2026-08-13 pm`
+
+Two findings, one surveyed and one measured here. The first says the strategy is wrong; the
+second says the *instrument that produced the strategy* is pointed at the wrong quantity.
+
+### 3l-1. Three strong, architecturally diverse arms became free downloads, and we are still running one config
+
+`README`'s standing claim — *"the free public ceiling is reached, the whole public field sits in
+0.891–0.900, everything from here must be something the field does not already have"* — was read
+**2026-08-12** and was **false by 2026-08-13**. Surveyed live from kernel *source*, not
+descriptions:
+
+| arm | what it is | LB (author's claim) | where | size |
+|---|---|--:|---|--:|
+| `sadamtorres/rsna-ft-b` | DINOv2 **ViT-B/14 @336**, 5-fold fine-tune, backbone+head per ckpt | **0.883 solo** | Kaggle Dataset | 1.61 GB |
+| `sadamtorres/rsna-ft-a` | same recipe @224, the efficiency arm | 0.866 solo | Kaggle Dataset | 1.61 GB |
+| `mattiaangeli/knee-mri-fold-weights` | **DINOv3 ViT-S/16**, 5-fold, fine-tuned on this comp | — | Kaggle Dataset | 439 MB |
+| `mattiaangeli/rsna-knee-radimagenet-foldsv1-heads` | **RadImageNet ResNet-50** heads, 5-fold | — | Kaggle Dataset | 58 MB |
+| `tonylica` 4-fold bundle | independent 4-fold, joins the vote | — | Kaggle Dataset | — |
+
+`romantamrazov/rsna-knee-dinosaur-v2` and `mattiaangeli/bend-the-knee-to-dinov3-ensembled` both
+run a **three-family** vote — 20-member DINOv2 + 5-fold DINOv3 + 5-fold RadImageNet — plus
+tonylica. **We are at 0.899 running pilkwang alone.**
+
+**This is the exact lever §2y said we lacked and could not build.** §2y closed our port as a
+member because it was too *weak* (0.7323 vs 0.8434) — never because it lacked diversity; its rank
+correlation was **0.639**, which is real. The missing piece was a diverse arm that is also
+**strong**. `rsna-ft-b` is 0.883 solo against pilkwang's 0.891 solo, trained independently, on a
+different backbone, at a different resolution, on different labels. That is the member the
+project has been trying to manufacture for a week, and it is a 1.6 GB download.
+
+Corroborating price from `sadamtorres`, measured on their own two arms: models correlated at
+**0.901** — far *more* correlated than these families will be — gained **+0.006** from a rank-mean
+of just two. And they name the rule: **rank-mean, never probability-mean**, because AUC reads
+order and averaging sigmoids lets the most confident member dominate.
+
+**This is [[check-whats-free-first]] failing on a 24-hour timescale.** The claim was not lazily
+made — it was surveyed on 08-12 and correct then. The lesson is not "survey harder", it is that
+in a live competition **a ceiling claim has a shelf life measured in days**, and this repo writes
+them as if they were structural.
+
+### 3l-2. `score_oof.py` measures the teacher, not the target — and it is biased against exactly the gains we want
+
+`score_oof.py` scores against `lixin_gpt56`, a **report-derived** source. The leaderboard scores
+against expert **image** reads. §3e already had the gap on our own anchor — 0.8434 local vs 0.891
+LB — and recorded it as *"nothing here has established the slope"*. The mechanism, stated by an
+independent competitor and consistent with everything in `REFERENCE.md` §2.1:
+
+> Report and image disagree irreducibly ~10–15% of the time, so a report-derived reference has a
+> ceiling near 0.88–0.90. When a model gets better at **seeing the knee**, it departs from the
+> report labels precisely on the studies where the report was wrong. A real vision gain is
+> partly booked as disagreement with the teacher.
+
+Their measured amplification, same weights, two instruments: OOF **+0.0035 → LB +0.017**, and
+frozen→fine-tuned OOF **+0.035 → LB +0.090**. Roughly **3–5×**. They nearly archived their best
+model on a +0.010 OOF gate it missed at +0.0035; run in full it scored 0.883.
+
+**Measured here, new: `fusion/score_gold.py`.** pilkwang's shipped OOF scored on the 58 image-read
+studies:
+
+    gold-58 macro 0.8400   95% CI [0.7994, 0.8752]   (+-0.0379)
+    implied offset gold -> LB = +0.0510   (known LB 0.891)
+
+**That is the fourth independent (gold, LB) pair, and they agree:**
+
+| system | gold-58 | LB | offset |
+|---|--:|--:|--:|
+| `sadamtorres` stage A | 0.824 | 0.866 | +0.042 |
+| **pilkwang 20-member (ours, measured here)** | **0.840** | **0.891** | **+0.051** |
+| external, different architecture | 0.857 | 0.903 | +0.046 |
+| *(`sadamtorres` frozen baseline)* | *0.771* | *0.776* | *+0.005* |
+
+Mean of the three competitive systems **+0.046, spread ±0.005** — smaller than the ±0.038 the 58
+studies impose, i.e. consistent with a constant. **`GOLD_TO_LB = 0.046` turns a ~2 h submission
+into a 0 s local read** for any question big enough to clear the noise. The frozen baseline is
+the outlier at +0.005; note it is also the only *non-competitive* system, so do not extrapolate
+the constant below ~0.82. Their own writeup asserts all systems "landed 0.044 above" — **their
+first row does not, at +0.005. The claim as written is contradicted by their own table**; it is
+the two competitive rows plus our own that carry it.
+
+### 3l-3. The per-label picture is DIFFERENT on the two instruments, and the difference is systematic
+
+| label | report-OOF (§3f) | **gold-58** | gold 95% CI | |
+|---|--:|--:|---|---|
+| Lateral Meniscus | 0.767 | **0.642** | [0.493, 0.781] | worst on both, and far worse than believed |
+| Lateral OA | 0.829 | **0.708** | [0.477, 0.899] | |
+| Synovitis | 0.886 | **0.742** | [0.606, 0.873] | **report OUTSIDE CI — looked 3rd best, is 3rd worst** |
+| PF OA | 0.822 | 0.801 | [0.657, 0.919] | |
+| Medial OA | 0.872 | 0.950 | [0.891, 0.990] | **report OUTSIDE CI, understates** |
+| Effusion | 0.855 | 0.943 | [0.874, 0.989] | **report OUTSIDE CI, understates** |
+| Baker's | 0.887 | 0.955 | [0.890, 1.000] | **report OUTSIDE CI, understates** |
+| Fracture | 0.898 | 0.894 | [0.792, 0.975] | agrees |
+
+**Four of twelve labels put the report reading outside the gold 95% CI. Chance would give ~0.6.**
+So the instruments differ **systematically**, not noisily — and the direction is the severity
+thesis (`REFERENCE.md` §2.1) showing up in the data: the report instrument *understates* the
+diffuse findings a report mentions casually (Medial OA, Effusion, Baker's) and *overstates*
+Synovitis.
+
+**Per-label gold numbers are indicative only** — 9–35 positives, half-widths ±0.10 to ±0.24. The
+claim these can carry is the count of CI violations, not any single label's value. **§3b is
+unrepealed: never SELECT on these 58.** What changes is that gold can now judge a *direction*,
+with a known offset, for free.
+
+### 3l-4. What this does to F2, honestly
+
+**§3k's crop A/B was scored entirely through `score_oof.py`, on 592 NON-GOLD studies** — i.e.
+entirely in the currency 3l-2 says is biased against a vision gain, and entirely off the set
+3l-3 says reads Lateral Meniscus 0.125 lower than believed.
+
+**This does not resurrect F2.** −0.0117 at 3.9σ for crop-90 is a large negative, and a bias that
+*understates gains* does not manufacture a loss of that size. But the crop was aimed at Lateral
+Meniscus, whose true headroom is **0.642, not 0.767** — nearly double what motivated it — and it
+was judged on the one instrument that cannot see the target. **The cheap check: re-run the same
+A/B on the 58 gold studies.** The pixel path exists, it is 58 studies rather than 592, and the
+members' fold assignment is in the manifest — call it ~30 min against the 5.2 h the original
+cost. Pre-register the sign test before running it. If the sign flips, F2 is alive and this
+repo's whole gating methodology needs revision; if it does not, F2 is dead on both instruments
+and that is worth knowing for the price.
+
+### The standing correction
+
+**Every "+0.002 gate" decision in this repo was priced in the wrong currency.** The gate itself
+is not wrong — the board is the only thing that settles a +0.002 — but the *routing* rule is now:
+
+* **`score_oof.py` (n=2,612, ±0.005)** — did this run break; which epoch; fixed-target A/Bs.
+* **`score_gold.py` (n=58, ±0.038, +0.046 → LB)** — is this direction worth pursuing.
+* **the board (~2 h, ~15/week)** — settle anything under ~0.02.
+
+Using the first where the second belongs is the fifth instance of the error class §2s named:
+**the instrument entangled with the thing it measures.** The other four were caught after the
+run. This one was caught after a *fortnight of runs*.

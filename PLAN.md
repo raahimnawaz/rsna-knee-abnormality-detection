@@ -557,8 +557,16 @@ track we have most invested in. Path 2 is not reachable without it. Build it fir
 
 ## 9a. THE CURRENT PLAN — F-series `2026-08-12, supersedes the E-series above`
 
-**State: 0.899 banked (submission 55465252). Top 0.946, 10th 0.935. The free public ceiling is
-reached — everything from here must be something the field does not already have.**
+**State: 0.899 banked (submission 55465252). Top 0.946, 10th 0.935.** ~~The free public ceiling is
+reached — everything from here must be something the field does not already have.~~
+
+> **⛔ THE STRUCK SENTENCE IS FALSE — `IMPROVEMENTS.md` §3l-1, 2026-08-13 pm.** It was surveyed
+> 08-12, true then, and dead within a day. The field now runs a **three-family** vote from
+> **published weights** (DINOv2 20-member + DINOv3 ViT-S/16 5-fold + RadImageNet ResNet-50 5-fold
+> + tonylica); we run **pilkwang alone**. **F6 below is the consequence and it outranks F1–F5.**
+> Also from §3l: the instrument that ranked this table (`score_oof.py`) measures a report-derived
+> teacher rather than the board's image reads, so **every ordering here was priced in the wrong
+> currency** — see §3l's routing rule and `fusion/score_gold.py`.
 
 Ordered by expected value per hour, cheapest first. **Costs are real: a submission is ~2 h of the
 30 h weekly quota (§3e), not the 74 s this plan believed twice.**
@@ -569,6 +577,7 @@ Ordered by expected value per hour, cheapest first. **Costs are real: a submissi
 | **F2** | Anatomical crops at the posterior horn of the lateral meniscus | — | **⛔ CHEAP FORM DEAD (§3k): −0.0031 paired, crop-90 alone −0.0117 at 3.9σ, and Lateral Meniscus itself fell 0.0071.** The founding assumption is disproved — the discarded field of view is *not* irrelevant. Classic form is damaged, not refuted: training removes the domain shift, not the lost context. **Needs a new mechanism to reopen.** |
 | **F3** | **Metadata conditioning** — screen on `data/features_*` | hours, CPU/MPS | **NEXT, and now the only unblocked differentiator.** No GPU, no quota, no pixel path, no gate. Sex and field strength are the arms that matter; manufacturer is largely already captured by F1's site prior (§3f). See 9c. |
 | **F4** | Severity-thresholded label read | ~$ of API + submissions | **BLOCKED ON AN ARBITER, not on money.** Gold-58 cannot select (§3b); report-OOF cannot arbitrate a label-*source* change because the reference is itself a label source (§2s). Candidates: the rule extractor as a symmetric referee (§2s-g), or the leaderboard — which at ~15 runs/**week** is more affordable than §2s assumed when it retracted that idea. **Settle this before spending anything.** |
+| **F6** | **Blend the free diverse arms** — `sadamtorres/rsna-ft-b` (ViT-B/14 @336, 0.883 solo), `mattiaangeli/knee-mri-fold-weights` (DINOv3 ViT-S/16), `rsna-knee-radimagenet-foldsv1-heads`, tonylica | ~3.5 GB download + local scoring + **1 submission** | **DO THIS FIRST (§3l-1).** The strong-AND-diverse member §2y proved we cannot build — our port had rank corr 0.639 and lacked only strength. Rank-mean, never probability-mean. Price it on `score_gold.py` *before* spending the submission. Two arms correlated at 0.901 gained +0.006 for the author; these families are far less correlated than that. |
 | **F5** | Efficiency track | TBD | **PROMOTED.** $18,000 over three places, thinner field, untouched since §2t-4 — and §3k left behind the capability that makes it measurable: the fork's 20 members now run locally with verified fidelity, so member-count, window-count and resolution trade-offs can be priced **offline** instead of at 2 h a submission. Note §3e: the 74 s is forward passes only, real runtime is dominated by DICOM decode. |
 
 ### 9b. F2 — why the crop, and why anatomy rather than saliency
