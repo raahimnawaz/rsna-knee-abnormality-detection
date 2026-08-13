@@ -35,6 +35,10 @@ WHAT IT DOES NOT BUY, AND THIS IS 3b's RULE, UNREPEALED. n=58 gives a macro half
     "Is a second model family worth adding" is such a question. "Is this +0.002 tweak worth it"
     is not, and no local instrument can answer that one -- that is what the board is for.
 
+CORRECTNESS CHECK, and it is free: `--paired fusion/runs_pilkwang fusion/runs_baseline` restricts
+to the 37 gold studies `runs_baseline` covers and reads the frozen baseline at **0.7465** --
+**exactly §2j's gold-37 number**. If that stops reproducing, this scorer has drifted, not the arm.
+
 PER-LABEL READINGS ARE INDICATIVE ONLY. 9-35 positives per label means half-widths of +-0.10 to
 +-0.24. 3l uses them only for the one claim they can carry: that four labels put the report
 reading OUTSIDE the gold CI, which is more than the ~0.6 labels chance would give, so the two
@@ -138,10 +142,18 @@ def main() -> None:
     g = gold_frame()
 
     if a.paired:
-        ya, pa = align(*load_arm(a.paired[0]), g)
-        yb, pb = align(*load_arm(a.paired[1]), g)
-        if len(ya) != len(yb):
-            raise SystemExit("arms cover different gold studies; paired read is invalid")
+        ia, pa_all = load_arm(a.paired[0])
+        ib, pb_all = load_arm(a.paired[1])
+        # Paired means SAME studies in both arms. Arms legitimately differ in coverage --
+        # runs_baseline is gold-37, pilkwang is gold-58 -- so intersect rather than refuse,
+        # and print n, because a paired delta read on a different n is a different quantity.
+        shared = g.index.intersection(pd.Index(ia)).intersection(pd.Index(ib))
+        if len(shared) < 20:
+            raise SystemExit(f"only {len(shared)} shared gold studies; too few to read")
+        gs = g.loc[shared]
+        print(f"paired on {len(shared)} shared gold studies")
+        ya, pa = align(ia, pa_all, gs)
+        yb, pb = align(ib, pb_all, gs)
         ma = report(a.paired[0], ya, pa, a.per_label)
         mb = report(a.paired[1], yb, pb, a.per_label)
         rng = np.random.default_rng(0)
