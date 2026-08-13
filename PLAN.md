@@ -41,7 +41,7 @@ a submission is **~2 h of the 30 h weekly quota** (§3e), not the 74 s this plan
 | **F3** | **Metadata conditioning** — screen on `data/features_*` | hours, CPU/MPS | **Still unblocked, no longer first.** No GPU, no quota, no pixel path. Sex and field strength are the arms that matter; manufacturer is largely captured by F1's site prior (§3f). **Note §3l-3 re-ranks its targets** — Synovitis and Lateral OA are far worse on gold than §3f believed. See §9c. |
 | **F5** | Efficiency track | TBD | **PROMOTED.** $18,000 over three places, thinner field, untouched since §2t-4 — and §3k left behind the capability that makes it measurable: the fork's members run locally with verified fidelity, so member-count, window-count and resolution trade-offs price **offline** instead of at 2 h a submission. `sadamtorres` publishes the break-even: **+0.044 AUC per extra hour**, and their @224 arm is the efficiency play at 0.866/3 h. |
 | **F4** | Severity-thresholded label read | ~$ of API + submissions | **BLOCKED ON AN ARBITER, not on money.** Gold-58 cannot select (§3b); report-OOF cannot arbitrate a label-*source* change because the reference is itself a label source (§2s). Candidates: the rule extractor as a symmetric referee (§2s-g), or the board at ~15 runs/**week**. **§3l-2 weakens the objection** — gold now carries a measured LB offset, so it estimates rather than merely evaluates. **Settle the arbiter before spending anything.** |
-| **F2** | Anatomical crops at the lateral posterior horn | — | **⛔ CHEAP FORM DEAD (§3k)** — see §9b. One open thread: §3k was scored entirely in the wrong currency and off the gold set (§3l-4). A ~30 min re-read on the 58 settles it. **Pre-register the sign test.** |
+| **F2** | Anatomical crops at the lateral posterior horn | — | **⛔ CLOSED, BOTH INSTRUMENTS (§3k + §3m).** The §3l-4 thread was the last live objection and it ran: pre-registered gold-47 re-read gives **C − A = −0.0038** against report-OOF's −0.0032. **Its own target moved −0.0055.** No open threads. Do not reopen without a new *mechanism*. |
 
 
 ### 9e. F6 — the free diverse arms `NEW 2026-08-13 pm, IMPROVEMENTS.md §3l-1`
@@ -148,11 +148,14 @@ looking at the lateral posterior horn, so its own attention will not point there
 competition ships no bounding boxes, only study-level labels. Geometry places the region instead
 — §2l's in-plane axes are canonical **132/132**.
 
-**The one open thread (§3l-4).** §3k was scored entirely through the report instrument and
-entirely off the gold set, against a target whose true headroom is **0.642, not 0.767**. That
-does not resurrect it — a bias that *understates gains* cannot manufacture −0.0117 at 3.9σ — but
-the ~30 min re-read on the 58 gold studies is cheap and settles it on both instruments.
-**Pre-register the sign test first.**
+**⛔ THE LAST OPEN THREAD RAN AND CLOSED IT — §3m, 2026-08-13 pm.** §3l-4 objected that §3k was
+scored entirely through the report instrument and off the gold set, against a target whose true
+headroom is 0.642 rather than 0.767. Pre-registered, then run on the 47 gold studies with NIfTI
+coverage: **C − A = −0.0038** against report-OOF's −0.0032, **B − A = −0.0160** against −0.0117.
+Same sign, same size, in the currency the board actually pays in. **Lateral Meniscus — the label
+the whole route was shaped for — reads 0.6923 and the crop moved it −0.0055.**
+
+**F2 has no remaining threads.** Reopening needs a new *mechanism*, not a new instrument.
 
 ### 9c. F3 — the model is never told anything but pixels
 

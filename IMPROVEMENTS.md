@@ -39,6 +39,7 @@ measures the teacher rather than the target. Read it first; it reprices everythi
 | 3g / 3h / 3i / 3j | The fingerprint checks weights not pixels · slots reconstruct, `merge_gain` doesn't pay · **the gate misses at 0.0168, slice ORDER is the mechanism** · the defect is neutral to the crop |
 | **3k** | **F2-cheap is DEAD.** −0.0031 paired, crop-90 −0.0117 at 3.9σ. The discarded field of view is *not* irrelevant |
 | **3l** | **The ceiling claim expired in a day; `score_oof.py` measures the teacher.** New `score_gold.py`: gold + 0.046 → LB, across four systems |
+| **3m** | **F2 closed on BOTH instruments** (gold C−A = −0.0038 vs report −0.0032) — and §3l-2's amplification is narrowed to **training-side** changes only |
 
 ---
 
@@ -3084,3 +3085,66 @@ is not wrong — the board is the only thing that settles a +0.002 — but the *
 Using the first where the second belongs is the fifth instance of the error class §2s named:
 **the instrument entangled with the thing it measures.** The other four were caught after the
 run. This one was caught after a *fortnight of runs*.
+
+---
+
+## 3m. THE §3l-4 GOLD RE-READ: F2 IS DEAD ON BOTH INSTRUMENTS, AND §3l-2's SCOPE IS NARROWER THAN IT LOOKED `MEASURED 2026-08-13 pm`
+
+**Pre-registered in `fusion/crop_ab.py`'s docstring and committed before the run** (`--gold`).
+Same three arms, `pool_arm_c` untouched, studies in fixed id order — no seed, nothing to re-draw.
+The only change is the reference: **expert image reads instead of a report-derived teacher.**
+
+    GOLD RE-READ: 47 of 58 gold studies have full NIfTI coverage
+    recovered fold partition: 0:9  1:10  2:5  3:8  4:15
+
+| arm | gold-47 | Δ vs A | paired | report-OOF n=592 (§3k) |
+|---|--:|--:|---|--:|
+| **A** crop 130 only | **0.8516** | — | — | 0.8457 |
+| **B** crop 90 only | 0.8356 | **−0.0160** | −1.3σ, positive in 8% of draws | −0.0117 |
+| **C** 130 + 90 per target | 0.8478 | **−0.0038** | −0.5σ, positive in 31% of draws | −0.0031 |
+
+### The pre-registered rule fires, and it fires for closure
+
+The committed rule was: **C − A > 0 reopens F2; C − A ≤ 0 closes it permanently on both
+instruments.** C − A = **−0.0038**. **F2 IS CLOSED.** Not "closed pending" — the §3l-4 objection
+was the last live thread on it and it is now answered rather than left hanging.
+
+Read the significance honestly: at n=47 neither delta clears its own noise (−0.5σ, −1.3σ), so the
+gold read alone says *"no detectable difference"*, not *"a detected loss"*. That was anticipated in
+the pre-registration and it does not matter, **because the route needed a positive and got a
+negative point estimate in both currencies.** A null closes a route that required a gain.
+
+**Its own target does not respond.** Lateral Meniscus on these 47 reads **0.6923** under arm A —
+the label with the most headroom on the board — and the crop moved it **−0.0055**. The
+intervention shaped for this label, evaluated on the instrument that can actually see the label,
+still fails to move it.
+
+### The finding that outlives F2: §3l-2's amplification is a TRAINING-side effect
+
+**The two instruments agree at the macro level to 0.0006** (−0.0032 report, −0.0038 gold) and on
+the second arm to 0.0043. That is much closer agreement than §3l-2 would predict if the
+report-instrument bias applied to everything.
+
+**So narrow the claim.** §3l-2's measured 3–5× amplification came from changes that make the model
+**see better by training** — frozen → fine-tuned (+0.035 → +0.090), 224 → 336 (+0.0035 → +0.017).
+This arm changes **no weights at all**: it re-crops the input to frozen members. Where a change
+cannot move what the model has learned, it cannot produce the "departs from the teacher where the
+teacher was wrong" effect, and the two references measure the same thing.
+
+**Consequence, and it is reassuring rather than alarming:** the inference-side A/Bs already
+decided on `score_oof.py` — **§3d's pooling, §3h-2's `merge_gain`, §2z's blend weights** — are
+**not** called into question by §3l-2. What remains in question is everything that trains: the
+port, F3, F4, and any future arm. **Update the routing rule accordingly** — `score_oof.py` is
+sound for inference-side questions on fixed weights, and suspect the moment weights change.
+
+### Do NOT read the per-label gold deltas
+
+Sign agreement between the two instruments is **6 of the 8 labels arm C actually changes**, and
+the Pearson correlation of their per-label deltas is **−0.013 — i.e. nothing.** At 9–35 positives
+per label on 47 studies these are noise, exactly as §3l-3 warned. The macro is the only number
+this run supports. Recording it because the temptation to mine the +0.0244 on Medial Meniscus is
+precisely §3b's failure, and this file has now watched that temptation arrive three times.
+
+**Three of twelve labels move by exactly 0.0000** (Effusion, Synovitis, Baker's) — those are the
+peripheral findings `pool_arm_c` keeps on crop-130 by construction, so the pooling rule is
+confirmed to have executed as specified rather than by accident.

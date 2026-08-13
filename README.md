@@ -47,8 +47,8 @@ Getting this wrong is the error class §2s named, and it has now cost **five** m
 
 | instrument | n | precision | use it for |
 |---|--:|--:|---|
-| `fusion/score_oof.py` | 2,612 | ±0.005 | did this run break; epoch choice; **fixed-target** A/Bs |
-| **`fusion/score_gold.py`** | 58 | ±0.038 | **is this direction worth pursuing** — sign only, `+0.046` → LB |
+| `fusion/score_oof.py` | 2,612 | ±0.005 | did this run break; epoch choice; **inference-side A/Bs on frozen weights** — §3m shows it agrees with gold to 0.0006 there |
+| **`fusion/score_gold.py`** | 58 | ±0.038 | **is this direction worth pursuing** — sign only, `+0.046` → LB. **Required whenever weights change** |
 | the leaderboard | — | ~2 h, ~15/week | anything under ~0.02 |
 
 **§3b is unrepealed: never SELECT on the 58.** A weight chosen there claims +0.0137 and delivers
@@ -62,7 +62,7 @@ the instruments differ **systematically**. Direction is the severity thesis (`RE
 
 | label | report-OOF (§3f) | **gold-58** | |
 |---|--:|--:|---|
-| Lateral Meniscus | 0.767 | **0.642** | worst on both — **headroom is nearly double** what motivated F2 |
+| Lateral Meniscus | 0.767 | **0.642** | worst on both, and **§3m shows the crop still cannot move it** (−0.0055 on gold) |
 | Lateral OA | 0.829 | **0.708** | |
 | Synovitis | 0.886 | **0.742** | **looked 3rd best, is 3rd worst** |
 | Medial OA / Effusion / Baker's | 0.872 / 0.855 / 0.887 | 0.950 / 0.943 / 0.955 | report *understates* the diffuse findings |
@@ -77,7 +77,7 @@ Each was measured, not argued. The section named is where the evidence lives.
 | route | verdict | where |
 |---|---|---|
 | our port as an ensemble member | **no weight helps**, −0.111 at 15.4σ | §2y |
-| crops as extra TTA windows (F2-cheap) | **−0.0031 paired; crop-90 alone −0.0117 at 3.9σ** | §3k |
+| crops as extra TTA windows (F2-cheap) | **DEAD ON BOTH INSTRUMENTS.** report −0.0031; **gold-47 −0.0038**, pre-registered | §3k, §3m |
 | blending the fork's shipped `merge_gain` arm | +0.0007, 0/12 labels | §3h-2 |
 | K16 from DICOM header rules | 56.9–60.8% vs ~50% chance; resolved by *measurement* | §2n, §2m |
 | our rule extractor as a label source | **last of six**, 0.777 vs a free 0.893, 0/12 labels | §2f |
