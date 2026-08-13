@@ -41,6 +41,7 @@ measures the teacher rather than the target. Read it first; it reprices everythi
 | **3l** | **The ceiling claim expired in a day; `score_oof.py` measures the teacher.** New `score_gold.py`: gold + 0.046 → LB, across four systems |
 | **3m** | **F2 closed on BOTH instruments** (gold C−A = −0.0038 vs report −0.0032) — and §3l-2's amplification is narrowed to **training-side** changes only |
 | **3n** | **`ft_b` loads, runs, and passed its gate at 0.9015 — but the gate certifies nothing.** All-member gold reads inflate **+0.1474**; fold-resolved read still owed |
+| **3q** | **`tonylica` DROPPED** — free to run, loads strict into our pilkwang loader, but 0.788 vs 0.852 and *more* correlated (0.704). 3-arm blend −0.0089 |
 | **3p** | **THE LABELS WERE NEVER THE CEILING.** Teacher 0.898 vs model→teacher 0.849; a perfect learner of the FREE labels scores ~0.944 LB. All headroom is in 5 focal labels |
 | **3o** | **F6 IS GO.** Fold recovery validated at 87.8%; `ft_b` OOF **0.8522** vs pilkwang **0.8516**, Spearman **0.632**, **blend +0.0284** (100% of draws). §3n's degraded-path worry is disproved |
 
@@ -3388,3 +3389,62 @@ Lateral Meniscus is worst on both axes at once: largest gap **and** lowest model
    largest gap. §3k/§3m closed the crop; they did not close the target.
 3. **F6 and model capacity are the whole game.** This is the third finding in one day pointing the
    same way (§3l-1 free arms, §3o the blend gains +0.028, §3p the ceiling is the model).
+
+---
+
+## 3q. `tonylica` IS FREE TO RUN AND DOES NOT EARN ITS SLOT `MEASURED 2026-08-13 pm`
+
+`fusion/tonylica_arm.py`. **No new architecture was needed** — its four checkpoints load **strict**
+into our existing `pilkwang_model.build_model(pool='cls_mean_focal', prior=True)`; 233 of 234 keys
+matched pilkwang on first comparison, the only extra being `head.slot_prior`. Same six slots, so
+`pilkwang_pixels.build_cache` is the pixel path. Its contract, from the checkpoint's own
+`cache_metadata`: **img 224, crop_mm 160, 9 slices, and `n_group == n_group_max == 3`, i.e. THREE
+NON-OVERLAPPING windows** rather than pilkwang's ten sliding ones.
+
+### The gate — and I got its form wrong first, exactly as in §3n
+
+The all-member read is **0.9855 / 0.9792 / 0.9914 / 0.9928, and 1.0000 for the four-fold mean.**
+That is not a score, it is the memorisation signature again — every fold trained on three quarters
+of the gold studies. **I stated the gate as "a single member near 0.76" and then compared an
+all-member read against their OOF number, which is the §3n error a second time in one day.**
+
+Fold-resolved through `fusion/fold_recover.py` (partition `[15 13 10 9]`, **χ² 1.94 on 3 df,
+flat**):
+
+    tonylica held-out-fold OOF ....... 0.7880   (ceiling; recovery bias is upward)
+    their shipped `annot` mean ....... 0.7620
+
+**The gate passes on that comparison** — we land just above their reported number, in the
+direction the bias predicts. The transcription and the three-window reading are right.
+
+### It is weaker AND less diverse, which is the profile that cannot pay
+
+| arm | gold-47 OOF | Spearman vs pilkwang |
+|---|--:|--:|
+| pilkwang | 0.8516 | — |
+| `ft_b` | 0.8522 | **0.632** |
+| **`tonylica`** | **0.7880** | **0.704** |
+
+| blend | gold-47 |
+|---|--:|
+| 2-arm, pilkwang + `ft_b` | **0.8800** |
+| 3-arm, + `tonylica` | 0.8711 — **−0.0089** |
+
+Paired bootstrap of the 3-arm against the 2-arm: **−0.0000, 95% CI [−0.0212, +0.0205], positive
+in 50% of draws.** Dead centre.
+
+**Decision: DROP `tonylica`.** Two independent reasons agree, which is the only safe way to make
+this call given §3b forbids selecting on 47 studies:
+
+1. **The prior.** It is **0.064 below** the other two arms and **more correlated** with pilkwang
+   than `ft_b` is (0.704 vs 0.632). Weaker *and* more redundant is the one combination that cannot
+   help — §2y's port failed the same test at −0.111.
+2. **The measurement.** Negative point estimate, and a CI straddling zero symmetrically, i.e. no
+   detectable benefit at this n.
+
+Had the two disagreed, §3b would bind and the prior would win.
+
+**The public notebooks fold this arm into their 24-member vote and never measured whether it earns
+the slot.** Being free to run is not a reason to include it. Recorded because the same reasoning
+applies to RadImageNet, which is also a frozen-encoder arm (§2e's weak configuration) and should
+be held to the same bar rather than added because it exists.
