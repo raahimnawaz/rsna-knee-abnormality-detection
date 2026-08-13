@@ -30,6 +30,11 @@ reached — everything from here must be something the field does not already ha
 > Also from §3l: the instrument that ranked this table (`score_oof.py`) measures a report-derived
 > teacher rather than the board's image reads, so **every ordering here was priced in the wrong
 > currency** — see §3l's routing rule and `fusion/score_gold.py`.
+>
+> **⛔ AND §3p RETIRES THE THESIS THIS WHOLE TABLE WAS BUILT ON.** "Every public team shares a
+> label ceiling" is **false**: the free tables score **0.898 gold → LB 0.944**, the board top is
+> **0.946**, and our model reproduces its own labels at only **0.849**. **Model capacity is the
+> binding constraint, not labels.** F4 falls; F6 and Workstream C rise.
 
 **Ordered by expected value, biggest first — this ordering changed on 08-13 pm.** Costs are real:
 a submission is **~2 h of the 30 h weekly quota** (§3e), not the 74 s this plan believed twice.
@@ -40,7 +45,7 @@ a submission is **~2 h of the 30 h weekly quota** (§3e), not the 74 s this plan
 | **F1** | Site-prevalence prior at K=10, w=0.10 (+0.0023, §3f) | rides with F6 | **LIVE, and it now has its companion.** It was stranded when F2 died; **ship it inside F6's submission**, not alone. Rank decays ~170 places in 3 days for doing nothing (§2x), so sitting on it also costs. |
 | **F3** | **Metadata conditioning** — screen on `data/features_*` | hours, CPU/MPS | **Still unblocked, no longer first.** No GPU, no quota, no pixel path. Sex and field strength are the arms that matter; manufacturer is largely captured by F1's site prior (§3f). **Note §3l-3 re-ranks its targets** — Synovitis and Lateral OA are far worse on gold than §3f believed. See §9c. |
 | **F5** | Efficiency track | TBD | **PROMOTED.** $18,000 over three places, thinner field, untouched since §2t-4 — and §3k left behind the capability that makes it measurable: the fork's members run locally with verified fidelity, so member-count, window-count and resolution trade-offs price **offline** instead of at 2 h a submission. `sadamtorres` publishes the break-even: **+0.044 AUC per extra hour**, and their @224 arm is the efficiency play at 0.866/3 h. |
-| **F4** | Severity-thresholded label read | ~$ of API + submissions | **BLOCKED ON AN ARBITER, not on money.** Gold-58 cannot select (§3b); report-OOF cannot arbitrate a label-*source* change because the reference is itself a label source (§2s). Candidates: the rule extractor as a symmetric referee (§2s-g), or the board at ~15 runs/**week**. **§3l-2 weakens the objection** — gold now carries a measured LB offset, so it estimates rather than merely evaluates. **Settle the arbiter before spending anything.** |
+| **F4** | Severity-thresholded label read | — | **⛔ DEPRIORITISED — §3p.** It targets label quality, and **there is no binding label ceiling**: the free public tables already score **0.898 gold → LB 0.944** against a board top of 0.946, while our model reproduces its own labels at only **0.849**. The arbiter problem is moot until the headroom exists. **Revisit only if the blend reaches ~0.90 gold.** |
 | **F2** | Anatomical crops at the lateral posterior horn | — | **⛔ CLOSED, BOTH INSTRUMENTS (§3k + §3m).** The §3l-4 thread was the last live objection and it ran: pre-registered gold-47 re-read gives **C − A = −0.0038** against report-OOF's −0.0032. **Its own target moved −0.0055.** No open threads. Do not reopen without a new *mechanism*. |
 
 

@@ -41,6 +41,7 @@ measures the teacher rather than the target. Read it first; it reprices everythi
 | **3l** | **The ceiling claim expired in a day; `score_oof.py` measures the teacher.** New `score_gold.py`: gold + 0.046 → LB, across four systems |
 | **3m** | **F2 closed on BOTH instruments** (gold C−A = −0.0038 vs report −0.0032) — and §3l-2's amplification is narrowed to **training-side** changes only |
 | **3n** | **`ft_b` loads, runs, and passed its gate at 0.9015 — but the gate certifies nothing.** All-member gold reads inflate **+0.1474**; fold-resolved read still owed |
+| **3p** | **THE LABELS WERE NEVER THE CEILING.** Teacher 0.898 vs model→teacher 0.849; a perfect learner of the FREE labels scores ~0.944 LB. All headroom is in 5 focal labels |
 | **3o** | **F6 IS GO.** Fold recovery validated at 87.8%; `ft_b` OOF **0.8522** vs pilkwang **0.8516**, Spearman **0.632**, **blend +0.0284** (100% of draws). §3n's degraded-path worry is disproved |
 
 ---
@@ -3292,3 +3293,98 @@ Fracture** (0.899 → 0.857, `ft_b` is 0.728 there) and on Baker's/Synovitis mar
 
 **F6 is GO.** The remaining work before spending a submission is the DINOv3 arm, which the same
 recovery machinery now handles, and F1's site prior riding along.
+
+---
+
+## 3p. THE LABELS WERE NEVER THE CEILING: THE MODEL DOES NOT REPRODUCE ITS OWN TEACHER `MEASURED 2026-08-13 pm`
+
+**This retracts the strategic thesis this project has planned around since 2026-08-11**, which
+appeared in `README.md`, `PLAN.md` and the session memory as:
+
+> *"The ~0.035 between the free public plateau and the prize is unexplained by anything public,
+> because every public team trains on the same report-derived label tables and shares their
+> ceiling."*
+
+**There is no shared label ceiling. The public label tables already support a top-of-board score,
+and the entire field is sitting ~0.05 below them.**
+
+### The measurement
+
+All on the same 47 gold studies (expert **image** reads), via `fusion/score_gold.py`:
+
+| | gold-47 | → LB (+0.046, §3l-2) |
+|---|--:|--:|
+| **teacher `steven_v4_blend`**, used as a predictor | **0.9036** | **0.950** |
+| **teacher `steven_v2`** — literally our `data/targets.csv` | **0.8985** | **0.944** |
+| pilkwang 20-member OOF | 0.8516 | 0.898 |
+| `ft_b` OOF, one model | 0.8522 | 0.898 |
+| pilkwang + `ft_b` equal-weight rank-mean | 0.8800 | 0.926 |
+
+And over all **4,407** studies, pilkwang's OOF against **its own training labels**:
+
+    model -> teacher fidelity ..... 0.8486
+    teacher -> gold ............... 0.898
+
+### Two coherence checks, and they are what make this trustworthy
+
+1. **The best public label table converts to LB 0.950; the actual board top is 0.946.**
+2. **Our banked 0.899 sits exactly where pilkwang's 0.8516 predicts** (0.8516 + 0.046 = 0.898).
+
+The +0.046 offset was derived from four systems in §3l-2 and is now doing work in both directions
+across a 0.10-wide range. It is the most load-bearing constant in this repo.
+
+### What it means
+
+**A model that perfectly learned the free, public, already-downloaded labels would score ~0.944 —
+tenth place or better.** So the top teams are not holding secret labels; they hold models that fit
+the public labels better than ours does. **The "boring hypothesis" put to this project on
+2026-08-11 — recorded verbatim in `REFERENCE.md` and never resolved — was right, and the plan
+argued against it for two days without measuring it.**
+
+### Where the error actually is
+
+Teacher (`steven_v2`) vs our best blend. Positive gap = headroom **inside the current labels**:
+
+| label | teacher | blend | gap | model→teacher (n=4,407) |
+|---|--:|--:|--:|--:|
+| **Lateral Meniscus** | 0.865 | 0.720 | **+0.146** | **0.800** ← worst fidelity too |
+| **Synovitis** | 0.848 | 0.708 | **+0.139** | 0.877 |
+| **Medial Meniscus** | 0.956 | 0.866 | **+0.090** | 0.860 |
+| **ACL** | 0.995 | 0.919 | **+0.076** | 0.841 |
+| **PF OA** | 0.934 | 0.866 | **+0.069** | 0.817 |
+| MCL | 0.946 | 0.921 | +0.025 | 0.819 |
+| Lateral OA | 0.906 | 0.885 | +0.022 | 0.825 |
+| Baker's | 0.943 | **0.980** | −0.037 | 0.882 |
+| Contusion | 0.841 | **0.868** | −0.027 | 0.847 |
+| Fracture | 0.791 | **0.857** | −0.066 | 0.892 |
+| Medial OA | 0.915 | **0.990** | −0.075 | 0.868 |
+| Effusion | 0.840 | **0.981** | −0.141 | 0.856 |
+| **MACRO** | **0.898** | **0.880** | **+0.019** | **0.849** |
+
+**The blend already beats its own teacher on five labels** — Effusion, Medial OA, Fracture,
+Baker's, Contusion. All diffuse findings a report describes badly. That is `sadamtorres`'s "the
+model can beat its teacher" claim, measured here rather than argued, and it is why the macro gap
+is only +0.019 while five individual gaps exceed +0.069.
+
+**Every remaining point is in five focal labels, and they are a VISION problem.** The report
+plainly contains the answer (teacher 0.87–1.00) and the model cannot get it out of the pixels.
+Lateral Meniscus is worst on both axes at once: largest gap **and** lowest model→teacher fidelity.
+
+### Caveats, stated because §3l-3's were ignorable and these are not
+
+* **n = 47, 7–27 positives per label.** The claim is the *pattern* and the *macro*, not any cell.
+  ACL's teacher 0.995 is 21 positives and should not be quoted alone.
+* **The blend column is a ceiling** — recovered folds, ~+0.011 inherited bias (§3o).
+* **The teacher is an ORACLE, not an attainable bound.** It reads the report; the model cannot at
+  test time. Part of every positive gap is irreducible — findings not visible, or not localisable
+  from pixels. **The gap measures how much label information is not being extracted, and sets an
+  upper bound on model headroom, not a promise.**
+
+### Consequences
+
+1. **F4 (severity-thresholded label read) is DEPRIORITISED.** It targets label quality, which has
+   no measured binding headroom. Revisit only if the blend reaches ~0.90 gold.
+2. **F2's target was right and its mechanism was wrong.** Lateral Meniscus is still the single
+   largest gap. §3k/§3m closed the crop; they did not close the target.
+3. **F6 and model capacity are the whole game.** This is the third finding in one day pointing the
+   same way (§3l-1 free arms, §3o the blend gains +0.028, §3p the ceiling is the model).

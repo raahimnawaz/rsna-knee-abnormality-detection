@@ -11,6 +11,15 @@ Twelve-label knee-MRI classification, macro-AUROC. Final submission **2026-10-22
 >
 > **Next is F6 — blend the free diverse arms.** `PLAN.md` §9a has the table; `IMPROVEMENTS.md`
 > §3l has the evidence. Everything else on the F-series is behind it.
+>
+> **⛔ AND THE LABELS WERE NEVER THE CEILING — §3p, the most important measurement here.**
+> The best public label table, used as a predictor, scores **0.898 on gold → LB 0.944**, against a
+> board top of **0.946**. pilkwang reproduces **its own training labels at only 0.849** over 4,407
+> studies. **A model that perfectly learned the free, already-downloaded labels would take 10th
+> place.** Nobody is label-limited; the whole field sits ~0.05 under a ceiling anyone can download.
+> **F4 is deprioritised. Model capacity is the entire game.** All remaining headroom is in five
+> focal labels — Lateral Meniscus (+0.146), Synovitis (+0.139), Medial Meniscus, ACL, PF OA — and
+> the blend already *beats* its teacher on the other five.
 
 ### The two things that changed on 08-13 pm, and they reframe the project
 
