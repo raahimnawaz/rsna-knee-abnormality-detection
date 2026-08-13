@@ -563,13 +563,13 @@ reached — everything from here must be something the field does not already ha
 Ordered by expected value per hour, cheapest first. **Costs are real: a submission is ~2 h of the
 30 h weekly quota (§3e), not the 74 s this plan believed twice.**
 
-| # | step | cost | why now |
+| # | step | cost | status `2026-08-13` |
 |---|---|---|---|
-| **F1** | **Batch the free post-hoc gains into ONE submission** — site-prevalence prior at K=10, w=0.10 (+0.0023, §3f) plus any other re-ranks ready by then | 1 submission (~2 h) | Never spend a 2 h run on a single +0.002. Batch or don't submit. |
-| **F2** | **Anatomical crops, aimed at the POSTERIOR HORN OF THE LATERAL MENISCUS** | build ~21 min + folds | The one target that is (a) our weakest label at 0.767, (b) known-hard in the literature at 0.746, (c) anatomically localised, (d) licensed by §2l's 132/132 canonical axes. See 9b. |
-| **F3** | **Metadata conditioning** — screen on `data/features_*` first, locally | hours, CPU/MPS | The model is given **pixels and a slot mask, nothing else**. Sex, field strength and manufacturer are never passed. Nobody public does this. See 9c. |
-| **F4** | **Severity-thresholded label read** | ~$ of API + submissions | Still the biggest single bet (`REFERENCE.md` §2.1), and §3b finally settled how to judge it: **not on gold-58**. |
-| **F5** | Efficiency track | TBD | $18,000, thinner field, untouched since §2t-4. |
+| **F1** | **Batch the free post-hoc gains into ONE submission** — site-prevalence prior at K=10, w=0.10 (+0.0023, §3f) | 1 submission (~2 h) | **LIVE, and now companionless.** F2 was meant to ride with it. Rank decays ~170 places in 3 days for doing nothing (§2x), so sitting on +0.0023 indefinitely also costs. Decide: ship alone, or wait for F3. |
+| **F2** | Anatomical crops at the posterior horn of the lateral meniscus | — | **⛔ CHEAP FORM DEAD (§3k): −0.0031 paired, crop-90 alone −0.0117 at 3.9σ, and Lateral Meniscus itself fell 0.0071.** The founding assumption is disproved — the discarded field of view is *not* irrelevant. Classic form is damaged, not refuted: training removes the domain shift, not the lost context. **Needs a new mechanism to reopen.** |
+| **F3** | **Metadata conditioning** — screen on `data/features_*` | hours, CPU/MPS | **NEXT, and now the only unblocked differentiator.** No GPU, no quota, no pixel path, no gate. Sex and field strength are the arms that matter; manufacturer is largely already captured by F1's site prior (§3f). See 9c. |
+| **F4** | Severity-thresholded label read | ~$ of API + submissions | **BLOCKED ON AN ARBITER, not on money.** Gold-58 cannot select (§3b); report-OOF cannot arbitrate a label-*source* change because the reference is itself a label source (§2s). Candidates: the rule extractor as a symmetric referee (§2s-g), or the leaderboard — which at ~15 runs/**week** is more affordable than §2s assumed when it retracted that idea. **Settle this before spending anything.** |
+| **F5** | Efficiency track | TBD | **PROMOTED.** $18,000 over three places, thinner field, untouched since §2t-4 — and §3k left behind the capability that makes it measurable: the fork's 20 members now run locally with verified fidelity, so member-count, window-count and resolution trade-offs can be priced **offline** instead of at 2 h a submission. Note §3e: the 74 s is forward passes only, real runtime is dominated by DICOM decode. |
 
 ### 9b. F2 — why the crop, and why anatomy rather than saliency
 
@@ -956,3 +956,43 @@ So the honest framing: this unblocks **every experiment** in item 4 and it does 
 laptop, with no lottery. Whether it can also produce submission-grade features depends entirely on
 the conversion validating against DICOM — which is a measurement, and one that needs a Kaggle
 session to make. Item 1 is therefore not cancelled; it is demoted from blocker to check.
+
+---
+
+## 9d. WHAT IS ON DISK AFTER 2026-08-13, and how to pick this up cold
+
+`data/` is gitignored, so a fresh clone has none of this. Regenerating is cheap except where noted.
+
+| path | size | what it is | how to rebuild |
+|---|--:|---|---|
+| `data/external/pilkwang_weights/` | 1.7 GB | the fork's **20 checkpoints, CC0**, plus `manifest.json` (per-member fold / holdout / annot / fingerprint), `oof.npz` (their shipped OOF, the gate's target) and `merge_gain.npz` (their second arm, closed §3h-2) | `kaggle datasets download pilkwang/rsna-knee-weights --unzip`, ~5 min |
+| `data/slots_pilkwang.csv` | 1.5 MB | their six-slot assignment for all 4,407 studies, §3h-1 | `python fusion/slot_assign_pilkwang.py`, seconds |
+| `data/tiles336lr/` | 5.5 GB | protocol tiles rebuilt under **`SAGITTAL_LR=1`**, clearing the standing hazard. **Built but never consumed** — F2-classic is what needed it | `SAGITTAL_LR=1 python pipeline/slot_cache.py --slots protocol --out data/tiles336lr`, ~15 min |
+| `data/_crop_ab_n600.npz` | | the §3k A/B: all 20 members × 592 studies × both crops, plus the recovered folds | 5.2 h — **do not re-run to check a number** |
+| `data/_gate_n60*.npz` | | the §3i gate and its K16 ablation | ~20 min each |
+
+**The four files that are the session's actual output**, in dependency order:
+
+1. `fusion/slot_assign_pilkwang.py` — their slot logic, transcribed. Needed by everything below.
+2. `fusion/pilkwang_model.py` — their architecture. **`--check` fingerprints all 20 in ~2 min and
+   is the first thing to run if anything ever looks wrong**, because it separates a model problem
+   from a pixel problem.
+3. `fusion/pilkwang_pixels.py` — their `read_slot` against our NIfTI, with `crop_mm` and
+   `centre_mm` as parameters.
+4. `fusion/pilkwang_gate.py` / `crop_neutrality_test.py` / `crop_ab.py` — the three measurements.
+
+**What this capability is good for now that the crop is dead.** Any *inference-side* question
+about the frozen members can be answered locally, paired, in hours instead of at 2 h of quota per
+point: window counts, slice counts, resolution, pooling rules, member subsets. That is the
+**efficiency track's** entire question (F5), and it is the reason F5 is promoted above.
+
+**What it is NOT good for.** Anything needing per-study precision — the residual is 0.0168 per
+prediction (§3i) and the mechanism is slice order, roughly a third of series appearing *permuted*
+rather than merely reversed. Fixing that needs **one Kaggle CPU kernel** exporting the per-series
+sort permutation by `k = p · (r_x × r_y)`; header-only reads, a few MB out, and CPU kernels do not
+draw on the 30 h GPU quota. Deferred, not cancelled (§3j).
+
+**The one process discipline that paid tonight.** `crop_ab.py` fixed its per-target pooling rule
+*before* any AUC existed. The rule did not rescue the arm — and choosing it afterwards would have
+produced a **+0.0010** "gain" that was pure artefact (§3k). Pre-register the decision rule, in the
+file, in writing, every time.

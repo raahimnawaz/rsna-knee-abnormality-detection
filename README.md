@@ -4,7 +4,29 @@ Twelve-label knee-MRI classification, macro-AUROC. Final submission **2026-10-22
 
 ---
 
-## START HERE — state as of 2026-08-12 (end of day)
+## START HERE — state as of 2026-08-13
+
+> ### THE 08-13 SESSION IN SIX LINES — read this, then `PLAN.md` §9a
+>
+> 1. **Score unchanged: 0.899.** Two routes closed, one capability built, zero score gained.
+> 2. **The fork is no longer a black box — it RUNS HERE.** `fusion/pilkwang_model.py`, 20/20
+>    checkpoints verified against their fingerprints at **7e-06**. Weights (CC0, 1.7 GB) are at
+>    `data/external/pilkwang_weights`; their six slots are reconstructed in
+>    `data/slots_pilkwang.csv`; the pixel path is `fusion/pilkwang_pixels.py`.
+> 3. **⛔ F2-cheap measured and lost (§3k).** Crops as extra TTA windows: **−0.0031 paired**, and
+>    the target label fell. It reorders (Spearman 0.9303) — just worse.
+> 4. **⛔ The fork's shipped second arm doesn't pay (§3h-2)** — `merge_gain.npz`, peak +0.0007,
+>    0/12 labels.
+> 5. **§2y's third differentiator was never real (§3i-5).** `order: 'normal'` and `lat: 'centre'`
+>    are the names of the fork's *good* rules, not the absence of rules. Our edge is thinner than
+>    this file used to claim.
+> 6. **The local instrument is imprecise per study (§3i: 0.0168) and sound in aggregate (§3k:
+>    reproduces their shipped OOF to ~0.002 at the AUC level).** Good enough for inference-side
+>    questions. That capability is what survived the night.
+>
+> **Next: F3** — the only unblocked differentiator, and it needs no GPU, no quota and no pixel
+> path. **F1's +0.0023 is live but companionless.** **F4 is blocked on an arbiter, not on money.**
+
 
 > # WE ARE AT 0.899, AND THE FREE PUBLIC CEILING IS NOW REACHED
 >
