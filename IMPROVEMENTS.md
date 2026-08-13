@@ -1,27 +1,46 @@
-# Friction log & improvement backlog
+# The measurement record
 
-Running record of known weaknesses, open decisions, and things to re-check. Updated as work
-proceeds. **Read this before touching the extractor** — most of it is already diagnosed.
+**Every number this project has measured, and every route it has closed.** Sections are dated and
+lettered in the order they were written, never renumbered — they are cited from `README.md`,
+`PLAN.md`, the code docstrings and the session memory, so a renumber breaks all of it. Newest is
+at the bottom.
 
-§0–§5 are the **extractor** track and are the bulk of this file. §6 is the **Kaggle-side
-pipeline** track, added 2026-08-08: same format, same purpose, different failure modes. Read it
-before touching `pipeline/preprocess.py` or either cache notebook — every entry in it has cost or
-would have cost a GPU session.
+**Newest: §3l (2026-08-13 pm) — the public ceiling claim expired in 24 hours, and `score_oof.py`
+measures the teacher rather than the target. Read it first; it reprices everything above.**
 
-> **STATUS 2026-08-10 — read §2f before anything else in this file.** The rule extractor is
-> **last of six** label sources on gold-58: 0.777 against a free public 0.893, losing on 12/12
-> labels and reducing a rank-mean it is added to. The extractor track is **closed as a source
-> of training targets**; §1.1, which blocked it, is closed with it. Most of §2.1–§2.12 below
-> describes bugs in a component that is no longer on the critical path — kept for provenance
-> and because the *patterns* still apply, but do not spend a day on any of it.
+### Index
 
-**Status 2026-08-07 (superseded, kept for provenance):** rule-based extractor running over all
-4,407 reports. Macro AUC **0.777** on the 58 gold studies, 95% CI **[0.74, 0.82]** (±0.038).
-Outputs: `data/pseudo_labels.csv` (soft targets), `extract_states.csv`, `extract_evidence.csv`.
+| § | verdict in one line |
+|---|---|
+| **0** | **The measurement problem.** n=58 gives ±0.038. Read before believing any single label's number |
+| 1–2, 3–5 | *removed 2026-08-13* — the closed extractor's backlog; the patterns are kept in the stubs |
+| **2b** | **Gold is NOT report-derived.** 84.7% agreement, ~⅔ of the gap one-directional threshold error. The severity thesis starts here |
+| 2d | The vision ceiling looked like resolution, not labels — **and §2e showed this measured the wrong thing** |
+| **2e** | **The architecture cannot fine-tune.** A frozen-embedding cache cannot, at any resolution. With §2f, two constraints bind at once |
+| **2f** | **The moat is inverted.** Our extractor is **last of six**, 0.777 vs a free 0.893, 0/12 labels |
+| 2g | The large-n report-OOF instrument works — **for fixed-target questions only** |
+| 2h / 2p / 2v | The port is affordable · "memory-bound" is **not established by its evidence** · **the laptop sleeps, and it was inside every timing** |
+| 2i | Three forum posts; two changed decisions the same day. Also §2i's own void at 6.0σ |
+| **2j** | **Site leakage is +0.024.** Nothing is compared against an external score except under site-grouped folds |
+| 2k / 2r | Pipeline audit · code review, 15 findings, A-cluster fixed |
+| **2l** | **In-plane axes are canonical 132/132.** This is what licenses detector-free crops |
+| **2n / 2m** | **K16 is NOT a header rule** (56.9–60.8% vs ~50%); resolved by *measurement* instead |
+| 2o | Three numbers near 0.89 are three different quantities — a live scoring bug, caught after the run |
+| 2q | Fold 0: fine-tuning is worth **+0.0171 ± 0.0088 (1.9σ)** paired |
+| 2s | Step 5 is not a reproduction gate and cannot be one. **Before any A/B, state the reference and show it is neutral** |
+| 2t / 2u | Six external concerns fact-checked · per-epoch checkpointing exists because a run died at epoch 7 |
+| **2w / 2x** | **Stop out-building the fork, start out-ensembling it** · the board was worse than assumed in four places |
+| **2y** | **The port is CLOSED as a member** — −0.111 at 15.4σ, 0/12, no weight helps. Rank corr 0.639, so it had diversity and lacked strength |
+| 2z | Re-fitting their blend weights on site-grouped folds: **−0.0000** |
+| 3a / 3c | External survey, three rejects two keeps · prvsiyan's 0.906 needs a **private** dataset |
+| **3b** | **Never select on gold-58.** Claims +0.0137, delivers −0.0034, negative in 92% of draws |
+| 3d / **3e** | The 0.899 kernel's advertised changes miss the scored path · **a submission is ~2 h, not 74 s** |
+| **3f** | **The black box, audited.** Weakest label, subgroup disparities, and **harmonising site away COSTS 0.013–0.032** |
+| 3g / 3h / 3i / 3j | The fingerprint checks weights not pixels · slots reconstruct, `merge_gain` doesn't pay · **the gate misses at 0.0168, slice ORDER is the mechanism** · the defect is neutral to the crop |
+| **3k** | **F2-cheap is DEAD.** −0.0031 paired, crop-90 −0.0117 at 3.9σ. The discarded field of view is *not* irrelevant |
+| **3l** | **The ceiling claim expired in a day; `score_oof.py` measures the teacher.** New `score_gold.py`: gold + 0.046 → LB, across four systems |
 
-Latest change is §2.2 (compartment attribution) + R10. It moved ~1,000 studies off the flat
-0.45 `weak` score but is **invisible in gold macro AUC** (0.775 → 0.777, against a ±0.038 CI).
-That is the expected shape of a real improvement at n=58, not a disappointment — read §0.
+---
 
 ---
 
@@ -62,333 +81,27 @@ gold AUC when deciding whether a change is right.
 
 ---
 
-## 1. Open decisions — need a call
+## 1–§2. The extractor backlog — REMOVED 2026-08-13
 
-### 1.1 Where does the LLM extractor run? `CLOSED 2026-08-10` — it does not have to run at all
+**~330 lines of open decisions and ranked bugs for the rule extractor lived here.** The component
+was closed as a source of training targets on 2026-08-10 (§2f: **last of six**, 0.777 against a
+free public 0.893, 0/12 labels, and *negative* in a rank-mean). Its bug list has not been
+actionable since, and the file's own header had said "do not spend a day on any of it" for three
+days while the list still occupied the top of the document.
 
-**The answer is `kaggle datasets download`.** Four LLM-read label tables are published as free
-public Datasets, and the best of them scores **0.893** on gold-58 against our rules' 0.777 —
-see §2f, which also shows ours losing on 12/12 labels and *subtracting* from a rank-mean. So
-method B is not a build; it is a download, and the decision this entry was blocking on turned
-out to be the wrong question. **`data/pseudo_labels.csv` is retired as a training target.**
+**What is preserved:** §0 above (the n=58 measurement problem, still the basis of every ±0.038 in
+this repo), §2b (gold is not report-derived — the finding the whole severity thesis rests on), and
+the closed-route rows in `README.md`. **The transferable patterns**, which is the part worth
+keeping:
 
-What the rule extractor is still for: it is the only source here whose per-clause evidence is
-inspectable (`extract_evidence.csv`), so it stays as a **disagreement detector** — where it and
-the LLM readers diverge is where a report is genuinely ambiguous, which is a per-study
-confidence signal worth testing. That is a hypothesis, not a result; the one fusion test run so
-far (§2f) says it does not help as a *label*.
+* **Compartment attribution was worth more than every other extractor fix combined** (Medial OA
+  0.720 → 0.957 by hand). When one sub-problem dominates, ranked backlogs waste the ranking.
+* **Synovitis is a report-only ceiling, not a bug** — careful human reading (0.652) barely beat a
+  regex (0.621). Some labels cannot be read out of the text at all. §3l-3 now shows the *vision*
+  side of the same label is also much worse than the report instrument claimed.
+* **A comparison is only as current as its baseline.** The moat table was measured against
+  `nekkon`'s week-one binary CSV and stood as a settled decision gate for a day past its evidence.
 
-The original options are kept below because the reasoning was sound and the blocker was real;
-what it missed was that the corpus is shared and someone else would pay the cost first.
-
-| | Pro | Con |
-|---|---|---|
-| **Local (GTX 980 Ti, 6 GB, Maxwell sm_52)** | free, private | 6 GB fits only ~7B at 4-bit; no tensor cores, no bf16; PyTorch Maxwell support is deprecated. 4,407 reports would take many hours |
-| **Hosted API** | best multilingual quality, fast | costs money; reports leave the machine (de-identified competition data, but check rules) |
-| **Kaggle / Colab GPU** | free T4/P100, allowed | session limits; needs the corpus uploaded as a private dataset |
-
-| | Pro | Con |
-|---|---|---|
-| **Local (GTX 980 Ti, 6 GB, Maxwell sm_52)** | free, private | 6 GB fits only ~7B at 4-bit; no tensor cores, no bf16; PyTorch Maxwell support is deprecated. 4,407 reports would take many hours |
-| **Hosted API** | best multilingual quality, fast | costs money; reports leave the machine (de-identified competition data, but check rules) |
-| **Kaggle / Colab GPU** | free T4/P100, allowed | session limits; needs the corpus uploaded as a private dataset |
-
-Training-side work, so the no-internet rule does **not** apply. Recommendation: Kaggle GPU
-notebook — free, no data leaves Kaggle, and the corpus is already there.
-
-### 1.2 What does "not mentioned" mean? `MEASURED 2026-08-09` — was open
-**Silence is 2.3× more likely to hide a true positive than an explicit negation is**, and the
-scores say 1.3×. Measured against gold: `absent` → **0.167** [0.132, 0.209], `neg` → **0.073**
-[0.029, 0.173]. The direction of the guess was right and the size was not.
-
-The reason this matters more than the other four constants: **`absent` is 52.4% of the target
-matrix** — 365 of 696 gold cells, and 62.1% across the full corpus. It is not a corner case, it
-is the modal training target, and it was set to less than half its measured value.
-
-It is also the constant that most clearly **cannot be one number**. Per label, `absent` runs
-from 0.031 (ACL) to 0.372 (Synovitis). That spread is the §2.1 ceiling stated in target terms:
-87.6% of reports never mention synovitis and 37% of those knees have it, so a flat 0.08 asserts
-"no synovitis" on 43 of 58 gold studies while 16 are positive. Nothing downstream can recover
-from a target that wrong; §2.1's option (b) — let the vision model learn it off Effusion — is
-now the *only* option, because the alternative is training against noise labelled as certainty.
-
-### 1.3 Soft-target constants are guesses `FITTED 2026-08-09` — `extractor/calibrate_states.py`
-`pos 0.95 / hedged 0.65 / weak 0.45 / neg 0.03 / absent 0.08`, chosen by reasoning. Measured
-P(gold=1 | state) over the 58 gold studies, 696 cells:
-
-| state | cells | share | P(gold=1) | 95% CI | SCORE | delta |
-|---|---:|---:|---:|---|---:|---:|
-| pos | 182 | 26.1% | **0.747** | [0.679, 0.805] | 0.95 | −0.203 |
-| hedged | 52 | 7.5% | **0.558** | [0.423, 0.684] | 0.65 | −0.092 |
-| weak | 42 | 6.0% | **0.238** | [0.135, 0.385] | 0.45 | −0.212 |
-| neg | 55 | 7.9% | **0.073** | [0.029, 0.173] | 0.03 | +0.043 |
-| absent | 365 | 52.4% | **0.167** | [0.132, 0.209] | 0.08 | +0.087 |
-
-**The ladder is monotone in the right direction — that is the extractor's state machine passing
-an independent test — but every rung is in the wrong place.** It is compressed at both ends and
-stretched in the middle: the two confident states are too extreme, and the two uncertain states
-(`weak`, `absent`) are pushed toward the negative rail when the data puts them well inside it.
-
-`pos` at 0.747 is the one to read carefully, because **it is not extractor error.** Gold is an
-independent *image* read. When a report says "ACL tear", the image reader agrees three times in
-four; the last quarter is genuine report-vs-image disagreement and no extractor work removes
-it. 0.95 claims a certainty the modality does not have. This is the quantitative form of README
-fact 3 — gold labels are not a function of the report text — and it caps what §7.2 can show.
-
-**Fit on gold, not on the hand labels.** §1.3 originally said to fit these once hand-labels
-exist. That works for `pos`/`hedged`/`weak` and is wrong for `absent`: the hand labels are read
-from the *report*, so P(hand=1 | absent) measures extractor recall — "did a careful human
-reading the same text also see nothing". The training target's job is to predict the **image**,
-and only gold is an independent image read. The two questions diverge exactly where the answer
-matters, which is why `pos` comes out at 0.747 rather than near 1.
-
-**Per-label tables are shrunk, not fitted.** Per-label `absent` cells run 4–50 (Effusion has 4),
-so raw per-label rates are anecdote. `calibrate_states.py` shrinks each toward the pooled rate
-with a Beta prior whose strength is chosen by leave-one-out log loss. Treat the per-label column
-as directional and the pooled column as the result.
-
-> **CORRECTION 2026-08-09.** This said the search "picks **m = 20 pseudo-counts**", which is the
-> value for the POOLED fit. The cross-fitted tables each run their own search and they do not
-> agree: `{'0': 20.0, '1': 50.0, '2': 20.0, '3': 50.0, '4': 50.0}`. So the five folds of the §1.3a
-> arm differed in shrinkage strength — an uncontrolled nuisance across the very folds that
-> comparison reads as one arm. It does not overturn §1.3a (the effect is ordered by
-> `absent_raise`, which is a per-label quantity, and three of five folds share m), but the next
-> run of that experiment should pin `--m` explicitly so the arms differ by one thing.
-
-**Using this cannot be allowed to burn gold.** Fitting on all 58 and training on the result
-would make the pooled-OOF gold macro a fitted number rather than a held-out one — the exact
-failure §0 and §C5 of the research notes warn about. So the tables are **cross-fitted**: one per
-fold, each fitted only on gold *outside* that fold. Across folds they are stable (`pos`
-0.707–0.779, `absent` 0.151–0.184), which is itself evidence the pooled fit is not noise.
-`fusion/train.py --calibrated-targets` consumes them and refuses a non-cross-fitted file. It is
-**opt-in**, so the §7.2 label A/B keeps comparing one thing at a time.
-
-### 1.3a The calibration was TESTED and it LOST. `MEASURED 2026-08-09`
-
-`0.743 → 0.699` on the 224 cache, 37 gold studies, identical folds and seed. **The recalibrated
-targets are worse than the guessed ones**, and the mechanism is measurable rather than inferred:
-
-> **BASELINE CORRECTION 2026-08-09 (later).** The `0.743` arm is **no longer reproducible** and
-> the current default-target baseline on the same cache is **0.719**. Two things happened after
-> it was measured: K17 destroyed the run's artefacts, so old-vs-new OOF cannot be diffed; and the
-> `_nifti_axes` fix deleted 43 mis-reformatted cache entries, leaving those studies with fewer
-> series. Two identical re-runs on the post-deletion cache give **0.719 and 0.719** — every
-> per-label AUC agreeing to three decimals — so **training is fully deterministic on MPS** and
-> the 0.024 is attributable to the deleted entries, not to run noise. Removing corrupt series
-> lowered the score because it removed *data*, not because the corruption helped.
->
-> That determinism is worth more than the correction itself: **every A/B in this file measures a
-> real difference, with no run-to-run floor underneath it.** The ±0.038 bootstrap CI is still
-> the sampling limit on n=37 and still governs whether a difference *generalises* — but it is
-> not masking nondeterminism. Re-read the ladder comparison as `0.719-equivalent → 0.699`; the
-> sign and the mechanism below are unaffected, since both arms shared folds, seed and cache.
-
-| label | absent 0.08 → | share `absent` | ΔAUC |
-|---|---:|---:|---:|
-| Synovitis | 0.307 | 87.6% | **−0.182** |
-| Lateral OA | 0.139 | 55.8% | −0.110 |
-| Fracture | 0.173 | 79.6% | −0.099 |
-| PF OA | 0.211 | 45.1% | −0.087 |
-| Lateral Meniscus | 0.212 | 59.5% | −0.076 |
-| Contusion | 0.151 | 56.9% | −0.057 |
-| Effusion | 0.223 | 17.2% | −0.006 |
-| MCL | 0.091 | 94.5% | +0.000 |
-| Medial OA | 0.160 | 53.1% | +0.000 |
-| ACL | 0.084 | 82.7% | +0.009 |
-| Medial Meniscus | 0.194 | 45.8% | +0.031 |
-| Baker's | 0.107 | 67.7% | **+0.043** |
-
-```
-corr(absent_raise × absent_share, ΔAUC) = −0.776
-corr(absent_raise,                ΔAUC) = −0.630
-```
-
-**How much a label's `absent` target was raised predicts how much AUC it lost.** Synovitis was
-raised furthest across the largest share of the corpus and lost most; Baker's was raised least
-and gained. A random effect would not order itself that way, which is what makes this more than
-the n=37 noise floor — the *macro* delta of −0.044 on its own would not be readable.
-
-**Why, and this is the part worth keeping.** §1.3 fitted P(gold=1 | state) and treated it as the
-right training target. But the `absent` bucket is **heterogeneous** — it mixes true positives and
-true negatives — and assigning it its mean teaches the model the mean instead of the
-discrimination. The extractor's 0.08 is badly calibrated and strongly *separating*; macro AUC is
-a ranking metric and only rewards the separation. **Better calibration, worse ranking.**
-
-So §1.3's measurement stands and its conclusion does not. P(gold=1 | absent) = 0.167 against a
-0.08 target is still a fact; `pos` = 0.747 is still real report-vs-image disagreement. What is
-falsified is that correcting those improves rank ordering.
-
-**The research notes were righter than the fix.** They said `NOT_MENTIONED = MASKED, not 0`.
-Masking was judged too aggressive here — 94.5% of MCL cells would vanish — and re-targeting was
-taken as the moderate middle. It is not a middle: masking removes the heterogeneous bucket from
-the loss, re-targeting actively trains toward its average. Opposite treatments.
-
-**Next experiment, now well-posed:** mask `absent` from the loss rather than re-target it, on the
-labels where it dominates. If the mechanism above holds it should beat both arms. Run it against
-the 0.743 baseline on the fuller cache — at n=37 it cannot be resolved.
-
-`--calibrated-targets` stays in `fusion/train.py` as the harness that produced this, not as a
-recommended setting. **Do not enable it.**
-
-Still open: whether masking beats the guessed ladder.
-
----
-
-## 2. Known weaknesses, worst first
-
-### 2.1 Synovitis is barely working — AUC 0.607, recall 0.37 `HIGH`
-Gold positive rate **47%**; extractor fires **8.3%**. Per-language positive rate:
-
-```
-german 0.8 | bulgarian 1.4 | dutch 3.2 | croatian 3.9 | turkish 4.2
-greek 12.5 | english 13.4 | spanish ~15 | french ~9
-```
-
-The word is essentially **not used** in German/Bulgarian/Dutch/Croatian reports. Synovitis on
-non-contrast MRI is usually *inferred* from the effusion–synovitis complex or synovial
-thickening, not named. A term-matching approach cannot recover it.
-
-Options: (a) let the LLM infer it; (b) accept it and let the vision model learn it from the
-Effusion↔Synovitis correlation (φ = 0.40 in `FINDINGS.md` §4); (c) derive it as a function of
-effusion volume + synovial-thickening terms. **Probably (a) + (b).**
-
-### 2.2 OA compartment attribution `PARTLY FIXED 2026-08-07` — was `HIGH`
-1,415 studies landed in the `weak` state for Medial OA and 1,582 for Lateral OA — i.e. OA was
-mentioned but **no compartment named**, so all three labels got a flat 0.45. A flat score
-across ~1,500 studies contributes nothing to ranking, which is why both sat near 0.71.
-
-**§2c's diagnosis was wrong, and the way it was wrong is the point.** It read this as a
-*scope* problem and proposed propagating the compartment from an enclosing section header.
-Measured against the corpus, there is usually nothing to propagate: in 6 of 9 languages the
-formal phrase (`medial compartment`) appears **nowhere in the report** — Dutch 0.0%,
-Turkish 0.8%, German 7.9%, Greek 8.2%, Spanish 10.3% of weak studies. It was §3's pattern
-yet again — **the vocabulary was wrong, not the logic.** The compartment is named in the
-*same clause*, through anatomy the glossary did not know:
-
-```
-german     'Knorpelirregularitäten an der medialen Femurcondyle'      condyle, not compartment
-turkish    'Medial tibiofemoral eklem düzeyinde'                      word order flipped
-croatian   'degenerativne promjene FT zgloba'                         abbreviated
-dutch      'Mediaal femorotibiaal gewrichtscompartiment'              different inflection
-turkish    'Lateral eklem aralığında kıkırdakta %50'den fazla kayıp'  joint space
-```
-
-**Fix** (`labeling/compartment_patch.py`, `rule_extractor._near`): a compartment is a
-laterality adjective (`_side_medial` / `_side_lateral`) within **25 characters** of a
-structure belonging to exactly one compartment (`_compartment_struct`: condyle, tibial
-plateau, joint space, the femorotibial joint, the compartment itself).
-
-- **Menisci are deliberately excluded** from `_compartment_struct`. The medial meniscus does
-  sit in the medial compartment, but a *degenerative meniscal tear is not OA* and
-  `_OA_generic` contains `degenerativ` — including it would fire Medial OA on every
-  degenerative medial meniscal tear in the corpus.
-- **The 25-char window was chosen from the gap distribution and by reading, before looking at
-  gold.** Over the 299 studies the rule newly resolves the gap is 3 at the median and 22 at
-  p90, then a long tail to 188 that is ~80% false positives — `Patellofemoral compartment
-  cartilage: … medial patellar facet` (the medial *patellar* facet is in the patellofemoral
-  compartment, not the medial tibiofemoral one), impaction fractures, meniscal degeneration.
-  Bare clause co-occurrence is too loose; the side has to actually modify the structure.
-
-| | before | after |
-|---|---:|---:|
-| Medial OA `weak` | 1,415 | **989** |
-| Lateral OA `weak` | 1,582 | **1,176** |
-| PF OA `weak` | 1,126 | **933** |
-
-~1,000 studies moved off the flat 0.45. **Gold cannot certify this and was not used to
-justify it:** macro went 0.775 → 0.777 AUC / 0.744 → 0.749 bal-acc, and Medial OA's own CI is
-[0.611, 0.902]. Per §0 the justification is corpus-level. On the 83 hand labels — the largest
-reference — macro bal-acc went 0.850 → **0.862**.
-
-**Still open:** Spanish barely moved (+2 of 213), but see §2.11 — that is a true absence plus
-a different bug, not a compartment gap. Self-training the ~1,000 remaining `weak` studies off
-the vision model's compartment predictions (§5) is still the endgame.
-
-### 2.3 Bulgarian Baker's may now be over-corrected `MED`
-Went 62.7% → **2.3%** after requiring `киста~поплитеал` in one clause. But `поплитеал` appears
-in **90/220** Bulgarian reports. The two words are probably often in *different* clauses.
-Fix: widen the conjunction scope from clause to sentence-window, then re-measure.
-
-### 2.4 Greek Contusion over-fires — 48.3% vs ~18% elsewhere `MED`
-The Greek Contusion list contains `οίδημα` (oedema), which matches **any** oedema — soft
-tissue, subcutaneous, muscle — not just bone marrow. Require co-occurrence with a bone/marrow
-term: `οίδημα~μυελ`, `οίδημα~οστ`.
-
-### 2.5 Bulgarian PF OA 65.9% and Medial Meniscus 60.0% `MED`
-Both far above every other language. Likely `хрущял` (cartilage, in `_OA_generic`) plus any
-patella mention → PF OA. Needs the same treatment as 2.4.
-
-### 2.6 Clause splitting is naive `MED`
-`re.split(r"[.;\n]+|\s[-–—•]\s")`. Breaks on the Bulgarian abbreviation `б.о.`, on decimals,
-and on any list that spans a full stop. Negation scope is clause-local, so a bad split
-silently inverts findings. Worth a proper sentence segmenter.
-
-### 2.7 Negation is clause-level with no directionality `MED`
-"No tear of the ACL; the MCL is torn" in one clause negates both. Real fix is scope-limited
-negation (cue → following N tokens, stopping at contrastive markers like *but/however/ancak/
-но/αλλά*). Currently handled only by luck of punctuation.
-
-### 2.8 Laterality of the KNEE is not used at all `LOW for text, PARTLY FIXED for vision`
-The extractor never reads left/right. Irrelevant for text labels, but the vision pipeline
-**must** canonicalise handedness or Medial/Lateral labels are meaningless — see `PLAN.md`
-§3.2. Confirm `(0020,0060) Laterality` survived the 86-tag allowlist.
-
-> **CORRECTION 2026-08-09.** This item read as satisfied by `canonicalise()`. It was satisfied
-> for **half the corpus**: axial and coronal only. Sagittal carries medial/lateral on the slice
-> axis, which nothing in the pipeline reversed — 40.5% of series, 43.0% of them left knees.
-> See **K18**. Do not treat this item as closed until `SAGITTAL_LR_SLICE_FLIP` is on.
-
-### 2.9 Two sources of truth for terms `LOW`
-`glossary.json` now serves both the labeler (highlighting) and the extractor (classification),
-and the two want different things — `μηνίσκ` in both meniscus lists was right for
-highlighting and fatal for extraction. Currently resolved by routing unqualified terms to
-`_meniscus_generic`. If this bites again, split into two files.
-
-### 2.10 Unvalidated glossaries for 8 of 9 languages `MED`
-Terms came from domain knowledge plus inspection of a handful of reports, not a clinical
-lexicon. Croatian and Bulgarian have already been caught using entirely different words than
-guessed (§3). **Assume the others have similar gaps.** The per-language positive-rate table in
-`run_extract.py` is the detector — a row that is flat or wildly off the others is a bug.
-
-### 2.11 Spanish `_OA_generic` is too loose — the per-language table is flagging it `MED`
-After the §2.2 fix, Spanish Medial OA sits at **5.1%** positive against 13–35% in every other
-language, and Lateral OA at 4.5%. That is the §3 detector firing. It is *not* a compartment
-gap. Of the 210 Spanish studies still `weak`, the OA clause contains:
-
-```
-cartílago 146   femorotibial 74   compartiment 44   menisc 40   troclea 36   cóndilo 2
-```
-
-Reading them, two distinct faults:
-
-1. **`cartílago` alone is in `_OA_generic`.** It matches every normal report —
-   *"Cartílagos de los compartimentos femorotibiales y de la tróclea femoral **sin
-   alteraciones**"*. Same class as R6 (`μηνίσκ` in both meniscus lists).
-2. **`pinzamiento` alone is in `_OA_generic`.** It means joint-space narrowing in an OA
-   context, but the corpus's most frequent use is *"**Pinzamiento** de la almohadilla grasa
-   de Hoffa"* — Hoffa fat-pad **impingement**, an unrelated finding.
-
-Neither inflates Spanish *positives* (it is the lowest language); both inflate the `weak`
-bucket with clauses that are not OA at all. Fixing it moves those studies `weak` (0.45) →
-`absent` (0.08), which is a ranking gain even though no new positive appears. Needs its own
-measurement because `_OA_generic` feeds all three OA labels.
-
-Also unaddressed: Spanish genuinely names both compartments together (*"compartimentos
-femorotibiales"*, plural, no side) where other languages name one. A both-compartments rule
-would be a separate small win.
-
-### 2.12 Greek `χόνδρ` has the R5 prefix bug, unmeasured `LOW`
-The `^` word-start marker added for English `chondral` (R10) applies to Greek `χόνδρ` too: it
-fires inside `οστεοχονδρινο` and `ενχόνδρωμα` (an enchondroma is a benign bone tumour, not
-OA) **20 times out of 64**. Real, but small, and word-start may cost more than it saves on
-Greek's heavily prefixed compounds. Measure before changing. Dutch `artrose` inside
-`gonartrose`, German `arthrose` inside `gonarthrose`/`retropatellararthrose` and Bulgarian
-`артроза` inside `гонартроза` were all checked and are **correct** — that is the substring
-matching working as designed.
-
----
-
----
 
 ## 2b. FINDING: the gold labels are **not** derived from the reports `CRITICAL`
 
@@ -467,34 +180,6 @@ less noisy one than the first pass suggested.
 the data itself as `[BILATERAL NOTE: two reports filed under this study]`). Any extractor
 that assumes one report = one exam will mis-scope negation and merge findings across two
 sittings. Count how many studies are affected before training on report-derived labels.
-
----
-
-## 2c. Model-vs-rule disagreements (n=62 labelled) → two concrete extractor bugs
-
-Mean agreement 0.883. The outliers are diagnostic:
-
-| label | model says pos | rule says pos | agreement | reading |
-|---|---:|---:|---:|---|
-| **PF OA** | 29 | 13 | 0.645 | rule finds **less than half** |
-| **Medial OA** | 26 | 11 | 0.726 | rule finds **less than half** |
-| **Lateral OA** | 17 | 6 | 0.790 | rule finds **a third** |
-| **Contusion** | 10 | 22 | 0.774 | rule finds **twice too many** |
-
-- **OA under-detection** is the `weak` state from §2.2 — when OA is named without a
-  compartment, the rule assigns a flat 0.45 that never crosses threshold. Reading the
-  surrounding context resolves the compartment most of the time. ~~Fix: propagate compartment
-  from the enclosing section header (`MEDIAL COMPARTMENT:` / `Mediales Kompartiment:` /
-  `compartimento femorotibial medial`) rather than requiring it in the same clause.~~
-  **Superseded 2026-08-07 — that fix was aimed at the wrong thing.** Those headers barely
-  exist outside English and Dutch; the compartment is in the same clause, named by anatomy
-  the glossary lacked. See §2.2 for what was actually wrong and what was done.
-- **Contusion over-detection**: the rule counts *any* marrow oedema. Gold and careful reading
-  both distinguish **traumatic** contusion from **degenerative/reactive** subchondral oedema
-  and from oedema **adjacent to a fracture** (gold labels that Contusion = 0). Fix: require a
-  trauma context term, or exclude when `subchondral`/`reactive`/`degenerative` qualifies it.
-
-Intra-rater consistency: **100%** on the 2 duplicate pairs seen so far (small, but clean).
 
 ---
 
@@ -670,11 +355,11 @@ combination in which the rule extractor pays for itself.
 > been selected on these same 58. The unblended reads settle it anyway — `llm_labels_full`
 > (0.878) and `report_labels_v2` (0.866) are single LLM passes and still clear us by ~0.10.
 
-**How this happened.** §1.1 has stood open since 2026-08-07 as "Where does the LLM extractor
+**How this happened.** §1.1 (in the backlog removed 08-13) stood open since 2026-08-07 as "Where does the LLM extractor
 run? **BLOCKING for method B**". While it was blocked the field published four LLM-read label
 tables as free Kaggle Datasets. The blocker was real and the answer turned out to be that we
 never had to run one: `kaggle datasets download` is the whole of method B. Roughly five days
-went into `rule_extractor.py`, `glossary.json`, compartment attribution (§2.2), the soft-target
+went into `rule_extractor.py`, `glossary.json`, compartment attribution (then §2.2), the soft-target
 ladder (§1.3) and the hand-labelling UI, to reach 0.777 against a free 0.893.
 
 That is README §9's failure pattern — *a belief that was an inference rather than a
@@ -751,7 +436,7 @@ here**. It pays when readers are independent. These are not. **Ship `steven_v4` 
 everything else, where the public readers sit at 0.87–0.95 against each other). That is the one
 interesting property it has, and §2f already shows the diversity is *error* rather than signal —
 it is uncorrelated because it is wrong in its own direction, and adding it to a rank-mean loses
-0.005. This is the strongest available support for the §1.1 disagreement-detector framing and
+0.005. This is the strongest available support for the (removed) §1.1 disagreement-detector framing and
 the strongest available argument against ever using it as a label.
 
 ### What the instrument is therefore for
@@ -1559,53 +1244,15 @@ through.
 
 ---
 
-## 3. Resolved (kept for provenance — these are the failure *patterns* to watch for)
+## 3–§5. Extractor backlog, part 2 — REMOVED 2026-08-13
 
-| # | Issue | Root cause | Fix |
-|---|---|---|---|
-| R1 | 263 Spanish reports filed as Dutch | `de` in both probe lists | replaced heuristic with `lingua` |
-| R2 | Cyrillic glossary fired 4/16 keys | corpus is **Bulgarian**, not Russian | rewrote in Bulgarian |
-| R3 | Greek matched nothing | reports use **µ U+00B5**, not **μ U+03BC** | NFKD normalisation, index-preserving |
-| R4 | `цялост` negated every Bulgarian tear | appears in *preserved* AND *disrupted integrity* | removed bare cue |
-| R5 | `normal` matched inside `abnormal` | substring cue matching | cues require word-start; stems still substring |
-| R6 | Greek menisci 100% identical | `μηνίσκ` in both side lists | removed; routed to `_meniscus_generic` |
-| R7 | Croatian OA compartments 0.0% | corpus says `femorotibijaln`/`kompartm`, never `odjeljak` | co-occurrence terms |
-| R8 | Bulgarian Baker's 62.7% | bare `киста` matches any cyst; `Бейкер` appears 0/220 | `киста~поплитеал` (see 2.3) |
-| R9 | Effusion AUC 0.604 | severity ignored; 32% of hits qualified trace/minimal | `minimal` cue class → downgrade to hedged. **0.604 → 0.743** |
-| R10 | English `chondral` fired 1,019× non-word-initially | substring stem is a suffix of `subchondral` (846) and `osteochondral` (170), so subchondral oedema / insufficiency fracture / bone island all read as cartilage pathology | `^` word-start marker → `^chondral`. Checked all 9 languages; English is the only one that needed it (see §2.12) |
+**~50 lines of "resolved", "to check when the hand-labels land" and "later, once the vision model
+exists".** Same reason as §1–§2: the extractor is closed as a label source, the hand-label
+programme stopped at 86 of 303, and "later" arrived and went somewhere else entirely. The one
+item that outlived the section is the `lingua` pin in `requirements.txt` — `item_id` is assigned
+positionally after a shuffle, so a version bump silently repoints the 86 hand labels at the wrong
+reports. `labeling/rekey_labels.py --check` guards it. That is recorded in `README.md` Setup.
 
-**The recurring pattern:** guessed vocabulary is wrong far more often than the logic is. Every
-single one of R2/R6/R7/R8 was found by the per-language positive-rate table, not by gold AUC —
-and §2.2 is the same story a fifth time, with the extra twist that the *diagnosis* in §2c had
-already committed to a logic fix (section-header scope) that the corpus does not support.
-Check the vocabulary against the corpus before designing the rule. Keep that table in every run.
-
-R10 was found neither way: it surfaced from **auditing what a change newly fires on**, by
-reading 25 clauses. Worth repeating after any rule that moves a few hundred studies — the
-per-language table is too coarse to see a fault that is spread evenly across one language.
-
----
-
-## 4. To check when the hand-labels land
-
-1. Re-bootstrap all CIs on 303 items instead of 58 — expect widths to roughly halve.
-2. **Per-language** extractor agreement. This is the number that does not currently exist and
-   matters most.
-3. Human-vs-gold agreement on the 30 blind gold studies → are our label *definitions* right?
-4. Intra-rater agreement on the 20 duplicate pairs → the ceiling on everything.
-5. Refit the soft-target constants (§1.3) against observed positive rates per state.
-6. Re-measure whether "not mentioned" ≈ "negated" (§1.2), per language and per institution.
-
-## 5. Later, once the vision model exists
-
-- Self-training: use compartment predictions to disambiguate the ~1,500 unattributed OA
-  studies (§2.2), then retrain.
-- Disagreement mining: studies where rules and LLM disagree are the highest-value candidates
-  for additional hand-labelling.
-- Check whether pseudo-label noise is correlated with language — if so, weight the loss by
-  per-language extractor reliability rather than uniformly.
-
----
 
 ## 6. Kaggle-side pipeline — friction log `ADDED 2026-08-08`
 
@@ -1685,7 +1332,7 @@ session run for hours.
     it is the floor on *any* re-roll. A bad draw costs ~4 min of session, not ~0.
 - **The other twelve fixes still have not touched real DICOMs.** Everything on the decode path —
   the spawn pool, the pinned threads, the PROBE, per-study resume — remains self-tested only. The
-  224 shard-0 proving run (`PLAN.md` §9.1) is still the only thing that converts them from
+  224 shard-0 proving run (PLAN §9.1, removed 08-13; the route is `README.md` "Building the cache locally") is still the only thing that converts them from
   reasoning into measurement, which is exactly the failure mode of K3–K5. Attempt 5 never reached
   them.
 - **The ~19 ms/open cost model is not measured.** It is inferred from the failed runs and
