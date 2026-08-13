@@ -805,3 +805,62 @@ the useful half of that family, without the weak arm.
 **Licence note:** research-use with commercial licensing separate, same category as DINOv3, same
 §2.5.a carve-out (Workstream B). And its accessibility is *de facto* established here — the public
 notebooks already attach it.
+
+### 9g. Two method questions, answered `2026-08-13 pm`
+
+#### Can we use tensorised images at submission time? **No — and this is structural**
+
+The test studies are **not visible until the scored run starts**. Nothing derived from test pixels
+can be precomputed and attached, so `data/tiles336`, `data/features_*` and every other cache is a
+**training-time artefact only**. What *can* ride along is anything computed from train data:
+weights, fixed transforms, priors, normalisation constants.
+
+**Consequence, and it is the one that shapes every plan here:** tensorisation happens *inside* the
+9 h run, on CPU, and **decode is what dominates** (§3e — the 74 s is forward passes; a real run
+decodes the whole hidden test). Any method that needs an expensive per-study transform pays for it
+at submission, every time. That is the budget a topological or radiomic feature would come out of.
+
+#### Second-order (covariance) pooling — the strongest untested "statistics" idea
+
+**Every arm we run pools FIRST-order.** pilkwang is `cls_mean`; `ft_b` is attention-pool over
+slices then mean within plane. Neither represents *interactions* between feature channels.
+
+The established result: global average pooling captures only first-order statistics and misses the
+high-order feature interactions that **fine-grained** classification needs; bilinear / covariance
+pooling with matrix square-root normalisation reports **+2–3%** on fine-grained benchmarks, and
+second-order pooling has been applied to medical classification (SOP + SENet on ResNet-50).
+
+**Why it fits here specifically:** §3p localised every remaining point to five **focal,
+millimetre-scale** labels. "Fine-grained" is exactly that regime, and it is the same reasoning that
+motivates the CNN in Workstream C — texture and local interaction rather than global shape.
+
+**It is cheap to screen and needs no GPU, no quota and no pixel path.** `data/features_*` are
+frozen DINOv2 embeddings (94×1536 per study) already on disk. Fit a head on covariance-pooled
+features against one on mean-pooled features, same folds, same targets. **This is the F3-shaped
+screen and it should be run before any training arm commits to a pooling choice.** Judge on
+`score_gold.py`; pre-register the comparison.
+
+**Caveat that must be priced in:** covariance of 1536 channels is 1536², so it needs low-rank or
+compact bilinear pooling to be tractable. Budget that before claiming it is cheap.
+
+#### Topological CNN — the earlier survey was too dismissive, and here is the correction
+
+§9f closed TDA on the grounds that its evidence is on derived quantitative maps and microscopy.
+**That was incomplete.** There is classification evidence on *clinical* images: topological
+features integrated with pretrained models in **breast-cancer screening** report consistent boosts
+to both CNNs and ViTs, and TopOC applies topological deep learning to ovarian/breast diagnosis.
+Separately, persistent-homology **loss functions** are differentiable and established — but note
+those are for **segmentation**, where topology *is* the output structure, which is not our task.
+
+**What still argues against it here, and why it stays behind the CNN:**
+
+1. **The evidence is 2-D single-image** (mammogram, histopathology tile). Ours is multi-series 3-D
+   knee MRI with twelve labels and a slot structure.
+2. **§3p's headroom is in 1 mm focal findings.** Topology speaks to connectivity and holes at a
+   larger scale — and §3r just measured that the structure it would most naturally capture (the
+   shared abnormality axis, PC1, 52% of variance) is **already signal the model has**.
+3. **It pays at submission time**, out of the decode-dominated budget above.
+
+**Revised verdict: not closed, but ranked below Workstream C.** The honest cheap test is the same
+one as second-order pooling — a topological feature block screened on `data/features_*` or on a
+small pixel sample, judged on `score_gold.py`, before any training commitment.
