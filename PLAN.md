@@ -739,7 +739,7 @@ score — §2y and §3q both closed arms that were fine alone.
 
 | decision | value | why |
 |---|---|---|
-| backbone | **`convnext_small.fb_in22k_ft_in1k`** or `tf_efficientnet_b3.ns_jft_in1k` (timm, permissive) | ConvNeXt is the strongest modern CNN and is *architecturally* far from a ViT despite the name; B3 is the config a public 0.903 writeup claimed (`REFERENCE.md` — writeup only, no kernel). Pick one and **do not A/B them on gold** (§3b). |
+| backbone | **RadImageNet ResNet-50, FINE-TUNED** — already on disk at `data/external/radimagenet_r50_encoder/ResNet50.pt` | **See the survey below. This is the pick.** Fallbacks if it disappoints: `convnext_small.fb_in22k_ft_in1k` or `tf_efficientnet_b3.ns_jft_in1k` (timm, permissive). Pick one and **do not A/B them on gold** (§3b). |
 | input | **reuse `ft_b_pixels.py` unchanged** — K=32 slices, per-series, full-frame after background trim, 336 px, ImageNet stats, canonicalised to a RIGHT knee | Already transcribed and validated (§3n/§3o). CNNs take any resolution, so no `img_size` surgery. |
 | head | **reuse `FTBHead`** from `fusion/ft_b_model.py`, with `d_in = backbone.num_features` (not ×2 — a CNN has no CLS token, so pool the feature map) | The head is the arm's proven half; changing both halves at once makes a failure undiagnosable. |
 | targets | `data/targets.csv` (= `steven_v2`) | §3p: labels are not the ceiling. Do not spend on F4 first. |
@@ -775,3 +775,33 @@ Persistent homology / TDA is real in medical imaging, but the evidence does not 
 
 **Reopen only if** a quantitative map becomes available, or if a cheap experiment shows a
 topological feature separating the *focal* labels. Not on the critical path.
+
+#### C — survey of reusable CNNs, and the pick `2026-08-13 pm`
+
+[[check-whats-free-first]] applied before writing a training loop.
+
+| candidate | verdict |
+|---|---|
+| **RadImageNet ResNet-50** — `data/external/radimagenet_r50_encoder/ResNet50.pt`, **already downloaded** | **✅ THE PICK.** Verified: `backbone.*` keys load **STRICT** into a torchvision `resnet50` trunk, 23.5 M params, 2048-dim features, forward at 336 gives (2048, 11, 11). |
+| MRNet repos (`MisaOgura`, `dazcona`, `Elzawawy`, `rowantahseen`) | Code, not weights — AlexNet/ResNet/NASNet trained on the Stanford MRNet set. Re-training means acquiring MRNet, which is **`REFERENCE.md` §1.3's unresolved accessibility question**, asked twice and never answered. Not worth gating a workstream on. |
+| Kaggle `knee` models | Hobby-grade (X-ray osteoporosis, OA X-ray nets). Nothing trained on knee **MRI** at this scale. |
+| ImageNet ConvNeXt / EfficientNet | Available and permissive, but **natural-image** pretraining — the thing `sadamtorres` measured as costing +0.09 LB to fix by fine-tuning. Fallback only. |
+
+**Why RadImageNet fine-tuned is the strongest CNN move available, and it is three arguments
+converging:**
+
+1. **It is a CNN** — locality and translation equivariance built in, which is the sample-efficiency
+   argument above, aimed at the five focal millimetre-scale labels §3p isolated.
+2. **It is radiology-pretrained, not ImageNet-pretrained.** `sadamtorres` measured **domain
+   adaptation at +0.09 LB against resolution's +0.017**; this backbone starts already adapted.
+3. **The entire field uses it FROZEN** — `mattiaangeli`'s heads sit on a frozen R50, and §2e
+   measured that a frozen encoder cannot adapt at any resolution. **Fine-tuning it is a
+   differentiator that costs one training run**, not a download nobody else has.
+
+**It also lets F6's RadImageNet arm be dropped without loss.** §9f-A expected that arm to fail
+tonylica's bar because it is frozen. The same weights, fine-tuned, become Workstream C instead —
+the useful half of that family, without the weak arm.
+
+**Licence note:** research-use with commercial licensing separate, same category as DINOv3, same
+§2.5.a carve-out (Workstream B). And its accessibility is *de facto* established here — the public
+notebooks already attach it.
