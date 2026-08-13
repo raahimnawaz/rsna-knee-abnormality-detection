@@ -278,3 +278,63 @@ anatomical slabs while that bit is missing.
 **Re-measure if the corpus grows.** n=396, and it is the entire licence for detector-free crops.
 
 ---
+
+## 7. Corpus structure revealed by auditing the 0.891 ensemble — 2026-08-12
+
+`pilkwang/rsna-knee-weights::oof.npz` gives honest OOF over all 4,407 studies, so the corpus can be
+sliced by subgroup for the first time. These are facts about the **data**; what they imply for the
+model is `IMPROVEMENTS.md` §3f. Reference is `lixin_gpt56`, non-gold, n=4,349.
+
+### 7.1 CASE MIX DIFFERS BY SCANNER, AND IT IS LARGE
+
+Label prevalence across the three largest manufacturers:
+
+| label | Siemens Healthineers | GE MEDICAL | SIEMENS |
+|---|--:|--:|--:|
+| **Medial OA** | **0.479** | 0.353 | 0.338 |
+| **PF OA** | **0.579** | 0.454 | 0.405 |
+| **Lateral OA** | **0.364** | 0.256 | 0.232 |
+| Effusion | 0.655 | 0.522 | 0.628 |
+| Baker's | 0.319 | 0.250 | 0.243 |
+| Synovitis | 0.106 | **0.161** | 0.102 |
+| Medial Meniscus | 0.395 | 0.398 | 0.385 |
+| ACL | 0.169 | 0.171 | **0.238** |
+
+**A 0.14 spread in Medial OA prevalence between scanners.** Meniscus is flat (0.385–0.398), so
+this is not a labelling artefact — it is real epidemiology: different scanners sit in different
+clinics, and an OA-heavy clinic is not a sports-injury clinic. **Scanner identity is a proxy for
+patient population in this corpus**, which is why removing it costs score (§3f).
+
+**Consequence for anyone reading this later:** a "site effect" here is *confounded with case mix*
+and must not be assumed to be an artefact. The harmonisation literature's default (ComBat, remove
+scanner effects) is measured to be **actively wrong** on this dataset.
+
+### 7.2 Subgroup composition
+
+| dimension | split |
+|---|---|
+| laterality (`study_meta.x_side`) | **R 2,686 / L 1,663** — 62/38, not 57/43 as previously quoted |
+| patient sex | M 2,050 / F 1,872 (427 unknown/other) |
+| field strength | 1.5 T 2,517 / 3.0 T 1,575 (257 other/missing) |
+| manufacturer | 11 groups; Siemens Healthineers 1,042, GE 852 largest |
+
+`PatientSex`, `MagneticFieldStrength`, `Manufacturer` and `ManufacturerModelName` all live in
+`data/external/dicom_headers_zhukovoleksiy.parquet` (43 columns). **There is no patient age.**
+
+### 7.3 Label difficulty is structured by compartment, and it matches the literature
+
+Prevalence is not the whole story — the **lateral** compartment is intrinsically harder:
+
+| | medial | lateral | gap |
+|---|--:|--:|--:|
+| Meniscus (prevalence) | 0.393 | 0.148 | |
+| Meniscus (ensemble AUC) | 0.834 | **0.767** | −0.067 |
+| OA (ensemble AUC) | 0.872 | 0.829 | −0.043 |
+
+An independent published study reports medial/lateral meniscus AUCs of **0.834 / 0.746** — nearly
+the same values from a different dataset and a different model, and it localises the failure to
+the **posterior horn of the lateral meniscus**. So this is a property of the task, and the target
+is anatomically specific rather than a generic capacity problem.
+
+**Rarest labels** are Fracture (0.064) and Synovitis (0.123) — yet both score *well* (0.898,
+0.886). **Prevalence does not predict difficulty here**; compartment and structure size do.

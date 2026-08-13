@@ -4,20 +4,37 @@ Twelve-label knee-MRI classification, macro-AUROC. Final submission **2026-10-22
 
 ---
 
-## START HERE — state as of 2026-08-12
+## START HERE — state as of 2026-08-12 (end of day)
 
-> # COURSE CHANGE — 0.891 is the FLOOR, not the target `2026-08-12, §2w`
+> # WE ARE AT 0.899, AND THE FREE PUBLIC CEILING IS NOW REACHED
 >
-> **Our own pipeline is ~0.13 BELOW a score we already have banked.**
+> **Banked: submission `55465252` = 0.899** (was 0.891). Top **0.946**, 10th/prize **0.935**.
+> **Read `PLAN.md` §9a for the F-series — that is the current plan.** The E-series is closed.
 >
-> **E1 HAS NOW RUN — the table below is the LIVE board, 2026-08-12 17:22 UTC (§2x).**
+> ### The four things a fresh session most needs to know
+>
+> 1. **The port is CLOSED as an ensemble member (§2y).** Paired against the fork's own OOF:
+>    **0.7323 vs 0.8434, −0.111 at 15.4σ, 0/12 labels**, and **no rank-blend weight helps at any
+>    value.** Not a duplicate-member problem either — rank correlation 0.639. It had diversity and
+>    is simply not good enough. **Give it no more compute as a member.**
+> 2. **The fork ships its OOF** — `pilkwang/rsna-knee-weights::oof.npz`, 368 KB, all 4,407 studies,
+>    `gold_mask` = 58. Imported to `fusion/runs_pilkwang`. **The fork is a local arm now; stop
+>    comparing against a web-page number.** This is what made §2y, §3b and §3f possible in an hour.
+> 3. **Never select on gold-58 (§3b).** A weight chosen on 58 studies claims +0.0137 and delivers
+>    **−0.0034**, negative in **92%** of draws; bagging does not fix it. Reliable selection starts
+>    around **n ≈ 400**. Gold-58 can *evaluate* a fixed decision, never *choose* one.
+> 4. **A submission costs ~2 h, not 74 s (§3e).** The 74 s is the members' forward passes; a real
+>    run also decodes the whole hidden test from DICOM. ~15 runs/week against a 30 h quota.
+>    **Batch post-hoc experiments; never spend a run on one +0.002.**
+>
+> **The live board, 2026-08-12 (§2x):**
 >
 > | | LB | |
 > |---|--:|---|
-> | our own pipeline, best estimate | ~0.76 | never submitted |
-> | **the fork, submitted 2026-08-09** | **0.891** | **rank 400 / 1,276** — 73 teams tied |
-> | the *free* public plateau (`aadigupta7686`) | **0.899** | rank 144, 183 teams |
-> | **10th place — the last prize** | **0.934** | only 10 teams clear it |
+> | our own pipeline, best estimate | ~0.76 | never submitted, and now closed (§2y) |
+> | the fork, submitted 2026-08-09 | 0.891 | rank 400 / 1,276 — 73 teams tied |
+> | **OURS NOW — pilkwang + per-target TTA pooling** | **0.899** | `55465252`, §3d/§3e |
+> | **10th place — the last prize** | **0.935** | only 10 teams clear it; was 0.934 that morning |
 > | top | 0.946 | |
 >
 > **All four numbers moved against us since the 08-10 read** (§2x): top 0.942→0.946, 10th
@@ -52,6 +69,25 @@ Twelve-label knee-MRI classification, macro-AUROC. Final submission **2026-10-22
 > The measurement apparatus below is not wasted — site-grouped folds, the report-OOF instrument,
 > K16, the guards, resume. **It is how you judge an ensemble honestly. It was never going to BE
 > the ensemble.**
+
+> ### CLOSED ROUTES — do not re-derive these `index, 2026-08-12`
+>
+> Each was measured, not argued. The section named is where the evidence lives.
+>
+> | route | verdict | where |
+> |---|---|---|
+> | our port as an ensemble member | **no weight helps**, −0.111 at 15.4σ | §2y |
+> | K16 from DICOM header rules | 56.9–60.8% vs ~50% chance; resolved by *measurement* instead | §2n, §2m |
+> | our rule extractor as a label source | 0/12 labels, negative in a rank-mean | §2f |
+> | per-label fusion of public label readers | near-duplicates (|r| 0.87–0.95); loses to best single | §2i |
+> | rank-mean `pilkwang` + `prvsiyan` (old E2) | prvsiyan already *contains* pilkwang | §3c |
+> | re-fitting blend weights on site-grouped folds | **−0.0000** | §2z |
+> | **harmonising scanner/site away (ComBat-style)** | **−0.013 to −0.032** — case mix is real | §3f |
+> | selecting anything on gold-58 | claims +0.0137, delivers −0.0034 | §3b |
+> | post-hoc calibration / thresholds / priors | AUC is invariant to per-label monotone transforms | §3a |
+> | forking prvsiyan for its 0.906 | needs a **private** dataset; degrades to 0.899 | §3c |
+> | CoPAS, MRI foundation models, Gold Loss Correction | surveyed and rejected, with reasons | §3a |
+> | a C++ port for the efficiency track | 93 s per 0.001 AUC; decode is already native | `PLAN.md` §6.1 |
 
 **Baseline: macro 0.7229 ± 0.0048**, site-grouped report-OOF over 2,612 studies. That is the
 honest number; every figure this project produced before 2026-08-10 was inflated by ~0.024 of

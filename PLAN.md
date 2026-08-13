@@ -544,14 +544,76 @@ track we have most invested in. Path 2 is not reachable without it. Build it fir
 >
 > **0.891 is the floor. Every number is a delta on top of it.**
 >
-> | # | step | cost |
-> |---|---|---|
-> | **E1** | Verify the live leaderboard and both lineages' real scores | minutes |
-> | **E2** | Rank-mean `pilkwang` + `prvsiyan` — two published notebooks | 1 Kaggle run |
-> | **E3** | Submit it (also retires the never-run inference path) | 1 of 5 daily |
-> | **E4** | Make the port earn a slot: does *adding* it help? | 1 scoring run |
-> | **E5** | Differentiators as deltas on the ensemble | ~1.6 h/fold |
-> | **E6** | Efficiency track, co-primary | TBD |
+> | # | step | cost | outcome |
+> |---|---|---|---|
+> | **E1** | Verify the live leaderboard and both lineages' real scores | minutes | **DONE §2x** — 4 errors, all pessimistic |
+> | **E2** | Rank-mean `pilkwang` + `prvsiyan` | 1 Kaggle run | **DROPPED §3c** — prvsiyan already *contains* pilkwang; its 0.906 needs a private dataset |
+> | **E3** | Submit | 1 of 5 daily | **DONE §3e — 0.899 banked** |
+> | **E4** | Make the port earn a slot | 1 scoring run | **DONE §2y — NO, at any weight. Port is closed as a member.** |
+> | **E5** | Differentiators as deltas on the ensemble | ~1.6 h/fold | **live — see the F-plan below** |
+> | **E6** | Efficiency track, co-primary | TBD | untouched |
+
+---
+
+## 9a. THE CURRENT PLAN — F-series `2026-08-12, supersedes the E-series above`
+
+**State: 0.899 banked (submission 55465252). Top 0.946, 10th 0.935. The free public ceiling is
+reached — everything from here must be something the field does not already have.**
+
+Ordered by expected value per hour, cheapest first. **Costs are real: a submission is ~2 h of the
+30 h weekly quota (§3e), not the 74 s this plan believed twice.**
+
+| # | step | cost | why now |
+|---|---|---|---|
+| **F1** | **Batch the free post-hoc gains into ONE submission** — site-prevalence prior at K=10, w=0.10 (+0.0023, §3f) plus any other re-ranks ready by then | 1 submission (~2 h) | Never spend a 2 h run on a single +0.002. Batch or don't submit. |
+| **F2** | **Anatomical crops, aimed at the POSTERIOR HORN OF THE LATERAL MENISCUS** | build ~21 min + folds | The one target that is (a) our weakest label at 0.767, (b) known-hard in the literature at 0.746, (c) anatomically localised, (d) licensed by §2l's 132/132 canonical axes. See 9b. |
+| **F3** | **Metadata conditioning** — screen on `data/features_*` first, locally | hours, CPU/MPS | The model is given **pixels and a slot mask, nothing else**. Sex, field strength and manufacturer are never passed. Nobody public does this. See 9c. |
+| **F4** | **Severity-thresholded label read** | ~$ of API + submissions | Still the biggest single bet (`REFERENCE.md` §2.1), and §3b finally settled how to judge it: **not on gold-58**. |
+| **F5** | Efficiency track | TBD | $18,000, thinner field, untouched since §2t-4. |
+
+### 9b. F2 — why the crop, and why anatomy rather than saliency
+
+**Do not build a saliency- or detector-guided crop.** It is circular for this failure: the model
+is *missing* the lateral posterior horn, so its own attention will not point there. And every
+pilkwang member **verifies a fingerprint on its pixel contract** (`crop_mm 130`, `img 336`, band
+0.2–0.8) — feeding a different crop breaks it by design, so no crop route can reuse their frozen
+members. A weakly-supervised detector is also unbuildable here: the competition ships **no bounding
+boxes**, only study-level labels.
+
+**The mechanism that does work is resolution, not attention.** §2d measured 224→518 = +0.013. A
+crop that discards irrelevant field of view spends the *same pixel budget* on the target region —
+an effective resolution increase at zero extra compute. We can place the region geometrically:
+§2l's in-plane axes are canonical **132/132**, and K16 is resolved for 8,048 sagittal series.
+
+**Blocked on the known hazard:** `tiles_protocol` was built with `SAGITTAL_LR=0` and the
+anatomical slabs need `SAGITTAL_LR=1`. `pipeline/slot_cache.assert_caches_compatible()` raises on
+any run consuming both. **Rebuild protocol under the same flags first (~21 min).**
+
+### 9c. F3 — the model is never told anything but pixels
+
+`Model.forward(self, imgs, mask, img_size=None)`. That is the entire input: slot images plus a
+mask of which slots exist. Never passed: **sex, age, field strength, manufacturer, laterality,
+slice direction.** The competition metadata (`Fluid_Sensitive`, `Fat_Suppression`, plane) is used
+*only to route series into slots*, never as a model input — by pilkwang, by prvsiyan, by anyone
+public.
+
+What the model can and cannot recover on its own, measured in §3f:
+
+* **laterality — inferable** from pixels (a left knee is a mirrored right knee), and the L/R
+  disparity is **−0.0014**, i.e. nil. It has already solved this. *Nothing to add.*
+* **scanner — inferable** from texture and FOV convention, and it evidently learns the associated
+  case mix; that is why harmonising *costs* 0.013–0.032.
+* **sex — barely inferable from a knee, and never given.** ACL runs **M 0.865 / F 0.820** (2.3σ),
+  Medial OA M 0.852 / F 0.889 (3.1σ). This is the real gap.
+* **field strength — never given**, and Lateral Meniscus is **0.748 at 1.5 T vs 0.801 at 3 T**.
+  The model cannot be told "this is a low-SNR acquisition, widen your prior."
+
+**Screen it cheaply before spending GPU.** `data/features_*` are frozen DINOv2 embeddings already
+on disk. Fit a head on `[features ‖ metadata]` against one on features alone. If conditioning
+gives nothing there, it will give nothing after a fine-tune, and F3 dies for the cost of an
+afternoon on the CPU. **Caveat (§3a): a per-study covariate cannot be bolted on post-hoc as a
+monotone transform — AUC will not move. It is a training-time feature, or a group-conditional
+prior like F1's, and it must be tested as one.**
 >
 > **Corrections to what this file and `REFERENCE.md` assert about the field**, surveyed live
 > 2026-08-12: `0.899 let me cook` is `aadigupta7686`, not `prvsiyan`; and **no public
