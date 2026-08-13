@@ -733,6 +733,29 @@ fine-tuning at +0.09 LB against resolution's +0.017; §2d separately measured **
 resolution**, and we sit at 81.5% of the corpus). Judge it on its **blend delta**, never its solo
 score — §2y and §3q both closed arms that were fine alone.
 
+#### C — the executable spec, so this can be picked up cold
+
+**Do not re-derive the reasoning above; it is settled. Start here.**
+
+| decision | value | why |
+|---|---|---|
+| backbone | **`convnext_small.fb_in22k_ft_in1k`** or `tf_efficientnet_b3.ns_jft_in1k` (timm, permissive) | ConvNeXt is the strongest modern CNN and is *architecturally* far from a ViT despite the name; B3 is the config a public 0.903 writeup claimed (`REFERENCE.md` — writeup only, no kernel). Pick one and **do not A/B them on gold** (§3b). |
+| input | **reuse `ft_b_pixels.py` unchanged** — K=32 slices, per-series, full-frame after background trim, 336 px, ImageNet stats, canonicalised to a RIGHT knee | Already transcribed and validated (§3n/§3o). CNNs take any resolution, so no `img_size` surgery. |
+| head | **reuse `FTBHead`** from `fusion/ft_b_model.py`, with `d_in = backbone.num_features` (not ×2 — a CNN has no CLS token, so pool the feature map) | The head is the arm's proven half; changing both halves at once makes a failure undiagnosable. |
+| targets | `data/targets.csv` (= `steven_v2`) | §3p: labels are not the ceiling. Do not spend on F4 first. |
+| folds | `data/folds_site.csv` (site-grouped) | §2j: +0.024 of site leakage otherwise. |
+| schedule | fine-tune **all** blocks; ~1.6 h/fold under `caffeinate -i`; `--resume` exists (§2u) | §2e: a frozen encoder cannot adapt, and RadImageNet is the field's cautionary example. |
+
+**The gate, to be pre-registered before the first run:** score fold-resolved on
+`fusion/score_gold.py`, then measure the **blend delta against the current best blend**, not the
+solo score. §3q's bar: it must clear **both** the measurement *and* the prior (comparable strength
+to ~0.85, correlation below `ft_b`'s 0.632). If it lands at tonylica's ~0.79, drop it — that arm
+was free and still did not pay.
+
+**Watch for:** MPS memory. §2p's "the port is memory-bound" was never established (§2v), but the
+17.2 GB box is real and a ConvNeXt-S at 336 with K=32 slices per series is a large batch. Reduce
+slices per step before reducing resolution.
+
 ### ⛔ Topological methods — surveyed 2026-08-13 and NOT pursued
 
 Persistent homology / TDA is real in medical imaging, but the evidence does not transfer here:
