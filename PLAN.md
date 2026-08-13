@@ -122,9 +122,14 @@ the board settles the size.
 
 **The order of work.**
 
-1. Reproduce **one** family's own OOF locally and check it against the author's claim. This is the
-   §3g/§3h-3 pattern: `fusion/pilkwang_model.py --check` exists precisely because separating a
-   model problem from a pixel problem in two minutes is worth more than any single measurement.
+1. ~~Reproduce **one** family's own OOF locally~~ — **DONE for `ft_b`, partially (§3n).**
+   `fusion/ft_b_model.py --check` loads all five strict; `fusion/ft_b_pixels.py --gate` scores
+   **0.9015** on 47 gold against a pre-registered bar of 0.837. **PASS, but the gate certifies
+   nothing** — an all-member gold read inflates by **+0.1474** on our validated pilkwang path
+   (0.8516 honest OOF → 0.9990 all-20), and `ft_b` landing at 0.9015 is either lighter
+   memorisation or a degraded pixel path. **Next: the fold-resolved read** — recover `ft_b`'s
+   folds by the outlier method below, then compare honest OOF against pilkwang's **0.8516** on
+   the same 47 studies. `ft_b` is "loads and runs", NOT "reproduced", until that exists.
 2. Score each family alone on gold-58 → four numbers on one scale for the first time.
 3. Pre-register the blend, then read the blend on gold-58, paired against pilkwang alone.
 4. Only then spend the submission — batched with **F1's free +0.0023 site prior**, which has been

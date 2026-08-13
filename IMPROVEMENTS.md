@@ -40,6 +40,7 @@ measures the teacher rather than the target. Read it first; it reprices everythi
 | **3k** | **F2-cheap is DEAD.** −0.0031 paired, crop-90 −0.0117 at 3.9σ. The discarded field of view is *not* irrelevant |
 | **3l** | **The ceiling claim expired in a day; `score_oof.py` measures the teacher.** New `score_gold.py`: gold + 0.046 → LB, across four systems |
 | **3m** | **F2 closed on BOTH instruments** (gold C−A = −0.0038 vs report −0.0032) — and §3l-2's amplification is narrowed to **training-side** changes only |
+| **3n** | **`ft_b` loads, runs, and passed its gate at 0.9015 — but the gate certifies nothing.** All-member gold reads inflate **+0.1474**; fold-resolved read still owed |
 
 ---
 
@@ -3148,3 +3149,69 @@ precisely §3b's failure, and this file has now watched that temptation arrive t
 **Three of twelve labels move by exactly 0.0000** (Effusion, Synovitis, Baker's) — those are the
 peripheral findings `pool_arm_c` keeps on crop-130 by construction, so the pooling rule is
 confirmed to have executed as specified rather than by accident.
+
+---
+
+## 3n. `ft_b` RUNS LOCALLY AND ITS GATE PASSED — BUT THE GATE WAS WEAKER THAN IT WAS DESIGNED TO BE `MEASURED 2026-08-13 pm`
+
+**The arm is built.** `fusion/ft_b_model.py` (architecture) and `fusion/ft_b_pixels.py` (their
+`load_series` against our NIfTI). All five checkpoints load **strict** on both halves and report
+their own OOF at **0.7222 / 0.7244 / 0.7174 / 0.7205 / 0.7233** — the same scale as our 0.7229
+(§2j), which is the first time another team's local number has been directly legible here.
+
+### The pre-registered gate, and its result
+
+Committed before any prediction existed: run all five folds on the gold studies with NIfTI
+coverage, and require **gold ≥ 0.837** (their claimed LB 0.883 minus §3l-2's measured 0.046).
+
+    ft_b all-5-fold on 47 gold studies:  macro 0.9015
+    gate                                 >= 0.837
+    VERDICT: PASS (+0.0645)
+
+**The rule fired and it passed. The path is not catastrophically broken, and F6 proceeds.**
+
+### The check I ran afterwards, which weakens what that PASS means
+
+The gate leaned on "our read is biased upward, so landing above an honestly-derived bar is
+meaningful". **The bias was never quantified. It is now, and it is enormous.** Our *validated*
+pilkwang reconstruction on **the same 47 studies**:
+
+| read | gold-47 macro |
+|---|--:|
+| honest OOF, 4 held-out members (§3m arm A) | **0.8516** |
+| **all 20 members, i.e. 16 that trained on the study** | **0.9990** |
+| inflation | **+0.1474** |
+
+Both systems expose the same 80% training ratio to each study (pilkwang 16/20 members, ft_b 4/5
+folds). **So if our `ft_b` path were as faithful as our pilkwang path, an all-fold read should
+land near 0.99, and it lands at 0.9015.**
+
+**Checked before blaming the pixels: pilkwang does NOT train on gold labels.** Its manifest's
+per-member `annot` runs 0.7356–0.9164, **mean 0.8375** — those are per-member *gold scores*, and
+that mean sits on top of our independently measured **0.8400** for their shipped OOF (§3l-2).
+There is no `gold_override` in the config. So the 0.9990 is ordinary memorisation, not a leak.
+
+**Two readings remain and this gate cannot separate them:**
+
+1. `ft_b` regularises much harder than pilkwang (dropout 0.3 in the head, five models averaged
+   rather than twenty), so it memorises less — and 0.9015 is simply what it looks like; or
+2. **our `ft_b` pixel path is degraded** relative to a faithful one, most likely via §3i's
+   slice-order residual, to which this arm's K=32 `linspace` over physical order is more exposed
+   than pilkwang's symmetric band.
+
+### The honest verdict, and the correction to my own instrument
+
+**A one-directional gate against an uncalibrated bias catches a broken path and certifies
+nothing.** That is what this one did. It is the same error class §2s named and §3l repeated — the
+instrument was not shown to be neutral before the run — except that here it was caught by a check
+that cost two minutes on data already on disk, rather than after a fortnight.
+
+**Do not read the +0.0645 margin as fidelity, and do not read 0.9015 as a score.** Subtracting the
+0.1474 to "correct" it is also invalid: the inflation is a property of pilkwang's training regime,
+not a constant.
+
+**The resolution is the fold-resolved read (§9e).** Recover `ft_b`'s fold assignment by the
+outlier method — for a study, the fold that held it out is the one whose prediction disagrees most
+with the other four — then score honest OOF against pilkwang's **0.8516** on these same 47
+studies. That is apples-to-apples, removes the bias entirely, and is the number F6's blend
+decision actually needs. **Until it exists, `ft_b` is "loads and runs", not "reproduced".**
