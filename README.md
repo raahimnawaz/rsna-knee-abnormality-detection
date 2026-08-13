@@ -4,7 +4,33 @@ Twelve-label knee-MRI classification, macro-AUROC. Final submission **2026-10-22
 
 ---
 
-## START HERE — state as of 2026-08-13 pm
+## START HERE — state as of 2026-08-13 late
+
+> # ⏭️ PICK UP HERE
+>
+> **1. CHECK THE SUBMISSION FIRST — it decides whether today's work is trustworthy.**
+> `kaggle competitions submissions rsna-knee-abnormality-detection` · submission **`55490186`**,
+> the F6 two-arm blend (pilkwang + `ft_b`, equal family ranks, **no site prior**).
+> **Predicted 0.915–0.926** from §3l-2's +0.046 offset, against **0.899** banked.
+> * **Lands in band** → the offset holds, §3o/§3p/§3q all stand, carry on with DINOv3 (§9h).
+> * **Lands near 0.90** → the offset is wrong. **Re-price §3o and §3p before building anything
+>   on them.** That is the higher-priority branch and it is cheap to act on.
+>
+> **2. Then: DINOv3 (`PLAN.md` §9h)** — complete architecture spec, read off the weights, not yet
+> transcribed. It is the only remaining free family likely to earn a slot. **Highest-risk part is
+> the RoPE branch when the slot token is inserted; copy it, do not reimplement.**
+>
+> **3. Then: Workstream C (`PLAN.md` §9f)** — fine-tune **RadImageNet R50**, already on disk and
+> verified to load strict into a torchvision trunk. A CNN, radiology-pretrained, and the whole
+> field uses it *frozen*.
+>
+> **Cheap screens waiting, no GPU or quota (§9g):** second-order/covariance pooling on
+> `data/features_*`; a topological feature block on the same.
+>
+> **What NOT to re-derive:** F2 (§3k+§3m, closed both instruments) · tonylica (§3q, dropped) ·
+> label-correlation stacking (§3r, closed two ways) · F4 (§3p, no binding label headroom).
+
+## The state as of 2026-08-13 pm
 
 > **Banked 0.899** (submission `55465252` = pilkwang 20-member + per-target TTA pooling).
 > Board: top **0.946**, 10th/prize **0.935**, ~1,370 teams. **70 days left.**

@@ -73,7 +73,7 @@ job is to reproduce one of them locally, not to blend on faith.
 | arm | contents | notes that change the plan |
 |---|---|---|
 | **ft_b** | `backbone` + `head` OrderedDicts, and **`oof_macro: 0.7222`** | Their own OOF is on **the same scale as our 0.7229 baseline** (§2j) — an unusually direct comparison, and the first time another team's local number has been legible to us at all. Self-contained: `timm` is built `pretrained=False`. |
-| **dinov3** | 23.5 M params incl. `enc.vit.*`; `cfg = {backbone: vit_small_patch16_dinov3.lvd1689m, img: 336, pool: 'xcodex', cond: 'token', n_sites: 109}`; `fold` per file | **The encoder is embedded**, so DINOv3's gated licence is not a blocker for *inference*. **And `cond:'token'` with `n_sites:109` means this arm already does site conditioning — that is F3's idea, built by someone else.** Read this before starting F3. |
+| **dinov3** | 23.5 M params incl. `enc.vit.*`; `cfg = {backbone: vit_small_patch16_dinov3.lvd1689m, img: 336, pool: 'xcodex', cond: 'token', n_sites: 109}`; `fold` per file | **The encoder is embedded**, so DINOv3's gated licence is not a blocker for *inference*. **⛔ CORRECTION 2026-08-13 late: this arm does NOT do site conditioning.** The state dict's only non-ViT tensor is `enc.tok.weight` at **(7, 384)** — that is 6 slot types + padding, matching `readout.pres_emb.weight (7, 64)`. `n_sites: 109` sits in the config with **no parameter behind it**. `cond:'token'` conditions on **SLOT TYPE**, not site. **F3 is still unbuilt by anyone.** Read the weights, not the config — the config carries dead fields. |
 | **radimagenet** | heads only, 3.2 M params, `FoundationQueryHead`, `best_val 0.8167`, frozen official R50 encoder | **Two blockers.** (1) The encoder is a *separate* dataset (`marwanmath/resnet-50-radimagenet-marwan`) and is not pulled. (2) **It ships `fold_sha256` but NOT `folds_v1.csv`**, so its fold assignment cannot be recovered — and without it there is no honest OOF read for this arm. Also note it is **frozen-encoder + head**, the configuration §2e measured as the weak one. **Lowest priority of the three.** |
 
 **Consequence for the order of work: start with `ft_b`.** It is self-contained, it is the strongest
@@ -89,7 +89,7 @@ the notebook body — that is how `tonylica/rsna2026-models` was finally located
 | **`ft_b`** | done | **§3o. OOF 0.8522, blend +0.0284.** |
 | **`tonylica`** (`rsna2026-models`, 1.3 GB) | **near-free** | **4 folds load STRICT into our existing `pilkwang_model.build_model(pool='cls_mean_focal', prior=True)`** — 233/234 keys already matched, the only extra being `head.slot_prior`. **Same six slots as pilkwang**; pixel path is `pilkwang_pixels` at **`img 224`, `crop_mm 160`, `n_slice 9`**. |
 | **RadImageNet** | moderate | encoder now pulled (`ResNet50.pt`, 90 MB). Frozen encoder + head — §2e's weak configuration. Folds via `fold_recover.py`. |
-| **DINOv3** | **heavy** | Slot-based like pilkwang, but a much larger transcription: `Net` + `Readout` + `CodexResidualPool` + `_GatedDelta` + `_pad_kv`/`_seg_mean_max`, and a custom encoder doing **token-level site conditioning** (`cond='token'`, `n_sites=109`). Several hours, and no fingerprint to check it against. |
+| **DINOv3** | **heavy** | Slot-based like pilkwang, but a much larger transcription: `Net` + `Readout` + `CodexResidualPool` + `_GatedDelta` + `_pad_kv`/`_seg_mean_max`, and a custom encoder doing **token-level SLOT conditioning** (`cond='token'`; *not* site — see §9e's correction). Several hours, and no fingerprint to check it against. |
 
 **⚠️ `tonylica` IS A WEAK ARM AND §2y APPLIES.** Its shipped per-fold gold (`annot`) is
 **0.7992 / 0.8068 / 0.7339 / 0.7070, mean ≈ 0.762**, against pilkwang's per-member mean of
@@ -864,3 +864,51 @@ those are for **segmentation**, where topology *is* the output structure, which 
 **Revised verdict: not closed, but ranked below Workstream C.** The honest cheap test is the same
 one as second-order pooling — a topological feature block screened on `data/features_*` or on a
 small pixel sample, judged on `score_gold.py`, before any training commitment.
+
+### 9h. DINOv3 — the complete architecture spec, read off the WEIGHTS `2026-08-13 late`
+
+Everything below is established from `m_f0.pt` and the kernel source. **The transcription is not
+written yet; this is so it can start cold without re-deriving any of it.**
+
+```
+cfg: backbone vit_small_patch16_dinov3.lvd1689m · img 336 · n_slice 16 · stem 'native'
+     pool 'xcodex' · cond 'token' · meta 'none' · n_meta 0 · norm 'none' · pe_init 'tiled'
+     n_sites 109  <- DEAD FIELD, no parameter behind it
+state dict: enc.* 163 tensors (enc.vit.* + enc.tok.weight) + readout.* 17 tensors
+```
+
+**`stem: 'native'` and `n_meta: 0` mean `DepthCompress`, `SlotDepthMixer` and `meta_mlp` are all
+unused** — that removes three classes from the transcription. `cond != 'post'` removes `slot_emb`.
+
+| module | shape | what it is |
+|---|---|---|
+| `enc.tok.weight` | (7, 384) | `nn.Embedding(N_SLOT_TYPES+1=7, d=384, padding_idx=MASK_IDX)` — **slot-type** conditioning |
+| `readout.pres_emb.weight` | (7, 64) | `nn.Embedding(7, pe=64, padding_idx=0)` |
+| `readout.pool.q / dw / db / gate` | (12,384) (12,384) (12,) (12,) | `_GatedDelta` — one query per label |
+| `readout.pool.attn.in_proj_weight` | (1152, 384) | `nn.MultiheadAttention(384, n_heads, batch_first=True)`; 1152 = 3×384 |
+| `readout.pool.base.0 / .2` | (832,) / (12,832) | `LayerNorm(2d+pe)` → `Linear(832, 12)`; **832 = 2×384 + 64** confirms `d=384, pe=64` |
+
+**So the readout is exactly `Readout('xcodex', d=384, n_labels=12, pe=64)` with
+`CodexResidualPool`**, whose `base` takes `_seg_mean_max(tok[:, 0], sidx, B)` — i.e. the **CLS**
+token segment-pooled, plus the presence embedding — and adds `gate * delta`, where `delta` is
+label-query cross-attention over the **patch** tokens via `_pad_kv`.
+
+**The conditioning mechanism**, and it is the fiddly part:
+
+```python
+tok = self.tok(cat).unsqueeze(1)
+x = torch.cat([x[:, :npt], tok, x[:, npt:]], dim=1)   # npt = num_prefix_tokens
+```
+
+The slot token is inserted **after** the prefix tokens (CLS + registers) and **before** the
+patches. **DINOv3 uses RoPE**, and the kernel has an explicit `if rope is not None: if
+getattr(v, 'rope_mixed', False): ...` branch to keep positions right once an extra token is
+inserted. **That branch is the single highest-risk part of the transcription** — get it wrong and
+the model loads strict, runs, and is quietly wrong. Copy it exactly; do not reimplement from
+understanding.
+
+**The gate, and it must be pre-registered before the run:** the arm ships **no fingerprint and no
+OOF**, so the only checks available are (a) strict load of all 5 folds, (b) fold-resolved OOF via
+`fusion/fold_recover.py` with a χ²-flat partition, and (c) landing in a plausible band against
+pilkwang's **0.8516** and `ft_b`'s **0.8522** on the same 47 gold studies. **§3q's bar applies:
+comparable strength AND correlation below `ft_b`'s 0.632, or it does not earn a slot.**
