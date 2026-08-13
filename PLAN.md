@@ -79,6 +79,28 @@ job is to reproduce one of them locally, not to blend on faith.
 **Consequence for the order of work: start with `ft_b`.** It is self-contained, it is the strongest
 claim (0.883 solo), and it ships a local number on our own scale to reproduce against.
 
+#### All four families, inspected and priced by build cost `2026-08-13 pm`
+
+Definitive attachment list taken from `kernel-metadata.json` (`kaggle kernels pull -m`), not from
+the notebook body — that is how `tonylica/rsna2026-models` was finally located.
+
+| arm | build cost | status |
+|---|---|---|
+| **`ft_b`** | done | **§3o. OOF 0.8522, blend +0.0284.** |
+| **`tonylica`** (`rsna2026-models`, 1.3 GB) | **near-free** | **4 folds load STRICT into our existing `pilkwang_model.build_model(pool='cls_mean_focal', prior=True)`** — 233/234 keys already matched, the only extra being `head.slot_prior`. **Same six slots as pilkwang**; pixel path is `pilkwang_pixels` at **`img 224`, `crop_mm 160`, `n_slice 9`**. |
+| **RadImageNet** | moderate | encoder now pulled (`ResNet50.pt`, 90 MB). Frozen encoder + head — §2e's weak configuration. Folds via `fold_recover.py`. |
+| **DINOv3** | **heavy** | Slot-based like pilkwang, but a much larger transcription: `Net` + `Readout` + `CodexResidualPool` + `_GatedDelta` + `_pad_kv`/`_seg_mean_max`, and a custom encoder doing **token-level site conditioning** (`cond='token'`, `n_sites=109`). Several hours, and no fingerprint to check it against. |
+
+**⚠️ `tonylica` IS A WEAK ARM AND §2y APPLIES.** Its shipped per-fold gold (`annot`) is
+**0.7992 / 0.8068 / 0.7339 / 0.7070, mean ≈ 0.762**, against pilkwang's per-member mean of
+**0.8375**. §2y closed our own port at 0.7323 for being too weak *despite* diversity of 0.639.
+**Score it before blending it, and be willing to drop it** — the public notebooks include it, but
+they never measured whether it earns its slot.
+
+**Its gate:** an honest gold read should land near **0.76** for single members. A large miss means
+the pooling is wrong — `cls_mean_focal` computes `topk(k=n/8).mean` as its third part, and the
+shape match alone does not prove tonylica used the same third part rather than a plain `amax`.
+
 #### The fold problem, and the way through it `2026-08-13 pm`
 
 **Neither new arm ships a fold split or an OOF.** `folds_v1.csv` is not published anywhere —
