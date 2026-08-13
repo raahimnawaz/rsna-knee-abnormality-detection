@@ -3177,3 +3177,70 @@ strategic and unwelcome: §2y listed three things that compose with the fork —
 −0.0000 (§2z), item 2 is partly spent, and **item 3 was never real. Our edge over the fork is
 thinner than this repo believes**, and what is left is the two bets that were always the whole
 game: the crops and the severity labels.
+
+---
+
+## 3j. The reconstruction defect is NEUTRAL to the crop, and the crop's per-label signs are anatomy `MEASURED 2026-08-12`
+
+§3i left F2-cheap blocked behind a Kaggle export to recover the NIfTI slice permutation. **It is
+not blocked.** `fusion/crop_neutrality_test.py`, 60 studies, 5 members (one per fold):
+
+| d = P(crop 90) − P(crop 130) | mean | mean \|d\| |
+|---|--:|--:|
+| under our slice order | +0.02840 | 0.05607 |
+| under a reversed order | +0.03041 | 0.05742 |
+
+**corr(d_ours, d_reversed) = 0.9825. Instability / effect = 0.17.**
+
+### Why this was the right thing to measure before building the export
+
+The residual is real and it is not going away, but **both crop arms run through the same imperfect
+slice order**, so the defect is a *shared* perturbation. What would invalidate the A/B is not the
+defect — it is an INTERACTION, the crop delta coming out different under a different ordering.
+That is a question, and it costs 20 minutes to answer instead of a day to route around.
+
+This is §2s's rule applied for once *before* the run rather than after: **state the reference and
+show it is neutral to both arms.** There was a mechanical prior that it would pass — crop is
+in-plane, order is through-plane, different axes of the tensor — but every one of the four
+measurements this project lost to an entangled instrument also had a plausible prior, which is
+precisely why the prior does not count and the measurement does.
+
+**The Kaggle per-slice export is therefore deferred, not cancelled.** It is still what the pixel
+path needs to be *exact*, and it is still one CPU kernel. It is simply not on the critical path
+for F2-cheap, and there is now a measured reason to say so.
+
+### The crop's per-label signs, which are the actual finding
+
+| tighter crop RAISES | | tighter crop LOWERS | |
+|---|--:|---|--:|
+| Lateral OA | +0.082 | Effusion | −0.019 |
+| Lateral Meniscus | +0.073 | Synovitis | −0.018 |
+| Medial OA | +0.070 | Baker's | −0.016 |
+| PF OA | +0.055 | | |
+| Medial Meniscus | +0.043 | | |
+| Fracture | +0.028 | | |
+| MCL / Contusion | +0.018 | | |
+| ACL | +0.005 | | |
+
+**The split is anatomy, not noise.** Everything that gains is joint-centred — the menisci and the
+three OA labels sit at the tibiofemoral and patellofemoral surfaces, dead centre of a 90 mm box.
+Everything that loses is a peripheral fluid finding: **Baker's cyst is posteromedial**, effusion
+distributes into the suprapatellar pouch, synovitis lines the capsule. A 90 mm crop puts them out
+of frame, and the model correctly becomes less sure.
+
+`mean |d| = 0.056` is also **larger than the within-fold member-to-member disagreement of 0.0495**
+(§3i-3). Changing the crop moves a prediction more than swapping in a different seed does.
+
+**This is §3d's structure arriving from the other direction.** Per-target TTA pooling found that
+focal findings want max over windows and diffuse ones want the mean; the crop finds that central
+findings want the tight box and peripheral ones want the wide one. Both say the same thing: **the
+crop window must be added PER TARGET**, and this table names which — the five central labels take
+it, the three fluid labels stay on 130 mm alone.
+
+### The caveat that decides whether any of this is worth a submission
+
+**A shift is worth nothing.** §3a's filter applies with full force: macro-AUROC is invariant to
+per-label monotone transforms, so a uniform +0.07 on Lateral OA changes no score at all. What has
+to happen is **reordering** — the crop must move studies relative to each other, not together.
+Nothing above establishes that. The paired AUC A/B is what establishes it, and until it reads,
+these signs are a mechanism story with no number attached.
