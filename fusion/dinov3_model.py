@@ -253,16 +253,37 @@ def main() -> int:
     if not a.check:
         ap.print_help()
         return 0
-    dev = pick_device()
+    dev = torch.device("cpu")          # the checks are tiny; MPS buys nothing and costs transfers
     print(f"device {dev} · timm {timm.__version__} (their kernel pinned 1.0.22)\n")
+
+    torch.manual_seed(0)
+    im, sidx, sm = torch.rand(2, N_SLICE, SIZE, SIZE), torch.tensor([0, 0]), torch.zeros(2, 0)
+    outs = []
     for f in range(5):
         m, cfg = load_fold(f, dev)
         n = sum(p.numel() for p in m.parameters()) / 1e6
+        with torch.no_grad():
+            outs.append(m(im, torch.tensor([1, 3]), sm, sidx, 1)[0])
         print(f"  fold {f}: strict OK · {n:.1f}M params · {cfg['backbone']} @ {cfg['img']} · "
               f"pool={cfg['pool']} cond={cfg['cond']} n_slice={cfg['n_slice']}")
+        if f == 0:
+            with torch.no_grad():
+                d = (m(im, torch.tensor([1, 3]), sm, sidx, 1)
+                     - m(im, torch.tensor([2, 5]), sm, sidx, 1)).abs().max().item()
+            cond_delta = d
         del m
+
+    spread = torch.stack(outs).std(0).mean().item()
     print("\nAll five load strictly (every enc.* tensor consumed, nothing unexpected).")
-    print("NOTE: this proves the ARCHITECTURE, not the pixels. See dinov3_pixels.py.")
+    print(f"  slot conditioning is LIVE      : max|Δlogit| {cond_delta:.4f} on a slot-id swap "
+          f"(0.0 would mean `enc.tok` is dead weight)")
+    print(f"  the folds are DISTINCT         : mean per-label std {spread:.4f} across the five "
+          f"(0.0 would mean duplicated weights)")
+    if cond_delta < 1e-6 or spread < 1e-6:
+        print("\n  ⛔ one of the two checks collapsed — do not score this arm.")
+        return 1
+    print("\nNOTE: this proves the ARCHITECTURE, not the pixels. See PLAN.md §9h's four")
+    print("corrections before writing dinov3_pixels.py — the slot table is NOT pilkwang's.")
     return 0
 
 
