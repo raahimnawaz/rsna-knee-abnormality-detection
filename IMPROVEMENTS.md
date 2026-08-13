@@ -2967,3 +2967,108 @@ an inference and a measurement look identical three days later. The `CLOSED ROUT
 from AUC invariance) and `a C++ port` (an extrapolation) were argued. **A route closed by argument
 reopens when its premise moves. A route closed by measurement does not.** The two belong in the
 same table only if the table says which is which.
+
+---
+
+## 3h. Step 0 groundwork: the slots ARE reconstructable, and the shipped second arm is not worth blending `MEASURED 2026-08-12`
+
+Three results from the weights package, all before a single GPU forward pass. The first corrects a
+standing claim, the second closes a route, the third hands the gate its reference.
+
+### 3h-1. The fork's six slots are reconstructable offline — the standing claim was scoped wrong
+
+This repo and the project memory both record that they are not:
+
+> `Fluid_Sensitive` and `Fat_Suppression` are byte-identical over all 24,371 series, so the fork's
+> six slots (`SAG_FLUID_FS … SAG_T1`) are **not reconstructable** from the competition metadata.
+
+**True of the competition metadata, and false of what is on disk.** `annotate()` never reads
+`Fluid_Sensitive`. It recovers both axes from seven raw header fields — `SeriesDescription`,
+`SequenceName`, `ScanOptions`, `ScanningSequence`, `RepetitionTime`, `EchoTime`, `PixelSpacing` —
+and **all seven are columns of `data/external/dicom_headers_zhukovoleksiy.parquet`**, which has sat
+on disk since 08-10. The old note named this as a *fallback* if the reproduction gate missed; it is
+the primary path and it is sufficient. A claim scoped to one source was carried as if it were
+scoped to the machine.
+
+`fusion/slot_assign_pilkwang.py` transcribes their `annotate` and `pick_slots` verbatim — regexes,
+the exact-token match on `ScanOptions` (GE writes `SAT_GEMS`, so a substring test on `SAT` fires on
+non-fat-sat series), the `np.where` weighting cascade, the thickest-stack tie-break. Over all
+24,371 series, plane known for 100%:
+
+| | fatsat False | fatsat True |
+|---|--:|--:|
+| PD | 2,724 | **10,922** |
+| T1 | **5,299** | 84 |
+| T2 | 2,188 | 2,926 |
+| GRE | 226 | 0 |
+| UNK | 0 | 2 |
+
+**20,130 slots over all 4,407 studies**, and the fill rates match their own description — *"the
+fat-suppressed fluid-sensitive series exist for nearly every study; the T1 and the non-suppressed
+fluid-sensitive series are scarcer, which is what the presence mask is for"*:
+
+| slot | filled | |
+|---|--:|--:|
+| `AX_FLUID_FS` | 4,343 | 98.5% |
+| `COR_FLUID_FS` | 4,210 | 95.5% |
+| `SAG_FLUID_FS` | 4,119 | 93.5% |
+| `COR_T1` | 2,827 | 64.1% |
+| `SAG_FLUID_NOFS` | 2,760 | 62.6% |
+| `SAG_T1` | 1,871 | 42.5% |
+
+Mean 4.57 of 6 slots per study; none below 2. **This is a shape check, not a proof** — it says the
+recovery is not wildly wrong, and only the gate says it is right. But it was worth ten minutes to
+learn here rather than from a member scoring 0.6.
+
+**Pixel coverage:** 16,417 of the 20,130 assigned slots have NIfTI on disk (81.6%), covering
+**3,599 studies, of which 3,593 hold every slot they were assigned**. Ample for a gate.
+
+### 3h-2. `merge_gain.npz` — a second arm nobody knew shipped, and it does not earn a slot
+
+The weights dataset carries **three** files, not two. Beside `oof.npz` and `manifest.json` sits
+`merge_gain.npz`: `ids`, `y`, `gold_mask`, and **two separate OOF matrices — `ours` and
+`imported`**. It is the record of an experiment they ran and shipped the evidence for. Scored
+against their own `y`, non-gold n = 4,349:
+
+| arm | macro | gold-58 |
+|---|--:|--:|
+| `ours` | **0.8492** | 0.8447 |
+| `imported` | 0.7932 | 0.8084 |
+| rank-mean 50/50 | 0.8382 | 0.8437 |
+
+**A 50/50 merge costs 0.011.** Swept properly, the way `blend_test.py` swept our port:
+
+| w | 0.00 | 0.05 | **0.10** | 0.15 | 0.20 | 0.30 | 0.50 |
+|---|--:|--:|--:|--:|--:|--:|--:|
+| delta | — | +0.0005 | **+0.0007** | +0.0005 | +0.0000 | −0.0021 | −0.0110 |
+
+**Peak +0.0007, and `imported` loses 0/12 labels** — every one, by 0.016 to 0.083. Per §3b,
+selection optimism at n = 4,349 is already ~+0.0005, so the peak is indistinguishable from the
+cost of having looked. **Not worth a slot.**
+
+Note the shape: mean rank correlation `ours` vs `imported` is **0.752** — genuinely diverse, and
+uniformly weaker, so no weight pays. That is the same result §2y found for our port at 0.639, and
+the second time on this project that a diverse arm has failed to buy a slot on strength alone.
+**Diversity is necessary and it is not sufficient, and this is now measured twice.**
+
+### 3h-3. The gate has its reference, and it is not the one `score_oof.py` uses
+
+`oof.npz['y_derived']` is byte-identical to `merge_gain.npz['y']`, so **their exact label table is
+on disk**. The manifest also carries **per-member `fold`, `holdout` and `annot`** — holdout AUCs
+run 0.8305 to 0.8600 (mean 0.8398), gold-58 AUCs run 0.746 to 0.889.
+
+That per-member spread is worth pausing on: **the same twenty members, on 58 studies, span 0.143
+of AUC.** §3b said gold-58 cannot select; this is the same fact seen from the fork's own side.
+
+So the gate scores **against their `y`, on each member's own holdout fold, targeting that member's
+recorded number** — deliberately *not* through `lixin_gpt56`, which `score_oof.py` uses everywhere
+else. The two references have different jobs: the gate must **match their measurement** to detect
+reconstruction error, while the crop A/B needs one **neutral to both arms**. Using the project's
+default here would have made a faithful path look broken.
+
+Also confirmed from the manifest config, since it nearly read as a refutation: `slices: 12`,
+`group: 3`, so `window_starts(12, 3)` gives **10 TTA windows**, not the 1 that `N_GROUP_MAX = 1`
+implies. That cap governs *training-time cache planning*; `adopt_config_globals` overrides
+`CACHE_SLICES` from the member config at inference. Had it been 1 window, §3d's per-target pooling
+would be a mathematical no-op and the +0.008 would need another explanation. It is not, and it
+does not.
