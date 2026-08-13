@@ -922,6 +922,27 @@ f[:, orig:]], 1)` = **CLS ++ slot_token ++ patches**. So `CodexResidualPool` poo
 and attends over **the slot token together with the patches** in the delta. Dropping the slot
 token from the KV changes nothing about shapes and quietly changes the model.
 
+**Coverage is measured and is NOT a blocker `2026-08-13 late`.** The slot scheme reproduces
+directly from `data/train_series.csv` — no header parquet, no recovery step:
+
+| slot | 0 SAG fs=1 | 1 SAG fs=0 | 2 COR fs=1 | 3 COR fs=0 | 4 AX fs=1 | 5 AX fs=0 |
+|---|--:|--:|--:|--:|--:|--:|
+| all 4,407 studies | 94.2% | 96.8% | 96.4% | 77.3% | 100.0% | 19.4% |
+| 3,599 with local pixels | 94.0% | 96.9% | 96.4% | 76.7% | 99.9% | 19.7% |
+
+**Mean 4.84 / 6 filled, and no study has zero** — better than pilkwang's 20,130 slots over 4,407
+(4.57). Slot 5 (axial, non-fluid-sensitive) is rare at ~19%, which is a property of the corpus,
+not of our copy. **All 47 of the gold studies `ft_b` was scored on have local pixels**, at a mean
+fill of **4.91 / 6** — so when `dinov3_pixels.py` exists, the gold read is a *paired* comparison
+against pilkwang's 0.8516 and `ft_b`'s 0.8522 on exactly the same 47 studies, which is what §9h's
+gate (c) asks for.
+
+**One caveat on what the slots MEAN.** `Fluid_Sensitive` and `Fat_Suppression` are byte-identical
+over all 24,371 series (re-verified), so this arm's six slots are really **(plane × fluid-
+sensitive)** — a *coarser* partition than pilkwang's six, which separate T1 from non-fat-sat fluid
+by parsing `SeriesDescription`/`SequenceName`. Two different models of the same anatomy, and that
+difference is a reason to expect genuine diversity rather than a reason to distrust either.
+
 Everything below is established from `m_f0.pt` and the kernel source, and is confirmed by the
 transcription except where the four corrections above amend it.
 
