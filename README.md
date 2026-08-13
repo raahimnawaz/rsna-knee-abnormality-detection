@@ -36,6 +36,11 @@ Twelve-label knee-MRI classification, macro-AUROC. Final submission **2026-10-22
 > **Cheap screens waiting, no GPU or quota (§9g):** second-order/covariance pooling on
 > `data/features_*`; a topological feature block on the same.
 >
+> **📐 `ARCHITECTURES.md` is new — how all five external arms actually work**, in one place:
+> the load recipe per arm, and a **cross-arm trap table** of the ten conventions that differ and
+> are silent when crossed (resolution, slice count, band, crop, window, normalisation, laterality,
+> slice ordering, slot scheme). Read it before touching any pixel path.
+>
 > **What NOT to re-derive:** F2 (§3k+§3m, closed both instruments) · tonylica (§3q, dropped) ·
 > label-correlation stacking (§3r, closed two ways) · F4 (§3p, no binding label headroom).
 
