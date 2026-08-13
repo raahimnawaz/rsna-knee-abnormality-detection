@@ -944,6 +944,48 @@ f[:, orig:]], 1)` = **CLS ++ slot_token ++ patches**. So `CodexResidualPool` poo
 and attends over **the slot token together with the patches** in the delta. Dropping the slot
 token from the KV changes nothing about shapes and quietly changes the model.
 
+#### ⚠️ THE SLICE-ORDER PROBLEM IS LOCAL-ONLY, AND IT IS MEASURED `2026-08-13 late`
+
+**`fusion/dinov3_pixels.py --probe`, n=47 gold studies × 5 folds, thresholds written before the
+numbers were seen.**
+
+| | |
+|---|--:|
+| reversal Δ (mean \|Δsigmoid\|) | **0.0692** |
+| between-fold Δ, identical input — *the reference scale* | 0.1024 |
+| **ratio** | **0.675** |
+| corr(forward, reversed) | 0.9200 |
+
+Stable across n (0.678 at n=4 → 0.675 at n=47). **The model is NOT direction-robust: reversing
+the 16-slice stack costs about two-thirds of what swapping in a different fold costs.** Worst
+label is ACL (0.0909), which is a sagittal structure, so this is mechanistically sensible rather
+than noise. Expected — `stem:'native'` puts the slices in as **channels**, and channels are not
+exchangeable.
+
+**Why it arises at all:** this arm orders slices by `int(InstanceNumber)`, and InstanceNumber is
+**not on disk in any form**. The NIfTIs carry no patient frame (§3n) and
+`dicom_headers_zhukovoleksiy.parquet` is **one row per SERIES** — 24,371 rows, nothing per slice.
+§2n priced the residual ambiguity at a **direction bit, not a scramble** (`inst` and `loc` at
+|rho| = 1.000), correct **56.9%** of the time.
+
+> **⛔ AND HERE IS THE POINT THAT CHANGES THE VERDICT: THIS IS AN ARTEFACT OF OUR LOCAL CORPUS,
+> NOT OF THE SUBMISSION.** On Kaggle the arm reads the **DICOMs**, where `InstanceNumber` is
+> simply present — their `ordered_files` does `int(ds.InstanceNumber)` and is exactly
+> reproducible. **The ordering problem exists only in local scoring.**
+>
+> So the local gold read is a **lower bound** on what this arm contributes on the board, biased in
+> the safe direction — the same shape of handicap §9e accepted for the fold problem ("biased
+> toward *the new arm adds nothing*"). **If it clears §3q's bar locally despite being fed ~43% of
+> series backwards, it will do better than that in a submission.** A miss, by contrast, is
+> ambiguous and must not be read as "the arm is weak".
+
+**PRE-REGISTERED, BEFORE ANY GOLD AUC FOR THIS ARM EXISTS (§3b):** local scoring of the DINOv3 arm
+uses **direction TTA — render each series both ways and mean the sigmoids.** Reason: guessing is
+fully wrong on ~43% of series, whereas TTA is half-right on all of them, and at corr 0.92 the two
+renders are similar enough to average without one dominating. **The submission path does NOT use
+TTA** — it sorts on InstanceNumber like the original, and its cost stays single. This is written
+down now precisely so it cannot be chosen after seeing which scores better.
+
 **Coverage is measured and is NOT a blocker `2026-08-13 late`.** The slot scheme reproduces
 directly from `data/train_series.csv` — no header parquet, no recovery step:
 
