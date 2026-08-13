@@ -36,6 +36,39 @@ OOF, NOT ALL-MEMBER. Each study is scored from the four members that HELD IT OUT
 that trained on the study, and memorised studies are exactly where a crop cannot help — the model
 recalls the answer rather than reading the pixels — so an all-member read is biased toward
 **"the crop does nothing"**, which is the expensive direction to be wrong in.
+
+===============================================================================================
+`--gold`: THE §3l-4 RE-READ. PRE-REGISTERED 2026-08-13 pm, BEFORE ANY GOLD AUC EXISTED.
+===============================================================================================
+
+**Why re-read at all.** §3k ran and lost, and its verdict stands. But it was scored *entirely*
+through `score_oof.py` — against `lixin_gpt56`, a **report-derived** source — and *entirely* on
+non-gold studies. §3l-2 then measured that the report instrument is **biased against exactly the
+kind of gain a crop is supposed to produce**: a model that sees better departs from the report
+precisely where the report was wrong. And §3l-3 measured that the crop's target, Lateral Meniscus,
+is **0.642 on gold against the 0.767 the report instrument reported** — so the headroom that
+motivated F2 is nearly double what §3f believed. The arm was judged in the wrong currency, on the
+wrong studies, against a mis-stated target. That is worth ~30 min to settle.
+
+**THE DECISION RULE, FIXED HERE, BEFORE THE RUN.**
+
+* **Arms and pooling are UNCHANGED from §3k.** `pool_arm_c` is not touched. Re-tuning it against
+  a new reference is precisely §3b's failure and would make the result unreadable.
+* **The reference is gold-58** — expert *image* reads, the only local labels not derived from a
+  report, and the thing the leaderboard actually scores. Neutral by construction: all three arms
+  are the same twenty members on the same studies, differing in one config value.
+* **The readout is the SIGN of C − A**, with its paired bootstrap CI. Nothing else.
+* **Outcomes, both committed to in advance:**
+  - **C − A > 0** → §3k's verdict was an artefact of its instrument. F2 is **not** dead; the
+    route reopens and the next step is a properly-powered read, NOT a submission.
+  - **C − A ≤ 0** → F2 is dead on **both** instruments, on both study sets. Closed permanently,
+    and the §3l-4 objection is answered rather than left hanging.
+* **What this run may NOT do:** pick labels, re-weight, re-tune the pool, or select a crop
+  radius. §3b is unrepealed — 58 studies can *evaluate* this one fixed decision, never *choose*.
+* **Power, stated in advance so a null is readable.** n≈47 gold studies survive the NIfTI
+  coverage filter. The macro *level* carries ±0.038, but this is a **paired** delta on shared
+  studies and members, so it is far tighter. A null here means "no detectable sign flip at this
+  n", not "no effect" — and it still closes the route, because the route needed a *positive*.
 """
 from __future__ import annotations
 
@@ -99,6 +132,8 @@ def main() -> int:
     ap.add_argument("--crop-b", type=float, default=90.0)
     ap.add_argument("--seed", type=int, default=2026)
     ap.add_argument("--out", default=None)
+    ap.add_argument("--gold", action="store_true",
+                    help="§3l-4 re-read: score the SAME arms on the 58 image-read studies")
     a = ap.parse_args()
 
     members = manifest()["members"]
@@ -113,9 +148,17 @@ def main() -> int:
     full = pd.read_csv(D / "slots_pilkwang.csv").groupby("StudyInstanceUID").size()
     got = slots.groupby("StudyInstanceUID").size()
     ok = sorted(s for s in got.index if got[s] == full[s] and s in pos)
-    rng = np.random.default_rng(a.seed)
-    studies = list(rng.permutation(ok)[:a.n])
-    print(f"{len(studies)} studies of {len(ok):,} eligible")
+    if a.gold:
+        # §3l-4. The 58 image-read studies, in fixed id order -- no sampling, so there is no
+        # seed to vary and nothing to re-draw if the answer is unwelcome.
+        gold_ids = set(np.array(ref["ids"])[ref["gold_mask"]].tolist())
+        studies = sorted(s for s in ok if s in gold_ids)
+        print(f"GOLD RE-READ (§3l-4): {len(studies)} of {len(gold_ids)} gold studies have "
+              f"full NIfTI coverage")
+    else:
+        rng = np.random.default_rng(a.seed)
+        studies = list(rng.permutation(ok)[:a.n])
+        print(f"{len(studies)} studies of {len(ok):,} eligible")
 
     P = {}
     for crop in (130.0, a.crop_b):
@@ -149,16 +192,25 @@ def main() -> int:
 
     # THE path from fusion/score_oof.py, not a lookalike. `report_labels_gpt56sol.csv` sits in the
     # same directory and is a different table; §2o's live bug was scoring against the wrong file.
-    NEUTRAL = (D / "public_llm_labels" / "lixin73_rsna-knee-llm-report-labels-sol56" /
-               "labels_llm_gpt56sol.csv")
-    lix = pd.read_csv(NEUTRAL).set_index("StudyInstanceUID").reindex(studies)
-    y = lix[TARGETS].to_numpy()
-    # Gold studies are excluded exactly as score_oof.py excludes them: they are the neutral
-    # arbiter for label-source questions and this is not one, so they stay unspent.
-    gold = set(np.array(ref["ids"])[ref["gold_mask"]].tolist())
-    keep = (~np.isnan(y).any(1)) & np.array([s not in gold for s in studies])
-    y, A, B, C = y[keep].astype(int), A[keep], B[keep], C[keep]
-    print(f"scored on {len(y)} non-gold studies with a {NEUTRAL.name} row")
+    if a.gold:
+        # §3l-4. Expert IMAGE reads -- the target currency, not the teacher's. Same arms, same
+        # pooling, different reference; that is the entire change.
+        y = (pd.read_csv(D / "train.csv").set_index("StudyInstanceUID")
+             .reindex(studies)[TARGETS].to_numpy())
+        keep = ~np.isnan(y).any(1)
+        y, A, B, C = y[keep].astype(int), A[keep], B[keep], C[keep]
+        print(f"scored on {len(y)} GOLD studies (image reads, train.csv)")
+    else:
+        NEUTRAL = (D / "public_llm_labels" / "lixin73_rsna-knee-llm-report-labels-sol56" /
+                   "labels_llm_gpt56sol.csv")
+        lix = pd.read_csv(NEUTRAL).set_index("StudyInstanceUID").reindex(studies)
+        y = lix[TARGETS].to_numpy()
+        # Gold studies are excluded exactly as score_oof.py excludes them: they are the neutral
+        # arbiter for label-source questions and this is not one, so they stay unspent.
+        gold = set(np.array(ref["ids"])[ref["gold_mask"]].tolist())
+        keep = (~np.isnan(y).any(1)) & np.array([s not in gold for s in studies])
+        y, A, B, C = y[keep].astype(int), A[keep], B[keep], C[keep]
+        print(f"scored on {len(y)} non-gold studies with a {NEUTRAL.name} row")
 
     mA, _ = macro(y, A)
     mB, _ = macro(y, B)
