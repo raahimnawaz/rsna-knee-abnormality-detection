@@ -108,16 +108,23 @@ def validate() -> int:
     return 0
 
 
-def arm_ft_b() -> int:
-    f = np.load(D / "_ft_b_gold.npz", allow_pickle=True)
+def arm(name: str) -> int:
+    src = {"ft_b": "_ft_b_gold.npz", "dinov3": "_dinov3_gold.npz"}[name]
+    f = np.load(D / src, allow_pickle=True)
     P, ids = f["pred"], f["ids"]            # (n_studies, 5 folds, 12)
+    if name == "dinov3":
+        print("NOTE: `pred` here is the DIRECTION-TTA mean, pre-registered in PLAN.md §9h before")
+        print("      any AUC existed. InstanceNumber is unrecoverable locally, so ~43% of series")
+        print("      would otherwise be fed backwards. This handicap is LOCAL ONLY -- the")
+        print("      submission path reads DICOMs and reproduces their order exactly, so the")
+        print("      number below is a LOWER BOUND on what this arm contributes on the board.\n")
     fm = np.transpose(P, (1, 0, 2))         # -> (5, n_studies, 12)
     y = gold_labels(ids)
     keep = ~np.isnan(y).any(1) & ~np.isnan(fm).any((0, 2))
     fm, y, ids = fm[:, keep], y[keep].astype(int), np.array(ids)[keep]
 
     r = recover(fm)
-    print(f"ft_b on {len(ids)} gold studies")
+    print(f"{name} on {len(ids)} gold studies")
     print(f"  recovered partition {np.bincount(r, minlength=5)}  (flat would be ~{len(ids)/5:.1f})")
     chi = ((np.bincount(r, minlength=5) - len(ids) / 5) ** 2 / (len(ids) / 5)).sum()
     print(f"  chi2 vs flat = {chi:.2f} on 4 df   "
@@ -138,12 +145,12 @@ def arm_ft_b() -> int:
 def main() -> int:
     ap = argparse.ArgumentParser(description=__doc__.split("\n")[0])
     ap.add_argument("--validate", action="store_true")
-    ap.add_argument("--arm", choices=["ft_b"])
+    ap.add_argument("--arm", choices=["ft_b", "dinov3"])
     a = ap.parse_args()
     if a.validate:
         return validate()
-    if a.arm == "ft_b":
-        return arm_ft_b()
+    if a.arm:
+        return arm(a.arm)
     ap.print_help()
     return 0
 

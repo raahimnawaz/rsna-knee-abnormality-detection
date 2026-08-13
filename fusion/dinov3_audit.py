@@ -207,14 +207,72 @@ def audit_delta(dev) -> None:
     print("     the RANKING, which is all macro-AUROC reads. It can be cut.")
 
 
+def audit_blend() -> None:
+    """§3q's bar: comparable strength AND correlation below `ft_b`'s 0.632. Blend rule is the
+    pre-registered one (§9e rule 5): equal-weight rank-mean over FAMILIES, nothing fitted."""
+    import json
+
+    from scipy.stats import rankdata, spearmanr
+    from fusion.fold_recover import gold_labels, macro, recover
+
+    d = np.load(D / "_crop_ab_gold.npz", allow_pickle=True)
+    P, truth, y = d["P130"], d["best"], d["y"]
+    folds = np.array([m["fold"] for m in json.load(
+        open(D / "external" / "pilkwang_weights" / "manifest.json"))["members"]])
+    pilk = np.stack([P[folds == truth[i], i].mean(0) for i in range(len(truth))])
+
+    def oof(npz):
+        z = np.load(D / npz, allow_pickle=True)
+        fm = np.transpose(z["pred"], (1, 0, 2))
+        r = recover(fm)
+        return np.stack([fm[r[i], i] for i in range(fm.shape[1])]), z["ids"], fm
+
+    ftb, ids_f, fm_f = oof("_ft_b_gold.npz")
+    dv3, ids_d, fm_d = oof("_dinov3_gold.npz")
+    if list(ids_f) != list(ids_d):
+        raise SystemExit("arm study order differs -- refusing to blend")
+
+    rk = lambda A: np.stack([rankdata(A[:, j]) / len(A) for j in range(12)], 1)  # noqa: E731
+    b2 = (rk(pilk) + rk(ftb)) / 2
+    b3 = (rk(pilk) + rk(ftb) + rk(dv3)) / 3
+    sp = lambda A, B: float(np.mean(  # noqa: E731
+        [spearmanr(A[:, j], B[:, j]).statistic for j in range(12)]))
+
+    print("=" * 78)
+    print("DOES DINOv3 EARN A SLOT? §3q's bar, §9e's pre-registered blend rule")
+    print("=" * 78)
+    print(f"\n  pilkwang OOF (4-seed mean of held-out fold)  {macro(y, pilk):.4f}")
+    print(f"  ft_b OOF     (one model)                     {macro(y, ftb):.4f}")
+    print(f"  DINOv3 OOF   (one model, direction-TTA)      {macro(y, dv3):.4f}")
+    print(f"\n  all-FOLD reads, directly comparable (both 5 members, no recovery needed):")
+    print(f"    ft_b   {macro(y, fm_f.mean(0)):.4f}   DINOv3 {macro(y, fm_d.mean(0)):.4f}   "
+          f"-> {macro(y, fm_d.mean(0)) - macro(y, fm_f.mean(0)):+.4f}")
+    print(f"\n  2-family blend (banked route)  {macro(y, b2):.4f}")
+    print(f"  3-family blend (+ DINOv3)      {macro(y, b3):.4f}")
+    print(f"  DELTA                          {macro(y, b3) - macro(y, b2):+.4f}")
+    rng = np.random.default_rng(0)
+    dd = np.array([v for v in (macro(y[k], b3[k]) - macro(y[k], b2[k])
+                               for k in (rng.integers(0, len(y), len(y)) for _ in range(2000)))
+                   if not np.isnan(v)])
+    print(f"    positive in {100*(dd>0).mean():.0f}% of draws, 95% CI "
+          f"[{np.percentile(dd, 2.5):+.4f}, {np.percentile(dd, 97.5):+.4f}]")
+    print(f"\n  Spearman, mean over 12 labels:")
+    print(f"    DINOv3 vs pilkwang {sp(dv3, pilk):.3f}")
+    print(f"    DINOv3 vs ft_b     {sp(dv3, ftb):.3f}   <- MOST DIVERSE ARM MEASURED")
+    print(f"    ft_b   vs pilkwang {sp(ftb, pilk):.3f}   (§3o reference 0.632)")
+    print("\n  -> clears the DIVERSITY half of §3q's bar and fails the STRENGTH half.")
+    print("     Same shape as §2y's port and §3q's tonylica: diverse, and too weak.")
+
+
 def main() -> int:
     ap = argparse.ArgumentParser(description=__doc__.split("\n")[0])
     ap.add_argument("--weights", action="store_true")
     ap.add_argument("--slots", action="store_true")
     ap.add_argument("--delta", action="store_true")
+    ap.add_argument("--blend", action="store_true")
     ap.add_argument("--all", action="store_true")
     a = ap.parse_args()
-    if not any([a.weights, a.slots, a.delta, a.all]):
+    if not any([a.weights, a.slots, a.delta, a.blend, a.all]):
         ap.print_help()
         return 0
     dev = torch.device("mps" if torch.backends.mps.is_available() else "cpu")
@@ -226,6 +284,9 @@ def main() -> int:
     if a.slots or a.all:
         print()
         audit_slots(dev)
+    if a.blend or a.all:
+        print()
+        audit_blend()
     return 0
 
 

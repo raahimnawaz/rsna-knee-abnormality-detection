@@ -257,16 +257,69 @@ def probe(limit: int | None, dev: torch.device) -> int:
     return 0
 
 
+@torch.no_grad()
+def predict(dev: torch.device, limit: int | None = None) -> int:
+    """Score the gold studies with DIRECTION TTA and write `data/_dinov3_gold.npz`.
+
+    TTA was pre-registered in `PLAN.md` §9h **before this function produced a number**, on the
+    reasoning that guessing the InstanceNumber sign is fully wrong on ~43% of series while the
+    mean of both renders is half-right on all of them. Both directions are saved alongside the
+    mean so the choice stays auditable and nobody has to re-run to check it.
+
+    Output shape is `(n_studies, 5, 12)` to match `_ft_b_gold.npz`, so `fold_recover.py` can read
+    it without a special case.
+    """
+    ids = [str(x) for x in np.load(D / "_ft_b_gold.npz", allow_pickle=True)["ids"]]
+    if limit:
+        ids = ids[:limit]
+    tab = slot_table()
+    by = {s: g for s, g in tab.groupby("StudyInstanceUID") if s in set(ids)}
+    ids = [s for s in ids if s in by]
+    lat_map = study_laterality(D / "study_meta.csv")
+
+    print(f"loading 5 folds onto {dev} ...")
+    models = [load_fold(f, dev)[0] for f in range(5)]
+    print(f"scoring {len(ids)} gold studies, both directions\n")
+
+    out = {k: np.full((len(ids), 5, len(LABELS)), np.nan, np.float32) for k in ("fwd", "rev")}
+    t0 = time.time()
+    for i, sid in enumerate(ids):
+        rows, cache = by[sid], {}
+        lat = (lat_map.get(sid) or (None,))[0]
+        for tag in ("fwd", "rev"):
+            got = build_study(rows, lat, reverse=(tag == "rev"), cache=cache)
+            if got is None:
+                continue
+            im, sl = got[0].to(dev), got[1].to(dev)
+            sidx = torch.zeros(len(sl), dtype=torch.long, device=dev)
+            sm = torch.zeros(len(sl), 0, device=dev)
+            for mi, m in enumerate(models):
+                out[tag][i, mi] = torch.sigmoid(m(im, sl, sm, sidx, 1).float())[0].cpu().numpy()
+        if (i + 1) % 10 == 0 or i + 1 == len(ids):
+            print(f"  {i+1}/{len(ids)}  {time.time()-t0:.0f}s")
+
+    tta = np.nanmean([out["fwd"], out["rev"]], axis=0)
+    np.savez(D / "_dinov3_gold.npz", pred=tta, fwd=out["fwd"], rev=out["rev"],
+             ids=np.array(ids), labels=np.array(LABELS))
+    print(f"\nwrote data/_dinov3_gold.npz  pred{tta.shape} (direction-TTA mean)")
+    print("  `pred` is the pre-registered arm. `fwd`/`rev` are kept for audit.")
+    print("\nNEXT: python fusion/fold_recover.py --arm dinov3")
+    return 0
+
+
 def main() -> int:
     ap = argparse.ArgumentParser(description=__doc__.split("\n")[0])
     ap.add_argument("--probe", action="store_true")
+    ap.add_argument("--predict", action="store_true")
     ap.add_argument("--limit", type=int, default=None)
     a = ap.parse_args()
-    if not a.probe:
-        ap.print_help()
-        return 0
     dev = torch.device("mps" if torch.backends.mps.is_available() else "cpu")
-    return probe(a.limit, dev)
+    if a.probe:
+        return probe(a.limit, dev)
+    if a.predict:
+        return predict(dev, a.limit)
+    ap.print_help()
+    return 0
 
 
 if __name__ == "__main__":

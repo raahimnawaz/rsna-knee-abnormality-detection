@@ -3638,3 +3638,94 @@ finding, not a selection: the model hardly consumes that input.
    simple models over differently-partitioned inputs. **That is a reason to expect the blend to
    pay — but §3q's bar still has to be cleared with a fold-resolved number, which does not exist
    yet.**
+
+---
+
+## 3t. DINOv3 IS THE MOST DIVERSE ARM WE HAVE MEASURED AND IT STILL DOES NOT EARN ITS SLOT `MEASURED 2026-08-13 late`
+
+`fusion/dinov3_pixels.py --predict` → `fusion/fold_recover.py --arm dinov3` →
+`fusion/dinov3_audit.py --blend`. The blend rule is §9e's pre-registered one — equal-weight
+rank-mean over **families**, nothing fitted — declared before any AUC for this arm existed.
+
+### The numbers
+
+| | gold-47 |
+|---|--:|
+| pilkwang OOF (4-seed mean of the held-out fold) | 0.8516 |
+| `ft_b` OOF (one model) | 0.8522 |
+| **DINOv3 OOF (one model, direction-TTA)** | **0.8025** |
+| 2-family blend — the banked route | 0.8798 |
+| **3-family blend (+ DINOv3)** | **0.8775** |
+| **delta** | **−0.0022**, positive in **38%** of draws, CI [−0.0182, +0.0133] |
+
+**Spearman, mean over 12 labels: DINOv3 vs `ft_b` = 0.571** — *lower* than `ft_b` vs pilkwang's
+0.632, so **this is the most genuinely diverse arm this project has measured.** It clears the
+diversity half of §3q's bar and fails the strength half by ~0.05.
+
+**This is §2y's shape for the third time.** The port: diversity 0.639, too weak (0.7323).
+tonylica: 0.704, too weak (0.788). DINOv3: **0.571, too weak (0.8025)**. Diversity has never once
+been the binding constraint here — **strength has, every single time.**
+
+### A confirmation that does NOT depend on the fold recovery
+
+`ft_b` and DINOv3 are both **five members, one per fold**, so their ALL-fold reads are directly
+comparable with no recovery step and no partition to get wrong:
+
+| all-fold read, same 47 studies | |
+|---|--:|
+| `ft_b` | 0.9015 |
+| DINOv3 | **0.8648** |
+| difference | **−0.0367** |
+
+Same sign, same order of magnitude as the OOF comparison. **The conclusion does not rest on the
+fold recovery**, which matters because —
+
+### ⚠️ THE FOLD RECOVERY FAILED ITS OWN PRE-REGISTERED CHECK HERE
+
+§9e required the recovered partition to be **χ²-flat**, as §3i's was at p ≈ 0.7. It is not:
+
+| variant | partition | χ² (crit. 9.49) | flat? | OOF |
+|---|---|--:|:--:|--:|
+| forward only | [13 12 15 3 4] | 12.89 | **NO** | 0.8016 |
+| reversed only | [12 12 12 4 7] | 5.87 | yes | 0.8061 |
+| **direction-TTA (the arm)** | [12 15 11 3 6] | **9.91** | **NO** | 0.8025 |
+
+**Forward and reversed recover the same fold for only 42.6% of studies**, and held-out fold is a
+property of the *study*, not of how we rendered it. So the recovery is substantially noise here.
+
+**Why**: the method's premise is "four folds memorised this study and the fifth is the outlier",
+and the inflation that premise feeds on is only **+0.05 to +0.06** for this arm against pilkwang's
+**+0.1474**. Weak memorisation, weak signal, unreliable recovery.
+
+**But the OOF estimate is robust even though the partition is not** — three partitions agreeing
+only 42.6% of the time give 0.8016 / 0.8061 / 0.8025, a spread of 0.0045. And per
+`fold_recover.py --validate`, misassignment biases **upward**, so 0.8025 is a *ceiling*.
+
+### The one thing that could rescue it, and why it cannot be measured here
+
+The direction handicap (§9h) is **local only** — ~43% of series are fed backwards here, and on
+Kaggle the DICOMs carry `InstanceNumber` and the path reproduces exactly. **Closing a 0.05 gap
+would need the handicap to be worth ~0.05, and there is no way to measure that locally**: `fwd`
+and `rev` are both equally-wrong mixtures, so their near-identical AUCs (0.8016 vs 0.8061) say
+nothing about an all-correct render.
+
+Note the comparison is *not* uniquely unfair to DINOv3 — §3i measured our pixel path carrying a
+residual 0.0168 for pilkwang too, with ~⅓ of series permuted. Every arm is handicapped locally;
+this one differently, not necessarily worse.
+
+### VERDICT — parked, not dropped
+
+**Do not put it in a submission on this evidence.** The blend delta is negative, it is positive in
+only 38% of draws, and its strength is 0.05 under the bar. §3q's rule stands: *free to run is not a
+reason to include.*
+
+**But it is not tonylica.** tonylica was weaker **and** more correlated — worse on both axes, so
+nothing could rescue it. DINOv3 is **the most diverse arm available** and carries a specific,
+identified, local-only handicap that runs in its favour. **The only instrument that settles it is
+a submission**, and one is already pending on the 2-arm blend. **Re-open only if the pending
+submission shows the gold→LB offset understating**, i.e. if local numbers are systematically
+pessimistic — which is exactly the branch that would also rescue this arm.
+
+**What is now built and reusable regardless:** `dinov3_model.py`, `dinov3_pixels.py`,
+`dinov3_audit.py`, and `fold_recover.py --arm dinov3`. If a future session wants this family
+fine-tuned rather than blended, the load path and pixel path are done and audited.
