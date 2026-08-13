@@ -282,8 +282,9 @@ def main() -> int:
     if cond_delta < 1e-6 or spread < 1e-6:
         print("\n  ⛔ one of the two checks collapsed — do not score this arm.")
         return 1
-    print("\nNOTE: this proves the ARCHITECTURE, not the pixels. See PLAN.md §9h's four")
-    print("corrections before writing dinov3_pixels.py — the slot table is NOT pilkwang's.")
+    print("\nNOTE: this proves the ARCHITECTURE, not the pixels — dinov3_pixels.py is the path.")
+    print("⛔ THIS ARM IS SCORED AND PARKED (IMPROVEMENTS.md §3t): OOF 0.8025 vs ~0.852, blend")
+    print("   delta −0.0022. Most diverse arm measured, still too weak. Do not re-derive.")
     return 0
 
 
