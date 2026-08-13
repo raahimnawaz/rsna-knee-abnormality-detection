@@ -593,8 +593,10 @@ required.
 3. A 3D branch (X3D-M, R(2+1)D-18, Video Swin-T) for ensemble diversity.
 4. Cross-modal CLIP-style image↔report alignment pretraining, then fine-tune the image tower alone.
    Multilingual text encoder required. Stretch goal — only after the baseline is solid.
-5. Label-correlation stacker on the 12 OOF logits (Effusion↔Synovitis, Medial OA↔Medial Meniscus,
-   ACL↔Contusion). Usually +0.003–0.008 macro AUC for ~zero runtime.
+5. ~~Label-correlation stacker on the 12 OOF logits.~~ **⛔ CLOSED 2026-08-13, §3r.** Measured two
+   ways: a fitted cross-label stacker gains +0.0033 on report labels and loses **−0.0132 on gold**
+   (opposite signs — §3l-2's mechanism); unfitted PC1 shrinkage degrades monotonically on both.
+   **PC1 is 52% of the variance and it is SIGNAL** — the shared axis is real comorbidity.
 
 ---
 

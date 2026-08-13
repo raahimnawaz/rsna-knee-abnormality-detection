@@ -41,6 +41,7 @@ measures the teacher rather than the target. Read it first; it reprices everythi
 | **3l** | **The ceiling claim expired in a day; `score_oof.py` measures the teacher.** New `score_gold.py`: gold + 0.046 → LB, across four systems |
 | **3m** | **F2 closed on BOTH instruments** (gold C−A = −0.0038 vs report −0.0032) — and §3l-2's amplification is narrowed to **training-side** changes only |
 | **3n** | **`ft_b` loads, runs, and passed its gate at 0.9015 — but the gate certifies nothing.** All-member gold reads inflate **+0.1474**; fold-resolved read still owed |
+| **3r** | **Label-correlation route CLOSED**, two methods: fitted stacker **−0.0132 on gold** (+0.0033 on report — opposite signs), unfitted PC1 shrinkage monotone-negative. PC1 is 52% of variance and is *signal* |
 | **3q** | **`tonylica` DROPPED** — free to run, loads strict into our pilkwang loader, but 0.788 vs 0.852 and *more* correlated (0.704). 3-arm blend −0.0089 |
 | **3p** | **THE LABELS WERE NEVER THE CEILING.** Teacher 0.898 vs model→teacher 0.849; a perfect learner of the FREE labels scores ~0.944 LB. All headroom is in 5 focal labels |
 | **3o** | **F6 IS GO.** Fold recovery validated at 87.8%; `ft_b` OOF **0.8522** vs pilkwang **0.8516**, Spearman **0.632**, **blend +0.0284** (100% of draws). §3n's degraded-path worry is disproved |
@@ -3448,3 +3449,74 @@ Had the two disagreed, §3b would bind and the prior would win.
 the slot.** Being free to run is not a reason to include it. Recorded because the same reasoning
 applies to RadImageNet, which is also a frozen-encoder arm (§2e's weak configuration) and should
 be held to the same bar rather than added because it exists.
+
+---
+
+## 3r. THE LABEL-CORRELATION ROUTE IS CLOSED, BY TWO INDEPENDENT METHODS `MEASURED 2026-08-13 pm`
+
+`PLAN.md` §3.5 item 5 has promised, unbuilt, since the first draft: *"Label-correlation stacker on
+the 12 OOF logits (Effusion↔Synovitis, Medial OA↔Medial Meniscus, ACL↔Contusion). Usually
++0.003–0.008 macro AUC for ~zero runtime."* **Measured here. It is false for this problem.**
+
+**It is a legitimate thing to test, and §3a does not exclude it.** §3a closed post-hoc calibration
+because macro-AUROC is invariant to *per-label monotone* transforms. Using label *j*'s prediction
+to adjust label *i* is **cross-label**, so it escapes that filter and genuinely can move AUC. It
+just moves it the wrong way.
+
+### The observation that motivated it, which is real
+
+**The model's predictions are 2–3× more correlated than the labels are.** Every pair, same
+direction, n=4,407:
+
+| pair | label r | pred r |
+|---|--:|--:|
+| Medial OA ↔ PF OA | +0.440 | **+0.896** |
+| Lateral OA ↔ PF OA | +0.402 | **+0.885** |
+| Medial OA ↔ Lateral OA | +0.437 | **+0.888** |
+| Effusion ↔ Synovitis | +0.273 | **+0.799** |
+| Contusion ↔ Fracture | +0.338 | **+0.799** |
+| ACL ↔ Contusion | +0.268 | **+0.676** |
+
+That looks exactly like a shared trunk collapsing onto one "how abnormal is this knee" axis
+instead of making twelve semi-independent judgements.
+
+### Method 1 — a fitted cross-label stacker. FAILS, and instructively
+
+Per-label logistic regression on all twelve standardised logits, **5-fold OOF on the 4,407** (the
+large set, so §3b's ban is not engaged), evaluated on gold. Pre-registered as a sign test.
+
+    report-OOF (the fit target) ..... 0.8486 -> 0.8520   **+0.0033**
+    gold-58 (the target instrument) . 0.8400 -> 0.8268   **-0.0132**
+    paired: -0.0131, 95% CI [-0.0254, -0.0013], positive in 1% of draws
+
+**Opposite signs on the two instruments.** The stacker learns the *report's* co-occurrence
+structure — a radiologist who mentions effusion also mentions synovitis — and fitting that harder
+moves it away from the image truth. **This is §3l-2's mechanism in its cleanest form yet**, and
+note it is a *label-structure* change, which §3m's narrowed rule puts squarely on the suspect side.
+**The routing rule caught it before a submission was spent. That is the rule working.**
+
+### Method 2 — unfitted PC1 shrinkage. ALSO FAILS, and explains why
+
+No labels involved at all: SVD the standardised prediction logits and shrink the leading
+component. Pure statistics on the tensorised predictions.
+
+    PC1 explains 52.1% of the variance (PC2 19.4%)
+
+    strip  25% of PC1 -> gold +0.0005 | report-OOF +0.0000
+    strip  50%        -> gold -0.0037 | report-OOF -0.0083
+    strip  75%        -> gold -0.0181 | report-OOF -0.0349
+    strip 100%        -> gold -0.0518 | report-OOF -0.0904
+
+**Monotone degradation on BOTH instruments. PC1 is signal, not nuisance.** The shared axis is real
+comorbidity — OA in one compartment genuinely predicts OA in the others, effusion genuinely
+accompanies synovitis — and it carries over half the variance. The model is *over-confident* in a
+true axis, not hallucinating a false one. There is no free lunch even at 25% shrinkage.
+
+### What this closes and what it leaves
+
+**CLOSED: post-hoc exploitation of label correlation, fitted or unfitted.** Two independent
+methods, both negative, on the instrument that matters. Strike §3.5 item 5.
+
+**NOT closed:** whether a model *trained* with a decorrelating objective would do better. That is a
+training-side question and this measurement says nothing about it — but note the prior is now
+poor, because the correlation the model over-expresses turns out to be mostly real.
