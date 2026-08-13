@@ -107,6 +107,8 @@ def main() -> int:
     ap.add_argument("--crop-mm", type=float, default=130.0)
     ap.add_argument("--seed", type=int, default=2026)
     ap.add_argument("--out", default=None, help="npz to write member predictions to")
+    ap.add_argument("--no-k16", action="store_true",
+                    help="ablate the measured slice-direction bit (see pilkwang_pixels)")
     a = ap.parse_args()
 
     man = manifest()
@@ -127,8 +129,10 @@ def main() -> int:
     print(f"{len(studies)} studies with every assigned slot on disk, of {len(ok):,} eligible")
 
     t0 = time.time()
-    print(f"\nbuilding pixels at crop {a.crop_mm:g} mm ...")
-    cache, mask, stats = build_cache(studies, slots, crop_mm=a.crop_mm, verbose=True)
+    print(f"\nbuilding pixels at crop {a.crop_mm:g} mm, "
+          f"K16 {'OFF (ablation)' if a.no_k16 else 'on'} ...")
+    cache, mask, stats = build_cache(studies, slots, crop_mm=a.crop_mm,
+                                     use_direction=not a.no_k16, verbose=True)
     print(f"  {cache.nbytes / 1e9:.2f} GB, {int(mask.sum())} slots, "
           f"{stats['reversed']} reversed, {time.time() - t0:.0f}s")
 

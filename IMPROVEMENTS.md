@@ -3072,3 +3072,108 @@ implies. That cap governs *training-time cache planning*; `adopt_config_globals`
 `CACHE_SLICES` from the member config at inference. Had it been 1 window, §3d's per-target pooling
 would be a mathematical no-op and the +0.008 would need another explanation. It is not, and it
 does not.
+
+---
+
+## 3i. The gate MISSES, K16 is validated for the first time, and §2y's third differentiator is void `MEASURED 2026-08-12`
+
+The pixel path was rebuilt (`fusion/pilkwang_pixels.py`) and run through all 20 members
+(`fusion/pilkwang_gate.py`, n = 60 studies, 270 slots). **It does not reproduce them.** Recorded
+here in full because the negative result is more useful than the positive one would have been.
+
+### 3i-1. The three readouts
+
+| readout | K16 **on** | K16 **off** (ablation) | reading |
+|---|--:|--:|---|
+| partition (target 20% each) | 20.0 / 20.0 / 25.0 / 21.7 / 13.3 | 16.7 / 21.7 / 25.0 / 21.7 / 15.0 | both ≈ uniform, χ² p ≈ 0.7 |
+| margin, median | **0.0177** | 0.0165 | identifiable |
+| margin > residual | **63.3%** | 55.0% | |
+| **residual, mean** | **0.0168** | 0.0185 | |
+| **residual, median** | **0.0134** | 0.0164 | |
+
+**The partition is clean and the residual is not, which is the case the gate's docstring named in
+advance as "recognisable but not reproduced".** The four members that held a study out never saw
+it and the other sixteen trained on it, so the memorisation gap identifies the fold on pixels that
+are merely approximately right. Only the residual is sensitive to being exactly right.
+
+**Correction to the threshold, which was mine and was too lenient.** §3h-3 proposed the fork's
+0.0165 self-consistency as the bar. That is the distance between two of their own *training runs*.
+We run the *same weights*: with identical pixels the residual would sit at fingerprint level,
+**~1e-5**. We are three orders above that. Passing the 0.0165 bar would not have meant what it was
+said to mean, and this is the second time in one day that a benchmark had to be re-scoped after
+being chosen (see §3h-3's reference note).
+
+### 3i-2. K16's first real test, and it passes
+
+`data/slice_direction_resolved.csv` was cross-validated 21/21 against the 01c thumbnails, but it
+had never been tested against anything that *cares* — the fold-0 gate sat at depth 0.5, where a
+reversal maps the middle slice to itself. The ablation is its first, with a **predicted sign**:
+if the measured bit is right and slice order is what the residual is made of, applying it must
+lower the residual.
+
+**It does, on all three readouts at once** — residual mean 0.0185 → 0.0168, median 0.0164 →
+0.0134 (−18%), and margin and partition both improve. Three quantities that could have moved
+independently move together in the predicted direction. **K16 is now measured, cross-validated,
+and load-bearing.**
+
+### 3i-3. Why order is the mechanism, and why the direction bit cannot finish the job
+
+A one-member sensitivity test — not a search for the order that minimises the residual, which
+would fit the instrument to the thing it tests:
+
+| perturbation of the 12-slice stack | mean \|Δ\| |
+|---|--:|
+| whole stack reversed | 0.0186 |
+| adjacent pairs swapped | 0.0289 |
+| random permutation | **0.0501** |
+| *(the gate residual)* | *0.0168* |
+| *(within-fold member vs member)* | *0.0495* |
+
+**A scrambled stack is worth as much as a different member** (0.0501 vs 0.0495). Slice order is
+load-bearing for these models, which also explains why the fork spends up to 90 minutes
+(`ORDER_BUDGET_S = 5400`) sorting slices before it decodes anything.
+
+**But the arithmetic says direction bits cannot close this.** K16 covers sagittal and buys 0.0017.
+Coronal is the only other plane with a known reversal rate (`validate_nifti` 14/18 forward, so
+~22%), and coronal slots are 34% of ours, giving an upper bound of about **0.0014** — even if
+measured perfectly. Against a residual of 0.0168, the two together are a tenth of the problem.
+
+**The residual is 0.0168 / 0.0501 ≈ 34% of fully scrambled**, which is what a third of series being
+*permuted* rather than merely *reversed* looks like. That is mechanically plausible: interleaved
+and multi-echo acquisitions do not number slices in spatial order, which is exactly why the fork
+sorts by the projection instead of by `InstanceNumber`, and why §2n measured `InstanceNumber`
+tracking true direction at only 56.9%. **K16 answered "is the stack reversed". It never asked "is
+the stack sorted at all", and that is now the open question.**
+
+**It cannot be answered with what is on disk.** `data/direction_thumbs.npz` holds **first / mid /
+last only** — three anchors per series, 29,592 entries over ~9,900 series. Enough for a direction,
+never for a permutation. Per-slice `ImagePositionPatient` exists only in the DICOMs.
+
+### 3i-4. The fix is one Kaggle CPU kernel, and it is not GPU quota
+
+Export, per series, the permutation that sorts slices by `k = p · (r_x × r_y)` — the fork's own
+`order_slices` key. Header-only reads with `stop_before_pixels`, the same pass the fork runs at the
+start of every submission inside its 90-minute budget with 32 threads. The output is a few MB of
+integers and it is reusable forever. **CPU kernels do not draw on the 30 h GPU quota**, so this
+costs schedule and not budget. Per §2m, the download is part of the fix.
+
+Until it exists, **any local measurement on the frozen members carries a ~0.017 per-prediction
+reconstruction error**, and the crop A/B — which is paired, so much of it cancels — still cannot be
+transferred to a submission with confidence, because the submission runs *their* DICOM path.
+
+### 3i-5. §2y's third differentiator is void, and this one is a real loss
+
+§2y item 3 reads the members' `rules: {order: 'normal', lat: 'centre'}` as **"no per-series
+slice-direction handling at all … signal they are leaving on the floor."**
+
+`order_slices` under `normal` computes the signed through-plane projection per slice and sorts by
+it. **That is a full geometric ordering.** `dominant_axis` is the legacy fallback; `centre` is
+likewise their better laterality rule against legacy `corner_x`. **`normal` and `centre` are the
+names of their good rules, and this repo read them as the absence of rules.**
+
+So K16 is not an edge over the fork. They solve ordering properly from geometry we do not have;
+K16 is *our* repair for a problem *we* created by converting to NIfTI. The consequence is
+strategic and unwelcome: §2y listed three things that compose with the fork — item 1 closed at
+−0.0000 (§2z), item 2 is partly spent, and **item 3 was never real. Our edge over the fork is
+thinner than this repo believes**, and what is left is the two bets that were always the whole
+game: the crops and the severity labels.

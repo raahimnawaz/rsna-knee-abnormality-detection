@@ -164,7 +164,8 @@ def direction_map() -> dict[str, bool]:
 
 def build_cache(studies, slots: pd.DataFrame, *, crop_mm: float = CROP_MM,
                 centre_mm: tuple[float, float] = (0.0, 0.0), out_size: int = IMG,
-                n_slice: int = N_SLICE, verbose: bool = True):
+                n_slice: int = N_SLICE, use_direction: bool = True,
+                verbose: bool = True):
     """Decode (study, slot) -> uint8 [n_study, 6, n_slice, out, out] plus the presence mask.
 
     An absent slot is a False in the mask and zeros in the cache, which is exactly what the
@@ -172,7 +173,14 @@ def build_cache(studies, slots: pd.DataFrame, *, crop_mm: float = CROP_MM,
     same sense as one never acquired -- the model cannot tell, and neither can we.
     """
     lat_map = study_laterality(D / "study_meta.csv")
-    rev = direction_map()
+    # `use_direction=False` is the K16 ABLATION, not a convenience. K16 was measured on the 01c
+    # thumbnails and cross-validated 21/21 against a genuinely independent instrument, but it has
+    # never been tested against anything that cares -- the fold-0 gate sat at depth 0.5 where a
+    # reversal maps the middle slice to itself. Running the gate both ways gives K16 its first
+    # test with a predicted sign: if the measured bit is right AND slice order is what the
+    # residual is made of, applying it must LOWER the residual. Either outcome is information,
+    # which is what separates this from tuning the convention until the number looks good.
+    rev = direction_map() if use_direction else {}
     slots = slots[slots["StudyInstanceUID"].isin(set(studies))]
     by_study = {s: g for s, g in slots.groupby("StudyInstanceUID")}
 
