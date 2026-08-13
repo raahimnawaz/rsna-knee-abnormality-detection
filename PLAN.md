@@ -686,7 +686,7 @@ so every stream below is aimed at the model→teacher gap, not at labels.
 | **the two-arm blend** | **RUNNING** — kernel `raahimnawaz/rsna-knee-f6-two-arm-blend`, no site prior, so the LB read is a clean test of §3l-2's offset. **Predicts 0.915–0.926.** |
 | `tonylica` | **⛔ DROPPED, §3q.** 0.7880 and *more* correlated than `ft_b` (0.704 vs 0.632). Weaker and more redundant. |
 | RadImageNet | **expected to fail the same bar** — frozen encoder (§2e's weak configuration), `best_val 0.8167`, i.e. tonylica's profile. Cheap to check with `fold_recover.py` once the encoder is wired; do not assume it pays. |
-| DINOv3 | **the only remaining family likely to earn a slot.** Genuinely fine-tuned, and it conditions on site. Several hours: `Net` + `Readout` + `CodexResidualPool` + `_GatedDelta` + `_pad_kv`/`_seg_mean_max`, slot-based, **no fingerprint to check the transcription against.** |
+| DINOv3 | **the only remaining family likely to earn a slot.** Genuinely fine-tuned. **⛔ It does NOT condition on site** — that claim is retracted in §9e and confirmed dead in §9h: `n_sites: 109` is a config field with no parameter behind it, and `enc.tok.weight` (7, 384) conditions on **slot type**. **ARCHITECTURE HALF IS BUILT (§9h)** — `fusion/dinov3_model.py`, 5/5 folds strict on timm 1.0.28. Still **no fingerprint to check the transcription against**; what is left is `dinov3_pixels.py`, and §9h carries four corrections to the spec that a builder must read first. |
 
 **The rule this stream now runs under (§3q):** free to run is not a reason to include. Every arm is
 scored on `score_gold.py` and blended only if it beats the 2-arm baseline **and** clears the prior
@@ -756,7 +756,22 @@ was free and still did not pay.
 17.2 GB box is real and a ConvNeXt-S at 336 with K=32 slices per series is a large batch. Reduce
 slices per step before reducing resolution.
 
-### ⛔ Topological methods — surveyed 2026-08-13 and NOT pursued
+### ⚠️ Topological methods — deprioritised, NOT closed `superseded in part by §9g`
+
+> **⛔ READ §9g's "Topological CNN" BEFORE ACTING ON THIS SECTION. It revises the verdict below.**
+> This survey closed TDA outright. §9g, written later the same day, found the closure **too
+> dismissive on its first bullet**: there *is* classification evidence on **clinical** images
+> (topological features boosting both CNNs and ViTs in breast-cancer screening; TopOC on
+> ovarian/breast), not only on derived quantitative maps and microscopy.
+>
+> **The revised verdict is "not closed, but ranked below Workstream C"** — and it is ranked there
+> on *different* grounds than this section gives: the clinical evidence is 2-D single-image, §3p's
+> headroom is 1 mm focal while topology speaks to larger-scale connectivity, §3r measured that the
+> structure TDA would most naturally capture (PC1, the shared abnormality axis, 52% of variance)
+> is **already signal the model has**, and it pays at submission time out of a decode-dominated
+> budget. Bullets 2 and 3 below stand; bullet 1 is the one that was overstated.
+>
+> Keeping a bold ⛔ 130 lines ahead of its own correction is how [[record-findings-durably]] fails.
 
 Persistent homology / TDA is real in medical imaging, but the evidence does not transfer here:
 
@@ -775,6 +790,12 @@ Persistent homology / TDA is real in medical imaging, but the evidence does not 
 
 **Reopen only if** a quantitative map becomes available, or if a cheap experiment shows a
 topological feature separating the *focal* labels. Not on the critical path.
+
+**§9g names that cheap experiment**, so this is no longer a hypothetical exit: a topological
+feature block screened on `data/features_*` (or a small pixel sample), judged on
+`fusion/score_gold.py`, pre-registered, before any training commitment. Same shape as §9g's
+second-order-pooling screen, and it shares that screen's gate. Both are **blocked on the same
+instrument** — see §9g.
 
 #### C — survey of reusable CNNs, and the pick `2026-08-13 pm`
 
@@ -845,8 +866,9 @@ compact bilinear pooling to be tractable. Budget that before claiming it is chea
 
 #### Topological CNN — the earlier survey was too dismissive, and here is the correction
 
-§9f closed TDA on the grounds that its evidence is on derived quantitative maps and microscopy.
-**That was incomplete.** There is classification evidence on *clinical* images: topological
+**This supersedes §9f's "Topological methods" closure in part; that section now carries a pointer
+here.** §9f closed TDA on the grounds that its evidence is on derived quantitative maps and
+microscopy. **That was incomplete.** There is classification evidence on *clinical* images: topological
 features integrated with pretrained models in **breast-cancer screening** report consistent boosts
 to both CNNs and ViTs, and TopOC applies topological deep learning to ovarian/breast diagnosis.
 Separately, persistent-homology **loss functions** are differentiable and established — but note
