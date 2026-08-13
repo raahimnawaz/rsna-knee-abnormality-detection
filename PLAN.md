@@ -63,6 +63,42 @@ are now **published weights**, so the member we could not manufacture is a downl
 **Claims are the authors', read from kernel source on 08-13, and are UNVERIFIED here.** The first
 job is to reproduce one of them locally, not to blend on faith.
 
+#### What is actually inside the checkpoints `INSPECTED 2026-08-13 pm`
+
+| arm | contents | notes that change the plan |
+|---|---|---|
+| **ft_b** | `backbone` + `head` OrderedDicts, and **`oof_macro: 0.7222`** | Their own OOF is on **the same scale as our 0.7229 baseline** (§2j) — an unusually direct comparison, and the first time another team's local number has been legible to us at all. Self-contained: `timm` is built `pretrained=False`. |
+| **dinov3** | 23.5 M params incl. `enc.vit.*`; `cfg = {backbone: vit_small_patch16_dinov3.lvd1689m, img: 336, pool: 'xcodex', cond: 'token', n_sites: 109}`; `fold` per file | **The encoder is embedded**, so DINOv3's gated licence is not a blocker for *inference*. **And `cond:'token'` with `n_sites:109` means this arm already does site conditioning — that is F3's idea, built by someone else.** Read this before starting F3. |
+| **radimagenet** | heads only, 3.2 M params, `FoundationQueryHead`, `best_val 0.8167`, frozen official R50 encoder | **Two blockers.** (1) The encoder is a *separate* dataset (`marwanmath/resnet-50-radimagenet-marwan`) and is not pulled. (2) **It ships `fold_sha256` but NOT `folds_v1.csv`**, so its fold assignment cannot be recovered — and without it there is no honest OOF read for this arm. Also note it is **frozen-encoder + head**, the configuration §2e measured as the weak one. **Lowest priority of the three.** |
+
+**Consequence for the order of work: start with `ft_b`.** It is self-contained, it is the strongest
+claim (0.883 solo), and it ships a local number on our own scale to reproduce against.
+
+#### The fold problem, and the way through it `2026-08-13 pm`
+
+**Neither new arm ships a fold split or an OOF.** `folds_v1.csv` is not published anywhere —
+searched; the heads dataset carries only its `fold_sha256`, and the public notebook merely
+*verifies* that hash, never constructs the split. The DINOv3 checkpoints tag themselves `fold: k`
+but ship no study→fold table either.
+
+**This blocks honest local scoring, not the submission.** For inference on the hidden test set the
+split is irrelevant — all five folds are averaged. It matters only because an all-member read on
+studies a member trained on is biased optimistic, which is the §3k caveat, and it is the whole
+reason our numbers are trustworthy.
+
+**§3i's recovery does not transfer as written** — it matched fold-means against pilkwang's
+*shipped OOF*, and there is no shipped OOF here. **The replacement uses the same physics in
+reverse: for a given study, the fold that HELD IT OUT is the one whose prediction is the outlier**,
+because the other four memorised it. Per study, rank the five fold-models by agreement with the
+other four and take the minimum. Cheap to test, and it has a free correctness check — the recovered
+partition must come out ~20% per fold and χ²-flat against study order, exactly the check §3i
+already passed at p ≈ 0.7.
+
+**If recovery fails, the honest fallback is to price these arms on gold-58 only** — 47 studies
+with coverage, no fold needed if we accept an all-member read and state that it is biased *toward*
+"the new arm adds nothing", i.e. the safe direction. That is a weaker read but not a dishonest one,
+and it is still the target currency (§3l-2).
+
 **The rules this arm has to obey**, all of them already paid for elsewhere in this repo:
 
 1. **Rank-mean, never probability-mean.** AUC reads order; averaging sigmoids lets the most
