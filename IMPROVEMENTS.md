@@ -3244,3 +3244,61 @@ per-label monotone transforms, so a uniform +0.07 on Lateral OA changes no score
 to happen is **reordering** — the crop must move studies relative to each other, not together.
 Nothing above establishes that. The paired AUC A/B is what establishes it, and until it reads,
 these signs are a mechanism story with no number attached.
+
+---
+
+## 3k. F2-CHEAP IS DEAD: the crop reorders, and it reorders WRONGLY `MEASURED 2026-08-13`
+
+`fusion/crop_ab.py`, 592 non-gold studies, all 20 members, OOF from the four that held each study
+out, scored through `score_oof.py`'s neutral reference, paired bootstrap over studies.
+
+| arm | macro | vs A | paired |
+|---|--:|--:|---|
+| **A** crop 130 only *(banked)* | **0.8457** | — | — |
+| **B** crop 90 only | 0.8340 | −0.0117 | **−3.9σ**, positive in **0%** of draws |
+| **C** 130 + 90 pooled per target | 0.8425 | −0.0031 | −1.7σ, positive in **3%** of draws |
+
+**Both arms lose, and the label F2 was aimed at loses.** Per label, A → C: Fracture **−0.0140**,
+Medial Meniscus **−0.0119**, Contusion −0.0074, **Lateral Meniscus −0.0071**, MCL −0.0070,
+Lateral OA −0.0032; against gains of only PF OA +0.0064, Medial OA +0.0037, ACL +0.0024. The three
+peripheral labels read exactly **0.0000**, which is the pooling rule doing precisely what it says —
+they were held on 130 mm alone — and is a useful check that arm C is what it claims to be.
+
+**The gate was set in advance at +0.002 and this is −0.0031. F2-cheap does not get a submission.**
+
+### Why it fails, and it is NOT the reason §3j predicted
+
+§3j's caveat was that the +0.07 shifts might be monotone and so invisible to AUC. **That is not
+what happened.** Spearman between the crop-130 and crop-90 predictions is **0.9303 mean, as low as
+0.8344 on Fracture** — the crop genuinely *reorders* studies. It simply reorders them **worse**.
+
+So the 90 mm view is not a rescaling of the 130 mm view; it is different information, and it is
+inferior information for ranking. Two mechanisms, not separable here: the members were fitted at
+130 mm and 90 mm is out of distribution, and — the more interesting one — **the discarded field of
+view is not irrelevant.** §9b's whole argument was that a crop "discards irrelevant field of view
+and spends the same pixel budget on the target region", an effective resolution increase for free.
+Measured, the periphery carries ranking signal even for findings that sit at the joint centre.
+
+**This weakens F2-classic (training on crops) without refuting it.** A trained model would adapt to
+the new field of view, which removes the domain-shift half. It cannot remove the other half: the
+context appears to be load-bearing. Anyone reaching for anatomical crops after this should expect
+to *lose* the periphery and should price that in.
+
+### The cherry-pick, quantified, because someone will be tempted
+
+Keeping only the three labels where the crop happened to help, and leaving the other nine on 130,
+gives **0.8467, i.e. +0.0010 over baseline**. That is the shape §3b warns about — twelve label-wise
+choices made on the evaluation set — and note it is *still* under the +0.002 bar, so even the
+dishonest version of this result is not submittable. **The pooling rule was fixed in
+`crop_ab.py` before any AUC existed, and it did not save the arm. That is the pre-registration
+working: had the rule been chosen after these numbers, a +0.0010 "gain" would have been reported
+and it would have been an artefact.**
+
+### One genuinely reassuring by-product
+
+Arm A — our reconstruction, with its §3i residual of 0.0168 per prediction — scores **0.8457**
+against the neutral reference. §2y scored the fork's *shipped* OOF at **0.8434** against the same
+reference on a comparable set. **The reconstruction reproduces their OOF to within ~0.002 at the
+AUC level**, because per-prediction noise averages out of a ranking metric. So the instrument was
+good enough for this question after all, and §3j's neutrality test was measuring the right thing.
+The pixel path is imprecise per study and sound in aggregate.

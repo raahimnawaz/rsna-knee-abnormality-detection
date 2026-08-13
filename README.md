@@ -11,6 +11,17 @@ Twelve-label knee-MRI classification, macro-AUROC. Final submission **2026-10-22
 > **Banked: submission `55465252` = 0.899** (was 0.891). Top **0.946**, 10th/prize **0.935**.
 > **Read `PLAN.md` §9a for the F-series — that is the current plan.** The E-series is closed.
 >
+> ### ⛔ AND THEN F2-CHEAP RAN AND LOST — `§3k`, 2026-08-13
+>
+> **A (crop 130) 0.8457 · B (crop 90) 0.8340, −0.0117 at 3.9σ · C (130+90 per target) 0.8425,
+> −0.0031.** n = 592 non-gold, all 20 members, OOF, paired bootstrap. **The label it was aimed at,
+> Lateral Meniscus, fell 0.0071.** The crop *does* reorder — Spearman(130, 90) = 0.9303 — it just
+> reorders worse. **The discarded field of view is not irrelevant.** That weakens F2-classic too:
+> a trained model removes the domain shift but not the lost context. The gate was +0.002, fixed
+> before the run. **Do not re-open this without a new mechanism.** The amendment below is kept
+> because its *reasoning* was right — the route was genuinely open, and it was measured, not
+> assumed.
+>
 > **AMENDED 2026-08-12 late, `IMPROVEMENTS.md` §3g — F2 got much cheaper.** §9b claimed the fork's
 > members verify a fingerprint on their *pixel contract*, so no crop could reuse them. Reading
 > `fingerprint()` instead of our own summary of it: the input is a **seeded synthetic bag of random
@@ -87,6 +98,8 @@ Twelve-label knee-MRI classification, macro-AUROC. Final submission **2026-10-22
 > | route | verdict | where |
 > |---|---|---|
 > | our port as an ensemble member | **no weight helps**, −0.111 at 15.4σ | §2y |
+| **crops as extra TTA windows on the frozen members (F2-cheap)** | **−0.0031 paired; crop-90 alone −0.0117 at 3.9σ** | §3k |
+| blending the fork's shipped `imported` arm | +0.0007, 0/12 labels — the size of the looking | §3h-2 |
 > | K16 from DICOM header rules | 56.9–60.8% vs ~50% chance; resolved by *measurement* instead | §2n, §2m |
 > | our rule extractor as a label source | 0/12 labels, negative in a rank-mean | §2f |
 > | per-label fusion of public label readers | near-duplicates (|r| 0.87–0.95); loses to best single | §2i |

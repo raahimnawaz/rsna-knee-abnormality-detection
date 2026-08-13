@@ -596,6 +596,14 @@ only study-level labels.
 > were fitted at 130 mm, so a tighter crop is a domain shift that may degrade them — and that is a
 > question with a local, paired answer, not an impossibility.
 >
+> ### ⛔ F2-CHEAP RAN AND IT LOSES — `§3k`, 2026-08-13. The paragraph below is kept for provenance.
+>
+> **A (130) 0.8457 · B (90) 0.8340, −0.0117 at 3.9σ · C (130+90 per target) 0.8425, −0.0031.**
+> n = 592 non-gold, all 20 members, OOF, paired. **Lateral Meniscus — the target — fell 0.0071.**
+> Not the monotone-shift failure §3j guessed: Spearman(130, 90) is **0.9303**, so the crop really
+> does reorder, it just reorders *worse*. **The discarded field of view is not irrelevant**, which
+> is the load-bearing assumption of this whole section. Gate was +0.002, set in advance. Dead.
+>
 > **This opens F2-cheap: crops as extra TTA windows, no training run at all.** The 130 mm view
 > stays in the pool and the tighter crop is an *additional* window, so no member is ever asked to
 > predict from an out-of-distribution input alone — it is strictly a superset of the current TTA.
