@@ -574,11 +574,47 @@ Ordered by expected value per hour, cheapest first. **Costs are real: a submissi
 ### 9b. F2 — why the crop, and why anatomy rather than saliency
 
 **Do not build a saliency- or detector-guided crop.** It is circular for this failure: the model
-is *missing* the lateral posterior horn, so its own attention will not point there. And every
-pilkwang member **verifies a fingerprint on its pixel contract** (`crop_mm 130`, `img 336`, band
-0.2–0.8) — feeding a different crop breaks it by design, so no crop route can reuse their frozen
-members. A weakly-supervised detector is also unbuildable here: the competition ships **no bounding
-boxes**, only study-level labels.
+is *missing* the lateral posterior horn, so its own attention will not point there. A
+weakly-supervised detector is also unbuildable here: the competition ships **no bounding boxes**,
+only study-level labels.
+
+> **CORRECTION 2026-08-12, from reading the fork's source rather than describing it.** This
+> paragraph used to continue: *"every pilkwang member verifies a fingerprint on its pixel contract
+> (`crop_mm 130`, `img 336`, band 0.2–0.8) — feeding a different crop breaks it by design, so no
+> crop route can reuse their frozen members."* **That is wrong about the mechanism, and it was
+> closing the cheapest crop route on the board.**
+>
+> `fingerprint()` (baseline-v1 line 1867) runs the model on a **seeded synthetic bag** —
+> `torch.randint(0, 256, (2, n_slot, group, img_size, img_size))` — and hashes the output.
+> `check_fingerprint` is called once per member at load (line 2102) and **never sees `read_slot`
+> output**. Its own docstring says so: *"This checks that the model computes what it computed when
+> it was fitted. It cannot check that the pixels reaching it are the right pixels."*
+>
+> So: **`img_size` is a fingerprint argument and changing resolution does trip it. `CROP_MM` and
+> `SLICE_BAND` are not, and changing them does not.** There is no guard between us and a
+> re-cropped input to the frozen members. What remains is a real but *empirical* risk — the members
+> were fitted at 130 mm, so a tighter crop is a domain shift that may degrade them — and that is a
+> question with a local, paired answer, not an impossibility.
+>
+> **This opens F2-cheap: crops as extra TTA windows, no training run at all.** The 130 mm view
+> stays in the pool and the tighter crop is an *additional* window, so no member is ever asked to
+> predict from an out-of-distribution input alone — it is strictly a superset of the current TTA.
+> Pool per target exactly as §3d does: max for the focal labels, mean for the diffuse ones. This is
+> the same move that took 0.891 → **0.899**, and §3d already said the pooling prior was *"the same
+> reasoning as the anatomical crops, one level cheaper."* It was more literally true than it read.
+>
+> The fork's own config comment (line 818) prices it: pitch is `CROP_MM / P`, so 130 mm at 336 px
+> is **0.387 mm** against the **0.5 mm** a 1 mm tear needs. A 90 mm crop at 336 px is **0.268 mm**
+> — further along *"resolution is the axis under test"*, which is the fork's phrase, not ours.
+>
+> **Test it locally before spending a submission.** `pilkwang/rsna-knee-weights` is downloadable
+> (we already pulled `oof.npz` from it). Run each member **on its own held-out fold only** — the
+> manifest carries the fold assignment — so the comparison is genuine OOF and not a memorised-study
+> read, which would bias toward *"crop doesn't matter"* precisely because memorised studies survive
+> a domain shift that novel ones do not. Then paired-bootstrap crop-130 against crop-130+crop-90
+> through `fusion/score_oof.py`. **State the reference first (§2s rule): both arms are the same
+> weights on the same studies, so the reference is neutral by construction — this is the cleanest
+> A/B this project has had.**
 
 **The mechanism that does work is resolution, not attention.** §2d measured 224→518 = +0.013. A
 crop that discards irrelevant field of view spends the *same pixel budget* on the target region —

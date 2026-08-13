@@ -2874,3 +2874,96 @@ leaderboard confirms it or it does not count.**
 4. **Sex disparities are real** (ACL 2.3σ, Medial OA 3.1σ) but a *per-study covariate cannot be
    added post-hoc as a monotone transform* — same §3a filter. It is a training-time feature or a
    group-conditional prior like the site one; test it the same way before believing it.
+
+---
+
+## 3g. The fingerprint does not check the pixels — the cheapest crop route was never closed `MEASURED 2026-08-12`
+
+**`PLAN.md` §9b asserted that no crop route can reuse the fork's frozen members. That assertion
+was inferred, never read, and it is wrong.** It cost nothing yet only because it was written the
+same day it was refuted.
+
+### What §9b said, and where it came from
+
+> every pilkwang member **verifies a fingerprint on its pixel contract** (`crop_mm 130`,
+> `img 336`, band 0.2–0.8) — feeding a different crop breaks it by design, so no crop route can
+> reuse their frozen members.
+
+That is a claim about `fingerprint()` in `pilkwang/rsna-knee-baseline-v1`. The kernel was pulled
+and read (2,493 lines, 21 code cells). The function is at line 1867:
+
+```python
+g = torch.Generator().manual_seed(seed)
+imgs = torch.randint(0, 256, (2, n_slot, group, img_size, img_size),
+                     generator=g, dtype=torch.uint8).to(dev)
+```
+
+**The input is generated from a seed. It is a synthetic bag of random bytes, and no image ever
+reaches it.** `check_fingerprint` is called once per member at load time (line 2102,
+`check_fingerprint(model, dev, IMG, ck["fingerprint"], ...)`) and never again. It is a
+weight-and-architecture identity check — *"a set of weights carries the answer it gave to a
+question with no data in it"* — and its own docstring closes the question outright:
+
+> *"This checks that the model computes what it computed when it was fitted. **It cannot check
+> that the pixels reaching it are the right pixels**; `read_slot` and the header pass answer to
+> their own tests."*
+
+**So the guard is real but it guards something else.** `img_size` is an argument to `fingerprint`,
+so changing *resolution* trips it. `CROP_MM` and `SLICE_BAND` are not arguments to anything the
+fingerprint touches, so changing *those* does not. **There is no guard between us and a re-cropped
+input to the twenty frozen members.**
+
+What remains is a genuine risk of a different kind: the members were fitted at 130 mm, so a
+tighter crop is a domain shift and may simply degrade them. That is an empirical question with a
+cheap paired local answer. It is not an impossibility, and §9b filed it as one.
+
+### F2-cheap: crops as extra TTA windows, with no training run at all
+
+The route §9b closed is the one that costs least and is most likely to pay:
+
+* **Additive, not substitutive.** The 130 mm view stays in the TTA pool and the tighter crop is an
+  *additional* window. No member is ever asked to predict from an out-of-distribution input alone;
+  the pool is a strict superset of the one scoring 0.899 today.
+* **The pooling rule already exists and is already banked.** §3d's per-target pooling — max for
+  Fracture, Contusion, both menisci and Baker's; top-2 mean for ACL and MCL; mean for the diffuse
+  labels — is exactly the estimator a crop window wants. A focal finding is present in the tight
+  crop and diluted in the wide one, which is the same argument that paid **+0.008**.
+* **§3d said this in as many words and nobody noticed:** the pooling prior is *"the same reasoning
+  as the anatomical crops, one level cheaper — and it costs a config change on an inference-only
+  notebook instead of a training run."* It was more literally true than it read.
+* **The fork prices the gain in its own comments** (line 818): pitch is `CROP_MM / P`, so 130 mm at
+  336 px is **0.387 mm** against the **0.5 mm** a 1 mm tear needs. A 90 mm crop at 336 px is
+  **0.268 mm**. `RUNS` is annotated *"Resolution is the axis under test"* — their phrase.
+
+### How to test it without spending a submission
+
+`pilkwang/rsna-knee-weights` is **1.54 GB, CC0-1.0**, 20 × ~89 MB checkpoints, and downloads in
+about ninety seconds. The A/B is then entirely local:
+
+1. Run **each member on its own held-out fold only** — `manifest.json` carries the fold and seed
+   per member. This is not optional: a member run over its *training* studies reports on memorised
+   cases, which survive a domain shift that novel ones do not, and would bias the result toward
+   **"the crop makes no difference"** — a false negative, and the expensive direction to be wrong
+   in here.
+2. Score crop-130 against crop-130 + crop-90 through `fusion/score_oof.py`, paired.
+3. **The reference is neutral by construction** — same weights, same studies, same targets, one
+   config value apart. Per §2s this pre-check is mandatory and it has never before been this easy
+   to satisfy. Four measurements on this project were lost to an entangled instrument; this arm
+   cannot have that problem.
+
+### The transferable lesson, and it is not the one already on file
+
+The standing rule from §2f/§2x/§3d is **"read a competitor's code, never its description"**, and
+it is three-for-three. **This is a fourth instance with a twist: the description that misled us
+was our own.** §9b was written from this repo's earlier prose summary of the fork rather than from
+the fork, by a session that had read the code days before and was compressing it. A second-hand
+summary of a first-hand reading decays exactly like a competitor's marketing copy does.
+
+**Consequence — mark derived claims as derived.** Every external assertion in `REFERENCE.md`
+carries a source and a read-date, and that discipline works. Internal assertions carry nothing, so
+an inference and a measurement look identical three days later. The `CLOSED ROUTES` table added in
+`0b31437` inherits this: it is headed *"Each was measured, not argued"*, and while most rows were,
+`CoPAS / foundation models / Gold Loss Correction` (surveyed), `post-hoc calibration` (an argument
+from AUC invariance) and `a C++ port` (an extrapolation) were argued. **A route closed by argument
+reopens when its premise moves. A route closed by measurement does not.** The two belong in the
+same table only if the table says which is which.

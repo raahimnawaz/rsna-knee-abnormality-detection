@@ -11,6 +11,16 @@ Twelve-label knee-MRI classification, macro-AUROC. Final submission **2026-10-22
 > **Banked: submission `55465252` = 0.899** (was 0.891). Top **0.946**, 10th/prize **0.935**.
 > **Read `PLAN.md` §9a for the F-series — that is the current plan.** The E-series is closed.
 >
+> **AMENDED 2026-08-12 late, `IMPROVEMENTS.md` §3g — F2 got much cheaper.** §9b claimed the fork's
+> members verify a fingerprint on their *pixel contract*, so no crop could reuse them. Reading
+> `fingerprint()` instead of our own summary of it: the input is a **seeded synthetic bag of random
+> bytes**, and the docstring says *"it cannot check that the pixels reaching it are the right
+> pixels."* `img_size` trips it; **`CROP_MM` and `SLICE_BAND` do not.** So crops can go in as extra
+> TTA windows on the frozen members — **no training run** — pooled per target exactly as §3d does.
+> That is the same move that paid +0.008. The weights are CC0, 1.54 GB, and the A/B is local and
+> paired. **Run each member on its own held-out fold only**, or memorised studies will hide the
+> effect.
+>
 > ### The four things a fresh session most needs to know
 >
 > 1. **The port is CLOSED as an ensemble member (§2y).** Paired against the fork's own OOF:
@@ -31,7 +41,7 @@ Twelve-label knee-MRI classification, macro-AUROC. Final submission **2026-10-22
 >
 > | | LB | |
 > |---|--:|---|
-> | our own pipeline, best estimate | ~0.76 | never submitted, and now closed (§2y) |
+> | our own pipeline, best estimate | ~0.76 | never submitted; closed **as an ensemble member** (§2y), not as a pipeline — it is still the only local arm that can fine-tune |
 > | the fork, submitted 2026-08-09 | 0.891 | rank 400 / 1,276 — 73 teams tied |
 > | **OURS NOW — pilkwang + per-target TTA pooling** | **0.899** | `55465252`, §3d/§3e |
 > | **10th place — the last prize** | **0.935** | only 10 teams clear it; was 0.934 that morning |
