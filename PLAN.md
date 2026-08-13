@@ -668,3 +668,85 @@ required.
 
 ---
 
+
+---
+
+## 9f. THE WORKSTREAMS `2026-08-13 pm — the live execution plan, kept here so it survives the session`
+
+Written after §3p retired the label-ceiling thesis. **The binding constraint is model capacity**,
+so every stream below is aimed at the model→teacher gap, not at labels.
+
+### A — harvest the free arms `1 submission`
+
+| arm | state |
+|---|---|
+| `ft_b` | **DONE, §3o.** OOF 0.8522, blend **+0.0284**. |
+| **the two-arm blend** | **RUNNING** — kernel `raahimnawaz/rsna-knee-f6-two-arm-blend`, no site prior, so the LB read is a clean test of §3l-2's offset. **Predicts 0.915–0.926.** |
+| `tonylica` | **⛔ DROPPED, §3q.** 0.7880 and *more* correlated than `ft_b` (0.704 vs 0.632). Weaker and more redundant. |
+| RadImageNet | **expected to fail the same bar** — frozen encoder (§2e's weak configuration), `best_val 0.8167`, i.e. tonylica's profile. Cheap to check with `fold_recover.py` once the encoder is wired; do not assume it pays. |
+| DINOv3 | **the only remaining family likely to earn a slot.** Genuinely fine-tuned, and it conditions on site. Several hours: `Net` + `Readout` + `CodexResidualPool` + `_GatedDelta` + `_pad_kv`/`_seg_mean_max`, slot-based, **no fingerprint to check the transcription against.** |
+
+**The rule this stream now runs under (§3q):** free to run is not a reason to include. Every arm is
+scored on `score_gold.py` and blended only if it beats the 2-arm baseline **and** clears the prior
+— comparable strength, lower correlation. The public notebooks vote 24 members and never checked.
+
+### B — licence, one forum post `open`
+
+Both non-DINOv2 arms rest on custom licences. **Assessment: permissible.** DINOv3's licence permits
+commercial use and grants derivative works; RadImageNet is research-use with commercial licensing
+separate; rules **§2.5.a** explicitly carves *"pretrained models with an incompatible license"* out
+of the winner's open-sourcing duty, and the winner licence is **CC-BY-NC 4.0** anyway. We consume
+both as public Kaggle Datasets, which **§3.6.b** deems OSI-licensed.
+
+**Unresolved:** §2.6.a's *"equally accessible to all Participants"* where upstream weights sit
+behind a click-through. **This is the same question `REFERENCE.md` §1.3 has open for MRNet — asked
+twice by others, never answered.** Ask it naming DINOv3 and RadImageNet. Also a dependency risk:
+the submission would rest on a third party's Dataset that could be deleted.
+
+### C — train an arm, and make it a CNN `parallel, laptop`
+
+**Decided 2026-08-13: the trained arm should be a fine-tuned CNN, not another ViT.**
+
+*Why a CNN specifically, rather than "more capacity":*
+
+1. **Diversity by construction.** Every arm in the blend is a ViT (DINOv2 ×2 families, DINOv3), and
+   the one CNN in the public field — RadImageNet R50 — is **frozen**, which §2e measured as the
+   configuration that cannot adapt. A *fine-tuned* CNN is the one family nobody in this competition
+   is running.
+2. **The literature says so for exactly our failing labels.** Independent work on meniscal-tear MRI
+   reports **ResNet50 consistently outperforming other architectures**, and **ViTs
+   *under*performing ResNet**, attributed to the difficulty of training transformers on limited
+   medical data. Our corpus is **4,407 studies** — squarely in that regime.
+3. **It is an inductive-bias argument, not an information one.** A ViT-B/14 at 336 px represents
+   the image as 14 px tokens (≈5–7 mm at our pitch) against findings of ~1–2 mm. The patch
+   embedding is not lossy — 14×14×3 = 588 values into 768 dims — so the detail is not *destroyed*.
+   What differs is that a CNN has locality and translation equivariance built in, while a ViT must
+   learn them from 4,407 studies. **That is a sample-efficiency claim, and it is testable.**
+4. **It aims at the right labels.** §3p: all remaining headroom is in Lateral Meniscus, Synovitis,
+   Medial Meniscus, ACL and PF OA — the focal, millimetre-scale findings.
+
+*How:* `fusion/ft_b_pixels.py` + `ft_b_model.py` are a transcribed, working recipe — swap the
+backbone. Spend the budget on **unfreezing and schedule, not resolution** (`sadamtorres` measured
+fine-tuning at +0.09 LB against resolution's +0.017; §2d separately measured **data ≈ 2×
+resolution**, and we sit at 81.5% of the corpus). Judge it on its **blend delta**, never its solo
+score — §2y and §3q both closed arms that were fine alone.
+
+### ⛔ Topological methods — surveyed 2026-08-13 and NOT pursued
+
+Persistent homology / TDA is real in medical imaging, but the evidence does not transfer here:
+
+* **It runs on derived quantitative maps, not clinical volumes.** The knee-OA results use
+  compositional MRI (T2 mapping), morphological grading and biomechanics variables. This
+  competition ships **clinical, multi-vendor, multi-protocol** MRI with no quantitative maps. The
+  headline accuracies (≈98.7%) are **bone microstructure under non-linear microscopy** — a
+  different problem at a different scale.
+* **Its strengths land where we have no headroom.** TDA is naturally good at connected
+  fluid-filled structures — effusion, Baker's cyst. §3p measured those at **0.981 and 0.980**,
+  already *beating the teacher*. It has nothing obvious to say about a 1 mm posterior-horn tear,
+  which is where all five open gaps are.
+* **It would be a weak arm, and weak arms have now failed twice here** — §2y's port at −0.111 and
+  §3q's tonylica at −0.0089. Diversity alone does not pay; §3o's gain needed strength *and*
+  diversity.
+
+**Reopen only if** a quantitative map becomes available, or if a cheap experiment shows a
+topological feature separating the *focal* labels. Not on the critical path.
