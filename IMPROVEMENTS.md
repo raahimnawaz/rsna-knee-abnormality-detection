@@ -41,6 +41,7 @@ measures the teacher rather than the target. Read it first; it reprices everythi
 | **3l** | **The ceiling claim expired in a day; `score_oof.py` measures the teacher.** New `score_gold.py`: gold + 0.046 → LB, across four systems |
 | **3m** | **F2 closed on BOTH instruments** (gold C−A = −0.0038 vs report −0.0032) — and §3l-2's amplification is narrowed to **training-side** changes only |
 | **3n** | **`ft_b` loads, runs, and passed its gate at 0.9015 — but the gate certifies nothing.** All-member gold reads inflate **+0.1474**; fold-resolved read still owed |
+| **3o** | **F6 IS GO.** Fold recovery validated at 87.8%; `ft_b` OOF **0.8522** vs pilkwang **0.8516**, Spearman **0.632**, **blend +0.0284** (100% of draws). §3n's degraded-path worry is disproved |
 
 ---
 
@@ -3215,3 +3216,79 @@ outlier method — for a study, the fold that held it out is the one whose predi
 with the other four — then score honest OOF against pilkwang's **0.8516** on these same 47
 studies. That is apples-to-apples, removes the bias entirely, and is the number F6's blend
 decision actually needs. **Until it exists, `ft_b` is "loads and runs", not "reproduced".**
+
+---
+
+## 3o. FOLD-RESOLVED: `ft_b` IS AS STRONG AS pilkwang AND GENUINELY DIVERSE, AND THE BLEND GAINS `MEASURED 2026-08-13 pm`
+
+§3n left `ft_b` at "loads and runs, not reproduced", with two readings its gate could not
+separate. **Both questions are now answered.** `fusion/fold_recover.py`.
+
+### The method, and it is validated rather than merely plausible
+
+Neither new arm ships a split or an OOF, so §3i's recovery (match fold-means against a shipped
+OOF) does not transfer. **Inverted physics instead: four folds trained on a study and agree; the
+fold that held it out is the outlier.** Per study, argmax of L2 distance from the mean of the
+other four.
+
+Validated against §3i's known partition for pilkwang on the same 47 studies:
+
+| configuration | accuracy | AUC cost of misassignment |
+|---|--:|--:|
+| 5 fold-means, 4 seeds each | **97.9%** (46/47) | — |
+| **ONE member per fold — `ft_b`'s actual shape** | **87.8%** mean (80.9–95.7) | **+0.0223** (range +0.008 to +0.044) |
+
+Chance is 20%. L1 agrees with L2 exactly; a logit-space distance is worse (93.6%), so plain L2.
+**The residual misassignment biases UPWARD** — a study given the wrong fold is scored by a model
+that memorised it — so **a recovered-fold OOF is a CEILING, not an unbiased estimate.**
+
+### §3n's open question is answered: the pixel path is NOT degraded
+
+`ft_b`'s recovered partition is `[9 7 9 12 10]`, **χ² = 1.40 on 4 df — consistent with flat**,
+which is the same free correctness check §3i passed.
+
+| | all-fold | held-out only | inflation |
+|---|--:|--:|--:|
+| pilkwang (validated path) | 0.9990 | 0.8516 | **+0.1474** |
+| **`ft_b`** | 0.9015 | **0.8522** | **+0.0493** |
+
+**`ft_b` simply memorises far less** — three times less — which was §3n's reading (1). Its
+all-fold 0.9015 is what a *faithful* path looks like for a harder-regularised arm, not evidence of
+a broken one. §3n's suspicion of §3i's slice-order residual is **not supported**; the reproduction
+stands.
+
+### The number F6 actually needed
+
+| arm | gold-47 | note |
+|---|--:|---|
+| pilkwang alone | 0.8516 | true folds, 4-seed mean |
+| `ft_b` alone | 0.8522 | recovered folds, **ONE model**, ceiling ≈ +0.022 optimistic |
+| **equal-weight rank-mean** | **0.8800** | **+0.0284 vs pilkwang alone** |
+
+**Paired bootstrap +0.0284, 95% CI [+0.0087, +0.0492], positive in 100% of 3,000 draws.**
+
+**Spearman(pilkwang, `ft_b`) = 0.632 mean** (0.416–0.790). Compare **§2y's rejected port at
+0.639** — near-identical diversity. **The difference is strength: the port scored 0.7323 where
+`ft_b` scores 0.8522.** That is §2y's thesis confirmed from the other side — diversity was never
+the missing ingredient, and this arm has both.
+
+The blend **beats both parents** on six labels (ACL, MCL, Medial Meniscus, Medial OA, Effusion,
+Contusion), which is real complementarity rather than averaging. It also **loses to pilkwang on
+Fracture** (0.899 → 0.857, `ft_b` is 0.728 there) and on Baker's/Synovitis marginally.
+
+### What this does NOT establish, and the honest size
+
+1. **The +0.0284 is a ceiling.** `ft_b`'s half of the blend carries the ~+0.022 recovery bias, so
+   perhaps ~half of that propagates. **An honest expectation is nearer +0.015 to +0.020.**
+2. **The blend rule was pre-specified in §9e before any of this ran** — equal-weight rank-mean —
+   so reading it once is *evaluation*, not selection. **§3b now binds: do not go looking for a
+   better weight on these 47 studies.** That is exactly the move that claims +0.0137 and delivers
+   −0.0034.
+3. **It does not compose automatically with the banked 0.899.** This baseline is plain pilkwang
+   OOF (0.8516); our submission is pilkwang **plus per-target TTA pooling** (§3d), whose gold
+   equivalent has never been measured. Whether the two gains add is untested.
+4. **n = 47.** The sign is solid; the size is not, and no local instrument can settle it (§3l-2's
+   routing rule). The board settles it.
+
+**F6 is GO.** The remaining work before spending a submission is the DINOv3 arm, which the same
+recovery machinery now handles, and F1's site prior riding along.
