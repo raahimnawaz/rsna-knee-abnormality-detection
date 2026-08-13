@@ -16,18 +16,17 @@ Twelve-label knee-MRI classification, macro-AUROC. Final submission **2026-10-22
 > * **Lands near 0.90** → the offset is wrong. **Re-price §3o and §3p before building anything
 >   on them.** That is the higher-priority branch and it is cheap to act on.
 >
-> **2. DINOv3 — the ARCHITECTURE HALF IS DONE (`fusion/dinov3_model.py`, §9h).**
-> `python fusion/dinov3_model.py --check` → **5/5 folds load strict, 23.5 M params**, on timm
-> 1.0.28. Forward pass runs. The RoPE branch was the flagged risk and it turns out to **fail
-> loudly** (442 vs 441), not silently — measured by ablation.
-> **What is left is `dinov3_pixels.py`, and §9h's four corrections change it:** the 16 slices are
-> **input channels** (`in_chans=16`), the slot scheme is **(plane, fat-suppression) pairs in a
-> different order from pilkwang's** so `slots_pilkwang.csv` must NOT be reused, the band is
-> `(0.12, 0.88)` with per-slice windowing and **no ImageNet normalisation**, and slices order by
-> **InstanceNumber — K16 must not be applied here.** Slot selection is free: it reads the
-> competition's own `Anatomical_Plane`/`Fat_Suppression` columns.
-> **⚠️ But do not build it until item 1 settles** — the pixel path is scored on gold, and if the
-> +0.046 offset is wrong that instrument needs re-pricing first.
+> **2. ⛔ DINOv3 IS DONE AND IT DOES NOT EARN A SLOT — §3t. Built, audited, scored, parked.**
+> OOF **0.8025** vs pilkwang 0.8516 / `ft_b` 0.8522; 3-family blend **0.8775 vs 0.8798 banked**,
+> delta **−0.0022**, positive in 38% of draws. **Spearman vs `ft_b` 0.571 — the most diverse arm
+> this project has measured**, and it still fails on strength. Third time: the port 0.639/0.7323,
+> tonylica 0.704/0.788, this 0.571/0.8025. **Diversity has never been the binding constraint.**
+> **Parked, not dropped** — its direction handicap is local-only (§9h). Re-open only if item 1
+> shows local numbers running pessimistic. **Do not re-derive any of this.**
+>
+> **📐 `IMPROVEMENTS.md` §3s — what is actually inside it.** Both headline features are nearly
+> inert: the `xcodex` cross-attention is gated to ~0.001 (deleting it costs **+0.0003**) and slot
+> conditioning enters at **2.1%** of a patch token. Its slot usage is **anatomically correct**.
 >
 > **3. Then: Workstream C (`PLAN.md` §9f)** — fine-tune **RadImageNet R50**, already on disk and
 > verified to load strict into a torchvision trunk. A CNN, radiology-pretrained, and the whole
