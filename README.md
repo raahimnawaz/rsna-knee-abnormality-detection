@@ -12,9 +12,12 @@ Twelve-label knee-MRI classification, macro-AUROC. Final submission **2026-10-22
 > `kaggle competitions submissions rsna-knee-abnormality-detection` · submission **`55490186`**,
 > the F6 two-arm blend (pilkwang + `ft_b`, equal family ranks, **no site prior**).
 > **Predicted 0.915–0.926** from §3l-2's +0.046 offset, against **0.899** banked.
-> * **Lands in band** → the offset holds, §3o/§3p/§3q all stand, carry on with DINOv3 (§9h).
+> * **Lands in band** → the offset holds, §3o/§3p/§3q/§3t all stand. **Go to Workstream C** (item
+>   3) — DINOv3 is already done and parked (§3t), and F6 has no untried arm left but `ft_a`,
+>   which is the *same family* as `ft_b` and so the least diverse thing available.
 > * **Lands near 0.90** → the offset is wrong. **Re-price §3o and §3p before building anything
->   on them.** That is the higher-priority branch and it is cheap to act on.
+>   on them** — and note this is also the one branch that would **re-open DINOv3** (§3t), since
+>   it would mean local numbers run pessimistic.
 >
 > **2. ⛔ DINOv3 IS DONE AND IT DOES NOT EARN A SLOT — §3t. Built, audited, scored, parked.**
 > OOF **0.8025** vs pilkwang 0.8516 / `ft_b` 0.8522; 3-family blend **0.8775 vs 0.8798 banked**,

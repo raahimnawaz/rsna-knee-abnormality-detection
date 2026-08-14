@@ -1052,3 +1052,23 @@ OOF**, so the only checks available are (a) strict load of all 5 folds, (b) fold
 `fusion/fold_recover.py` with a χ²-flat partition, and (c) landing in a plausible band against
 pilkwang's **0.8516** and `ft_b`'s **0.8522** on the same 47 gold studies. **§3q's bar applies:
 comparable strength AND correlation below `ft_b`'s 0.632, or it does not earn a slot.**
+
+#### C — the NVIDIA / MONAI category, surveyed and EMPTY `2026-08-13 late`
+
+[[check-whats-free-first]] applied to a category §9f-C's survey never checked. It looked at
+RadImageNet, MRNet repos, Kaggle knee models and ImageNet CNNs, and **never looked at NVIDIA's
+medical-imaging stack at all.** Closed now, with a negative result, so nobody re-opens it.
+
+| NVIDIA asset | verdict |
+|---|---|
+| **MONAI Model Zoo** | **Nothing usable.** Enumerated the published bundles: spleen/pancreas/renal/lung-nodule CT, BraTS brain MRI, prostate MRI anatomy, endoscopic, pathology (×4), MedNIST. **Zero musculoskeletal, zero knee**, and only **three classification** bundles in the whole zoo (breast density = mammography, endoscopic in-body, pathology nuclei) — the rest are segmentation. There is no MSK encoder to fine-tune. |
+| **DALI / nvJPEG2000 GPU decode** | **⛔ DEAD, and this repo already had the measurement.** It targets the submission's dominant cost, so it looked like the one real lever — but `FINDINGS.md` §6 measured the corpus at **200/200 Explicit VR Little Endian, uncompressed**. There is no compression to accelerate. Worse, the same section's correction shows the bottleneck is **file-open I/O latency over ~700k opens**, not pixel decode, and no GPU touches that. |
+| **TensorRT / mixed precision** | Targets the **forward pass**, which is not the bottleneck — §9g/§3e establish a submission is decode/IO-dominated. Same reasoning that killed the C++ port at §6.1 (93 s per 0.001 AUC). |
+| **`OrthoDiffusion`** (arXiv 2602.20752, 2026) | **Exactly on target and unavailable.** A diffusion foundation model for MSK MRI, three orientation-specific 3D models trained on **15,948 unlabeled knee MRI scans**, doing 11-structure segmentation and **8 knee abnormality detections**, transferring to ankle and shoulder. **No public weights or code released** as of this read. **Watch item** — if weights appear, this is the strongest candidate encoder that would exist for this task. |
+
+**What the category IS worth, and it is not nothing.** NVIDIA/MONAI's central thesis is
+*domain-pretrained encoder + fine-tune on the target task*, which is **exactly Workstream C's
+thesis** (RadImageNet R50, fine-tuned, §9f-C). So the largest medical-imaging platform in the
+industry independently backs the direction already chosen. **It offers validation, not a
+shortcut** — and the shortcut it would have offered, a pretrained MSK encoder, does not exist in
+public weights today.
