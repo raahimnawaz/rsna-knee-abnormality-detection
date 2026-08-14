@@ -42,7 +42,7 @@ a submission is **~2 h of the 30 h weekly quota** (§3e), not the 74 s this plan
 | # | step | cost | status `2026-08-13 pm` |
 |---|---|---|---|
 | **F6** | **Blend the free diverse arms** — DINOv2 ViT-B/14@336, DINOv3 ViT-S/16, RadImageNet R50 | weights down, `ft_b` scored; **1 submission** | **GO — §3o.** `ft_b` reproduces (fold-resolved OOF **0.8522** vs pilkwang **0.8516** on the same 47 gold), Spearman **0.632** — the port's diversity with none of its weakness. **Equal-weight rank-mean +0.0284, 100% of draws**, ceiling; honest ~+0.015–0.020. **Next: the DINOv3 arm through the same machinery, then submit with F1.** §3b binds — do NOT hunt a better weight on 47 studies. |
-| **F1** | Site-prevalence prior at K=10, w=0.10 (+0.0023, §3f) | rides with F6 | **LIVE, and it now has its companion.** It was stranded when F2 died; **ship it inside F6's submission**, not alone. Rank decays ~170 places in 3 days for doing nothing (§2x), so sitting on it also costs. |
+| ~~**F1**~~ | ~~Site-prevalence prior at K=10, w=0.10~~ | — | **⛔ DEAD, §3u.** The +0.0023 was fitted and scored on the SAME label source. Built in the form a submission can run, it is **−0.0057, positive in 0/2,000 draws**. The gain splits by *prior source*, not by matching — `lixin_gpt56` helps, `targets.csv` (what we own) hurts — so §3f measured one label table's per-site prevalence, not site prevalence. Best honest cell **+0.0008** against ±0.005 precision. **Do not re-open.** |
 | **F3** | **Metadata conditioning** — screen on `data/features_*` | hours, CPU/MPS | **Still unblocked, no longer first.** No GPU, no quota, no pixel path. Sex and field strength are the arms that matter; manufacturer is largely captured by F1's site prior (§3f). **Note §3l-3 re-ranks its targets** — Synovitis and Lateral OA are far worse on gold than §3f believed. See §9c. |
 | **F5** | Efficiency track | TBD | **PROMOTED.** $18,000 over three places, thinner field, untouched since §2t-4 — and §3k left behind the capability that makes it measurable: the fork's members run locally with verified fidelity, so member-count, window-count and resolution trade-offs price **offline** instead of at 2 h a submission. `sadamtorres` publishes the break-even: **+0.044 AUC per extra hour**, and their @224 arm is the efficiency play at 0.866/3 h. |
 | **F4** | Severity-thresholded label read | — | **⛔ DEPRIORITISED — §3p.** It targets label quality, and **there is no binding label ceiling**: the free public tables already score **0.898 gold → LB 0.944** against a board top of 0.946, while our model reproduces its own labels at only **0.849**. The arbiter problem is moot until the headroom exists. **Revisit only if the blend reaches ~0.90 gold.** |
@@ -159,8 +159,8 @@ the board settles the size.
    the same 47 studies. `ft_b` is "loads and runs", NOT "reproduced", until that exists.
 2. Score each family alone on gold-58 → four numbers on one scale for the first time.
 3. Pre-register the blend, then read the blend on gold-58, paired against pilkwang alone.
-4. Only then spend the submission — batched with **F1's free +0.0023 site prior**, which has been
-   sitting unshipped and companionless since §3f.
+4. Only then spend the submission. ~~batched with F1's site prior~~ — **F1 is dead (§3u)**; the
+   prior does not survive being built in shippable form.
 
 **What kills this route.** If a family cannot be reproduced locally at fidelity comparable to
 §3h's 7e-06 fingerprint match, it cannot be scored honestly, and blending it becomes a leap of
