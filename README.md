@@ -32,6 +32,13 @@ Twelve-label knee-MRI classification, macro-AUROC. Final submission **2026-10-22
 > verified to load strict into a torchvision trunk. A CNN, radiology-pretrained, and the whole
 > field uses it *frozen*.
 >
+> **⛔ F1 IS DEAD — §3u. Do not queue the site prior.** The "+0.0023, free, unshipped" line was
+> an estimator with no deployable counterpart: built in the form a submission runs, it is
+> **−0.0057, positive in 0/2,000 draws**. The gain splits by *prior source*, not by
+> fit/score matching. **§3f's harmonising-away result is untouched.**
+> **Standing rule it produced: re-measure any gain in the exact configuration the submission will
+> run before shipping it — an A/B measures an estimator, not an idea.**
+>
 > **Cheap screens waiting, no GPU or quota (§9g):** second-order/covariance pooling on
 > `data/features_*`; a topological feature block on the same.
 >
