@@ -3729,3 +3729,67 @@ pessimistic — which is exactly the branch that would also rescue this arm.
 **What is now built and reusable regardless:** `dinov3_model.py`, `dinov3_pixels.py`,
 `dinov3_audit.py`, and `fold_recover.py --arm dinov3`. If a future session wants this family
 fine-tuned rather than blended, the load path and pixel path are done and audited.
+
+---
+
+## 3u. ⛔ F1 IS DEAD: §3f's "free +0.0023 site prior" DOES NOT SURVIVE CONTACT WITH A SUBMISSION `MEASURED 2026-08-13 late`
+
+`fusion/site_prior_ship.py`. Written to *queue* F1 for the next submission — it has been sitting
+"measured, free, unshipped" since §3f — and it killed it instead.
+
+**In the only configuration a submission can actually run, the site prior is −0.0057**, positive
+in **0 of 2,000** bootstrap draws, CI [−0.0063, −0.0051]. It does not ship.
+
+### Why the measured number and the shippable number are different quantities
+
+§3f fitted the per-site prevalence on `y[train]` where `y` is the *reference* label source, and
+scored against `y[test]` from **the same source**. A submission has no test labels: the prior has
+to be built from a table **we own** and applied to a study whose only observable is its DICOM
+header. Those are different estimators, and nobody had written down that they were.
+
+### The diagnostic, which disproves the obvious explanation
+
+The natural hypothesis is source-matching — that fitting and scoring on the same labels flatters
+it. **Wrong.** Varying the two independently:
+
+| prior source → scored against | delta |
+|---|--:|
+| reference → reference | **+0.0022** ← §3f as measured, reproduced |
+| targets.csv → targets.csv | **−0.0042** ← *same-source, and negative* |
+| targets.csv → reference | **−0.0057** ← operational |
+| reference → targets.csv | **+0.0008** ← *cross-source, and positive* |
+
+**The split is by PRIOR SOURCE, not by matching.** A prior built from `lixin_gpt56` helps in both
+columns; one built from `targets.csv` (= `steven_v2`) hurts in both. So §3f measured a property of
+**one particular label table's per-site prevalence**, and generalised it to "an explicit site
+prior gains +0.0023". That generalisation is false.
+
+**The honest ceiling for the good source is +0.0008** — the cross-source cell — against an
+instrument precision of **±0.005**. So even the best case is unmeasurable, and it is only positive
+when scored against a table it was not fitted on, which is the configuration furthest from what
+the leaderboard does (expert *image* reads, a third source again).
+
+### What this does and does not retract
+
+* **RETRACTED: F1, and the "+0.0023 free money" line** carried in `PLAN.md` §9a/§9e, `README.md`
+  and the project memory. **It is not free and it is not money.**
+* **NOT retracted: §3f's finding that harmonising site AWAY costs 0.013–0.032.** That is a
+  different measurement — removing between-scanner variation from the *model's own scores* — and
+  it stands. The model already exploits site; an explicit prior on top adds nothing it does not
+  have, which in hindsight is the more parsimonious reading of §3f all along.
+* **Unchanged: case mix genuinely differs by scanner** (Medial OA 0.479/0.353/0.338). The fact is
+  real; the *usable headroom on top of the model* is what turns out to be absent.
+
+### The lesson, and it is the sixth instance of the same error class
+
+§2s named it: **the instrument entangled with what it measures.** Every previous instance was
+caught after a run. This one was caught *before* a submission, by asking a question that should be
+standing procedure and was not:
+
+> **Before shipping any measured gain, re-measure it in the exact configuration the submission
+> will run — same inputs, same label sources, same fallbacks — and treat the original number as
+> void until that reproduces.**
+
+An A/B is a measurement of an *estimator*, not of an *idea*. §3f measured an estimator that has no
+deployable counterpart, and the gap went unnoticed for two days because the number was small,
+plausible, and nobody tried to build it.
