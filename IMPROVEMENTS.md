@@ -46,6 +46,7 @@ measures the teacher rather than the target. Read it first; it reprices everythi
 | **3p** | **THE LABELS WERE NEVER THE CEILING.** Teacher 0.898 vs model→teacher 0.849; a perfect learner of the FREE labels scores ~0.944 LB. All headroom is in 5 focal labels |
 | **3o** | **F6 IS GO.** Fold recovery validated at 87.8%; `ft_b` OOF **0.8522** vs pilkwang **0.8516**, Spearman **0.632**, **blend +0.0284** (100% of draws). §3n's degraded-path worry is disproved |
 | **3s** | **THE DINOv3 BLACK BOX IS OPENED, AND IT IS SIMPLER THAN ITS CONFIG.** Its two headline features are both nearly inert — the `xcodex` cross-attention is **gated to ~0.001** (deleting it: **+0.0003 macro**, 9.7% of forward) and slot conditioning enters at **2.1%** of a patch token. Slot ablation is **anatomically correct** (axial-fluid → Baker's 0.136) |
+| **3v** | **F6 LANDED AT 0.908** (predicted 0.915–0.926). **The two gains do NOT add** — TTA +0.008 and `ft_b` +0.015–0.020 delivered **+0.017 together**, ~40% overlap; variance-reduction levers are **sub-additive**. **The offset is +0.039, not +0.046** — §3p check 2 matched a gold read to a differently-configured LB. §3p's direction stands, its "takes 10th" does not. **DINOv3's re-open condition is refuted** |
 
 ---
 
@@ -3793,3 +3794,138 @@ standing procedure and was not:
 An A/B is a measurement of an *estimator*, not of an *idea*. §3f measured an estimator that has no
 deployable counterpart, and the gap went unnoticed for two days because the number was small,
 plausible, and nobody tried to build it.
+
+---
+
+## 3v. THE F6 SUBMISSION LANDED AT 0.908: THE TWO GAINS DO NOT ADD, AND THE OFFSET IS +0.039 `MEASURED 2026-08-17`
+
+**Submission `55490186` = 0.908.** Predicted **0.915–0.926** (§3l-2's +0.046 applied to §3o's
+gold-47 0.8800). **A new best, +0.009 over the banked 0.899** — and below the band.
+
+This is the branch the README pickup block did not write down: not "in band", not "near 0.90".
+The reconciliation is exact, and **the offset is not what broke** — two corrections that were both
+already written in §3o, and both dropped when the band was quoted, account for all of it.
+
+### The ladder — three submissions, one pilkwang base
+
+| ref | what | LB | Δ |
+|---|---|--:|--:|
+| `55370324` | unmodified fork | 0.891 | — |
+| `55465252` | + per-target TTA pooling (§3d) | 0.899 | **+0.008** |
+| `55490186` | + `ft_b` family blend, equal family ranks (§3o) | **0.908** | **+0.009** |
+
+Verified from the shipped kernel, not assumed: `notebooks/submissions/rsna-knee-f6-two-arm.ipynb`
+carries `TTA_TARGET_POOL` intact and its fallback branch logs *"the banked 0.899 path"*. So the
+F6 run is the 0.899 system **plus** `ft_b`, and `ft_b`'s own contribution is **+0.009**, not the
++0.017 the raw-fork baseline would suggest.
+
+### 1. §3o caveat 3 is answered, and the answer is NO — the two gains do not compose
+
+§3o left it open: *"whether the two gains add is untested."*
+
+| | promised alone | |
+|---|--:|---|
+| per-target TTA pooling | **+0.008** | measured, `55465252` |
+| `ft_b` blend | **+0.015 to +0.020** | §3o caveat 1's honest expectation after the recovery haircut |
+| **sum if independent** | **+0.023 to +0.028** | |
+| **delivered together** | **+0.017** | 0.891 → 0.908 |
+
+**They overlap by roughly 40%.** The mechanism is not mysterious: per-target `max`/`top2` pooling
+over TTA windows and a second model family are **both variance-reduction moves over the same
+unstable studies**. Whichever runs first collects most of the gain; the second is priced against
+an already-stabilised ranking.
+
+**This generalises, and it is the operative planning fact from here:** every remaining cheap lever
+on the board is a variance-reduction lever (more members, more windows, more families). They are
+**sub-additive with each other**, so the F6-style arithmetic of stacking free arms decays. Do not
+price a future arm at its solo delta against the *plain fork*; price it against the current best.
+
+### 2. The offset is +0.039, and §3p's coherence check #2 is why it read +0.046
+
+§3p check 2: *"Our banked 0.899 sits exactly where pilkwang's 0.8516 predicts (0.8516 + 0.046 =
+0.898)."*
+
+**0.8516 is pilkwang's plain OOF. Its LB is 0.891, not 0.899.** The 0.899 carries our per-target
+TTA pooling, which the gold read does not contain. The check matched a gold score to the LB of a
+*differently-configured* system, and the +0.008 TTA gain was silently absorbed into the constant.
+
+**pilkwang's own clean pair is `0.8516 → 0.891` = +0.039.**
+
+Then the failed prediction resolves exactly:
+
+| step | value |
+|---|--:|
+| §3o blend gold-47, as measured | 0.8800 |
+| less `ft_b`'s fold-recovery optimism (§3o caveat 1: ~+0.022 on its half) | **0.869** |
+| + the corrected offset **+0.039** | **0.908** |
+| **observed** | **0.908** |
+
+Both corrections were **pre-registered in §3o and neither was invented today**. The band was
+produced by applying a constant to a number §3o had already flagged as biased upward, using an
+offset that a second §3o caveat had already implied was too large.
+
+### 3. The constant was never as tight as §3l-2's ±0.005 spread suggested
+
+The same system reads differently depending only on which gold subset it lands on:
+
+| pilkwang read | gold | LB | offset |
+|---|--:|--:|--:|
+| gold-58 (§3l-2) | 0.8400 | 0.891 | +0.051 |
+| gold-47 (§3o, §3p) | 0.8516 | 0.891 | **+0.039** |
+
+**A 0.012 swing from the subset alone — larger than the ±0.005 spread across four systems that
+made the constant look like a constant.** §3l-2's four-system table mixes gold-47 and gold-58
+reads. The spread was tight because it was under-powered, not because the quantity is stable.
+`fusion/score_gold.py` is updated: `GOLD_TO_LB = 0.039`, with the anchor's configuration named.
+
+**Seventh instance of §2s's error class, and the second in two days.** §3u's rule — *re-measure
+in the exact configuration the submission will run* — was written for gains. It applies to
+**anchors** too: an offset fitted on system A's gold and system B's LB is not an offset.
+**Standing addition: every (gold, LB) pair must name the exact submission ref its LB came from.**
+
+### 4. What this does to §3p — direction survives, one number moves
+
+| | gold-47 | §3p claimed (+0.046) | corrected (+0.039) |
+|---|--:|--:|--:|
+| teacher `steven_v4_blend` | 0.9036 | 0.950 | **0.943** |
+| teacher `steven_v2` (= our `data/targets.csv`) | 0.8985 | 0.944 | **0.938** |
+| pilkwang 20-member | 0.8516 | 0.898 | **0.891** ← now *is* its true LB |
+
+**§3p's substantive claim is untouched: there is no shared label ceiling, and model capacity is
+the binding constraint.** Its within-labels headroom table (Lateral Meniscus +0.146, Synovitis
++0.139, …) is measured on gold directly and never passes through the offset.
+
+**What changes is the headline's force.** "A perfect learner of the free labels takes 10th place"
+was true against the 08-13 board (10th = 0.935). At 0.938 against **today's** 10th of **0.940**, a
+perfect learner of the free public labels is now **borderline prize, not comfortably inside it**.
+The free labels are still worth far more than any model we have; they are no longer a proven
+prize-winning ceiling on their own.
+
+### 5. The board moved, and faster than we did
+
+| | 2026-08-13 | **2026-08-17** | Δ |
+|---|--:|--:|--:|
+| top | 0.946 | **0.951** | +0.005 |
+| 10th / prize | 0.935 | **0.940** | +0.005 |
+| teams | ~1,370 | **1,832** | +462 |
+| **ours** | 0.899 (rank ~571) | **0.908 (rank ~490)** | **+0.009, +81 places** |
+
+**Gap to prize: 0.036 → 0.032.** Four days bought **0.004 of net closure** — we gained 0.009 while
+the line moved 0.005. At that rate the gap closes in ~32 days against **66 remaining**, which
+would be fine except **the rate is not sustainable: F6 was the cheapest large lever on the board
+and it is now spent.**
+
+### 6. What is actually left, priced against 0.908 rather than 0.891
+
+* **`ft_a` — do not bother.** Same family and same recipe as `ft_b` at 224 instead of 336
+  (§3l-1), i.e. the *least* diverse arm available, entering a blend that §3v-1 shows is already
+  sub-additive. Its solo 0.866 is below `ft_b`'s 0.883.
+* **DINOv3 stays parked (§3t).** Item 1's re-open condition was *local numbers running
+  pessimistic*. They ran **optimistic** — 0.880 gold predicted 0.915–0.926 and delivered 0.908.
+  **The re-open condition is not met; it is refuted.** Do not revisit.
+* **tonylica stays dropped** (§3q), for the same sub-additivity reason, more strongly.
+* **Workstream C (`PLAN.md` §9f, fine-tune RadImageNet R50) is the only route left with real
+  headroom** — and this section raises its bar. It must beat **+0.009**, because that is what the
+  single best free diverse family in existence delivered on top of what we already had. A trained
+  arm is a different *kind* of lever than a blended download (§2q measured fine-tuning at +0.0171
+  paired on report-OOF), which is exactly why it is now the only one worth the compute.

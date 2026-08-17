@@ -4,22 +4,33 @@ Twelve-label knee-MRI classification, macro-AUROC. Final submission **2026-10-22
 
 ---
 
-## START HERE — state as of 2026-08-13 late
+## START HERE — state as of 2026-08-17
 
 > # ⏭️ PICK UP HERE
 >
-> **1. CHECK THE SUBMISSION FIRST — it decides whether today's work is trustworthy.**
-> `kaggle competitions submissions rsna-knee-abnormality-detection` · submission **`55490186`**,
-> the F6 two-arm blend (pilkwang + `ft_b`, equal family ranks, **no site prior**).
-> **Predicted 0.915–0.926** from §3l-2's +0.046 offset, against **0.899** banked.
-> * **Lands in band** → the offset holds, §3o/§3p/§3q/§3t all stand. **Go to Workstream C** (item
->   3) — DINOv3 is already done and parked (§3t), and F6 has no untried arm left but `ft_a`,
->   which is the *same family* as `ft_b` and so the least diverse thing available.
-> * **Lands near 0.90** → the offset is wrong. **Re-price §3o and §3p before building anything
->   on them** — and note this is also the one branch that would **re-open DINOv3** (§3t), since
->   it would mean local numbers run pessimistic.
+> **1. ✅ THE F6 SUBMISSION LANDED: `55490186` = 0.908. BANKED, and it is the new best.**
+> Predicted 0.915–0.926; **came in below the band at 0.908**, +0.009 over the old 0.899.
+> **§3v has the full reconciliation and it reprices three things** — read it before planning:
+> * **The two gains DO NOT ADD.** TTA pooling (+0.008) and the `ft_b` blend (+0.015–0.020
+>   expected) delivered **+0.017 together**, ~40% overlap. **Variance-reduction levers are
+>   sub-additive** — never price a new arm against the plain fork, price it against 0.908.
+> * **The offset is +0.039, not +0.046.** §3p's coherence check matched pilkwang's *TTA-free*
+>   gold to our *TTA-included* LB and absorbed the +0.008 into the constant. `score_gold.py` is
+>   updated. Debias the gold read first: 0.869 + 0.039 = **0.908 exactly**.
+> * **§3p's direction stands, its headline does not.** No shared label ceiling and model capacity
+>   is still the binding constraint — but a perfect learner of the free labels is now **0.938 vs
+>   a 0.940 prize line**, i.e. borderline, not "10th place or better".
 >
-> **2. ⛔ DINOv3 IS DONE AND IT DOES NOT EARN A SLOT — §3t. Built, audited, scored, parked.**
+> **Board moved faster than we did (§3v-5): top 0.951, 10th/prize 0.940, 1,832 teams. We are
+> rank ~490. Gap to prize 0.036 → 0.032. 66 days left.**
+>
+> **2. ⛔ DINOv3 STAYS PARKED — ITS RE-OPEN CONDITION IS REFUTED, NOT UNMET (§3v-6).** §3t said
+> re-open only if local numbers ran *pessimistic*. They ran **optimistic** (0.880 gold predicted
+> 0.915–0.926, delivered 0.908). **Do not revisit.** Same for `ft_a` (same family as `ft_b`, the
+> least diverse arm available) and tonylica (§3q) — sub-additivity makes both worse than they
+> looked. **F6 is spent; it has no arm left worth adding.**
+>
+> **§3t's original verdict, unchanged:** built, audited, scored, parked.
 > OOF **0.8025** vs pilkwang 0.8516 / `ft_b` 0.8522; 3-family blend **0.8775 vs 0.8798 banked**,
 > delta **−0.0022**, positive in 38% of draws. **Spearman vs `ft_b` 0.571 — the most diverse arm
 > this project has measured**, and it still fails on strength. Third time: the port 0.639/0.7323,
@@ -31,9 +42,12 @@ Twelve-label knee-MRI classification, macro-AUROC. Final submission **2026-10-22
 > inert: the `xcodex` cross-attention is gated to ~0.001 (deleting it costs **+0.0003**) and slot
 > conditioning enters at **2.1%** of a patch token. Its slot usage is **anatomically correct**.
 >
-> **3. Then: Workstream C (`PLAN.md` §9f)** — fine-tune **RadImageNet R50**, already on disk and
-> verified to load strict into a torchvision trunk. A CNN, radiology-pretrained, and the whole
-> field uses it *frozen*.
+> **3. NOW THE ONLY ROUTE LEFT WITH REAL HEADROOM: Workstream C (`PLAN.md` §9f)** — fine-tune
+> **RadImageNet R50**, already on disk and verified to load strict into a torchvision trunk. A CNN,
+> radiology-pretrained, and the whole field uses it *frozen*. **§3v raises its bar: it must beat
+> +0.009**, which is what the best free diverse family on the board delivered on top of what we
+> already had. It is a *trained* arm, a different kind of lever than a blended download (§2q:
+> fine-tuning was +0.0171 paired) — which is exactly why it is the one now worth the compute.
 >
 > **⛔ F1 IS DEAD — §3u. Do not queue the site prior.** The "+0.0023, free, unshipped" line was
 > an estimator with no deployable counterpart: built in the form a submission runs, it is
@@ -53,19 +67,24 @@ Twelve-label knee-MRI classification, macro-AUROC. Final submission **2026-10-22
 > **What NOT to re-derive:** F2 (§3k+§3m, closed both instruments) · tonylica (§3q, dropped) ·
 > label-correlation stacking (§3r, closed two ways) · F4 (§3p, no binding label headroom).
 
-## The state as of 2026-08-13 pm
+## The state as of 2026-08-17
 
-> **Banked 0.899** (submission `55465252` = pilkwang 20-member + per-target TTA pooling).
-> Board: top **0.946**, 10th/prize **0.935**, ~1,370 teams. **70 days left.**
+> **Banked 0.908** (submission `55490186` = pilkwang 20-member + per-target TTA pooling + `ft_b`).
+> Board: top **0.951**, 10th/prize **0.940**, **1,832 teams**, we are **rank ~490**. **66 days
+> left.** The 0.899 that appears in older notes is the superseded previous best; 0.891 is the
+> original unmodified fork.
 >
-> **Next is F6 — blend the free diverse arms.** `PLAN.md` §9a has the table; `IMPROVEMENTS.md`
-> §3l has the evidence. Everything else on the F-series is behind it.
+> **F6 is DONE and SPENT (§3v).** It delivered +0.009 and has no arm left worth adding.
+> **Next is Workstream C, the trained CNN** — see item 3 above.
 >
-> **⛔ AND THE LABELS WERE NEVER THE CEILING — §3p, the most important measurement here.**
-> The best public label table, used as a predictor, scores **0.898 on gold → LB 0.944**, against a
-> board top of **0.946**. pilkwang reproduces **its own training labels at only 0.849** over 4,407
-> studies. **A model that perfectly learned the free, already-downloaded labels would take 10th
-> place.** Nobody is label-limited; the whole field sits ~0.05 under a ceiling anyone can download.
+> **⛔ AND THE LABELS WERE NEVER THE CEILING — §3p, still the most important measurement here,
+> with §3v's correction applied.** The best public label table, used as a predictor, scores
+> **0.898 on gold → LB 0.938** (§3p said 0.944 on the old +0.046 offset), against a prize line of
+> **0.940**. pilkwang reproduces **its own training labels at only 0.849** over 4,407 studies.
+> **A model that perfectly learned the free, already-downloaded labels would land right at the
+> prize boundary** — comfortably ahead of anything we or the public field has built, but no longer
+> a proven top-ten score on its own. Nobody is label-limited; the whole field sits ~0.04 under a
+> ceiling anyone can download.
 > **F4 is deprioritised. Model capacity is the entire game.** All remaining headroom is in five
 > focal labels — Lateral Meniscus (+0.146), Synovitis (+0.139), Medial Meniscus, ACL, PF OA — and
 > the blend already *beats* its teacher on the other five.

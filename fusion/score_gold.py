@@ -23,8 +23,21 @@ WHAT THIS BUYS. gold-58 + a constant offset predicts the leaderboard:
 
     LB_estimate = gold58_macro + GOLD_TO_LB
 
-measured at **+0.046** across four independent systems (3l). That converts a ~2 h submission
-into a ~0 s local read for any question big enough to clear the noise floor.
+measured at **+0.039** (3v; it was +0.046 until the F6 submission landed and 3l-2's constant was
+audited). That converts a ~2 h submission into a ~0 s local read for any question big enough to
+clear the noise floor.
+
+**3v, AND IT IS THE FIRST THING TO KNOW ABOUT THIS NUMBER: it is not as tight as it looks.**
+pilkwang reads 0.8400 on gold-58 and 0.8516 on gold-47 against the same LB 0.891 -- offsets of
++0.051 and +0.039 from *subset choice alone*, a 0.012 swing wider than the +-0.005 spread across
+four systems that made 3l-2's constant look stable. 3l-2's table also mixed the two subsets.
+**Every (gold, LB) pair must name the exact submission ref its LB came from**, or it is comparing
+two differently-configured systems -- which is what 3p's coherence check did, absorbing the +0.008
+per-target TTA gain into the constant and inflating it to +0.046.
+
+**AND THE OFFSET IS THE SMALLER HALF OF THE ERROR. Apply it only to an UNBIASED gold read.** The
+F6 band (0.915-0.926) missed at 0.908 mostly because the 0.8800 it was applied to carried `ft_b`'s
+fold-recovery optimism (3o caveat 1). Debiased to 0.869, +0.039 lands on 0.908 exactly.
 
 WHAT IT DOES NOT BUY, AND THIS IS 3b's RULE, UNREPEALED. n=58 gives a macro half-width of
 **+-0.038**. So:
@@ -61,10 +74,16 @@ D = PROJ / "data"
 L = ["ACL", "MCL", "Medial Meniscus", "Lateral Meniscus", "Medial OA", "Lateral OA",
      "PF OA", "Effusion", "Synovitis", "Baker's", "Contusion", "Fracture"]
 
-#: gold-58 -> public LB, measured over four systems in 3l. Spread +-0.005, which is well
-#: inside the +-0.038 the 58 studies themselves impose, i.e. consistent with a constant.
+#: gold-58 -> public LB. 3l-2 read this as +-0.005 over four systems and called it "consistent
+#: with a constant"; 3v shows that spread was under-powered, not stable -- subset choice alone
+#: moves the SAME system by 0.012. Treat it as a point estimate with real slop, not a constant.
 #: Re-derive with --anchor if a fifth system ever gives a (gold, LB) pair.
-GOLD_TO_LB = 0.046
+# 3v (2026-08-17): was 0.046, from 3l-2's four-system table. That table mixed gold-47 and
+# gold-58 reads, and 3p's coherence check matched pilkwang's TTA-FREE gold to our TTA-INCLUDED
+# leaderboard score, absorbing a separate +0.008 into the constant. The clean pair is pilkwang's
+# plain OOF gold-47 0.8516 -> submission 55370324 = 0.891. Every anchor must now name the exact
+# submission ref its LB came from; see 3v-3.
+GOLD_TO_LB = 0.039
 
 PILKWANG_OOF = D / "external" / "pilkwang_weights" / "oof.npz"
 
@@ -123,7 +142,7 @@ def report(name: str, y: np.ndarray, p: np.ndarray, per_label: bool) -> float:
     lo, hi = boot(y, p)
     print(f"\n{name}")
     print(f"  gold-58 macro   {m:.4f}   95% CI [{lo:.4f}, {hi:.4f}]  (+-{(hi - lo) / 2:.4f})")
-    print(f"  LB estimate     {m + GOLD_TO_LB:.3f}   (= gold + {GOLD_TO_LB:.3f}, 3l)")
+    print(f"  LB estimate     {m + GOLD_TO_LB:.3f}   (= gold + {GOLD_TO_LB:.3f}, 3v)")
     if per_label:
         print(f"  {'label':18s} {'AUC':>6s} {'pos':>4s}   <- indicative only, see docstring")
         for i, lab in enumerate(L):
