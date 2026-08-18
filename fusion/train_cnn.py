@@ -58,9 +58,29 @@ statistics of every BN layer. **87.2% of studies are missing at least one series
 non-fluid exists for only 19% (`FINDINGS.md` 3.2), so a large and *study-dependent* fraction of
 each batch would be zeros. Nothing raises; the arm just trains against corrupted normalisation.
 
-`RadSlotNet.forward` therefore **gathers the present slots, forwards only those, and scatters the
-embeddings back**. It is also strictly less compute. Added to the trap table's spirit: the
-conventions that break when crossed are not only pixel conventions.
+**THE OBVIOUS FIX IS A 28x SLOWDOWN, MEASURED.** Gathering the present slots and forwarding only
+those closes the trap and is strictly less compute -- and it makes the forwarded tensor's size
+depend on how many slots each batch happens to have. **MPS recompiles the graph per shape**, so a
+fixed slot count runs 1.57 s/step and a realistic varying one runs **44.20 s/step**. The first LR
+probe hit 9.6 s/step this way (real masks have less shape variety than synthetic ones) and would
+have taken 9.5 h/fold.
+
+**The fix that closes the trap AND keeps the shape static: forward every slot, with BatchNorm
+held in EVAL mode** (`RadSlotNet.train()` overrides). Eval-mode BN normalises by RadImageNet's
+running statistics rather than the batch, so **one image cannot influence another at all** and the
+all-zero absent slots are inert; the head then masks their embeddings out of the attention. The
+affine `weight`/`bias` still train, so the encoder still adapts. Frozen BN is also standard
+practice when fine-tuning at small batch, which this is (8 studies).
+
+Measured, 10 warm steps each:
+
+    A  masked gather, fixed slot count       1.57 s/step
+    B  masked gather, varying (realistic)   44.20 s/step   <- the trap's obvious fix
+    C  forward all, BN in train mode         1.87 s/step   <- the silent bug
+    D  forward all, BN FROZEN                1.71 s/step   <- what this file does
+
+Added to the trap table's spirit: the conventions that break when crossed are not only pixel
+conventions, and **the correct fix for a correctness bug can be the wrong fix for the machine.**
 
 =================================================================================================
 LEARNING RATE -- the one number 9f-C does not give, chosen by probe, NOT by gold
@@ -136,19 +156,19 @@ class RadSlotNet(nn.Module):
         self.n_features = 2048
         self.head = SlotHead(self.n_features, n_slots, dropout=dropout)
 
-    def forward(self, x: torch.Tensor, m: torch.Tensor) -> torch.Tensor:
-        """x [B,K,3,H,W] · m [B,K] bool -> logits [B,12].
+    def train(self, mode: bool = True):
+        """Keep every BatchNorm in EVAL mode even while training. This is the fix for the trap
+        described in this file's docstring, and it is load-bearing twice over -- see `forward`."""
+        super().train(mode)
+        for mod in self.modules():
+            if isinstance(mod, nn.BatchNorm2d):
+                mod.eval()
+        return self
 
-        Only the PRESENT slots are forwarded. See the BatchNorm section in this file's docstring:
-        forwarding the zeroed absent slots would poison every BN layer's batch statistics with a
-        study-dependent fraction of all-zero images, silently.
-        """
+    def forward(self, x: torch.Tensor, m: torch.Tensor) -> torch.Tensor:
+        """x [B,K,3,H,W] · m [B,K] bool -> logits [B,12]. ALL slots forwarded, fixed shape."""
         b, k = x.shape[:2]
-        flat = x.flatten(0, 1)                                  # [B*K, 3, H, W]
-        sel = m.flatten()                                       # [B*K]
-        e = x.new_zeros(b * k, self.n_features)
-        if sel.any():
-            e[sel] = self.pool(self.trunk(flat[sel])).flatten(1)
+        e = self.pool(self.trunk(x.flatten(0, 1))).flatten(1)
         return self.head(e.view(b, k, -1), m)
 
     def param_groups(self) -> list[dict]:
@@ -343,21 +363,37 @@ def main() -> None:
         with torch.no_grad():
             out = m(x, msk)
         print(f"  strict load OK · trunk 2048-d · forward {tuple(x.shape)} -> {tuple(out.shape)}")
-        # The BN check: an absent slot must not change the present slots' embeddings.
-        m2 = RadSlotNet(len(store.slots)).to(dev).eval()
+        # THE BN CHECK, and it MUST run in train mode. `.eval()` passes it trivially and proves
+        # nothing -- the trap only exists while training.
+        m2 = RadSlotNet(len(store.slots)).to(dev)
         m2.load_state_dict(m.state_dict())
-        with torch.no_grad():
-            a_all = m2(x, torch.ones_like(msk))
-            x2 = x.clone()
-            x2[0, 1] = 999.0                      # corrupt an ABSENT slot
-            b_all = m2(x2, msk)
-            c_all = m2(x, msk)
+        m2.train()
+        n_bn = sum(1 for mod in m2.modules() if isinstance(mod, nn.BatchNorm2d))
+        n_hot = sum(1 for mod in m2.modules()
+                    if isinstance(mod, nn.BatchNorm2d) and mod.training)
+        print(f"  after .train(): {n_bn} BatchNorm layers, {n_hot} still in train mode "
+              f"(must be 0 -- the invariant the design rests on)")
+        # Re-seed before every forward: .train() also switches Dropout on, so without this the
+        # three passes draw different dropout masks and the check measures dropout noise
+        # (3.2e-01) instead of BN leakage. Caught by the check itself failing at first write.
+        def fwd(model, xx, mm):
+            torch.manual_seed(0)
+            with torch.no_grad():
+                return model(xx, mm)
+
+        x2 = x.clone()
+        x2[0, 1] = 999.0                          # corrupt an ABSENT slot
+        a_all = fwd(m2, x, torch.ones_like(msk))
+        b_all = fwd(m2, x2, msk)
+        c_all = fwd(m2, x, msk)
         d = float((b_all - c_all).abs().max())
-        print(f"  masked-forward check: corrupting an absent slot moves logits by {d:.2e} "
-              f"(must be 0 -- BN pollution is what this catches)")
-        print(f"  (all-slots-present logits differ from masked, as they should: "
-              f"{float((a_all - c_all).abs().max()):.3e})")
-        print(f"  params {sum(p.numel() for p in m.parameters()) / 1e6:.1f}M, all trainable")
+        diff = float((a_all - c_all).abs().max())
+        print(f"  absent-slot leak IN TRAIN MODE: corrupting an absent slot moves logits by "
+              f"{d:.2e} (must be 0)")
+        print(f"  (all-slots-present differs from masked, so the check is not vacuous: "
+              f"{diff:.3e})")
+        print(f"  params {sum(p.numel() for p in m.parameters()) / 1e6:.1f}M")
+        print(f"  VERDICT: {'PASS' if (n_hot == 0 and d == 0.0 and diff > 0) else 'FAIL'}")
         return
 
     store = TileStore(Path(a.cache), a.tag)

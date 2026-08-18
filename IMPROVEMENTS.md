@@ -4029,3 +4029,51 @@ windows per series. The honest hope for Stage 1 is a *sign*, not a competitive s
 refuted on this data and the cache build is not worth funding. Stage 1 in [0.7323, 0.739): the
 sign is right and the size is not — do **not** run Stage 2 on this cache; the question becomes the
 pixel path, not the backbone.
+
+### The correct fix for the correctness bug was a 28× slowdown, and that is the reusable part
+
+Gathering only the present slots closes the BN trap and is *strictly less compute*. It also makes
+the forwarded tensor's **size depend on the batch's slot count**, and **MPS recompiles the graph
+per shape**. Measured, 10 warm steps each, synthetic tensors so no I/O is involved:
+
+| variant | s/step | h/fold |
+|---|--:|--:|
+| A masked gather, **fixed** slot count | 1.57 | 1.57 |
+| **B masked gather, varying (realistic)** | **44.20** | **43.96** |
+| C forward all, BN in train mode *(the silent bug)* | 1.87 | 1.86 |
+| **D forward all, BN FROZEN** *(what ships)* | **1.71** | **1.70** |
+
+The first LR probe was measured at **9.6 s/step** in the real loop — between A and B, because real
+slot patterns repeat more than synthetic ones, so fewer shapes get compiled. It projected to
+**9.5 h/fold** against the port's 3.7 h and would have made Stage 2 a 47-hour job.
+
+**The fix that closes the trap *and* keeps the shape static is frozen BatchNorm** —
+`RadSlotNet.train()` overrides to hold every BN in eval mode. Eval-mode BN normalises by
+RadImageNet's running statistics rather than the batch, so **one image cannot influence another at
+all**; the all-zero absent slots become inert and the head masks their embeddings out. The affine
+`weight`/`bias` still train, so the encoder still adapts, and frozen BN is standard practice when
+fine-tuning at batch 8 anyway. **1.70 h/fold — faster than the ViT control's 3.7 h.**
+
+**The generalisable statement: the correct fix for a correctness bug can be the wrong fix for the
+machine, and on MPS the specific tax is dynamic shape.** Anything in this repo that gathers a
+variable number of images before a backbone pays it.
+
+**`--check` was rewritten to test the real invariant and immediately caught its own first
+version.** The check must run in **train mode** — `.eval()` passes it trivially, because the trap
+only exists while training. But `.train()` also switches Dropout on, so the first version compared
+three passes drawing different dropout masks and reported a 3.2e-01 "leak" that was pure dropout
+noise. Re-seeding before each forward fixes it. It now asserts three things at once: **0 of 53 BN
+layers in train mode**, corrupting an absent slot moves the logits by **0.00e+00**, and the
+all-slots-present case still differs by 4.7e-03 so the check is **not vacuous**.
+
+### Where this stands at hand-off, 2026-08-17
+
+**Built, checked, and NOT yet trained.** `fusion/train_cnn.py --check` passes. The LR probe was
+killed and must be re-run on the fixed path — its one reading (lr 3e-5, step 25, loss 0.4795
+against a 0.4640 prior) is from the 9.6 s/step code and is **not** a result.
+
+    caffeinate -i .venv/bin/python fusion/train_cnn.py --probe-steps 120 --verbose   # ~10 min
+    caffeinate -i .venv/bin/python fusion/train_cnn.py --run-folds 0 --verbose       # ~1.7 h
+    .venv/bin/python fusion/score_oof.py fusion/runs_cnn                             # Stage 1
+
+**Stage 1 bar: ≥ 0.739 against `runs_port`'s 0.7323.** Stop rules are above and unchanged.

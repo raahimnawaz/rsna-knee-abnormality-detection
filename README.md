@@ -42,12 +42,32 @@ Twelve-label knee-MRI classification, macro-AUROC. Final submission **2026-10-22
 > inert: the `xcodex` cross-attention is gated to ~0.001 (deleting it costs **+0.0003**) and slot
 > conditioning enters at **2.1%** of a patch token. Its slot usage is **anatomically correct**.
 >
-> **3. NOW THE ONLY ROUTE LEFT WITH REAL HEADROOM: Workstream C (`PLAN.md` §9f)** — fine-tune
-> **RadImageNet R50**, already on disk and verified to load strict into a torchvision trunk. A CNN,
-> radiology-pretrained, and the whole field uses it *frozen*. **§3v raises its bar: it must beat
-> +0.009**, which is what the best free diverse family on the board delivered on top of what we
-> already had. It is a *trained* arm, a different kind of lever than a blended download (§2q:
-> fine-tuning was +0.0171 paired) — which is exactly why it is the one now worth the compute.
+> **3. ▶️ RESUME HERE: Workstream C is BUILT and CHECKED but NOT TRAINED — `fusion/train_cnn.py`,
+> gate pre-registered in `IMPROVEMENTS.md` §3w.** RadImageNet R50, fully fine-tuned, on the port's
+> own `tiles336` so the comparison against `runs_port` changes **exactly one variable**, ViT → CNN.
+> `--check` passes. Two commands, in order:
+>
+> ```
+> caffeinate -i .venv/bin/python fusion/train_cnn.py --probe-steps 120 --verbose   # ~10 min, LR
+> caffeinate -i .venv/bin/python fusion/train_cnn.py --run-folds 0 --verbose       # ~1.7 h
+> .venv/bin/python fusion/score_oof.py fusion/runs_cnn                             # Stage 1
+> ```
+>
+> **STAGE 1 BAR: ≥ 0.739** against `runs_port` **0.7323** (`score_oof.py`, NOT summary.json's
+> 0.7298 — §2o). **Below 0.7323 → stop**, the inductive-bias argument is refuted and the big pixel
+> cache is not worth funding. **In [0.7323, 0.739) → the question becomes the pixel path, not the
+> backbone; do not run Stage 2 on this cache.** ⛔ **Stage 1 is NECESSARY, NOT SUFFICIENT** — the
+> control is 0.7323 against pilkwang's 0.8434, so beating it proves the CNN bias helps, *not* that
+> the arm earns a slot. §3w records the expectation that it probably does **not**.
+>
+> **Two traps already paid for, both in §3w — do not re-derive.** ① `SlotDataset` zeroes absent
+> slots, which is inert under a ViT's LayerNorm and **silently poisons every BN layer** under a
+> CNN. ② The obvious fix (gather only present slots) makes the tensor size vary and **MPS
+> recompiles per shape: 1.57 → 44.20 s/step**. What ships is *forward all slots with BN frozen* —
+> 1.70 h/fold, faster than the ViT control's 3.7 h.
+>
+> **§3v sets its real bar: the arm must beat +0.009**, which is what the best free diverse family
+> on the board delivered on top of what we already had.
 >
 > **⛔ F1 IS DEAD — §3u. Do not queue the site prior.** The "+0.0023, free, unshipped" line was
 > an estimator with no deployable counterpart: built in the form a submission runs, it is
