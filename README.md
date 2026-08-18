@@ -183,7 +183,21 @@ Twelve-label knee-MRI classification, macro-AUROC. Final submission **2026-10-22
 > are silent when crossed (resolution, slice count, band, crop, window, normalisation, laterality,
 > slice ordering, slot scheme). Read it before touching any pixel path.
 >
-> **3b. ▶️ IN FLIGHT: §3y STAGE 0 — the multi-scale control. Training STARTED 2026-08-18 10:30**, fold 0 on `data/tiles336_lr1/protocol`, ~2.4 h. ⚠️ A first launch on 08-18 00:04 left `fusion/runs_port_lr1` **empty** — it produced no checkpoint and no log, so **nothing was in flight overnight**; if that recurs, check the log before assuming a run is alive. Caches are BUILT:
+> **3b. ✅ §3y STAGE 0 IS DONE — `IMPROVEMENTS.md` §3y-3, landed 2026-08-18, 100.3 min.**
+> **`runs_port_lr1` 0.7358 ± 0.0086** vs **`runs_port` 0.7323** (reproduced exactly), **paired
+> +0.0035 ± 0.0025, 1.4σ**, flip better in 91.6% of draws.
+> **▶️ STAGE 1's CONTROL IS 0.7358. ITS BAR IS 0.7428.**
+>
+> **⛔ DO NOT CITE THIS AS EVIDENCE FOR `SAGITTAL_LR=1`.** The four labels that depend on the
+> medial/lateral axis moved **≤0.008 and in both directions** (Lateral Meniscus **−0.003**);
+> the macro rides on **Fracture +0.027** and **MCL +0.017**, which do not depend on it. That is
+> expected — at **depth 0.5** reversal yields a different **TILE**, not a corrected **AXIS**
+> (§3y-2's `GROUP=3` point). **Handedness cannot bind until depth 0.25/0.75, i.e. Stage 1.**
+> The flip still changed the pixels for 28.4% of studies, which is why the control was
+> mandatory — both halves of §3y-2 stand.
+>
+> **⛔ FIX §3z-4's CONFOUND BEFORE STAGE 1 IS READ — this is the last cheap moment.**
+> Caches are BUILT:
 > **`data/tiles336_lr1`** (`SAGITTAL_LR=1`, ~12 GB) holds protocol (17,403 tiles, 80.6% fill,
 > 15.7 min) *and* anatomical (**20,684 tiles, 95.8% fill**, 9.8 min). **K16 covered it completely
 > — 8,048 series carry a bit, 0 tiles skipped.** `data/tiles336` was **deliberately preserved**
@@ -195,15 +209,14 @@ Twelve-label knee-MRI classification, macro-AUROC. Final submission **2026-10-22
 > reversal. Corrected in six places. **This is why Stage 0 is mandatory, not precautionary.**
 >
 > ```
+> # DONE 2026-08-18 — outputs in fusion/runs_port_lr1/ (fold0.pt, oof_all.csv, summary.json, stage0.log)
 > caffeinate -i .venv/bin/python fusion/train_port.py --cache data/tiles336_lr1 \
->     --tag protocol --run-folds 0 --out fusion/runs_port_lr1 --verbose     # ~2.4 h, RUNNING since 08-18 10:30 → fusion/runs_port_lr1/stage0.log
-> .venv/bin/python fusion/score_oof.py fusion/runs_port_lr1 fusion/runs_port  # flip, priced alone
+>     --tag protocol --run-folds 0 --out fusion/runs_port_lr1 --verbose
+> .venv/bin/python fusion/score_oof.py fusion/runs_port_lr1 fusion/runs_port
 > ```
 >
-> **That number becomes Stage 1's control** (bar = control **+0.007**). It also prices the
-> `SAGITTAL_LR` flip on its own for the first time. ⚠️ **The run pages in cold for ~100 steps**
-> (1.4 → 22 img/s instantaneous); `data/.metadata_never_index` was added to stop Spotlight
-> indexing the caches. Do not read the early `img/s` — it is a cumulative average.
+> ⚠️ For the NEXT run: it pages in cold for ~100 steps (1.4 → 30 img/s); `data/.metadata_never_index`
+> stops Spotlight indexing the caches. Do not read the early `img/s` — it is a cumulative average.
 >
 > **⛔ AND §3y IS CONFOUNDED AS DESIGNED (§3z-4) — fix before Stage 1 is READ, not before it is
 > run.** Its six anatomical slots are two treatments, not one: `sag_med`/`sag_lat` have **no box**

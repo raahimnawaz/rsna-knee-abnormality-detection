@@ -55,6 +55,7 @@ is SIZE) → §3y + §3y-2 (the multi-scale test, pre-registered, ViT backbone, 
 | **3y** | **MULTI-SCALE SLOTS, PRE-REGISTERED BEFORE THE CACHE EXISTS.** `ANATOMICAL` was written 08-11 and never built; its 84 mm boxes are **0.25 mm/px vs 0.48**. **Stage 0 is mandatory** — the anatomical slots need `SAGITTAL_LR=1`, `tiles336` was built with `0`, so **`runs_port` 0.7323 is NOT a valid control** and the 6-slot port must be retrained on the rebuilt cache first. Covers only **+0.027 of §3x's +0.047** (no ACL/synovitis slot). **The vehicle problem is the real obstacle: the port is 0.7323 vs 0.8434 and §2y closed it at 15.4σ** |
 | **3w-2** | **WORKSTREAM C IS REFUTED AT 4.8σ.** `runs_cnn` **0.6924** vs `runs_port` **0.7323**, paired delta **+0.0399 ± 0.0084**, 11/12 labels, P=1.000. Below the 0.7323 stop line → **do not fund the cache build, no Stage 2**. **The training loss was monotone to 0.3686 (36.7% of prior→floor) the whole way and told you nothing** — it measured fitting, not ranking. "Exactly one variable" was too strong: the swap bundles architecture **and** pretraining. **Decides §3y's backbone: the ViT** |
 | **3y-2** | **"PROTOCOL TILES ARE UNAFFECTED AT DEPTH 0.5" IS FALSE**, measured corpus-wide on both full caches. `sag_fs` **890 (24.7%)**, `sag_nf` **875 (24.3%)**, **1,021/3,599 = 28.4% overall**; only ~⅓ are the channel-order case — **the rest are a genuinely different tile**. `GROUP=3` has no fixed point under reversal. Repeated in **6 places** since 08-11, all corrected. **§2q/0.7323/§3w-2 still stand but only within `flip=False`** — which is exactly why §3y's Stage 0 is mandatory |
+| **3y-3** | **STAGE 0 LANDED: control is 0.7358, Stage 1's bar is 0.7428.** `runs_port_lr1` **0.7358** vs `runs_port` **0.7323** (reproduced exactly, third win for rebuilding controls), **paired +0.0035 ± 0.0025, 1.4σ**. ⛔ **But the gain is NOT the flip's mechanism** — the four labels that depend on the medial/lateral axis move ≤0.008 in both directions while the macro rides on **Fracture +0.027** and **MCL +0.017**. Expected: at **depth 0.5** reversal gives a different TILE, not a corrected AXIS (§3y-2's `GROUP=3` point), so **handedness cannot bind until depth 0.25/0.75 — Stage 1**. **Do not cite this as evidence for `SAGITTAL_LR=1`.** §3z-4's confound is now binding and this is the last cheap moment to fix it |
 | **4b** | **⛔ §4a-3 RETRACTED: THE INSTRUMENT IS FINE, THE SOURCING WAS NOT.** Scored `tonylica`'s shipped RadImageNet OOF through §9e's rule on gold-47: **their arm 0.8514** (parity with pilkwang 0.8516), **3-family blend 0.8932 = +0.0135, 98% of draws, CI [+0.0004, +0.0262]**; large-n **+0.0102 at 8.8σ**. **§3t reproduced to the digit** (−0.0022, 38%) — the instrument is *stable*, and its offset predicts **LB 0.921** against a public frontier of 0.917–0.922. **Every rejection was CORRECT: all were weak (0.6924–0.8025); [[diversity-is-not-the-constraint]] is vindicated.** The failure: **§3w-2 trained a RadImageNet to 0.6924 while a 0.8514 one was a free download.** §3w-2 narrowed, not retracted — *our training* is refuted, the architecture is not. ⚠️ **NC licence: measure with the bundle, ship from `mattiaangeli/...radimagenet-foldsv1-heads`** |
 | **4a** | **⛔ WE ARE BELOW THE FREE PUBLIC CEILING AGAIN — §3l-1, THIRD TIME.** Rank **547 / 1,904** (was ~490/1,832) at 0.908, **unchanged since 08-13 while 1,162 teams submitted**. **Six public notebooks sit at 0.917–0.922, and their authors' own LB scores confirm it** — including **pilkwang themselves at 0.919**, having moved on from the 0.891 we still run. The board is compressed: **+0.012 is worth ~444 ranks**. **The field scores 0.920 by rank-mean-blending DINOv3 + RadImageNet + tonylica — the three arms §3t, §3w-2 and §3q each rejected.** The rank-mean hypothesis is **checked and wrong** (we already rank-mean). What survives: **§3t's CI was [−0.0182, +0.0133] and the whole gap is +0.012 — it measured a NULL and the record wrote it down as a refutation.** Strength findings stand; the inference from them does not. **Decisive cheap test: score a public 0.917 on OUR instrument.** §3z-5 closed by agreement (frontier pool == §3d's, which we ship) |
 | **3z** | **THE SLICE BAND, PRE-REGISTERED BEFORE THE FIRST CACHE.** Every arm that rivals pilkwang sees more of the volume than it does (`ft_b` 32/full stack, DINOv3 16/0.12–0.88 vs **our 12/0.20–0.80**) — so the shipped members have **never seen the outer 20% of any sagittal stack**, where the slice axis IS medial–lateral and where Lateral Meniscus (**0.720, gap +0.146**) lives. **Free: §3g proved `SLICE_BAND` is unguarded and `SlotHead` has no per-slice embedding, so K19 cannot recur.** Four arms decompose **coverage** from **density**. **Improves the 0.8434 arm, so the vehicle problem does not apply.** Also: **⛔ AUPRC is the wrong currency** (prevalence shifts, AUROC is insensitive and AUPRC is not) · **0.965 = oracle-parity and beats the 0.951 leader** · **⛔ §3y confounds coverage with resolution — 2 of its 6 slots have no box** · the port sees **18 slices to pilkwang's 72** and that has never been considered as the vehicle problem. **A PRE-REGISTRATION, NOT A RESULT** |
@@ -4992,3 +4993,66 @@ and a board where **+0.012 is worth ~444 ranks** (§4a-2). It is one blend slot,
 **§3z and §3y are unaffected and still queued.** §3z is still the untested thing it claims to be
 (§4a-5). Note only that §3v's sub-additivity applies: **price §3z against the new baseline once
 this ships, not against 0.908.**
+
+---
+
+## 3y-3. STAGE 0 LANDED: THE CONTROL IS 0.7358, AND THE FLIP'S GAIN IS NOT THE FLIP'S MECHANISM `MEASURED 2026-08-18`
+
+Fold 0, `data/tiles336_lr1/protocol`, 10 epochs, 100.3 min. Scored through `score_oof.py` against
+`labels_llm_gpt56sol.csv`, gold excluded, n=681.
+
+| | macro report-OOF |
+|---|--:|
+| `runs_port_lr1` (`SAGITTAL_LR=1`) | **0.7358 ± 0.0086** |
+| `runs_port` (`SAGITTAL_LR=0`, control) | **0.7323 ± 0.0086** |
+| **paired delta** | **+0.0035 ± 0.0025 → 1.4σ, flip better in 91.6% of draws** |
+
+**`runs_port` reproduced at 0.7323 exactly** — the third time rebuilding a control rather than
+quoting one has paid (§2o, §3w-2, here). The unpaired SE would have read ±0.0121 = 0.3σ; §2q's
+correction is doing real work.
+
+### 1. ✅ WHAT STAGE 0 WAS FOR, AND IT DELIVERED IT
+
+**Stage 1's control is `0.7358`, so its bar is `0.7358 + 0.007 = 0.7428`.** §3y required this
+because the anatomical slots need `SAGITTAL_LR=1` and `runs_port` was built with `0`; that
+precondition is now satisfied with a number measured on the cache Stage 1 will actually use.
+
+### 2. ⛔ THE +0.0035 IS A RESAMPLING EFFECT, NOT A HANDEDNESS FIX — DO NOT READ IT AS THE FLIP WORKING
+
+The per-label table refuses the obvious story. The flip corrects **medial/lateral handedness on the
+sagittal slice axis**, so if that mechanism were doing the work, the gain would sit on the labels
+that depend on that axis. It does not:
+
+| labels that DEPEND on the medial/lateral axis | Δ | | labels that DO NOT | Δ |
+|---|--:|---|---|--:|
+| Medial Meniscus | +0.008 | | **Fracture** | **+0.027** |
+| Lateral Meniscus | **−0.003** | | **MCL** | **+0.017** |
+| Medial OA | +0.002 | | Effusion | +0.009 |
+| Lateral OA | −0.001 | | Baker's | −0.010 |
+
+**The four labels the mechanism predicts move by ≤0.008 and in both directions. The macro rides on
+Fracture and MCL, which have nothing to do with slice handedness.**
+
+**And that is exactly what should have been expected, which is why it is reassuring rather than
+alarming.** At **depth 0.5** the protocol slots sit at the middle of the stack, where reversal maps
+the centre slice to itself — §3y-2's finding was that `GROUP=3` still stacks *[mid−1, mid, mid+1]*
+into *[mid+1, mid, mid−1]*, so the flip delivers **a different tile, not a corrected axis**.
+Handedness cannot bind at depth 0.5. **It binds at depth 0.25 / 0.75 — which is Stage 1, and is
+the first real test of the correction.**
+
+**So both halves of §3y-2 stand and neither is what a careless read would make it.** The flip *does*
+change the pixels (28.4% of studies) — which is why a control was mandatory — **and** the resulting
++0.0035 says nothing about whether the handedness correction is right. ⚠️ **Do not cite 3y-3 as
+evidence for `SAGITTAL_LR=1`.** It is evidence for *a valid control*, and 1.4σ is not a result in
+any case.
+
+### 3. WHAT THIS DOES AND DOES NOT LICENSE
+
+* ✅ **Stage 1 may proceed** on `data/tiles336_lr1` against a control of **0.7358**, bar **0.7428**.
+* ⛔ **§3z-4's confound is UNFIXED and now binding.** Stage 1's six anatomical slots are still two
+  treatments — `sag_med`/`sag_lat` buy **depth**, the other four buy **resolution** — and §3y
+  attributes a gain to resolution in advance. **Pre-register the 2-vs-4 split before Stage 1 is
+  read**, or the result is unattributable. This is the last cheap moment to do it.
+* ⚠️ **The vehicle problem is untouched.** 0.7358 against pilkwang's 0.8434; §2y closed that at
+  15.4σ and §4b re-confirmed that **strength is the binding constraint**. A Stage 1 pass proves the
+  slots help *this port*; it does not earn a blend slot.
