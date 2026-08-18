@@ -97,7 +97,7 @@ Twelve-label knee-MRI classification, macro-AUROC. Final submission **2026-10-22
 > are silent when crossed (resolution, slice count, band, crop, window, normalisation, laterality,
 > slice ordering, slot scheme). Read it before touching any pixel path.
 >
-> **3b. ▶️ IN FLIGHT: §3y STAGE 0 — the multi-scale control.** Caches are BUILT:
+> **3b. ▶️ IN FLIGHT: §3y STAGE 0 — the multi-scale control. Training STARTED 2026-08-18 10:30**, fold 0 on `data/tiles336_lr1/protocol`, ~2.4 h. ⚠️ A first launch on 08-18 00:04 left `fusion/runs_port_lr1` **empty** — it produced no checkpoint and no log, so **nothing was in flight overnight**; if that recurs, check the log before assuming a run is alive. Caches are BUILT:
 > **`data/tiles336_lr1`** (`SAGITTAL_LR=1`, ~12 GB) holds protocol (17,403 tiles, 80.6% fill,
 > 15.7 min) *and* anatomical (**20,684 tiles, 95.8% fill**, 9.8 min). **K16 covered it completely
 > — 8,048 series carry a bit, 0 tiles skipped.** `data/tiles336` was **deliberately preserved**
@@ -110,7 +110,7 @@ Twelve-label knee-MRI classification, macro-AUROC. Final submission **2026-10-22
 >
 > ```
 > caffeinate -i .venv/bin/python fusion/train_port.py --cache data/tiles336_lr1 \
->     --tag protocol --run-folds 0 --out fusion/runs_port_lr1 --verbose     # ~2.4 h, RUNNING
+>     --tag protocol --run-folds 0 --out fusion/runs_port_lr1 --verbose     # ~2.4 h, RUNNING since 08-18 10:30 → fusion/runs_port_lr1/stage0.log
 > .venv/bin/python fusion/score_oof.py fusion/runs_port_lr1 fusion/runs_port  # flip, priced alone
 > ```
 >
