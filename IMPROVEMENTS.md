@@ -56,7 +56,7 @@ is SIZE) → §3y + §3y-2 (the multi-scale test, pre-registered, ViT backbone, 
 | **3w-2** | **WORKSTREAM C IS REFUTED AT 4.8σ.** `runs_cnn` **0.6924** vs `runs_port` **0.7323**, paired delta **+0.0399 ± 0.0084**, 11/12 labels, P=1.000. Below the 0.7323 stop line → **do not fund the cache build, no Stage 2**. **The training loss was monotone to 0.3686 (36.7% of prior→floor) the whole way and told you nothing** — it measured fitting, not ranking. "Exactly one variable" was too strong: the swap bundles architecture **and** pretraining. **Decides §3y's backbone: the ViT** |
 | **3y-2** | **"PROTOCOL TILES ARE UNAFFECTED AT DEPTH 0.5" IS FALSE**, measured corpus-wide on both full caches. `sag_fs` **890 (24.7%)**, `sag_nf` **875 (24.3%)**, **1,021/3,599 = 28.4% overall**; only ~⅓ are the channel-order case — **the rest are a genuinely different tile**. `GROUP=3` has no fixed point under reversal. Repeated in **6 places** since 08-11, all corrected. **§2q/0.7323/§3w-2 still stand but only within `flip=False`** — which is exactly why §3y's Stage 0 is mandatory |
 | **4c** | **✅ THE PUBLIC RadImageNet ARM PASSES EVERY GATE — and beats the one we cannot ship.** Strength **0.8486** gold-47 vs a 0.83 bar (pilkwang 0.8516, `ft_b` 0.8522); partition **χ² p=0.442, flat**; blend **+0.0146** gold and **+0.0160 ± 0.0036 = 4.4σ, 100% of draws** on large-n. **§4b's unshippable e11 arm scored +0.0135 / +0.0102 — folds_v1 is BETTER.** The 'recovery suspect' flag was a mis-calibrated heuristic; §9f-C's pre-registered χ² settled it, and gold's small inflation (+0.0160 vs +0.0639 on large-n) is because **memorising a report label does not help on an image label**. ⚠️ **Licence is the remaining blocker and public heads do NOT solve it** — the trunk is `CC-BY-NC-SA-4.0`. §C-3's OrthoDiffusion is MIT and is the route that survives if NC resolves badly |
-| **3y-3** | **STAGE 0 LANDED: control is 0.7358, Stage 1's bar is 0.7428.** `runs_port_lr1` **0.7358** vs `runs_port` **0.7323** (reproduced exactly, third win for rebuilding controls), **paired +0.0035 ± 0.0025, 1.4σ**. ⛔ **But the gain is NOT the flip's mechanism** — the four labels that depend on the medial/lateral axis move ≤0.008 in both directions while the macro rides on **Fracture +0.027** and **MCL +0.017**. Expected: at **depth 0.5** reversal gives a different TILE, not a corrected AXIS (§3y-2's `GROUP=3` point), so **handedness cannot bind until depth 0.25/0.75 — Stage 1**. **Do not cite this as evidence for `SAGITTAL_LR=1`.** §3z-4's confound is now binding and this is the last cheap moment to fix it |
+| **3y-3** | **STAGE 0 LANDED: control is 0.7358, Stage 1's bar is 0.7428.** `runs_port_lr1` **0.7358** vs `runs_port` **0.7323** (reproduced exactly, third win for rebuilding controls), **paired +0.0035 ± 0.0025, 1.4σ**. ⛔ **But the gain is NOT the flip's mechanism** — the four labels that depend on the medial/lateral axis move ≤0.008 in both directions while the macro rides on **Fracture +0.027** and **MCL +0.017**. Expected: at **depth 0.5** reversal gives a different TILE, not a corrected AXIS (§3y-2's `GROUP=3` point), so **handedness cannot bind until depth 0.25/0.75 — Stage 1**. **Do not cite this as evidence for `SAGITTAL_LR=1`.** §3z-4's confound is now **FIXED** — decomposition pre-registered 08-18, and it found that `sag_pf` sits on the wrong side of the 2-vs-4 split and that handedness stays confounded with depth in Stage 1 too |
 | **4b** | **⛔ §4a-3 RETRACTED: THE INSTRUMENT IS FINE, THE SOURCING WAS NOT.** Scored `tonylica`'s shipped RadImageNet OOF through §9e's rule on gold-47: **their arm 0.8514** (parity with pilkwang 0.8516), **3-family blend 0.8932 = +0.0135, 98% of draws, CI [+0.0004, +0.0262]**; large-n **+0.0102 at 8.8σ**. **§3t reproduced to the digit** (−0.0022, 38%) — the instrument is *stable*, and its offset predicts **LB 0.921** against a public frontier of 0.917–0.922. **Every rejection was CORRECT: all were weak (0.6924–0.8025); [[diversity-is-not-the-constraint]] is vindicated.** The failure: **§3w-2 trained a RadImageNet to 0.6924 while a 0.8514 one was a free download.** §3w-2 narrowed, not retracted — *our training* is refuted, the architecture is not. ⚠️ **NC licence: measure with the bundle, ship from `mattiaangeli/...radimagenet-foldsv1-heads`** |
 | **4a** | **⛔ WE ARE BELOW THE FREE PUBLIC CEILING AGAIN — §3l-1, THIRD TIME.** Rank **547 / 1,904** (was ~490/1,832) at 0.908, **unchanged since 08-13 while 1,162 teams submitted**. **Six public notebooks sit at 0.917–0.922, and their authors' own LB scores confirm it** — including **pilkwang themselves at 0.919**, having moved on from the 0.891 we still run. The board is compressed: **+0.012 is worth ~444 ranks**. **The field scores 0.920 by rank-mean-blending DINOv3 + RadImageNet + tonylica — the three arms §3t, §3w-2 and §3q each rejected.** The rank-mean hypothesis is **checked and wrong** (we already rank-mean). What survives: **§3t's CI was [−0.0182, +0.0133] and the whole gap is +0.012 — it measured a NULL and the record wrote it down as a refutation.** Strength findings stand; the inference from them does not. **Decisive cheap test: score a public 0.917 on OUR instrument.** §3z-5 closed by agreement (frontier pool == §3d's, which we ship) |
 | **3z** | **THE SLICE BAND, PRE-REGISTERED BEFORE THE FIRST CACHE.** Every arm that rivals pilkwang sees more of the volume than it does (`ft_b` 32/full stack, DINOv3 16/0.12–0.88 vs **our 12/0.20–0.80**) — so the shipped members have **never seen the outer 20% of any sagittal stack**, where the slice axis IS medial–lateral and where Lateral Meniscus (**0.720, gap +0.146**) lives. **Free: §3g proved `SLICE_BAND` is unguarded and `SlotHead` has no per-slice embedding, so K19 cannot recur.** Four arms decompose **coverage** from **density**. **Improves the 0.8434 arm, so the vehicle problem does not apply.** Also: **⛔ AUPRC is the wrong currency** (prevalence shifts, AUROC is insensitive and AUPRC is not) · **0.965 = oracle-parity and beats the 0.951 leader** · **⛔ §3y confounds coverage with resolution — 2 of its 6 slots have no box** · the port sees **18 slices to pilkwang's 72** and that has never been considered as the vehicle problem. **A PRE-REGISTRATION, NOT A RESULT** |
@@ -4682,7 +4682,7 @@ applied to the axis B actually moves:
 **Cost:** three cache builds + 20 members each. ⚠️ **Do not run against a live training job** —
 ~4.9 GB (A/B) and ~6.5 GB (C) on a 17.2 GB box that already swaps at 336 (§2p, §2v).
 
-### 4. ⛔ §3y CONFOUNDS COVERAGE WITH RESOLUTION, AND IT IS STILL FIXABLE
+### 4. ⛔ §3y CONFOUNDS COVERAGE WITH RESOLUTION — DECOMPOSITION PRE-REGISTERED `2026-08-18`
 
 Found 08-18 while Stage 0 was running. `slot_cache.py`'s six `ANATOMICAL` slots are **not one
 treatment**:
@@ -4697,10 +4697,84 @@ against 0.48"* — but two of its six slots contain no box at all and buy **dept
 mechanism, not §3y's. **A gain would be unattributable as designed, and the two readings imply
 opposite follow-ups: build more crops, or sample more slices.**
 
-**Required before Stage 1 is read:** pre-register the 2-vs-4 split as a decomposition — an ablation
-over the two subsets, or the per-diagnosis attention mass `SlotHead` already computes over slots.
-It costs a paragraph now and an unattributable result later. **Stage 0 is unaffected** (six protocol
-slots, no anatomical slot involved) and is still running.
+**Required before Stage 1 is read — PRE-REGISTERED HERE, and the table above is incomplete.**
+`MEASURED 2026-08-18` on `data/tiles336_lr1/index_anatomical.csv` (3,599 studies, built 08-17 23:55).
+
+**⛔ FIRST CORRECTION: the split is 2-vs-4 in *treatment* but not in *availability*, and `sag_pf`
+is on the wrong side of that line.** All three sagittal anatomical slots read the same
+Sagittal / fluid=1 series, so `has_sag_med == has_sag_lat == has_sag_pf` on **every one of the
+3,599 studies** — verified, no exceptions. The consequence is that the "resolution only" subset
+**silently changes composition** between study populations:
+
+| | n | share | what the BOX subset actually is there |
+|---|--:|--:|---|
+| sagittal series present | 3,383 | 94.00% | **4 slots** — `cor_med`, `cor_lat`, `ax_pf`, `sag_pf` |
+| sagittal series absent | 216 | 6.00% | **3 slots** — `sag_pf` is gone too |
+| DEPTH present, BOX absent | **0** | — | the asymmetry runs one way only |
+| all six slots present | 3,254 | 90.41% | the fully-clean set |
+
+**So an unrestricted −DEPTH read is diluted by 6%** — on those 216 studies the depth slots were
+never there and masking them is a no-op — **and the BOX arm it is compared against is a different
+arm on those same 216 studies.** This is §4a-2's composition trap (*aggregates hide their
+composition*) inside the ablation that was supposed to fix a confound.
+
+**THE PAIRED-SET RULE, FIXED NOW: every read is restricted to the 3,254 studies with all six slots
+present.** It costs 9.6% of the cache and it holds both subsets' composition fixed. Report `n`
+beside every number.
+
+**The instrument is free and needs no retraining.** `SlotHead.forward(s, mask)`
+(`fusion/train_port.py:171`) already takes a per-slot boolean mask, and training runs
+`slot_dropout = 0.2` (`train_port.py:102,121`) — so a masked read is **in-distribution in kind**.
+Three forward passes over the OOF off the one Stage 1 checkpoint:
+
+    FULL     all six anatomical slots            the paired control, from THIS run
+    -DEPTH   mask sag_med, sag_lat               removes depth coverage
+    -BOX     mask cor_med, cor_lat, ax_pf, sag_pf removes resolution
+
+**⚠️ In-distribution in KIND, not in PATTERN, and this is stated before the numbers exist.**
+`slot_dropout` is independent per slot, so the forced patterns are rare in training —
+0.2² = **4%** for −DEPTH, 0.2⁴ = **0.16%** for −BOX. **−BOX is therefore the weaker of the two
+reads and part of any large −BOX drop is a masking-pattern artefact, not a mechanism.** Which is
+exactly why FULL is rebuilt as a paired control inside this run and never quoted from history
+(§2o, §3w-2's vindication).
+
+**Attention mass is REJECTED as the primary instrument** — §3z-4's own alternative, ruled out on
+inspection. `a = 0.45·att + 0.55·prior` (`SLOT_PRIOR_STRENGTH = 0.55`, `train_port.py:65`), so the
+majority of the reported mass is a **learned static prior over slots, not input-dependent
+attention**; and mass is observational either way — it says where the head *looks*, never what a
+label *gains*. Descriptive secondary read only, and it may not decide anything.
+
+**OUTCOMES, COMMITTED NOW:**
+
+1. **−DEPTH drop ≫ −BOX drop** → the mechanism is slice coverage, §3z-3/§3z-6, and **§3y's advance
+   attribution to resolution is wrong.** Follow-up is *sample more slices*, not *build more crops*.
+2. **−BOX ≫ −DEPTH** → §3y's resolution claim survives on its own instrument. Follow-up is crops.
+3. **Both ≈ 0** → the anatomical set does not earn its cost **whatever the macro says**, and that
+   verdict is independent of the Stage 1 headline number.
+4. **Both > 0 and comparable** → unattributable as a *ranking*, but the advance claim that
+   resolution is *the* mechanism is refuted regardless. Re-register; do not retune (§3b, §3u).
+
+**⛔ SECOND CORRECTION: handedness stays confounded even after this, and the decomposition cannot
+fix it.** `needs_direction=True` on **exactly** `sag_med` and `sag_lat` — the same two slots that
+carry the depth treatment. The bit is doing real work, not a rare correction: **4,056 reversed vs
+3,992 forward of 8,048 resolved series (50.4%)**. So the DEPTH subset carries **two** treatments,
+depth *and* handedness, and **reading a depth gain as evidence for `SAGITTAL_LR = 1` is barred** —
+§3y-3 bars it at depth 0.5, and this extends the bar to Stage 1. Separating them needs a fourth
+read with the bit deliberately inverted, which is a **cache rebuild and is NOT funded here.**
+
+**⚠️ And there is no non-flipped anatomical cache to rebuild it from.** `data/tiles336` and
+`data/tiles336lr` carry `index_protocol` / `manifest_protocol` **only**; the anatomical set exists
+solely in `data/tiles336_lr1` at `sagittal_lr_slice_flip: true`. **Stage 1 as currently cacheable
+is already committed to the flip**, and the handedness arm cannot be read at all without a build.
+
+**⚠️ ONE INCONSISTENCY TO CHECK, NOT A FINDING.** `slot_cache.py:306`'s guard message says *"33% of
+series are stored back-to-front (validate_nifti check 4b)"*, while `slice_direction_resolved.csv`
+is **50.4% reversed**. These plausibly measure different things — storage order versus anatomical
+direction after canonicalisation — but one of them may simply be stale. **Resolve before either
+number is cited.**
+
+**Stage 0 is unaffected** (`runs_port_lr1/summary.json` confirms six protocol slots, no anatomical
+slot involved) and has since landed at 0.7358.
 
 ### 5. §3d's POOLING RULE PUTS TWO OF OUR FIVE WORST LABELS ON "mean" `UNTESTED`
 
@@ -4749,7 +4823,7 @@ section.** Standing rule, from §3l and re-earned here: *claims about the outsid
 **Nothing in §3z-3 has been measured.** The trap table is §3l/§3n/§3s's, the per-label gaps are
 §3p's, the unguarded-knob finding is §3g's, and the pooling mechanism is §3d's. What is new is the
 *pattern across them* and a harness that can test it. §3z-1 and §3z-2 are rulings on framing;
-§3z-4 is a design defect in a live run; §3z-5, §3z-6 and §3z-7 are named, unfunded, and unmeasured.
+§3z-4 was a design defect in a live run and is now **pre-registered and fixed** (08-18); §3z-5, §3z-6 and §3z-7 are named, unfunded, and unmeasured.
 
 `fusion/band_ab.py` carries the decision rule in its docstring so it cannot drift from this file.
 `fusion/pilkwang_pixels.py` gained a `band` parameter, **verified byte-identical on its default for
@@ -5050,10 +5124,13 @@ any case.
 ### 3. WHAT THIS DOES AND DOES NOT LICENSE
 
 * ✅ **Stage 1 may proceed** on `data/tiles336_lr1` against a control of **0.7358**, bar **0.7428**.
-* ⛔ **§3z-4's confound is UNFIXED and now binding.** Stage 1's six anatomical slots are still two
-  treatments — `sag_med`/`sag_lat` buy **depth**, the other four buy **resolution** — and §3y
-  attributes a gain to resolution in advance. **Pre-register the 2-vs-4 split before Stage 1 is
-  read**, or the result is unattributable. This is the last cheap moment to do it.
+* ✅ **§3z-4's confound is FIXED — the decomposition is pre-registered (§3z-4, 08-18).** Three
+  masked reads (FULL / −DEPTH / −BOX) off the one checkpoint, no retraining, **paired on the 3,254
+  studies with all six slots present**. ⛔ **Two corrections came out of writing it:** `sag_pf` is a
+  "resolution" slot but shares the *sagittal* availability of the two depth slots, so an
+  unrestricted read compares a 4-slot arm against a 3-slot arm on 216 studies; and **handedness
+  stays confounded with depth regardless**, because `needs_direction=True` on exactly those same
+  two slots. **A depth gain still may not be cited for `SAGITTAL_LR=1`.**
 * ⚠️ **The vehicle problem is untouched.** 0.7358 against pilkwang's 0.8434; §2y closed that at
   15.4σ and §4b re-confirmed that **strength is the binding constraint**. A Stage 1 pass proves the
   slots help *this port*; it does not earn a blend slot.

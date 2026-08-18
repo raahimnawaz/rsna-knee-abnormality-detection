@@ -10,7 +10,7 @@ Twelve-label knee-MRI classification, macro-AUROC. Final submission **2026-10-22
 >
 > ## 🔴 SESSION HANDOFF — 2026-08-18, three things are IN FLIGHT. Read this first.
 >
-> ### A. ▶️ A KAGGLE KERNEL IS RUNNING AND HAS NOT BEEN SUBMITTED
+> ### A. ✅ KERNEL v2 IS COMPLETE AND PASSED THE GATE — NOT YET SUBMITTED
 >
 > **`raahimnawaz/rsna-knee-f6-three-arm-blend-radimagenet`, version 2.** Three families:
 > pilkwang + `ft_b` + the public RadImageNet arm (§4c, +0.0146 gold / +0.0160 at 4.4σ large-n).
@@ -24,6 +24,17 @@ Twelve-label knee-MRI classification, macro-AUROC. Final submission **2026-10-22
 > **⛔ BEFORE SUBMITTING, GREP THE LOG FOR `rad:`. It must say `blended 3 families`.** If it says
 > `2 families`, a guard refused the arm and the file is just the banked 0.908 path — submitting it
 > gains nothing and burns a submission.
+>
+> **✅ THAT CHECK HAS RUN — 2026-08-18 13:09, version 2, `KernelWorkerStatus.COMPLETE` in 132 s.**
+> The log reads `blended 3 families at equal weight: pilkwang + ft_b(3/3) + rad(3/3)`, and every
+> upstream guard passed with it: **20/20 pilkwang members fingerprint-match within 4.6e-06**, all
+> **5 `ft_b` folds strict-OK**, `rad` **6/6 SHA-256 verified, 8/8 slots filled, pixel contract
+> restored**, `submission.csv` **(3, 13), nulls 0**. No warnings in the log beyond nbconvert
+> boilerplate. **The slot-filter fix works and the arm shipped. This file is submittable.**
+>
+> ⚠️ Only soft note: `rad: prob mean 0.3985 std 0.2671` against a local reference of `0.345/0.261`.
+> **On a 3-study dummy set that is noise** — the std matches to 0.006 — but if a full run ever shows
+> the same +0.05 offset on 1,322 studies, that is a calibration drift worth reading.
 >
 > **v1 ALREADY FAILED THAT WAY, and the guard is why we know.** Log read:
 > `rad: slot order [] != ['SAG_FLUID_FS', ...]; refusing the arm`. The notebook's `SLOTS` entries
@@ -60,9 +71,18 @@ Twelve-label knee-MRI classification, macro-AUROC. Final submission **2026-10-22
 >
 > ### D. STILL OPEN, IN PRIORITY ORDER
 >
-> 1. **⛔ §3z-4's confound — fix BEFORE §3y Stage 1 is READ.** Stage 0 is done (§3y-3, control
->    **0.7358**, bar **0.7428**); Stage 1's six slots are still **two treatments** (2 buy depth,
->    4 buy resolution) and §3y attributes a gain to resolution in advance. Costs a paragraph now.
+> 1. **✅ §3z-4's confound — FIXED 2026-08-18.** The decomposition is pre-registered in
+>    `IMPROVEMENTS.md` §3z-4: three masked reads (FULL / −DEPTH / −BOX) off the one Stage 1
+>    checkpoint, **no retraining** — `SlotHead.forward` already takes a slot mask and training runs
+>    `slot_dropout=0.2`, so a masked read is in-distribution in kind. **Writing it turned up two
+>    things the section's own table got wrong:** (a) **`sag_pf` is listed as a "resolution" slot but
+>    shares the *sagittal-series* availability of the two depth slots** — `has_sag_med ==
+>    has_sag_lat == has_sag_pf` on all 3,599 studies — so an unrestricted read silently compares a
+>    4-slot arm against a **3-slot** arm on 216 of them; hence **all reads are paired on the 3,254
+>    studies with all six slots present**. (b) **Handedness stays confounded with depth** —
+>    `needs_direction=True` on exactly `sag_med`/`sag_lat`, and the bit is **50.4% reversed**, so it
+>    is doing real work. **A Stage 1 depth gain still may not be cited for `SAGITTAL_LR=1`**, and
+>    there is **no non-flipped anatomical cache** to test it against — only `tiles336_lr1` has one.
 > 2. **§3z — `fusion/band_ab.py` is BUILT and UNRUN.** MPS is free. 3 cache builds; do not run it
 >    beside a training job.
 > 3. **⚠️ The RadImageNet trunk is `CC-BY-NC-SA-4.0`** (§4c-3). Shipping A accepts that knowingly.
