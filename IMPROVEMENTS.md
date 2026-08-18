@@ -55,6 +55,7 @@ is SIZE) → §3y + §3y-2 (the multi-scale test, pre-registered, ViT backbone, 
 | **3y** | **MULTI-SCALE SLOTS, PRE-REGISTERED BEFORE THE CACHE EXISTS.** `ANATOMICAL` was written 08-11 and never built; its 84 mm boxes are **0.25 mm/px vs 0.48**. **Stage 0 is mandatory** — the anatomical slots need `SAGITTAL_LR=1`, `tiles336` was built with `0`, so **`runs_port` 0.7323 is NOT a valid control** and the 6-slot port must be retrained on the rebuilt cache first. Covers only **+0.027 of §3x's +0.047** (no ACL/synovitis slot). **The vehicle problem is the real obstacle: the port is 0.7323 vs 0.8434 and §2y closed it at 15.4σ** |
 | **3w-2** | **WORKSTREAM C IS REFUTED AT 4.8σ.** `runs_cnn` **0.6924** vs `runs_port` **0.7323**, paired delta **+0.0399 ± 0.0084**, 11/12 labels, P=1.000. Below the 0.7323 stop line → **do not fund the cache build, no Stage 2**. **The training loss was monotone to 0.3686 (36.7% of prior→floor) the whole way and told you nothing** — it measured fitting, not ranking. "Exactly one variable" was too strong: the swap bundles architecture **and** pretraining. **Decides §3y's backbone: the ViT** |
 | **3y-2** | **"PROTOCOL TILES ARE UNAFFECTED AT DEPTH 0.5" IS FALSE**, measured corpus-wide on both full caches. `sag_fs` **890 (24.7%)**, `sag_nf` **875 (24.3%)**, **1,021/3,599 = 28.4% overall**; only ~⅓ are the channel-order case — **the rest are a genuinely different tile**. `GROUP=3` has no fixed point under reversal. Repeated in **6 places** since 08-11, all corrected. **§2q/0.7323/§3w-2 still stand but only within `flip=False`** — which is exactly why §3y's Stage 0 is mandatory |
+| **4c** | **✅ THE PUBLIC RadImageNet ARM PASSES EVERY GATE — and beats the one we cannot ship.** Strength **0.8486** gold-47 vs a 0.83 bar (pilkwang 0.8516, `ft_b` 0.8522); partition **χ² p=0.442, flat**; blend **+0.0146** gold and **+0.0160 ± 0.0036 = 4.4σ, 100% of draws** on large-n. **§4b's unshippable e11 arm scored +0.0135 / +0.0102 — folds_v1 is BETTER.** The 'recovery suspect' flag was a mis-calibrated heuristic; §9f-C's pre-registered χ² settled it, and gold's small inflation (+0.0160 vs +0.0639 on large-n) is because **memorising a report label does not help on an image label**. ⚠️ **Licence is the remaining blocker and public heads do NOT solve it** — the trunk is `CC-BY-NC-SA-4.0`. §C-3's OrthoDiffusion is MIT and is the route that survives if NC resolves badly |
 | **3y-3** | **STAGE 0 LANDED: control is 0.7358, Stage 1's bar is 0.7428.** `runs_port_lr1` **0.7358** vs `runs_port` **0.7323** (reproduced exactly, third win for rebuilding controls), **paired +0.0035 ± 0.0025, 1.4σ**. ⛔ **But the gain is NOT the flip's mechanism** — the four labels that depend on the medial/lateral axis move ≤0.008 in both directions while the macro rides on **Fracture +0.027** and **MCL +0.017**. Expected: at **depth 0.5** reversal gives a different TILE, not a corrected AXIS (§3y-2's `GROUP=3` point), so **handedness cannot bind until depth 0.25/0.75 — Stage 1**. **Do not cite this as evidence for `SAGITTAL_LR=1`.** §3z-4's confound is now binding and this is the last cheap moment to fix it |
 | **4b** | **⛔ §4a-3 RETRACTED: THE INSTRUMENT IS FINE, THE SOURCING WAS NOT.** Scored `tonylica`'s shipped RadImageNet OOF through §9e's rule on gold-47: **their arm 0.8514** (parity with pilkwang 0.8516), **3-family blend 0.8932 = +0.0135, 98% of draws, CI [+0.0004, +0.0262]**; large-n **+0.0102 at 8.8σ**. **§3t reproduced to the digit** (−0.0022, 38%) — the instrument is *stable*, and its offset predicts **LB 0.921** against a public frontier of 0.917–0.922. **Every rejection was CORRECT: all were weak (0.6924–0.8025); [[diversity-is-not-the-constraint]] is vindicated.** The failure: **§3w-2 trained a RadImageNet to 0.6924 while a 0.8514 one was a free download.** §3w-2 narrowed, not retracted — *our training* is refuted, the architecture is not. ⚠️ **NC licence: measure with the bundle, ship from `mattiaangeli/...radimagenet-foldsv1-heads`** |
 | **4a** | **⛔ WE ARE BELOW THE FREE PUBLIC CEILING AGAIN — §3l-1, THIRD TIME.** Rank **547 / 1,904** (was ~490/1,832) at 0.908, **unchanged since 08-13 while 1,162 teams submitted**. **Six public notebooks sit at 0.917–0.922, and their authors' own LB scores confirm it** — including **pilkwang themselves at 0.919**, having moved on from the 0.891 we still run. The board is compressed: **+0.012 is worth ~444 ranks**. **The field scores 0.920 by rank-mean-blending DINOv3 + RadImageNet + tonylica — the three arms §3t, §3w-2 and §3q each rejected.** The rank-mean hypothesis is **checked and wrong** (we already rank-mean). What survives: **§3t's CI was [−0.0182, +0.0133] and the whole gap is +0.012 — it measured a NULL and the record wrote it down as a refutation.** Strength findings stand; the inference from them does not. **Decisive cheap test: score a public 0.917 on OUR instrument.** §3z-5 closed by agreement (frontier pool == §3d's, which we ship) |
@@ -5056,3 +5057,62 @@ any case.
 * ⚠️ **The vehicle problem is untouched.** 0.7358 against pilkwang's 0.8434; §2y closed that at
   15.4σ and §4b re-confirmed that **strength is the binding constraint**. A Stage 1 pass proves the
   slots help *this port*; it does not earn a blend slot.
+
+---
+
+## 4c. THE PUBLIC RadImageNet ARM PASSES EVERY PRE-REGISTERED GATE, AND IT BEATS THE ONE WE CANNOT SHIP `MEASURED 2026-08-18`
+
+§4b measured **+0.0135** on `tonylica`'s **e11** arm and §C-3 warned that the shippable **folds_v1**
+weights are a *different arm* (`_RAD_E11_CROP_MM = 130.0` against a manifest reading
+`"crop": "full-frame"`), so the number **had to be re-measured, not assumed**. It was. **It
+transfers, and it is larger.**
+
+### 1. THE NUMBERS, AGAINST BARS FIXED BEFORE THE RUN
+
+| gate (§C-3 / §9f-C, pre-registered) | bar | measured | |
+|---|--:|--:|---|
+| **strength**, recovered-OOF gold-47 | **≥ 0.83** | **0.8486** | ✅ near-parity: pilkwang 0.8516, `ft_b` 0.8522 |
+| **partition flat** (χ²) | p > 0.05 | **p = 0.442**, counts 14/10/8/9/6 | ✅ recovery behaving |
+| **blend delta**, gold-47, §9e rank-mean | positive | **+0.0146**, 95% of draws, CI [−0.0027, +0.0319] | ⚠️ CI includes 0 |
+| **blend delta**, large-n report, n=600 | positive, CI excludes 0 | **+0.0160 ± 0.0036 → 4.4σ, 100% of draws** | ✅ |
+
+    gold-47   2-family 0.8799 -> 3-family 0.8946
+    large-n   pilkwang 0.8536 + rad 0.8372 -> rank-mean 0.8696
+
+**§4b's e11 arm scored +0.0135 (gold) and +0.0102 (large-n). The arm we can actually obtain scores
++0.0146 and +0.0160.** The variant warning was right to make and the answer came out the good way.
+
+### 2. THE "RECOVERY SUSPECT" FLAG WAS A MIS-CALIBRATED HEURISTIC, AND THE PRE-REGISTERED TEST WAS RIGHT
+
+`rad_arm.py` warns when all-fold-minus-recovered inflation is under 0.02; on gold-47 it was
+**+0.0160** and the warning fired. **It was wrong, and §9f-C's χ² check — fixed in advance — is
+what settled it** (p = 0.442, flat).
+
+**The explanation is worth keeping.** On the 600-study report set the same inflation is **+0.0639**.
+Recovery works fine; **gold studies are simply HARD** — all-fold reads 0.8646 on gold against 0.9011
+on non-gold. **Memorising a report label does not help on an image label**, so the memorisation gap
+that recovery feeds on is *structurally smaller on exactly the studies we trust most.* Any future
+inflation-based sanity check must be calibrated **per reference**, not globally.
+
+### 3. ⚠️ THE REMAINING BLOCKER IS THE LICENCE, AND IT IS NOT SOLVED BY USING THE PUBLIC HEADS
+
+§4b-3 said to ship from `mattiaangeli/rsna-knee-radimagenet-foldsv1-heads` rather than `tonylica`'s
+bundle. **That removes the private-bundle problem and NOT the non-commercial one.** The heads are
+12.7 MB each and are useless without the **official RadImageNet ResNet-50 trunk**, which is
+**`CC-BY-NC-SA-4.0`** — `rad_heads_manifest.json` names it as the encoder and pins its SHA-256.
+
+**So the arm is measured and gated; it is not yet cleared to ship.** `REFERENCE.md` §1.3's
+external-data question — asked twice, never answered — is **load-bearing for prize eligibility**,
+not academic. ⚠️ The entire public 0.917–0.922 frontier carries the same exposure (§4a-3), so this
+is a field-wide question rather than ours alone, but that is not a licence and it is the user's call.
+
+**⛔ Note what this does NOT block: `PLAN.md` §C-3's OrthoDiffusion is MIT** and carries none of
+this. If the NC question resolves badly, that is the route that survives.
+
+### 4. WHAT IS LEFT
+
+Step 5 of 5 only: the third family into `notebooks/submissions/rsna-knee-f6-two-arm.ipynb`, push,
+run, submit. Their board configuration is `_RAD_ALPHA = 0.50` with
+`_RAD_EXCLUDE = ("Baker's", "Fracture")`; **§3b forbids tuning either on these 47 studies**, so
+either reproduce their configuration or ship the flat §9e rank-mean that was actually measured here.
+**Do not invent a third option at submission time.**

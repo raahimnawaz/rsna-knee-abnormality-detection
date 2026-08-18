@@ -65,24 +65,35 @@ Twelve-label knee-MRI classification, macro-AUROC. Final submission **2026-10-22
 > activations at a chosen timestep/layer; **read their code first, do not invent the recipe** (§3s).
 > **⛔ It does not jump the queue: it is many steps from a number, the RadImageNet arm is four.**
 >
-> ### ⏸️ PARKED MID-TASK 2026-08-18 — the RadImageNet arm, 1 of 5 steps done
+> ### ✅ THE RadImageNet ARM PASSED ITS GATE — 4 of 5 steps done (`IMPROVEMENTS.md` §4c)
 >
-> **⛔ NOTHING HAS BEEN SUBMITTED, and nothing should be until step 4 produces a number.**
+> **Strength 0.8486 gold-47 (bar 0.83) · blend +0.0146 gold · +0.0160 ± 0.0036 = 4.4σ, 100% of
+> draws on large-n.** **§4b's unshippable e11 arm scored +0.0135 / +0.0102 — this one is BETTER.**
+> **⛔ STILL NOT SUBMITTED. The remaining blocker is the LICENCE, not the score — see below.**
 >
 > | # | step | state |
 > |---|---|---|
 > | 1 | **`fusion/rad_model.py`** — reproduce the arm | ✅ **DONE.** Encoder + all 5 head SHA-256s verify against `rad_heads_manifest.json`, every fold loads **strict**, parameter count **3,174,924** matches the manifest to the digit, forward OK incl. the missing-planes case |
-> | 2 | **`fusion/rad_pixels.py`** — its own pixel convention | ⏳ **NOT WRITTEN.** 224 px · **full-frame, no crop** · **fat-suppressed only** · 3 planes × **8 slices** · band **(0.12, 0.88)** · per-series 1/99 · **grayscale→RGB at `x/127.5−1`** (NOT ImageNet stats). Add a column to `ARCHITECTURES.md`'s trap table |
-> | 3 | local OOF over 4,407 studies | ⏳ needs MPS — do not run beside a training job |
-> | 4 | **blend delta on gold-47, §9e rule** | ⏳ **THE GO/NO-GO.** Same code path as §4b |
-> | 5 | third family into `notebooks/submissions/rsna-knee-f6-two-arm.ipynb`, push, run, submit | ⏳ their config is `_RAD_ALPHA = 0.50` with `_RAD_EXCLUDE = ("Baker's", "Fracture")` — a blend that silently includes those two is **not** the configuration the 0.920 board score came from |
+> | 2 | **`fusion/rad_pixels.py`** | ✅ **DONE.** 224 px · **full-frame, no crop** · **fat-suppressed only** · 3 planes × **8 slices** · band **(0.12, 0.88)** · per-series 1/99 · **grayscale→RGB at `x/127.5−1`** (NOT ImageNet stats). Add a column to `ARCHITECTURES.md`'s trap table |
+> | 3 | local OOF (`fusion/rad_arm.py`) | ✅ **DONE.** gold-47 in 10 s, n=600 in 66 s on MPS |
+> | 4 | **blend delta, §9e rule** | ✅ **PASS.** +0.0146 gold (95%), **+0.0160 at 4.4σ large-n** |
+> | 5 | kernel → push → run → submit | ⏳ **BLOCKED ON LICENCE, not on the number.** Their config is `_RAD_ALPHA = 0.50`, `_RAD_EXCLUDE = ("Baker's", "Fracture")`; §3b forbids tuning either on 47 studies — reproduce theirs or ship the flat §9e rank-mean actually measured. **Do not invent a third option at submission time** |
 >
-> **⚠️ THE REASON THIS IS NOT A FORMALITY.** §4b's **+0.0135 was measured on the `e11` variant**
-> (`_RAD_E11_CROP_MM = 130.0`). The weights we can legally ship are **`folds_v1`, whose manifest says
-> `"crop": "full-frame"`**. **Different arms — §2o's error class — so the number does not transfer.**
-> And folds_v1's own recorded `best_val` per fold is **0.8167 / 0.8018 / 0.7780 / 0.8240 / 0.8160,
-> mean ≈ 0.807** — that is **DINOv3 territory (0.8025), the arm that FAILED the strength screen**.
-> Different reference from gold-47 so not directly comparable, but **do not assume this clears.**
+> **✅ THE VARIANT WARNING RESOLVED THE GOOD WAY.** §4b's +0.0135 was measured on `e11` (130 mm
+> crop) and these are `folds_v1` (full-frame) — a different arm, so it was re-measured rather than
+> assumed. It transfers **and is larger**. folds_v1's own `best_val` ≈ 0.807 looked like DINOv3
+> territory; on our instrument it reads **0.8486**, because `best_val` is a different reference
+> (§2o, three numbers near 0.89). **The screen is what settled it, not the vendor's number.**
+>
+> **⛔ THE LICENCE IS THE BLOCKER AND THE PUBLIC HEADS DO NOT SOLVE IT.** Using
+> `mattiaangeli/...foldsv1-heads` removes the *private-bundle* problem, not the *non-commercial* one:
+> the 12.7 MB heads are useless without the **official RadImageNet ResNet-50 trunk, which is
+> `CC-BY-NC-SA-4.0`** and is pinned by SHA-256 in the manifest. **`REFERENCE.md` §1.3 — asked twice,
+> never answered — is now load-bearing for prize eligibility.** The whole 0.917–0.922 public frontier
+> carries the same exposure, which is context, not a licence. **This is a call to make deliberately.**
+>
+> **⛔ Note what it does NOT block: §C-3's OrthoDiffusion is MIT.** If NC resolves badly, that is the
+> route that survives.
 >
 > ⚠️ **Licence, unchanged:** ship from **`mattiaangeli/rsna-knee-radimagenet-foldsv1-heads`** (58 MB,
 > public) — *not* from tonylica's bundle, whose own README says it must stay private and includes
