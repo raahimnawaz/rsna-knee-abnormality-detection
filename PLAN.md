@@ -1182,6 +1182,50 @@ slice convention — and §9h is what a silently-wrong convention costs.
 **four steps from a measured +0.0135**; this is many steps from any number at all. Sequence by
 distance-to-a-number, not by how good the asset sounds.
 
+### 2b. ✅ STAGE 0's FIRST HALF IS DONE: THE RECIPE, READ FROM THEIR CODE `2026-08-18`
+
+§C-3 §2 said *"a diffusion model is not an encoder out of the box — read `lt-0123/OrthoDiffusion`
+before writing any extraction code"* (§3s's rule). Read. **None of it was guessable, which is the
+point.** Repo is **MIT, Copyright (c) 2026 Lan Tian** — confirmed in `LICENSE`, not just the badge.
+
+**The input contract** (`configs/config_linear.yaml` + `dataset.py`):
+
+    volume        [1, 16, 256, 256]  = (C, D, H, W)
+    depth         CENTRE-CROP to 16 slices        d//2 ± 8
+    spatial       cv2.resize to 256x256, INTER_LINEAR, per slice
+    intensity     PER-VOLUME MIN-MAX -> [0,1] -> *2-1 -> [-1, +1]
+    loader        `nib.load(path).get_fdata()` -- bare NIfTI, no resampling
+
+⚠️ **The normalisation is a NEW `ARCHITECTURES.md` trap-table row and it is unlike every arm we
+run.** Everything here windows on a **1/99 percentile**; this is a raw **min-max**, which is
+outlier-sensitive in a way the percentile is not. It is identical in `train.py`, so it *is* what the
+weights were pretrained under — copy it exactly, do not "improve" it.
+
+✅ **And the loader is `nib.load` on a plain 3D array, which is precisely how
+`data/nifti/nifti_train` is already stored** (19,859 series). No new decode path is needed.
+
+**The feature recipe**, which is the part §C-3 warned would be invented wrongly:
+
+    linear probe (config default)   timestep 100          blockname "mid_2"
+    3-pose fusion (README command)  --pose_ids 0,1,2
+                                    --timestep  200,150,50
+                                    --blockname mid_0,mid_0,mid_2
+
+**Features are intermediate denoising activations** pulled from a named UNet block at a chosen
+diffusion timestep — **and the timestep and block DIFFER PER ORIENTATION.** Nobody would have
+guessed 200/150/50 with two different blocks; a single sensible-looking choice would have produced a
+weak arm and a wrong conclusion, which is §3w-2's shape exactly.
+
+⚠️ **STILL UNRESOLVED: which pose_id is which plane.** `pose_id` arrives from a per-file CSV
+(`load_pose_ids_from_csv`), so it is data-provided rather than hardcoded, and the HF checkpoints are
+named `sagittal/coronal/axial_model.pt`. **Mapping the 200/150/50 recipe onto the three named
+checkpoints requires that mapping and it is not yet established.** Feeding a plane its neighbour's
+timestep runs perfectly and scores wrongly (§9h). **Resolve before Stage 1.**
+
+**What is left in Stage 0:** pull the 1.66 GB of weights, load one, and emit a feature for one
+study. `linear_classifier.py` and `pooling.py` are the two files to transcribe; `linear_fusion.py`
+(34,696 chars) is the multi-plane version and is the one that matches our 3-plane setup.
+
 ### 3. WHAT THE OTHER TWO ARE FOR
 
 * **`OrthoFoundation`** — still no weights, still no code. **A request has been drafted to the two
