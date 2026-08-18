@@ -42,19 +42,29 @@ Twelve-label knee-MRI classification, macro-AUROC. Final submission **2026-10-22
 > inert: the `xcodex` cross-attention is gated to ~0.001 (deleting it costs **+0.0003**) and slot
 > conditioning enters at **2.1%** of a patch token. Its slot usage is **anatomically correct**.
 >
-> **3. ▶️ RESUME HERE: Workstream C — probe DONE, fold 0 TRAINING — `fusion/train_cnn.py`,
-> gate pre-registered in `IMPROVEMENTS.md` §3w.** RadImageNet R50, fully fine-tuned, on the port's
-> own `tiles336` so the comparison against `runs_port` changes **exactly one variable**, ViT → CNN.
+> **3. ⛔ WORKSTREAM C IS CLOSED — REFUTED AT 4.8σ, 2026-08-17 (`IMPROVEMENTS.md` §3w-2).**
+> The gate was pre-registered before the first epoch and the arm lost:
 >
-> **LR probe ran 2026-08-17 on the fixed path (§3w):** 3e-5 → 1.9%, **1e-4 → 3.9%**, 3e-4 → 3.4%
-> of the way prior→floor. **1e-4 wins and is already the default**, so nothing changed in the file.
-> **It is a weak read** — 3.9 vs 3.4 is inside noise and all three sit barely below the base-rate
-> prior after ⅓ of an epoch. It detected no broken rate; that is all it was scoped to do.
+> | | macro report-OOF, fold 0, n=681 |
+> |---|--:|
+> | `runs_cnn` RadImageNet R50 | **0.6924 ± 0.0089** |
+> | `runs_port` dinov2-small | **0.7323 ± 0.0086** |
+> | **paired delta** | **+0.0399 ± 0.0084 → 4.8σ, P=1.000, 11/12 labels** |
+> | bar was | ≥ 0.739 |
 >
-> ```
-> caffeinate -i .venv/bin/python fusion/train_cnn.py --run-folds 0 --verbose       # ~1.7 h
-> .venv/bin/python fusion/score_oof.py fusion/runs_cnn                             # Stage 1
-> ```
+> **The stop rule fires: do NOT build the 35–78 GB cache, do NOT run Stage 2.** `runs_port`
+> reproduced at 0.7323 exactly, vindicating §3w's pre-training anchor correction.
+>
+> **⚠️ AND THE TRAINING LOSS LOOKED GREAT THE WHOLE WAY** — monotone 0.4592 → **0.3686**, 36.7% of
+> the way prior→floor, past the ViT's recorded epoch-1 0.4523 by epoch 3. **It measured fitting,
+> not ranking, and was worth nothing as a signal.** 23.5M unfrozen params at 1e-4 on 2,871 studies
+> fit the soft targets hard and generalised worse. Gating on `score_oof.py` is the only reason this
+> was caught before a cache build.
+>
+> **"Exactly one variable" was too strong:** the encoder swap bundles architecture **and**
+> pretraining (dinov2-small self-supervised on LVD-142M vs RadImageNet R50 supervised on
+> radiology). What is refuted is the **RadImageNet R50 arm**, cleanly. **✅ It settles §3y's
+> backbone: build multi-scale on the ViT port.**
 >
 > **STAGE 1 BAR: ≥ 0.739** against `runs_port` **0.7323** (`score_oof.py`, NOT summary.json's
 > 0.7298 — §2o). **Below 0.7323 → stop**, the inductive-bias argument is refuted and the big pixel

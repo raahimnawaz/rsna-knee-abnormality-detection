@@ -5,10 +5,10 @@ lettered in the order they were written, never renumbered — they are cited fro
 `PLAN.md`, the code docstrings and the session memory, so a renumber breaks all of it. Newest is
 at the bottom.
 
-**Newest: §3x + §3y (2026-08-17) — the 0.965 target decomposes into teacher-parity on five labels,
-the severity-label argument is refuted by §3p's own table, the remaining gap is SIZE, and §3y
-pre-registers the multi-scale test of that. Read §3v for what the board costs, then §3x, then §3y
-before building anything.**
+**Newest: §3w-2 (2026-08-17) — Workstream C is REFUTED at 4.8σ and its stop rule fires; the
+training loss looked excellent throughout and was worthless as a signal. Read §3v for what the
+board costs, then §3x (the 0.965 target = teacher-parity on five labels; the gap is SIZE, not
+supervision), then §3y (the multi-scale test, pre-registered, backbone now settled as the ViT).**
 
 ### Index
 
@@ -52,6 +52,7 @@ before building anything.**
 | **3w** | **WORKSTREAM C's GATE, PRE-REGISTERED BEFORE ITS FIRST EPOCH.** RadImageNet R50 fully unfrozen on the port's own cache — one variable changed, ViT→CNN. **Stage 1 bar ≥ 0.739 vs `runs_port` 0.7323.** The **BatchNorm trap** and why its obvious fix costs **28×** (MPS recompiles per shape; what ships is forward-all + **frozen BN**, 1.70 h/fold) |
 | **3x** | **0.965 = TEACHER-PARITY.** §3p's seven positive gaps sum to **+0.047 macro** → gold 0.916–0.927 → **LB 0.955–0.966**. **The severity/F4 argument is REFUTED by §3p's own per-label column** — the model already *beats* the mention labels on every volumetric-threshold label (effusion +0.141, medial OA +0.075) and ACL's teacher is **0.995**. The real split is **SIZE**: model wins on large diffuse findings, loses on small localised ones. **§3k killed crop-INSTEAD-OF-context; crop-PLUS-context is untested.** Decomposition, **not a result** |
 | **3y** | **MULTI-SCALE SLOTS, PRE-REGISTERED BEFORE THE CACHE EXISTS.** `ANATOMICAL` was written 08-11 and never built; its 84 mm boxes are **0.25 mm/px vs 0.48**. **Stage 0 is mandatory** — the anatomical slots need `SAGITTAL_LR=1`, `tiles336` was built with `0`, so **`runs_port` 0.7323 is NOT a valid control** and the 6-slot port must be retrained on the rebuilt cache first. Covers only **+0.027 of §3x's +0.047** (no ACL/synovitis slot). **The vehicle problem is the real obstacle: the port is 0.7323 vs 0.8434 and §2y closed it at 15.4σ** |
+| **3w-2** | **WORKSTREAM C IS REFUTED AT 4.8σ.** `runs_cnn` **0.6924** vs `runs_port` **0.7323**, paired delta **+0.0399 ± 0.0084**, 11/12 labels, P=1.000. Below the 0.7323 stop line → **do not fund the cache build, no Stage 2**. **The training loss was monotone to 0.3686 (36.7% of prior→floor) the whole way and told you nothing** — it measured fitting, not ranking. "Exactly one variable" was too strong: the swap bundles architecture **and** pretraining. **Decides §3y's backbone: the ViT** |
 
 ---
 
@@ -4336,8 +4337,10 @@ changes — and §3l-2's amplification is about converting to the *board*, not a
 
 **Which backbone Stage 1 runs on is decided by §3w, not by preference.** If Workstream C clears
 0.739, the CNN is the base — locality bias and high-frequency detail are the *same* hypothesis and
-should compound. If it does not, the base is the ViT port. **§3w's fold 0 is running now and this
-is what makes its result decision-relevant either way.**
+should compound. If it does not, the base is the ViT port.
+> **✅ SETTLED 2026-08-17 — §3w-2: it did NOT clear. `runs_cnn` 0.6924 vs 0.7323, paired
+> −0.0399 at 4.8σ. THE BACKBONE IS THE ViT PORT (`dinov2-small@336`).** The pre-registration did
+> its job: the choice was made by measurement before either arm was built.
 
 ### ⛔ STAGE 1 IS NECESSARY AND NOT SUFFICIENT, AND THE VEHICLE PROBLEM IS THE REAL OBSTACLE
 
@@ -4378,4 +4381,73 @@ slots also adds dilution risk on 2,871 training studies — capacity is not free
 **Confound, declared:** 12 slots changes resolution **and** view count at once. If Stage 1 passes,
 the clean control is six *duplicate* protocol slots at other depths — more views, no extra
 resolution. That is a third run and is deliberately not funded up front.
+
+
+## 3w-2. WORKSTREAM C, STAGE 1: REFUTED AT 4.8σ. THE STOP RULE FIRES `MEASURED 2026-08-17`
+
+**The gate in §3w was pre-registered before the first epoch. It ran, and the arm lost.**
+
+    .venv/bin/python fusion/score_oof.py fusion/runs_cnn fusion/runs_port
+
+| | macro report-OOF, fold 0, n=681 |
+|---|--:|
+| `runs_cnn` — RadImageNet R50, all 23.5M unfrozen, lr 1e-4 | **0.6924 ± 0.0089** |
+| `runs_port` — dinov2-small, 6 blocks, lr 8e-6 | **0.7323 ± 0.0086** |
+| **PAIRED delta (port − cnn)** | **+0.0399 ± 0.0084 → 4.8σ, P(delta>0) = 1.000** |
+| pre-registered bar | ≥ 0.739 |
+
+**`runs_port` reproduced at 0.7323 exactly** — the §2o-class anchor correction §3w made *before*
+training (0.7298/n=691 from `summary.json` → 0.7323/n=681 from the scoring definition) was right,
+and re-measuring the anchor is why the gate had a valid control at all.
+
+**§3w's stop rule, quoted, now binding:** *"Stage 1 below 0.7323: stop, the inductive-bias
+argument is refuted on this data and the cache build is not worth funding."* **0.6924 is below
+0.7323. Do not build the 35–78 GB `ft_b`-convention cache. Do not run Stage 2.**
+
+**11 of 12 labels favour the ViT.** The CNN wins only MCL (0.652 vs 0.587) and loses worst on
+**ACL (0.626 vs 0.741, −0.115)**, then Contusion (−0.068) and Effusion (−0.066).
+
+### ⛔ THE TRAINING LOSS LOOKED EXCELLENT THE ENTIRE TIME — this is the reusable part
+
+| ep | 1 | 2 | 3 | 4 | 5 | 6 | 7 | 8 | 9 | 10 |
+|---|--:|--:|--:|--:|--:|--:|--:|--:|--:|--:|
+| loss | .4592 | .4515 | .4432 | .4311 | .4167 | .4037 | .3955 | .3827 | .3744 | **.3686** |
+
+**Monotone, no plateau, accelerating, and it finished 36.7% of the way from the prior (0.4640) to
+the floor (0.2040)** — against the ViT control's *only* recorded loss datapoint, epoch 1 at 0.4523
+(preserved in `train_port.py`'s docstring; `runs_port/summary.json` logs **no loss at all**). By
+epoch 3 the CNN had passed that mark and it kept going.
+
+**And it lost the gate by 4.8σ.** 23.5M fully-unfrozen parameters at lr 1e-4 on 2,871 training
+studies fit the soft targets far harder than six ViT blocks at 8e-6, and generalised worse — the
+loss curve measured the fitting and said nothing about the ranking. **A healthy loss curve is not
+weak evidence of a healthy arm here; it is no evidence.** §3w gating on `score_oof.py` rather than
+on loss is the only reason this was caught at the gate instead of after a Stage 2 cache build.
+*Fourth instance of the §2s error class, and the second caught before it cost anything.*
+
+### ⚠️ "EXACTLY ONE VARIABLE" WAS TOO STRONG A CLAIM, and it bounds what this refutes
+
+§3w said reusing `tiles336` changes *"exactly one variable, ViT → CNN"*. Cache, folds, targets and
+head were held constant — but the encoder swap bundles **architecture, pretraining corpus, and
+pretraining objective at once**: dinov2-small is self-supervised on LVD-142M; RadImageNet R50 is
+supervised on radiology. **So what is refuted is the RadImageNet R50 arm, cleanly and at 4.8σ.
+§9f-C item 3's sample-efficiency claim — "a CNN has locality built in where a ViT must learn it" —
+is NOT cleanly isolated by this experiment** and would need a CNN with comparable pretraining to
+test properly. That is not worth building; the result below is what the project needed from it.
+
+### What it decides, which is the point
+
+**§3y's Stage 1 backbone is the ViT port, by measurement rather than preference.** §3y left the
+choice to §3w's fold 0: *"if Workstream C clears 0.739, the CNN is the base... if it does not, the
+base is the ViT port."* It did not clear. **Build multi-scale on `dinov2-small@336`.**
+
+**And it is weak evidence against the architecture-side reading of §3x.** §3x predicted locality
+should help the small, high-frequency findings; the CNN lost *most* on ACL, the most localised
+target on the board. That does not refute §3x — the pretraining confound above is a sufficient
+alternative explanation, and §3x's claim is about the *bottleneck*, not about which backbone fixes
+it — but it removes the cheap architecture-side route to it. **The input-side route (§3y) is now
+the only live test of the size thesis.**
+
+**Cost:** 108.8 min, ~10.5 min/epoch — the frozen-BN fix delivered its predicted 1.70 h/fold
+against the masked-gather path's projected 44 h. The engineering was correct; the arm was not.
 
