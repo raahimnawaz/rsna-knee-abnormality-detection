@@ -237,6 +237,13 @@ def loss_references(y: np.ndarray) -> tuple[float, float]:
     both ends means it never costs one again. Neither number decides whether to continue: only
     the OOF does, because training headroom can be consumed by memorising.
     """
+    # float64 BEFORE the clip, and this is not cosmetic: `y` arrives float32 from
+    # SlotDataset, where `1 - 1e-9` rounds to exactly 1.0, so the clip is a no-op on the upper
+    # end and the 24 targets that sit at exactly 1.0 take log(0) = -inf -> floor NaN. Caught
+    # 2026-08-17 when 3w's LR probe printed `floor nan`. Display-only -- the training loss is
+    # weighted_bce on logits and never calls this -- but a NaN floor makes the probe's
+    # "% of the way prior->floor" readout unreadable, which is the number it exists to give.
+    y = np.asarray(y, dtype=np.float64)
     w = 0.25 + 0.75 * np.abs(2 * y - 1)
     p = np.clip(y, 1e-9, 1 - 1e-9)
     floor = float((w * -(p * np.log(p) + (1 - p) * np.log(1 - p))).mean())

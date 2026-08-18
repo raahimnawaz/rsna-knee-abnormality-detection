@@ -3929,3 +3929,93 @@ and it is now spent.**
   single best free diverse family in existence delivered on top of what we already had. A trained
   arm is a different *kind* of lever than a blended download (§2q measured fine-tuning at +0.0171
   paired on report-OOF), which is exactly why it is now the only one worth the compute.
+
+---
+
+## 3w. WORKSTREAM C: THE GATE, PRE-REGISTERED BEFORE THE ARM HAS PRODUCED A SINGLE NUMBER `2026-08-17`
+
+**Nothing in this section was written after seeing a result.** §3v's closing risk was that *both*
+local instruments are weak for a training-side change, and §2s's error class has now cost seven
+measurements — every one caught after the run. This is the first arm whose decision rule exists
+before its first epoch.
+
+`fusion/train_cnn.py`. RadImageNet ResNet-50, **all 23.5 M params unfrozen** (§2e: frozen cannot
+adapt, and RadImageNet frozen is the field's own cautionary example), on the port's slot cache.
+
+### The deviation from §9f-C's spec, declared
+
+§9f-C says *"reuse `ft_b_pixels.py` unchanged"*. **Not done, for two reasons.** It decodes NIfTI
+live — right for a 47-study gate, unaffordable for ~3,599 studies × 5.5 series × 32 slices every
+epoch, and no cache exists in that convention (building one is 35–78 GB against 245 GB free).
+And it is the *weaker* experiment: `fusion/runs_port` already trained **dinov2-small** on
+`data/tiles336` with the same folds, targets and `SlotHead`, so reusing that pipeline changes
+**exactly one variable** and turns §9f-C item 3 — *"a CNN has locality built in where a ViT must
+learn it from 4,407 studies; that is a sample-efficiency claim, and it is testable"* — into a
+paired A/B. Reusing `ft_b_pixels` would change backbone **and** pixels **and** head at once, which
+is what §9f-C's own head-reuse argument warns against.
+
+### The BatchNorm trap, found in the build and closed before it could run
+
+`SlotDataset` zeroes absent slots and `SlotNet.forward` flattens all K through the encoder. That
+is harmless for a ViT — LayerNorm is per-token. **ResNet-50 has BatchNorm, so every all-zero
+absent slot would enter the batch statistics of every BN layer**, and **87.2% of studies miss at
+least one series type** (axial non-fluid exists for 19%), so the polluted fraction is large *and
+study-dependent*. Nothing raises. `RadSlotNet.forward` gathers the present slots, forwards only
+those, and scatters back — also strictly less compute. **`--check` verifies it**: corrupting an
+absent slot moves the logits by **0.00e+00**, while the all-slots-present logits still differ by
+5.5e-03, so the check is not vacuous. *The conventions that break silently when crossed are not
+only pixel conventions (`ARCHITECTURES.md`).*
+
+### Learning rate: chosen on TRAINING LOSS, and §3b is untouched
+
+`LR_BACKBONE = 8e-6` is the fork's value for a ViT with six blocks open; this arm unfreezes all of
+a CNN, so it is very likely far too low. `--probe-steps` runs ~120 steps at each of 3e-5 / 1e-4 /
+3e-4 and reads **training loss only**, against the floor/prior references `loss_references`
+already prints. **§3b bans selecting on the 47/58 gold studies; the probe reads no gold, no OOF
+and no held-out label source.** A rate that cannot move the loss off the constant prior is broken,
+and that is the only thing it is asked to detect.
+
+### STAGE 1 — the paired A/B, fold 0, ~4 h. THE BAR IS SET NOW.
+
+| | report-OOF, fold 0 |
+|---|--:|
+| `runs_port` — dinov2-small, identical cache/folds/targets/head | **0.7298** |
+| **bar for `runs_cnn` to proceed to Stage 2** | **≥ 0.737** |
+
+The bar is the control **+0.007**, i.e. about 1σ: §2q measured the paired SE at ±0.0088 on n=493
+and fold 0's validation set is n≈691.
+
+**`score_oof.py` is the correct instrument here and §3l-2 does NOT apply.** §3l-2's amplification
+is about converting a local read into a *leaderboard* number; §3m narrowed it to training-side
+changes measured against the board. This is a **fixed-target** comparison in §2g's exact sense —
+same labels, same folds, same head, same pixels, both arms sharing the reference's bias — which is
+the one question report-OOF answers at ±0.005. Using gold-47 here would be strictly worse: ±0.038
+on a difference this size, and §3b forbids selecting on it.
+
+### ⛔ STAGE 1 IS NECESSARY AND NOT SUFFICIENT — read this before over-reading a pass
+
+The control is **0.7298 against pilkwang's 0.8434** on the same instrument. **A CNN that beats our
+own weak ViT can still be nowhere near blend-worthy.** Stage 1 does not test whether this arm earns
+a slot. It tests one thing only: **does the CNN inductive bias help at all on this data?** — and
+therefore whether to spend the 35–78 GB cache build on a proper `ft_b`-convention CNN arm.
+
+**Pre-registered expectation, recorded so a miss is not re-narrated later as a surprise: this arm
+probably does NOT earn a blend slot at Stage 1's input quality.** The cache holds one 3-slice
+window per slot at depth 0.5 and cannot do window augmentation, where the shipped arms see many
+windows per series. The honest hope for Stage 1 is a *sign*, not a competitive score.
+
+### STAGE 2 — only if Stage 1 clears, folds 1–4, ~15 h
+
+1. Full 5-fold OOF, then **fold-resolved** gold via `score_gold.py`. §3n: an all-member gold read
+   inflates **+0.1474**; only fold-resolved numbers are comparable to pilkwang's 0.8516.
+2. **§3q's prior, both halves:** comparable strength *and* correlation below `ft_b`'s 0.632.
+   Free to run is not a reason to include; tonylica was dropped for failing the second half alone.
+3. **The decision number is the blend delta against the current 0.908 configuration**, never the
+   solo score — §2y and §3q both closed arms that were fine alone. **§3v-1 sets the bar: it must
+   beat +0.009**, because variance-reduction levers here are sub-additive and that is what the
+   best free diverse family delivered on top of what we already had.
+
+**Stop rules, also pre-registered.** Stage 1 below 0.7298: stop, the inductive-bias argument is
+refuted on this data and the cache build is not worth funding. Stage 1 in [0.7298, 0.737): the
+sign is right and the size is not — do **not** run Stage 2 on this cache; the question becomes the
+pixel path, not the backbone.
