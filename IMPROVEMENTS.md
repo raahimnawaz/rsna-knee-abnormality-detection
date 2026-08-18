@@ -3979,11 +3979,21 @@ and that is the only thing it is asked to detect.
 
 | | report-OOF, fold 0 |
 |---|--:|
-| `runs_port` — dinov2-small, identical cache/folds/targets/head | **0.7298** |
-| **bar for `runs_cnn` to proceed to Stage 2** | **≥ 0.737** |
+| `runs_port` — dinov2-small, identical cache/folds/targets/head | **0.7323** (n=681) |
+| **bar for `runs_cnn` to proceed to Stage 2** | **≥ 0.739** |
 
-The bar is the control **+0.007**, i.e. about 1σ: §2q measured the paired SE at ±0.0088 on n=493
-and fold 0's validation set is n≈691.
+The bar is the control **+0.007**, i.e. about 1σ: `score_oof.py` reports ±0.0086 on this arm and
+§2q measured the paired SE at ±0.0088 on n=493.
+
+> **⚠️ THE CONTROL ANCHOR WAS CORRECTED BEFORE ANY TRAINING RAN, and the correction is itself
+> §2o's error class.** This block first cited **0.7298 / n=691** from `runs_port/summary.json`.
+> That is `train_port.py`'s *internal* read, not the scoring definition — re-running the
+> instrument gives **0.7323 / n=681**, which is also the number §2y used to close the port.
+> **`score_oof.py` is the single scoring definition (§2o); a run's own `summary.json` is not it**,
+> and the two differ here by 0.0025 and ten studies. Amended 2026-08-17, before `runs_cnn`
+> existed and before the probe produced any evaluation number — the only kind of amendment a
+> pre-registered gate can take. *Re-measuring the anchor is the whole reason it was caught, which
+> is §3v's standing rule doing its job one section after being written.*
 
 **`score_oof.py` is the correct instrument here and §3l-2 does NOT apply.** §3l-2's amplification
 is about converting a local read into a *leaderboard* number; §3m narrowed it to training-side
@@ -3994,7 +4004,7 @@ on a difference this size, and §3b forbids selecting on it.
 
 ### ⛔ STAGE 1 IS NECESSARY AND NOT SUFFICIENT — read this before over-reading a pass
 
-The control is **0.7298 against pilkwang's 0.8434** on the same instrument. **A CNN that beats our
+The control is **0.7323 against pilkwang's 0.8434** on the same instrument. **A CNN that beats our
 own weak ViT can still be nowhere near blend-worthy.** Stage 1 does not test whether this arm earns
 a slot. It tests one thing only: **does the CNN inductive bias help at all on this data?** — and
 therefore whether to spend the 35–78 GB cache build on a proper `ft_b`-convention CNN arm.
@@ -4015,7 +4025,7 @@ windows per series. The honest hope for Stage 1 is a *sign*, not a competitive s
    beat +0.009**, because variance-reduction levers here are sub-additive and that is what the
    best free diverse family delivered on top of what we already had.
 
-**Stop rules, also pre-registered.** Stage 1 below 0.7298: stop, the inductive-bias argument is
-refuted on this data and the cache build is not worth funding. Stage 1 in [0.7298, 0.737): the
+**Stop rules, also pre-registered.** Stage 1 below 0.7323: stop, the inductive-bias argument is
+refuted on this data and the cache build is not worth funding. Stage 1 in [0.7323, 0.739): the
 sign is right and the size is not — do **not** run Stage 2 on this cache; the question becomes the
 pixel path, not the backbone.

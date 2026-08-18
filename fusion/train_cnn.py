@@ -30,8 +30,13 @@ claim, and it is testable"* -- into a **paired A/B with exactly one variable cha
 the thing 9f-C's own head-reuse argument warns against.
 
 **So: same cache, same folds, same targets, same head, same loop. Backbone ViT -> CNN. That is
-the whole diff.** The control is `fusion/runs_port/summary.json`: fold 0, report-OOF **0.7298**,
-gold **0.7574**, 220 min.
+the whole diff.** The control is `fusion/runs_port`, fold 0, **report-OOF 0.7323 on n=681**, 220
+min.
+
+**That control number comes from `score_oof.py`, NOT from `runs_port/summary.json`**, which
+records its own internal 0.7298 on n=691. The two are different quantities and 2o is the section
+about exactly this; 2y's closure of the port also used 0.7323. `score_oof.py` is the single
+scoring definition. Re-run it, never read the summary.
 
 Note `GROUP = 3` is **pilkwang's own constant**, not a thin approximation of it -- the 6x3x336x336
 tile is the fork's representation, one 3-slice window per slot at depth 0.5. What the cache cannot
@@ -388,7 +393,7 @@ def main() -> None:
     print(f"\nwrote {out}/oof_all.csv  ({len(oof):,} studies)  "
           f"{summary['minutes']:.1f} min")
     print("Score it with:  .venv/bin/python fusion/score_oof.py " + str(out))
-    print("Then the GATE:  see the pre-registered block in this run's directory / IMPROVEMENTS 3w")
+    print("Then the GATE:  IMPROVEMENTS 3w -- Stage 1 bar is >= 0.739 against runs_port 0.7323")
 
 
 if __name__ == "__main__":
