@@ -93,7 +93,17 @@ Twelve-label knee-MRI classification, macro-AUROC. Final submission **2026-10-22
 >    there is **no non-flipped anatomical cache** to test it against — only `tiles336_lr1` has one.
 > 2. **§3z — `fusion/band_ab.py` is BUILT and UNRUN.** MPS is free. 3 cache builds; do not run it
 >    beside a training job.
-> 3. **⚠️ The RadImageNet trunk is `CC-BY-NC-SA-4.0`** (§4c-3). Shipping A accepts that knowingly.
+> 3. **🆕 `aagatti/nnunet_knee` IS NOW FUNDED — `PLAN.md` §C-4, pre-registered 08-18.** MIT, verified
+>    on the Hub. **Funded as an OFFLINE CALIBRATOR only** — run once over training studies, fit
+>    §3y's `centre_mm`/`box_mm` from real anatomy, ship *calibrated fixed boxes*. It never touches
+>    the scored path, so §10's ruling that an nnU-Net 3D cascade is unaffordable at inference does
+>    not bind it. ⚠️ `fold_1` only, not the 5-fold ensemble. Gate 1 is free (they ship their own
+>    `test_prediction.nii.gz`); **Gate 2 is the real risk and must be read per plane × sequence**,
+>    since OAI-ZIB is DESS sagittal and this corpus is clinical multi-protocol.
+>    **🆕 It may also dissolve §3z-4's handedness blocker** — medial/lateral meniscus are
+>    distinguishable in a mask, giving a second independent instrument on that axis with **no cache
+>    rebuild**, where §2n left the measured K16 bit with no cross-check at all.
+> 4. **⚠️ The RadImageNet trunk is `CC-BY-NC-SA-4.0`** (§4c-3). Shipping A accepts that knowingly.
 >    `REFERENCE.md` §1.3 is unanswered. **§C-3's OrthoDiffusion is MIT and is the clean route.**
 >
 > **0. ⛔ FIRST: WE ARE BELOW THE FREE PUBLIC CEILING AGAIN. SHIP BEFORE YOU BUILD (`IMPROVEMENTS.md`

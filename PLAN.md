@@ -1108,8 +1108,80 @@ real and is §2j/§3f's territory. ② **nnU-Net 3D inference is expensive** aga
 build*, not on the scored path. ③ **It is a second model to be wrong about** — §9h's wrong-table
 bug ran perfectly, and a mask that is silently mis-registered would move every crop.
 
-**Not funded, not pre-registered, not queued** — recorded so §3y has a named alternative to fixed
-boxes if the geometry turns out to be the thing that limits it.
+**⛔ SUPERSEDED 2026-08-18 — this is now FUNDED and pre-registered as §C-4 below.** The sentence
+that stood here said *"not funded, not pre-registered, not queued."*
+
+#### C-4 — `aagatti/nnunet_knee` IS FUNDED, AS AN OFFLINE CALIBRATOR `PRE-REGISTERED 2026-08-18`
+
+§C-2 recorded this as *"not funded, not pre-registered, not queued."* Promoting it, because its
+risk ② already names the framing that makes it cheap, and the repo listing turned up two facts
+§C-2 did not have.
+
+**Verified on the Hub 2026-08-18** (`hf://models/aagatti/nnunet_knee`, updated 7 Nov 2025, 677
+downloads, `library:nnunetv2`, **`license:mit` confirmed in repo metadata**):
+
+| what ships | detail |
+|---|---|
+| three configs | `3d_lowres`, `3d_fullres`, `3d_cascade_fullres` |
+| **⚠️ folds** | **`fold_1` ONLY — not the 5-fold nnU-Net ensemble.** A single fold, and §C-2 did not say so |
+| size | ~816 MB per checkpoint, `checkpoint_best` **and** `checkpoint_final` for each config |
+| config | `plans.json` (16 KB) + `dataset.json` at root and per-config — both required by nnU-Net v2 |
+| **✅ a free reproduction gate** | `test_data/`: `test_image.nii.gz` (307 MB), `test_ground_truth.nii.gz`, **and their own `test_prediction.nii.gz` + `test_prediction_cascade.nii.gz`** |
+
+**⛔ FUND VARIANT A, NOT VARIANT B. This is the whole design decision.**
+
+    A  OFFLINE CALIBRATOR   run it ONCE over training studies -> masks -> fit centre_mm/box_mm
+                            from where the anatomy actually is -> ship CALIBRATED FIXED BOXES.
+                            Zero cost on the scored path.                            <- FUNDED
+    B  INFERENCE DETECTOR   run it per test study -> per-study boxes.                 <- NOT FUNDED
+
+**B is already ruled out and not by this section.** §9g/§3e put a submission at ~2 h of the 30 h
+weekly quota, decode/IO-bound, and **§10's own line kills an nnU-Net 3D cascade on the scored path
+as "likely unaffordable."** §C-2's risk ② says the same: *"only affordable as a cache build, not on
+the scored path."* **A never touches the scored path, so it survives that ruling by construction** —
+the shipped artefact is still six fixed boxes, just placed by measurement instead of by assumption.
+
+**TWO GATES, IN ORDER. Neither may be skipped.**
+
+1. **PLUMBING** — reproduce **their** `test_prediction.nii.gz` from **their** `test_image.nii.gz`.
+   They shipped both, so this is free and it is the §9h guard: a wrong-table bug *runs perfectly*.
+   Dice against their own output, not against ground truth — we are testing our harness, not their
+   model.
+2. **⛔ DOMAIN — the real risk, and it must be read PER (plane × sequence).** OAI-ZIB is largely
+   **3D DESS sagittal** research protocol; this corpus is *"diverse international"* clinical
+   multi-protocol. **The shift is NOT uniform, so a corpus-mean Dice would hide exactly the
+   composition that decides the follow-up** (§4a-2). Sagittal is plausibly near-domain; axial T2
+   fat-sat is far out. Read them separately or the number is unusable.
+
+**THE DECISION RULE, FIXED BEFORE ANY MASK EXISTS:**
+
+* **Sane on all three planes** → calibrate all six §3y boxes from mask centroids.
+* **Sane on sagittal only** → **calibrate the sagittal boxes ONLY and leave coronal/axial on fixed
+  geometry.** A partial win is a win; it may **not** be laundered into a whole-corpus claim.
+* **Sane nowhere** → record and close. §C-2's risk ① was right and §3y's geometry stands unimproved.
+
+**⛔ Calibration is a choice made on data. Fit on the 4,407-study corpus, NEVER on gold-58** —
+§3b, §3u, and [[never-select-on-a-tiny-set]]: a choice made on ~58 examples reports a gain and
+delivers a loss.
+
+**🆕 AND IT MAY DISSOLVE §3z-4's HANDEDNESS BLOCKER, WHICH IS WORTH MORE THAN THE BOXES.**
+
+§3z-4 leaves depth confounded with handedness because `needs_direction=True` sits on exactly
+`sag_med`/`sag_lat`, and separating them was priced at **a full non-flipped anatomical cache
+rebuild that is not funded**. But **medial and lateral meniscus are distinguishable in a
+segmentation mask** — that is what OAI-ZIB labels. So this model reads the medial/lateral axis
+**directly, per study, from anatomy**, independent of the geometric slice-order bit that
+`resolve_slice_direction.py` infers.
+
+That makes it a **second, independent instrument on the axis the whole handedness question is
+about** — and §2n already killed the header-rule route at 56.9/60.8/56.9%, leaving only the
+measured K16 bit with no cross-check at all. ⚠️ **Stated as a hypothesis with a named test, not a
+claim:** agreement between mask-derived laterality and `slice_direction_resolved.csv` on the 8,048
+resolved series is a **free read** once Gate 2 passes on sagittal, and it needs **no cache rebuild**.
+If they agree, the bit is corroborated; if they disagree, §3y-2's 28.4% finding gets an explanation.
+
+**Cost:** ~816 MB (`3d_fullres/fold_1` alone — skip the cascade and lowres until Gate 1 passes),
+plus their 307 MB test volume. MPS is free. **Not on the critical path to the next submission.**
 
 #### C-3 — ⛔ ORTHODIFFUSION'S WEIGHTS ARE PUBLIC, MIT, AND WE MISSED THEM TWICE `2026-08-18`
 
