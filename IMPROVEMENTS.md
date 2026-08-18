@@ -5,8 +5,9 @@ lettered in the order they were written, never renumbered — they are cited fro
 `PLAN.md`, the code docstrings and the session memory, so a renumber breaks all of it. Newest is
 at the bottom.
 
-**Newest: §3l (2026-08-13 pm) — the public ceiling claim expired in 24 hours, and `score_oof.py`
-measures the teacher rather than the target. Read it first; it reprices everything above.**
+**Newest: §3x (2026-08-17) — the 0.965 target decomposes into teacher-parity on five labels, the
+severity-label argument is refuted by §3p's own table, and the remaining gap is SIZE. Read §3v
+first for what the board actually costs, then §3x.**
 
 ### Index
 
@@ -47,6 +48,8 @@ measures the teacher rather than the target. Read it first; it reprices everythi
 | **3o** | **F6 IS GO.** Fold recovery validated at 87.8%; `ft_b` OOF **0.8522** vs pilkwang **0.8516**, Spearman **0.632**, **blend +0.0284** (100% of draws). §3n's degraded-path worry is disproved |
 | **3s** | **THE DINOv3 BLACK BOX IS OPENED, AND IT IS SIMPLER THAN ITS CONFIG.** Its two headline features are both nearly inert — the `xcodex` cross-attention is **gated to ~0.001** (deleting it: **+0.0003 macro**, 9.7% of forward) and slot conditioning enters at **2.1%** of a patch token. Slot ablation is **anatomically correct** (axial-fluid → Baker's 0.136) |
 | **3v** | **F6 LANDED AT 0.908** (predicted 0.915–0.926). **The two gains do NOT add** — TTA +0.008 and `ft_b` +0.015–0.020 delivered **+0.017 together**, ~40% overlap; variance-reduction levers are **sub-additive**. **The offset is +0.039, not +0.046** — §3p check 2 matched a gold read to a differently-configured LB. §3p's direction stands, its "takes 10th" does not. **DINOv3's re-open condition is refuted** |
+| **3w** | **WORKSTREAM C's GATE, PRE-REGISTERED BEFORE ITS FIRST EPOCH.** RadImageNet R50 fully unfrozen on the port's own cache — one variable changed, ViT→CNN. **Stage 1 bar ≥ 0.739 vs `runs_port` 0.7323.** The **BatchNorm trap** and why its obvious fix costs **28×** (MPS recompiles per shape; what ships is forward-all + **frozen BN**, 1.70 h/fold) |
+| **3x** | **0.965 = TEACHER-PARITY.** §3p's seven positive gaps sum to **+0.047 macro** → gold 0.916–0.927 → **LB 0.955–0.966**. **The severity/F4 argument is REFUTED by §3p's own per-label column** — the model already *beats* the mention labels on every volumetric-threshold label (effusion +0.141, medial OA +0.075) and ACL's teacher is **0.995**. The real split is **SIZE**: model wins on large diffuse findings, loses on small localised ones. **§3k killed crop-INSTEAD-OF-context; crop-PLUS-context is untested.** Decomposition, **not a result** |
 
 ---
 
@@ -4068,12 +4071,170 @@ all-slots-present case still differs by 4.7e-03 so the check is **not vacuous**.
 
 ### Where this stands at hand-off, 2026-08-17
 
-**Built, checked, and NOT yet trained.** `fusion/train_cnn.py --check` passes. The LR probe was
-killed and must be re-run on the fixed path — its one reading (lr 3e-5, step 25, loss 0.4795
-against a 0.4640 prior) is from the 9.6 s/step code and is **not** a result.
+**Built, checked, and NOT yet trained.** `fusion/train_cnn.py --check` passes.
 
     caffeinate -i .venv/bin/python fusion/train_cnn.py --probe-steps 120 --verbose   # ~10 min
     caffeinate -i .venv/bin/python fusion/train_cnn.py --run-folds 0 --verbose       # ~1.7 h
     .venv/bin/python fusion/score_oof.py fusion/runs_cnn                             # Stage 1
 
 **Stage 1 bar: ≥ 0.739 against `runs_port`'s 0.7323.** Stop rules are above and unchanged.
+
+### The LR probe RAN on the fixed path, 2026-08-17 — and it is a weak read, by design
+
+The earlier reading (lr 3e-5, step 25, 0.4795) came from the 9.6 s/step code and was discarded.
+Re-run at 120 steps on the frozen-BN path, ~3.5–4.5 min per rate:
+
+| lr | first → last25 | % of the way prior → floor |
+|---|---|--:|
+| 3e-5 | 0.5265 → 0.4591 | 1.9% |
+| **1e-4** | 0.5039 → **0.4539** | **3.9%** |
+| 3e-4 | 0.5021 → 0.4551 | 3.4% |
+
+Loss scale: floor 0.2040, prior 0.4640. **1e-4 wins and is already `LR_BACKBONE`'s default**, so
+nothing in the file changed. §3w's prediction that the fork's **8e-6 is far too low for a fully
+unfrozen CNN** is consistent with all three rates moving the loss and none diverging.
+
+**Read this as weakly as it deserves.** 3.9% against 3.4% over 120 steps is inside noise, and after
+⅓ of an epoch all three sit barely below the base-rate prior. The probe was scoped to detect a
+*broken* rate and it detected none; **it does not establish a preference between 1e-4 and 3e-4**,
+and it says nothing whatsoever about whether the arm clears Stage 1. §3b is untouched — training
+loss only, no gold, no OOF, no held-out source.
+
+## 3x. THE 0.965 TARGET DECOMPOSES INTO TEACHER-PARITY, AND THE REMAINING GAP IS SIZE, NOT SUPERVISION `2026-08-17`
+
+**Nothing here is a new measurement.** It is a decomposition of §3p's table plus one refuted
+argument, written down because the refutation is more useful than the argument was. A target of
+**0.965 LB** was named; this asks what that number *is* in this repo's own units before asking how
+to reach it.
+
+### 1. The target is arithmetically identical to closing every gap to the report teacher
+
+§3p's per-label table has seven labels where the teacher beats the blend. Summed:
+
+    0.146 + 0.139 + 0.090 + 0.076 + 0.069 + 0.025 + 0.022 = 0.567  over 12 labels = +0.047 macro
+
+| | gold | → LB (+0.039, §3v) |
+|---|--:|--:|
+| blend today, §3p's optimistic column | 0.880 | 0.919 |
+| blend today, debiased (−0.011, §3o) | 0.869 | **0.908 — banked, and it reconciles** |
+| **+0.047, i.e. teacher-parity on all twelve** | **0.916 – 0.927** | **0.955 – 0.966** |
+
+**So "reach 0.965" and "close every remaining gap to the report teacher" are the same instruction.**
+That is a useful thing to know: the target is not vague, it is a specific set of five labels.
+
+**Two caveats that both point the same way, so treat 0.965 as the optimistic end.**
+
+* The **+0.039 offset was calibrated over gold 0.85–0.90** and is used here at 0.92+. AUROC
+  compresses near the top, so the offset very likely *shrinks* in that range. Teacher-parity
+  probably buys less than 0.965, not more. **The offset is the most load-bearing constant in this
+  repo (§3l-2, §3v-2) and it has never been checked above 0.90.**
+* §3p's own caveat: **the teacher is an oracle, not an attainable bound** — it reads the report at
+  test time and the model cannot. Part of every positive gap is irreducible.
+
+### 2. ⛔ A SEVERITY-LABEL ARGUMENT WAS MADE TODAY AND §3p's OWN TABLE REFUTES IT
+
+**The argument, so it is not made a third time.** §2b measures 84.7% report/gold agreement with
+~⅔ one-directional threshold error; `REFERENCE.md` §2.1 lists explicit severity cuts on 8 of 12
+labels; and the **host confirmed the mechanism in their own words** — *"multiple readers with
+stricter image-based thresholds"*. From that: mention labels over-call sub-threshold findings, a
+severity-graded (ordinal) target would fix the ranking, and §3p's F4 deprioritisation should be
+void because §3v cut the free-label ceiling to ~0.937 against a board top of 0.951.
+
+**It does not survive §3p's per-label column.** If severity confusion were binding, the teacher
+would be *weakest* on the threshold labels. The opposite holds:
+
+| label | severity cut | teacher | blend | |
+|---|---|--:|--:|---|
+| Effusion | **moderate/large** | 0.840 | **0.981** | model **+0.141** |
+| Medial OA | **≥1 cm at >50%** | 0.915 | **0.990** | model **+0.075** |
+| Fracture | **acute** | 0.791 | **0.857** | model **+0.066** |
+| Baker's | **moderate/large** | 0.943 | **0.980** | model **+0.037** |
+| Contusion | — | 0.841 | **0.868** | model **+0.027** |
+| ACL | **>50% of fibres** | **0.995** | 0.919 | teacher +0.076 |
+| Medial Meniscus | **surface contact ≥2 images** | 0.956 | 0.866 | teacher +0.090 |
+| PF OA | **≥1 cm at >50%** | 0.934 | 0.866 | teacher +0.069 |
+| Lateral Meniscus | **surface contact ≥2 images** | 0.865 | 0.720 | teacher +0.146 |
+| Synovitis | conjunction | 0.848 | 0.708 | teacher +0.139 |
+
+**The model already beats the mention labels on every threshold label where the threshold is
+volumetric** — effusion, medial OA, Baker's. It recovers severity from pixels unaided. And on
+**ACL, where the >50%-of-fibres cut should bite hardest, the mention teacher scores 0.995 against
+gold**: there is nothing there to repair.
+
+**Better labels would help least exactly where the model is bottlenecked, and most where it is
+already at 0.98.** §3p's consequences 1 and 3 stand unamended: **F4 stays deprioritised, and model
+capacity is the game.** All five places the deprioritisation is recorded — `PLAN.md` §9a and its
+config table, `README.md` twice, §3p — were reviewed and left as they are.
+
+**The error class, which is the reusable part.** The argument was built from a *corpus-level
+aggregate* (84.7% over 696 cells) and an *authoritative description of the mechanism* (the host's
+own sentence), and never checked against the **per-label table already sitting in this file**. The
+aggregate is real and the mechanism is real; they are simply not where the remaining AUC is. This
+is §2e's error class — *read the thing itself, not the description of it* — with the twist that
+here the description was correct and still misleading. **An aggregate cannot tell you which labels
+it came from, and a mechanism cannot tell you whether it is still binding.**
+
+### 3. What the split actually is, and §3p named it without naming it
+
+Sort the twelve by who wins, and the physical character is unmissable:
+
+* **Model wins (5):** effusion, medial OA, Baker's cyst, contusion, fracture — **large, diffuse,
+  high-contrast, low spatial frequency.** §3p called these *"diffuse findings a report describes
+  badly"*, which is true and is only half of it: they are also the findings a **336-pixel
+  downsample preserves**.
+* **Model loses (5):** lateral meniscus, synovitis, medial meniscus, ACL, PF OA — **small,
+  localised, high spatial frequency.** A meniscal tear is *abnormal signal reaching the surface on
+  ≥2 images*; synovitis is thickening of a thin lining; ACL is fibre discontinuity; PF OA is a
+  ≥1 cm cartilage defect. These are the findings a downsample destroys.
+
+**This is a resolution and localisation bottleneck, not a supervision one.** Three independent
+things in this repo agree:
+
+1. **§2d measured 224→518 = +0.013** — the only positive resolution reading here, and it was
+   dropped when §2e reframed that section. **Everything currently runs at 336.**
+2. **§3f found the lateral compartment systematically harder** (meniscus −0.067, OA −0.043) and an
+   independent study localises it to the **posterior horn of the lateral meniscus** — a
+   sub-centimetre structure at the edge of the field.
+3. **§3p's own fidelity column**: Lateral Meniscus has the worst model→teacher fidelity (0.800)
+   *and* the largest gap. It is not that the label is wrong; the model cannot see the thing.
+
+### 4. §3k killed crop-INSTEAD-OF-context. Crop-PLUS-context has never been measured
+
+Reopening a closed route is the move this repo should be most suspicious of, so the scope is
+stated precisely. **§3k measured crops as *replacement* TTA windows on frozen members**: A (130)
+0.8457, B (90) 0.8340, C (per-target) 0.8425, all against 0.8488. Its mechanism finding was
+
+> *"a crop does NOT discard irrelevant field of view — the periphery carries ranking signal even
+> for joint-centre findings"*, with Spearman(130, 90) = 0.9303 — the crop **reorders, and reorders
+> worse**.
+
+**That refutes replacement and predicts additivity.** If the periphery carries signal *and* the
+centre carries detail that 336 destroys, then full-view **and** crop as **separate slots** is the
+configuration §3k's own mechanism points at, and it is the one arrangement never run. §3m closed
+F2 on both instruments — but §3m re-read the *same inference-side crop*, not a multi-scale input.
+
+What makes it buildable without a detector: **§2l's in-plane axes are canonical 132/132**, so
+compartment boxes are placed by geometry. **Four of the five focal labels have a fixed anatomical
+address** — lateral compartment, medial compartment, intercondylar notch, patellofemoral joint —
+and *"six anatomical crop slots are written but not built"* is already in the plan.
+
+A native-resolution crop is also the **cheap** way to buy resolution: full-field 518 costs
+2.38× the cache (7.31 → ~17 GB) and blows the memory ceiling on a 17.2 GB box that already swaps
+at 336 (§2p, §2v).
+
+### 5. ⛔ THIS SECTION IS A DECOMPOSITION, NOT A RESULT
+
+**Nothing above was measured today.** §1 is arithmetic on §3p, §2 is a refutation using §3p, §3 is
+a pattern across §3p/§2d/§3f, §4 is a scope argument about §3k. **The multi-scale claim is
+untested and must be pre-registered before it is built**, in §3w's form: a bar, a control, a stop
+rule, and an instrument named in advance — and per §3l-2, a training-side change means
+`score_oof.py` is the *wrong* instrument for converting to the board.
+
+### 6. Synovitis is the only live label question left
+
+It is the one label that is **bad on both axes**: teacher 0.848 (4th worst) *and* blend 0.708
+(worst). Every other label is bottlenecked on exactly one of the two. Its criterion is a
+conjunction — *inflammation **and** thickening* — which a mention detector will over-call, so a
+scoped re-extraction is defensible **for this label alone**. Ceiling +0.139/12 = **+0.012 macro**.
+Small, scoped, and not a reason to reopen F4 generally.
+

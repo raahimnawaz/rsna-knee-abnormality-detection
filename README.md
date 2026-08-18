@@ -42,13 +42,16 @@ Twelve-label knee-MRI classification, macro-AUROC. Final submission **2026-10-22
 > inert: the `xcodex` cross-attention is gated to ~0.001 (deleting it costs **+0.0003**) and slot
 > conditioning enters at **2.1%** of a patch token. Its slot usage is **anatomically correct**.
 >
-> **3. ▶️ RESUME HERE: Workstream C is BUILT and CHECKED but NOT TRAINED — `fusion/train_cnn.py`,
+> **3. ▶️ RESUME HERE: Workstream C — probe DONE, fold 0 TRAINING — `fusion/train_cnn.py`,
 > gate pre-registered in `IMPROVEMENTS.md` §3w.** RadImageNet R50, fully fine-tuned, on the port's
 > own `tiles336` so the comparison against `runs_port` changes **exactly one variable**, ViT → CNN.
-> `--check` passes. Two commands, in order:
+>
+> **LR probe ran 2026-08-17 on the fixed path (§3w):** 3e-5 → 1.9%, **1e-4 → 3.9%**, 3e-4 → 3.4%
+> of the way prior→floor. **1e-4 wins and is already the default**, so nothing changed in the file.
+> **It is a weak read** — 3.9 vs 3.4 is inside noise and all three sit barely below the base-rate
+> prior after ⅓ of an epoch. It detected no broken rate; that is all it was scoped to do.
 >
 > ```
-> caffeinate -i .venv/bin/python fusion/train_cnn.py --probe-steps 120 --verbose   # ~10 min, LR
 > caffeinate -i .venv/bin/python fusion/train_cnn.py --run-folds 0 --verbose       # ~1.7 h
 > .venv/bin/python fusion/score_oof.py fusion/runs_cnn                             # Stage 1
 > ```
@@ -84,8 +87,30 @@ Twelve-label knee-MRI classification, macro-AUROC. Final submission **2026-10-22
 > are silent when crossed (resolution, slice count, band, crop, window, normalisation, laterality,
 > slice ordering, slot scheme). Read it before touching any pixel path.
 >
-> **What NOT to re-derive:** F2 (§3k+§3m, closed both instruments) · tonylica (§3q, dropped) ·
-> label-correlation stacking (§3r, closed two ways) · F4 (§3p, no binding label headroom).
+> **4. 🎯 WHERE THE SCORE ACTUALLY IS — `IMPROVEMENTS.md` §3x, new 08-17. A DECOMPOSITION, NOT A
+> RESULT.** §3p's seven positive gaps sum to **+0.047 macro**, so **gold 0.916–0.927 → LB
+> 0.955–0.966**: *"reach 0.965"* and *"close every gap to the report teacher"* are the same
+> instruction. Treat 0.965 as the optimistic end — the **+0.039 offset was calibrated over gold
+> 0.85–0.90 and has never been checked above 0.90**, and AUROC compresses up there.
+>
+> **⛔ A severity-label / F4 revival was argued on 08-17 and §3p's own per-label column refutes
+> it.** The model already **beats** the mention labels on every volumetric-threshold label
+> (effusion **+0.141**, medial OA **+0.075**, Baker's +0.037) and **ACL's mention teacher scores
+> 0.995 against gold** — nothing to repair. Better labels help least where the model is
+> bottlenecked. **F4 stays deprioritised.**
+>
+> **The real split is SIZE.** Model wins on the 5 large diffuse findings; loses on the 5 small
+> localised ones (meniscal surface contact, synovial thickening, ACL fibres, PF cartilage) — the
+> findings a 336 downsample destroys. Agreeing evidence: **§2d's 224→518 = +0.013** (the only
+> positive resolution reading here, dropped when §2e reframed it) and §3f localising the lateral
+> deficit to the **posterior horn**. **§3k killed crop-INSTEAD-OF-context — its own mechanism
+> ("the periphery carries ranking signal") predicts that crop-PLUS-context as extra slots works,
+> and that has never been run.** §2l's canonical 132/132 axes place the boxes without a detector.
+> **Pre-register before building.**
+>
+> **What NOT to re-derive:** F2-as-replacement (§3k+§3m, closed both instruments) · tonylica (§3q,
+> dropped) · label-correlation stacking (§3r, closed two ways) · F4 (§3p, and §3x re-confirmed it
+> against a fresh challenge).
 
 ## The state as of 2026-08-17
 
@@ -108,6 +133,9 @@ Twelve-label knee-MRI classification, macro-AUROC. Final submission **2026-10-22
 > **F4 is deprioritised. Model capacity is the entire game.** All remaining headroom is in five
 > focal labels — Lateral Meniscus (+0.146), Synovitis (+0.139), Medial Meniscus, ACL, PF OA — and
 > the blend already *beats* its teacher on the other five.
+> **§3x adds what those five have in common: they are the SMALL, LOCALISED findings**, and the
+> five the blend wins are the large diffuse ones. That reads as a resolution/localisation
+> bottleneck, and it makes the +0.047 those gaps sum to the whole remaining game.
 
 ### The two things that changed on 08-13 pm, and they reframe the project
 
