@@ -55,6 +55,7 @@ is SIZE) → §3y + §3y-2 (the multi-scale test, pre-registered, ViT backbone, 
 | **3y** | **MULTI-SCALE SLOTS, PRE-REGISTERED BEFORE THE CACHE EXISTS.** `ANATOMICAL` was written 08-11 and never built; its 84 mm boxes are **0.25 mm/px vs 0.48**. **Stage 0 is mandatory** — the anatomical slots need `SAGITTAL_LR=1`, `tiles336` was built with `0`, so **`runs_port` 0.7323 is NOT a valid control** and the 6-slot port must be retrained on the rebuilt cache first. Covers only **+0.027 of §3x's +0.047** (no ACL/synovitis slot). **The vehicle problem is the real obstacle: the port is 0.7323 vs 0.8434 and §2y closed it at 15.4σ** |
 | **3w-2** | **WORKSTREAM C IS REFUTED AT 4.8σ.** `runs_cnn` **0.6924** vs `runs_port` **0.7323**, paired delta **+0.0399 ± 0.0084**, 11/12 labels, P=1.000. Below the 0.7323 stop line → **do not fund the cache build, no Stage 2**. **The training loss was monotone to 0.3686 (36.7% of prior→floor) the whole way and told you nothing** — it measured fitting, not ranking. "Exactly one variable" was too strong: the swap bundles architecture **and** pretraining. **Decides §3y's backbone: the ViT** |
 | **3y-2** | **"PROTOCOL TILES ARE UNAFFECTED AT DEPTH 0.5" IS FALSE**, measured corpus-wide on both full caches. `sag_fs` **890 (24.7%)**, `sag_nf` **875 (24.3%)**, **1,021/3,599 = 28.4% overall**; only ~⅓ are the channel-order case — **the rest are a genuinely different tile**. `GROUP=3` has no fixed point under reversal. Repeated in **6 places** since 08-11, all corrected. **§2q/0.7323/§3w-2 still stand but only within `flip=False`** — which is exactly why §3y's Stage 0 is mandatory |
+| **4a** | **⛔ WE ARE BELOW THE FREE PUBLIC CEILING AGAIN — §3l-1, THIRD TIME.** Rank **547 / 1,904** (was ~490/1,832) at 0.908, **unchanged since 08-13 while 1,162 teams submitted**. **Six public notebooks sit at 0.917–0.922, and their authors' own LB scores confirm it** — including **pilkwang themselves at 0.919**, having moved on from the 0.891 we still run. The board is compressed: **+0.012 is worth ~444 ranks**. **The field scores 0.920 by rank-mean-blending DINOv3 + RadImageNet + tonylica — the three arms §3t, §3w-2 and §3q each rejected.** The rank-mean hypothesis is **checked and wrong** (we already rank-mean). What survives: **§3t's CI was [−0.0182, +0.0133] and the whole gap is +0.012 — it measured a NULL and the record wrote it down as a refutation.** Strength findings stand; the inference from them does not. **Decisive cheap test: score a public 0.917 on OUR instrument.** §3z-5 closed by agreement (frontier pool == §3d's, which we ship) |
 | **3z** | **THE SLICE BAND, PRE-REGISTERED BEFORE THE FIRST CACHE.** Every arm that rivals pilkwang sees more of the volume than it does (`ft_b` 32/full stack, DINOv3 16/0.12–0.88 vs **our 12/0.20–0.80**) — so the shipped members have **never seen the outer 20% of any sagittal stack**, where the slice axis IS medial–lateral and where Lateral Meniscus (**0.720, gap +0.146**) lives. **Free: §3g proved `SLICE_BAND` is unguarded and `SlotHead` has no per-slice embedding, so K19 cannot recur.** Four arms decompose **coverage** from **density**. **Improves the 0.8434 arm, so the vehicle problem does not apply.** Also: **⛔ AUPRC is the wrong currency** (prevalence shifts, AUROC is insensitive and AUPRC is not) · **0.965 = oracle-parity and beats the 0.951 leader** · **⛔ §3y confounds coverage with resolution — 2 of its 6 slots have no box** · the port sees **18 slices to pilkwang's 72** and that has never been considered as the vehicle problem. **A PRE-REGISTRATION, NOT A RESULT** |
 
 ---
@@ -4750,3 +4751,130 @@ section.** Standing rule, from §3l and re-earned here: *claims about the outsid
 `fusion/band_ab.py` carries the decision rule in its docstring so it cannot drift from this file.
 `fusion/pilkwang_pixels.py` gained a `band` parameter, **verified byte-identical on its default for
 n = 3…399**, so the 20/20 fingerprint match and the §3i partition are untouched.
+
+---
+
+## 4a. THE BOARD SURVEY §3z-7 ASKED FOR: WE ARE BELOW THE FREE PUBLIC CEILING AGAIN `MEASURED 2026-08-18`
+
+Run because §3z-7 said the survey was 5 days stale and §3l-1 is the record of one going false in 24
+hours. **It went false again.** Pulled live from the Kaggle API — leaderboard, dataset list, kernel
+list, and one kernel's *source* — not from descriptions.
+
+### 1. THE NUMBERS, AND THEY ARE WORSE THAN THE README SAYS
+
+| | README (08-17) | **measured 08-18** |
+|---|--:|--:|
+| our score | 0.908 | **0.908** |
+| our rank | ~490 | **547** |
+| teams | 1,832 | **1,904** |
+| top | 0.951 | 0.951 |
+| 10th / prize line | 0.940 | **0.941** |
+
+**We fell 57 places without doing anything wrong**, because 1,162 teams have submitted since our
+last submission and we have not. **`55490186` was submitted 2026-08-13 19:33** — §3v is dated
+08-17 because that is when it was *read*, not when it was sent. **Three submissions total, none in
+five days.**
+
+### 2. ⛔ THE FREE PUBLIC CEILING IS ~0.920 AND WE ARE 0.012 UNDER IT — THIS IS §3l-1, THIRD TIME
+
+Every one of these is a **public notebook**, and each author's own leaderboard score confirms the
+title rather than merely claiming it:
+
+| public kernel | author's LB | their rank |
+|---|--:|--:|
+| `tonylica/rsna-knee-dino-radimagenet-rank-ensemble` | **0.922** | 86 |
+| `amanatar/rsna-knee-super-ensemble-0920` | 0.920 | 103 |
+| `andreluizpedroso/rsna-knee-tony-rank-ensemble` | 0.920 | 115 |
+| `kunaldesale2408/rsna-knee-abnormality` | 0.920 | 178 |
+| `mattiaangeli/bend-the-knee-to-dinov3-ensembled` | 0.920 | 164 |
+| `romantamrazov/rsna-knee-dinosaur-v3` | 0.917 | 226 |
+| **`pilkwang` — the author of the fork we run** | **0.919** | 196 |
+| **us** | **0.908** | **547** |
+
+**The author of our own baseline has moved 0.891 → 0.919 and we are still running their 0.891.**
+`tonylica/rsna-knee-bend-dinov3-0917-repro-assets` (2.6 GB, **206 downloads**) ships the whole
+0.917 bundle including OOF CSVs.
+
+**And the board is compressed exactly where we sit:**
+
+    rank 100: 0.920    rank 300: 0.915    rank 500: 0.910
+    rank 200: 0.918    rank 400: 0.911    rank 547: 0.908  <- us
+                                          rank 600: 0.901
+
+**+0.012 is worth ~444 ranks.** Only **13 teams** are at or above the 0.940 prize line.
+
+### 3. ⛔ THE FIELD IS SCORING 0.920 BY BLENDING THE THREE ARMS WE INDIVIDUALLY REJECTED
+
+Read from `tonylica`'s kernel *source* (84,638 chars, per §3d's three-for-three rule). It is
+**pilkwang-derived** — `CROP_MM 130`, `CACHE_IMG 336`, `GROUP 3`, `SLOT_PRIOR_STRENGTH 0.55`,
+`SLOTS_RECOVERED`, the same fingerprint check — plus a **DINOv3** arm at `SLICE_BAND (0.12, 0.88)`,
+`N_SLICE 16`, plus **RadImageNet**, rank-mean combined at `A5_W = 0.45`.
+
+**Those are §3t (DINOv3, dropped), §3q (tonylica, dropped) and §3w-2 (RadImageNet, refuted at
+4.8σ).** We tested each, rejected each, and sit 0.012 below the people who blended all of them.
+
+**THE OBVIOUS EXPLANATION IS WRONG, AND IS RECORDED HERE SO IT IS NOT RE-DERIVED.** The hypothesis
+was that they rank-mean and we probability-mean — §3l-1 recorded sadamtorres's *"rank-mean, never
+probability-mean"* rule. **Checked: we already rank-mean.** `blend_test.py:59` and
+`dinov3_audit.py:235` both build normalised ordinals, and §9e's pre-registered blend rule is
+equal-weight rank-mean over families. **Not the difference.**
+
+**THE EXPLANATION THAT SURVIVES: our instrument cannot resolve the effect size in question.**
+§3t's verdict on DINOv3, quoted exactly:
+
+> delta **−0.0022**, positive in **38%** of draws, CI **[−0.0182, +0.0133]**
+
+**That CI is ±0.015 wide. The entire gap between us and rank ~100 is +0.012 — it fits inside
+§3t's confidence interval with room to spare.** §3t did not measure a refutation; it measured a
+**null**, and the record wrote it down as a rejection. The same is true of §3q's 3-arm −0.0089 and
+of every "does not earn its slot" verdict resting on gold-47/58.
+
+**This is [[never-select-on-a-tiny-set]] running in the direction nobody checks.** The memory says
+a tiny set reports a gain and delivers a loss. **It reports a loss and hides a gain just as
+easily**, and that is the more expensive direction here, because a false negative closes a route
+permanently and silently while a false positive gets caught by the leaderboard.
+
+⚠️ **This does NOT retract §3t's or §3q's strength findings** — DINOv3 OOF 0.8025 and tonylica
+0.788 against pilkwang 0.8516 are large, well-resolved, and stand. What is retracted is the
+inference from *"the blend delta is negative on gold-47"* to *"the arm does not earn its slot"*.
+**A null was read as a refutation, on an instrument too small to tell them apart.**
+
+### 4. ▶️ THE DECISIVE TEST, AND IT IS CHEAP
+
+**Reproduce a public 0.917–0.920 submission and score it on OUR local instrument.** Both arms of
+the outcome are worth having and neither needs a new idea:
+
+* **Our instrument says it is WORSE than our 0.908, and the LB says it is better** → ⛔ **the
+  instrument is refuted**, and with it every rejection in the record that rests on gold-47/58.
+  That is the most valuable thing this project could learn, and nothing else on the board tests it.
+* **Our instrument says it is BETTER** → we have been sitting on a measurable +0.012 for five days
+  and should ship it, then resume building from 0.920 instead of 0.908.
+
+`tonylica`'s repro assets ship **`v52_e11_oof.csv`** (875 KB, both e11 and e13 runs), so a large-n
+OOF read is available **without running their inference at all**. Start there.
+
+**⚠️ Ship first, then build.** Adopting the public frontier is +0.012 measured by five independent
+teams; §3z is an untested lever on our own arm. §3z stays valid and stays free — it is simply
+**second**.
+
+### 5. WHAT THE SURVEY SAYS ABOUT §3z AND §3z-5
+
+* **§3z-5 is largely CLOSED, and by agreement rather than refutation.** The frontier's
+  `PUBLIC_FRONTIER_TARGET_POOL` is `{Fracture: max, Contusion: max, Medial Meniscus: max, Lateral
+  Meniscus: max, ACL: top2, MCL: top2, Baker's: max}` — **identical to §3d's rule, which we already
+  ship** — and they add an explicit `{'Synovitis': 'original_mean'}` override, i.e. they *also*
+  leave Synovitis on a mean. **PF OA is on the default there too.** No free gain; our config is the
+  frontier's config. One thing we do NOT have: `LEGACY_FOLD_SOFTPOOL_BETA/ALPHA`, a per-label
+  softpool over folds. Unexamined.
+* **§3z-3 gets weak, non-substitutable external support.** The frontier's DINOv3 arm does run
+  `(0.12, 0.88)` at `N_SLICE 16` — but that is **DINOv3's own training configuration**, not a
+  widened band on weights fitted at `(0.2, 0.8)`. Their pilkwang arm still runs `(0.2, 0.8)`.
+  **Nobody has widened the band on the frozen pilkwang members. §3z is still the untested thing it
+  claims to be**, and its domain-shift risk is untouched by this.
+
+### 6. THE STANDING RULE, RE-EARNED
+
+§3l-1 said a ceiling claim has a shelf life measured in days. **It has now expired twice, both
+times while this repo was mid-workstream on something else** — F6 in August 12-13, §3y/§3w now.
+**Survey before funding, not after.** The cost is one API call and it has twice changed what the
+highest-return action is.

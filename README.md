@@ -8,6 +8,29 @@ Twelve-label knee-MRI classification, macro-AUROC. Final submission **2026-10-22
 
 > # ⏭️ PICK UP HERE
 >
+> **0. ⛔ FIRST: WE ARE BELOW THE FREE PUBLIC CEILING AGAIN. SHIP BEFORE YOU BUILD (`IMPROVEMENTS.md`
+> §4a, surveyed live 2026-08-18).** Rank **547 of 1,904** at 0.908 — **the last submission was
+> 2026-08-13 and 1,162 teams have submitted since.** Six *public notebooks* sit at **0.917–0.922**,
+> each confirmed against its author's own LB row, **including `pilkwang` at 0.919** — the author of
+> the 0.891 fork we are still running. The board is compressed where we sit: **rank 100 = 0.920,
+> rank 500 = 0.910, +0.012 is worth ~444 ranks.**
+>
+> **The field gets there by rank-mean-blending DINOv3 + RadImageNet + tonylica — §3t, §3w-2 and
+> §3q, the three arms we each tested and rejected.** The obvious explanation is checked and wrong:
+> we already rank-mean (`blend_test.py:59`). **What survives is that §3t's CI was [−0.0182,
+> +0.0133] while the entire gap is +0.012 — it measured a NULL and the record wrote it down as a
+> refutation.** Every "does not earn its slot" verdict resting on gold-47/58 is suspect for the
+> same reason. Strength findings (DINOv3 0.8025, tonylica 0.788) stand; the inference from them
+> does not.
+>
+> **▶️ DO THIS FIRST, IT IS CHEAP AND BOTH OUTCOMES PAY:** score a public 0.917–0.920 on OUR
+> instrument. `tonylica/rsna-knee-bend-dinov3-0917-repro-assets` ships **`v52_e11_oof.csv`**, so a
+> large-n OOF read needs **no inference run at all**. If our instrument calls it worse while the LB
+> calls it better, **the instrument is refuted** — and that is worth more than any lever on this
+> page. If it calls it better, we have been sitting on +0.012 for five days.
+>
+> **§3z and §3y stay valid and stay free. They are simply SECOND.**
+>
 > **1. ✅ THE F6 SUBMISSION LANDED: `55490186` = 0.908. BANKED, and it is the new best.**
 > Predicted 0.915–0.926; **came in below the band at 0.908**, +0.009 over the old 0.899.
 > **§3v has the full reconciliation and it reprices three things** — read it before planning:
@@ -21,8 +44,8 @@ Twelve-label knee-MRI classification, macro-AUROC. Final submission **2026-10-22
 >   is still the binding constraint — but a perfect learner of the free labels is now **0.938 vs
 >   a 0.940 prize line**, i.e. borderline, not "10th place or better".
 >
-> **Board moved faster than we did (§3v-5): top 0.951, 10th/prize 0.940, 1,832 teams. We are
-> rank ~490. Gap to prize 0.036 → 0.032. 66 days left.**
+> **Board moved faster than we did (§3v-5), and again since (§4a): top 0.951, 10th/prize
+> **0.941**, **1,904 teams**, we are **rank 547**. Gap to prize **0.033**. **65 days left.**
 >
 > **2. ⛔ DINOv3 STAYS PARKED — ITS RE-OPEN CONDITION IS REFUTED, NOT UNMET (§3v-6).** §3t said
 > re-open only if local numbers ran *pessimistic*. They ran **optimistic** (0.880 gold predicted
@@ -201,8 +224,8 @@ Twelve-label knee-MRI classification, macro-AUROC. Final submission **2026-10-22
 ## The state as of 2026-08-17
 
 > **Banked 0.908** (submission `55490186` = pilkwang 20-member + per-target TTA pooling + `ft_b`).
-> Board: top **0.951**, 10th/prize **0.940**, **1,832 teams**, we are **rank ~490**. **66 days
-> left.** The 0.899 that appears in older notes is the superseded previous best; 0.891 is the
+> Board (§4a, 08-18): top **0.951**, 10th/prize **0.941**, **1,904 teams**, we are **rank 547**.
+> **65 days left.** The 0.899 that appears in older notes is the superseded previous best; 0.891 is the
 > original unmodified fork.
 >
 > **F6 is DONE and SPENT (§3v).** It delivered +0.009 and has no arm left worth adding.
