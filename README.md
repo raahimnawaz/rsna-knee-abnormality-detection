@@ -44,11 +44,32 @@ Twelve-label knee-MRI classification, macro-AUROC. Final submission **2026-10-22
 > was a free download.** §3w-2 is **narrowed, not retracted** — our *training* is refuted at 4.8σ,
 > the *architecture* is not.
 >
-> **▶️ NEXT: ship it.** One blend slot, no training run, +0.0135 gold → ~0.921 LB, and **+0.012 is
-> worth ~444 ranks**. ⚠️ **Licence:** the bundle's own README says it must stay private and includes
-> **CC-BY-NC-SA-4.0** RadImageNet assets — fine to *measure* against, **not to ship**. Rebuild the
-> arm from **`mattiaangeli/rsna-knee-radimagenet-foldsv1-heads` (58 MB, public, §3l-1)** and settle
-> `REFERENCE.md` §1.3's NC question first.
+> ### ⏸️ PARKED MID-TASK 2026-08-18 — the RadImageNet arm, 1 of 5 steps done
+>
+> **⛔ NOTHING HAS BEEN SUBMITTED, and nothing should be until step 4 produces a number.**
+>
+> | # | step | state |
+> |---|---|---|
+> | 1 | **`fusion/rad_model.py`** — reproduce the arm | ✅ **DONE.** Encoder + all 5 head SHA-256s verify against `rad_heads_manifest.json`, every fold loads **strict**, parameter count **3,174,924** matches the manifest to the digit, forward OK incl. the missing-planes case |
+> | 2 | **`fusion/rad_pixels.py`** — its own pixel convention | ⏳ **NOT WRITTEN.** 224 px · **full-frame, no crop** · **fat-suppressed only** · 3 planes × **8 slices** · band **(0.12, 0.88)** · per-series 1/99 · **grayscale→RGB at `x/127.5−1`** (NOT ImageNet stats). Add a column to `ARCHITECTURES.md`'s trap table |
+> | 3 | local OOF over 4,407 studies | ⏳ needs MPS — do not run beside a training job |
+> | 4 | **blend delta on gold-47, §9e rule** | ⏳ **THE GO/NO-GO.** Same code path as §4b |
+> | 5 | third family into `notebooks/submissions/rsna-knee-f6-two-arm.ipynb`, push, run, submit | ⏳ their config is `_RAD_ALPHA = 0.50` with `_RAD_EXCLUDE = ("Baker's", "Fracture")` — a blend that silently includes those two is **not** the configuration the 0.920 board score came from |
+>
+> **⚠️ THE REASON THIS IS NOT A FORMALITY.** §4b's **+0.0135 was measured on the `e11` variant**
+> (`_RAD_E11_CROP_MM = 130.0`). The weights we can legally ship are **`folds_v1`, whose manifest says
+> `"crop": "full-frame"`**. **Different arms — §2o's error class — so the number does not transfer.**
+> And folds_v1's own recorded `best_val` per fold is **0.8167 / 0.8018 / 0.7780 / 0.8240 / 0.8160,
+> mean ≈ 0.807** — that is **DINOv3 territory (0.8025), the arm that FAILED the strength screen**.
+> Different reference from gold-47 so not directly comparable, but **do not assume this clears.**
+>
+> ⚠️ **Licence, unchanged:** ship from **`mattiaangeli/rsna-knee-radimagenet-foldsv1-heads`** (58 MB,
+> public) — *not* from tonylica's bundle, whose own README says it must stay private and includes
+> **CC-BY-NC-SA-4.0** assets. RadImageNet is NC either way, so `REFERENCE.md` §1.3's unanswered
+> question is now **load-bearing for a prize**, not academic. The whole 0.917–0.922 public frontier
+> carries the same exposure.
+>
+> **Fallback if step 4 fails:** the two-arm F6 kernel is unchanged and still submittable on its own.
 >
 > **§3z and §3y stay valid and stay free. They are simply SECOND.**
 >

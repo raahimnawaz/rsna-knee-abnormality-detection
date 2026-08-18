@@ -1072,3 +1072,40 @@ thesis** (RadImageNet R50, fine-tuned, §9f-C). So the largest medical-imaging p
 industry independently backs the direction already chosen. **It offers validation, not a
 shortcut** — and the shortcut it would have offered, a pretrained MSK encoder, does not exist in
 public weights today.
+
+#### C-2 — re-surveyed 2026-08-18: still empty for classification, and ONE usable find
+
+Prompted by NVIDIA's **VirtualHip** release. §C is dated 08-13 and [[check-whats-free-first]] says
+claims about the outside world expire — §3l-1 expired in 24 hours and §4a expired again in five
+days. **This time the verdict HOLDS, with one exception that is worth more than the thing that
+prompted the search.**
+
+| asset | verdict |
+|---|---|
+| **NVIDIA VirtualHip** (Boston Children's, on DGX) | ⛔ **Not usable, and not close.** **Hip only, not knee.** Builds a 3D hip model from routine X-ray/CT/MRI for surgical planning; trained on two decades of BCH clinical notes + imaging. **No weights, no code, no paper, no dataset** — the announcement is promotional, and the team states they *"plan to commercialize the product"*. Nothing to download now or later. |
+| **`OrthoFoundation`** (arXiv **2601.18250**) | ⚠️ **Exactly on target and unavailable — a SECOND watch item beside OrthoDiffusion.** A **DINOv3** backbone, self-supervised contrastive, pretrained on **1.2 M unlabeled knee X-ray + MRI**, SOTA on **14 downstream tasks** including *MRI structural injury detection*, and label-efficient (matches supervised baselines at 50% of labels). **No GitHub, no HuggingFace, no weights.** Paper is **CC BY-NC-ND 4.0**. |
+| **HuggingFace model registry, searched directly** | ⛔ **No knee-MRI classification encoder exists publicly.** Searched `knee` and `musculoskeletal` by downloads: the hits are OA X-ray classifiers, a MURA ViT, physio LLMs, fastMRI reconstruction nets, and SDXL LoRAs. **Searched the registry rather than the literature on purpose** — §3d's rule is that descriptions and reality diverge, and a model card either has weights or it does not. |
+
+**✅ THE ONE FIND, AND IT IS A LOCALISER, NOT AN ENCODER: [`aagatti/nnunet_knee`](https://hf.co/aagatti/nnunet_knee)**
+
+**nnU-Net v2, knee MRI segmentation of CARTILAGE, MENISCUS and BONE, trained on OAI-ZIB, `license:mit`**, 677 downloads. It does not classify anything and cannot be blended.
+
+**Why it matters anyway: it is the missing half of §3y.** §3y places its anatomical boxes by *fixed
+geometry* — §2l's canonical 132/132 axes, `centre_mm` offsets, no detector — and §3y-2 has already
+shown how brittle geometric assumptions are here (28.4% of studies moved under a flip that six
+places in this repo said was inert). A segmentation model that outputs **meniscus and cartilage
+masks** replaces a fixed box with the actual structure, which is **exactly `REFERENCE.md` §4.4's
+localize-then-classify** and §4.3's two-field convergence, and it targets §3x's five focal labels
+by construction.
+
+**And the licence is MIT** — shippable, unlike RadImageNet's `CC-BY-NC-SA-4.0` (§4b-3).
+
+⚠️ **Three risks, none measured:** ① **OAI-ZIB is a research protocol** (largely 3D DESS sagittal)
+against this corpus's *"diverse international"* clinical multi-protocol mix — the domain shift is
+real and is §2j/§3f's territory. ② **nnU-Net 3D inference is expensive** against a submission that
+§9g/§3e establish is decode/IO-bound inside a 9 h budget; it may only be affordable as a *cache
+build*, not on the scored path. ③ **It is a second model to be wrong about** — §9h's wrong-table
+bug ran perfectly, and a mask that is silently mis-registered would move every crop.
+
+**Not funded, not pre-registered, not queued** — recorded so §3y has a named alternative to fixed
+boxes if the geometry turns out to be the thing that limits it.
