@@ -55,6 +55,7 @@ is SIZE) → §3y + §3y-2 (the multi-scale test, pre-registered, ViT backbone, 
 | **3y** | **MULTI-SCALE SLOTS, PRE-REGISTERED BEFORE THE CACHE EXISTS.** `ANATOMICAL` was written 08-11 and never built; its 84 mm boxes are **0.25 mm/px vs 0.48**. **Stage 0 is mandatory** — the anatomical slots need `SAGITTAL_LR=1`, `tiles336` was built with `0`, so **`runs_port` 0.7323 is NOT a valid control** and the 6-slot port must be retrained on the rebuilt cache first. Covers only **+0.027 of §3x's +0.047** (no ACL/synovitis slot). **The vehicle problem is the real obstacle: the port is 0.7323 vs 0.8434 and §2y closed it at 15.4σ** |
 | **3w-2** | **WORKSTREAM C IS REFUTED AT 4.8σ.** `runs_cnn` **0.6924** vs `runs_port` **0.7323**, paired delta **+0.0399 ± 0.0084**, 11/12 labels, P=1.000. Below the 0.7323 stop line → **do not fund the cache build, no Stage 2**. **The training loss was monotone to 0.3686 (36.7% of prior→floor) the whole way and told you nothing** — it measured fitting, not ranking. "Exactly one variable" was too strong: the swap bundles architecture **and** pretraining. **Decides §3y's backbone: the ViT** |
 | **3y-2** | **"PROTOCOL TILES ARE UNAFFECTED AT DEPTH 0.5" IS FALSE**, measured corpus-wide on both full caches. `sag_fs` **890 (24.7%)**, `sag_nf` **875 (24.3%)**, **1,021/3,599 = 28.4% overall**; only ~⅓ are the channel-order case — **the rest are a genuinely different tile**. `GROUP=3` has no fixed point under reversal. Repeated in **6 places** since 08-11, all corrected. **§2q/0.7323/§3w-2 still stand but only within `flip=False`** — which is exactly why §3y's Stage 0 is mandatory |
+| **4b** | **⛔ §4a-3 RETRACTED: THE INSTRUMENT IS FINE, THE SOURCING WAS NOT.** Scored `tonylica`'s shipped RadImageNet OOF through §9e's rule on gold-47: **their arm 0.8514** (parity with pilkwang 0.8516), **3-family blend 0.8932 = +0.0135, 98% of draws, CI [+0.0004, +0.0262]**; large-n **+0.0102 at 8.8σ**. **§3t reproduced to the digit** (−0.0022, 38%) — the instrument is *stable*, and its offset predicts **LB 0.921** against a public frontier of 0.917–0.922. **Every rejection was CORRECT: all were weak (0.6924–0.8025); [[diversity-is-not-the-constraint]] is vindicated.** The failure: **§3w-2 trained a RadImageNet to 0.6924 while a 0.8514 one was a free download.** §3w-2 narrowed, not retracted — *our training* is refuted, the architecture is not. ⚠️ **NC licence: measure with the bundle, ship from `mattiaangeli/...radimagenet-foldsv1-heads`** |
 | **4a** | **⛔ WE ARE BELOW THE FREE PUBLIC CEILING AGAIN — §3l-1, THIRD TIME.** Rank **547 / 1,904** (was ~490/1,832) at 0.908, **unchanged since 08-13 while 1,162 teams submitted**. **Six public notebooks sit at 0.917–0.922, and their authors' own LB scores confirm it** — including **pilkwang themselves at 0.919**, having moved on from the 0.891 we still run. The board is compressed: **+0.012 is worth ~444 ranks**. **The field scores 0.920 by rank-mean-blending DINOv3 + RadImageNet + tonylica — the three arms §3t, §3w-2 and §3q each rejected.** The rank-mean hypothesis is **checked and wrong** (we already rank-mean). What survives: **§3t's CI was [−0.0182, +0.0133] and the whole gap is +0.012 — it measured a NULL and the record wrote it down as a refutation.** Strength findings stand; the inference from them does not. **Decisive cheap test: score a public 0.917 on OUR instrument.** §3z-5 closed by agreement (frontier pool == §3d's, which we ship) |
 | **3z** | **THE SLICE BAND, PRE-REGISTERED BEFORE THE FIRST CACHE.** Every arm that rivals pilkwang sees more of the volume than it does (`ft_b` 32/full stack, DINOv3 16/0.12–0.88 vs **our 12/0.20–0.80**) — so the shipped members have **never seen the outer 20% of any sagittal stack**, where the slice axis IS medial–lateral and where Lateral Meniscus (**0.720, gap +0.146**) lives. **Free: §3g proved `SLICE_BAND` is unguarded and `SlotHead` has no per-slice embedding, so K19 cannot recur.** Four arms decompose **coverage** from **density**. **Improves the 0.8434 arm, so the vehicle problem does not apply.** Also: **⛔ AUPRC is the wrong currency** (prevalence shifts, AUROC is insensitive and AUPRC is not) · **0.965 = oracle-parity and beats the 0.951 leader** · **⛔ §3y confounds coverage with resolution — 2 of its 6 slots have no box** · the port sees **18 slices to pilkwang's 72** and that has never been considered as the vehicle problem. **A PRE-REGISTRATION, NOT A RESULT** |
 
@@ -4819,7 +4820,16 @@ probability-mean"* rule. **Checked: we already rank-mean.** `blend_test.py:59` a
 `dinov3_audit.py:235` both build normalised ordinals, and §9e's pre-registered blend rule is
 equal-weight rank-mean over families. **Not the difference.**
 
-**THE EXPLANATION THAT SURVIVES: our instrument cannot resolve the effect size in question.**
+**⛔ RETRACTED SAME DAY BY §4b — READ IT BEFORE USING ANYTHING BELOW.** The test in §4a-4 ran
+on 08-18 and the instrument **resolved the effect fine**: it reproduced §3t to the digit
+(−0.0022, 38%), separated a new RadImageNet arm at **+0.0135, 98% of draws, CI excluding
+zero**, called the same comparison at **8.8σ** on large-n, and its gold→LB offset predicted
+**0.921** against a public frontier of 0.917–0.922. **The instrument was never the problem.**
+What follows is the argument as written, kept because the reasoning was sound and the
+conclusion still wrong — the real fault was **sourcing**: we trained a 0.6924 RadImageNet
+while a 0.8514 one was a free download (§4b-2).
+
+**~~THE EXPLANATION THAT SURVIVES: our instrument cannot resolve the effect size in question.~~**
 §3t's verdict on DINOv3, quoted exactly:
 
 > delta **−0.0022**, positive in **38%** of draws, CI **[−0.0182, +0.0133]**
@@ -4829,10 +4839,11 @@ equal-weight rank-mean over families. **Not the difference.**
 **null**, and the record wrote it down as a rejection. The same is true of §3q's 3-arm −0.0089 and
 of every "does not earn its slot" verdict resting on gold-47/58.
 
-**This is [[never-select-on-a-tiny-set]] running in the direction nobody checks.** The memory says
-a tiny set reports a gain and delivers a loss. **It reports a loss and hides a gain just as
-easily**, and that is the more expensive direction here, because a false negative closes a route
-permanently and silently while a false positive gets caught by the leaderboard.
+~~**This is [[never-select-on-a-tiny-set]] running in the direction nobody checks.**~~ ⛔ **§4b
+refutes this too.** The rejections were not false negatives: **every arm rejected was genuinely
+weak** (0.6924–0.8025) and every verdict was correct. The arm that wins is at **parity**
+(0.8514) and was simply never tested. **Screening on strength was right** —
+[[diversity-is-not-the-constraint]] stands.
 
 ⚠️ **This does NOT retract §3t's or §3q's strength findings** — DINOv3 OOF 0.8025 and tonylica
 0.788 against pilkwang 0.8516 are large, well-resolved, and stand. What is retracted is the
@@ -4878,3 +4889,106 @@ teams; §3z is an untested lever on our own arm. §3z stays valid and stays free
 times while this repo was mid-workstream on something else** — F6 in August 12-13, §3y/§3w now.
 **Survey before funding, not after.** The cost is one API call and it has twice changed what the
 highest-return action is.
+
+---
+
+## 4b. THE TEST RAN: THE INSTRUMENT IS VINDICATED, AND WE TRAINED AN ARM THAT WAS ALREADY FREE `MEASURED 2026-08-18`
+
+§4a-4 named a decisive test and both outcomes were committed to. **It ran the same day. The second
+branch fired, and §4a's own headline explanation is refuted by it.**
+
+### 1. ⛔ RETRACTION: §4a-3 SAID THE INSTRUMENT COULD NOT RESOLVE THIS. IT RESOLVES IT FINE
+
+§4a-3 concluded *"the explanation that survives: our instrument cannot resolve the effect size in
+question."* **That is wrong and is retracted here.** Run on `tonylica`'s shipped
+`v52_e11_oof.csv` through §9e's pre-registered blend rule, on the same gold-47, in the same code
+path as §3t:
+
+| arm, gold-47 | macro |
+|---|--:|
+| pilkwang OOF | 0.8516 |
+| `ft_b` OOF | 0.8522 |
+| DINOv3 OOF | 0.8025 |
+| **their RadImageNet e11 OOF** | **0.8514** |
+
+| blend | macro | Δ vs banked | draws | 95% CI |
+|---|--:|--:|--:|---|
+| 2-family (banked) | 0.8798 | — | — | — |
+| 3-family **+ DINOv3** (§3t) | 0.8775 | **−0.0022** | 38% | [−0.0182, +0.0133] |
+| 3-family **+ RadImageNet** | **0.8932** | **+0.0135** | **98%** | **[+0.0004, +0.0262]** |
+| 4-family (both) | 0.8914 | +0.0116 | 91% | [−0.0052, +0.0282] |
+
+**§3t reproduced to the digit** — −0.0022, 38%, the same CI. The instrument is *stable*. And it
+separates the new arm from zero at 98% of draws with a CI excluding it.
+
+**On the large-n instrument the same comparison is 8.8σ.** pilkwang alone 0.8468 → rank-mean with
+their arm 0.8569, **+0.0102 ± 0.0012, positive in 100% of 2,000 draws, n=4,349**.
+
+**AND THE OFFSET PREDICTS THE PUBLIC FRONTIER TO WITHIN 0.001.** Debias §3o-style and apply §3v's
+constant: 0.8932 − 0.011 = 0.8822, **+0.039 → LB 0.921**. The public notebooks running this exact
+combination score **0.917–0.922** (§4a-2). **The instrument and its offset are not broken; they
+land on the board.**
+
+### 2. WHAT WAS ACTUALLY WRONG, AND IT IS WORSE THAN A MEASUREMENT ERROR
+
+**Every rejection in the record was correct.** §3t, §3q, §2y and §3w-2 all rejected arms that were
+*weak*, and the screen was right every time:
+
+| arm | strength | verdict | correct? |
+|---|--:|---|---|
+| our port | 0.7323 | rejected (§2y, 15.4σ) | ✅ |
+| **our own trained RadImageNet R50** | **0.6924** | rejected (§3w-2, 4.8σ) | ✅ |
+| tonylica | 0.788 | rejected (§3q) | ✅ |
+| DINOv3 | 0.8025 | rejected (§3t) | ✅ — still −0.0022 today |
+| **their RadImageNet e11** | **0.8514** | **never tested** | — |
+
+**[[diversity-is-not-the-constraint]] is VINDICATED, not refuted.** Screening on strength was right.
+The arm that earns a slot is the one at *parity* with pilkwang (0.8514 vs 0.8516), and its Spearman
+against pilkwang is **0.713** — *less* diverse than DINOv3's 0.644, and it wins anyway. Adding
+DINOv3 on top makes it **worse** (0.8914 < 0.8932). Strength was the constraint all along.
+
+**⛔ THE FAILURE WAS SOURCING, NOT MEASUREMENT.** §3w-2 spent Workstream C training a RadImageNet
+R50 to **0.6924** while a RadImageNet arm at **0.8514** was sitting in a public dataset. §3w-2's
+stop rule fired correctly and saved a 35–78 GB cache build — **it just never asked whether the arm
+it was building could be downloaded instead.** That is [[check-whats-free-first]], and this time it
+cost a whole workstream rather than a day.
+
+**§3w-2 is NARROWED, not retracted:** *our training* of RadImageNet R50 is refuted at 4.8σ. **The
+architecture is not** — the same family, trained by someone else, is at parity with pilkwang and is
+the single best blend candidate this project has measured.
+
+### 3. ⚠️ LICENCE: MEASURE WITH IT, DO NOT SHIP IT
+
+`tonylica`'s bundle README states in its own words:
+
+> **This bundle must remain private:** one source declares license `other`, two notebook-output
+> sources do not declare a redistribution license, and the RadImageNet sources include
+> **`CC-BY-NC-SA-4.0`** assets.
+
+**Local scoring against a downloaded OOF is a measurement and is fine. A submission is not.**
+`CC-BY-NC-SA-4.0` is **non-commercial**, which is a live prize-eligibility question and is exactly
+`REFERENCE.md` §1.3's unresolved external-data thread — asked twice, never answered.
+
+**The shipping route does not go through this bundle.** §3l-1 already lists
+**`mattiaangeli/rsna-knee-radimagenet-foldsv1-heads`, 58 MB, public** — the same family, obtained
+without a bundle that asks to stay private. **Reproduce the arm from that before building anything
+on this number, and settle the NC question first.** Note the whole 0.917–0.922 public frontier
+carries the same NC exposure, so this is a field-wide risk rather than ours alone.
+
+### 4. VERIFICATION DONE BEFORE ANY OF THE ABOVE WAS BELIEVED
+
+§3n's inflation trap (+0.1474 for an all-member read) makes a borrowed OOF worth checking:
+
+* **Fold partition clean:** 882 / 882 / 881 / 881 / 881, gold spread 10 / 15 / 16 / 9 / 8.
+* **Not memorised:** gold-58 macro **0.8375**, against ~0.99 for an in-fold read.
+* **Spread sane:** mean 0.425, std 0.278, range [0.013, 0.991].
+* **Study coverage exact:** all 4,407, identical id set to `oof.npz`; 47/47 of the gold set.
+
+### 5. WHAT THIS CHANGES
+
+**Ship this before building anything.** +0.0135 gold → predicted LB ~0.921, against 0.908 banked
+and a board where **+0.012 is worth ~444 ranks** (§4a-2). It is one blend slot, no training run.
+
+**§3z and §3y are unaffected and still queued.** §3z is still the untested thing it claims to be
+(§4a-5). Note only that §3v's sub-additivity applies: **price §3z against the new baseline once
+this ships, not against 0.908.**

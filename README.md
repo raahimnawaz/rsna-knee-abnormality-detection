@@ -23,11 +23,32 @@ Twelve-label knee-MRI classification, macro-AUROC. Final submission **2026-10-22
 > same reason. Strength findings (DINOv3 0.8025, tonylica 0.788) stand; the inference from them
 > does not.
 >
-> **▶️ DO THIS FIRST, IT IS CHEAP AND BOTH OUTCOMES PAY:** score a public 0.917–0.920 on OUR
-> instrument. `tonylica/rsna-knee-bend-dinov3-0917-repro-assets` ships **`v52_e11_oof.csv`**, so a
-> large-n OOF read needs **no inference run at all**. If our instrument calls it worse while the LB
-> calls it better, **the instrument is refuted** — and that is worth more than any lever on this
-> page. If it calls it better, we have been sitting on +0.012 for five days.
+> **✅ THAT TEST HAS RUN — §4b, same day. The instrument is FINE; the SOURCING was not.**
+> Scored `tonylica`'s shipped `v52_e11_oof.csv` through §9e's pre-registered rule on gold-47:
+>
+> | | macro | Δ vs banked | draws |
+> |---|--:|--:|--:|
+> | 2-family blend (banked) | 0.8798 | — | — |
+> | 3-family **+ their RadImageNet** | **0.8932** | **+0.0135** | **98%**, CI [+0.0004, +0.0262] |
+> | 3-family + DINOv3 (§3t, re-run) | 0.8775 | −0.0022 | 38% — **reproduced to the digit** |
+>
+> Large-n says the same at **8.8σ** (+0.0102 ± 0.0012, n=4,349). **Debiased and offset, this
+> predicts LB 0.921 — against a public frontier of 0.917–0.922.** The instrument lands on the board.
+>
+> **⛔ SO §4a-3's "the instrument cannot resolve it" IS RETRACTED, and so is the false-negative
+> story.** Every rejection was **correct** — §2y 0.7323, §3w-2 0.6924, §3q 0.788, §3t 0.8025 were
+> all genuinely weak. The winning arm is at **parity (0.8514)** and its Spearman is **0.713**, *less*
+> diverse than DINOv3's 0.644. **Screening on strength was right the whole time.**
+>
+> **The real failure: §3w-2 spent Workstream C training a RadImageNet to 0.6924 while a 0.8514 one
+> was a free download.** §3w-2 is **narrowed, not retracted** — our *training* is refuted at 4.8σ,
+> the *architecture* is not.
+>
+> **▶️ NEXT: ship it.** One blend slot, no training run, +0.0135 gold → ~0.921 LB, and **+0.012 is
+> worth ~444 ranks**. ⚠️ **Licence:** the bundle's own README says it must stay private and includes
+> **CC-BY-NC-SA-4.0** RadImageNet assets — fine to *measure* against, **not to ship**. Rebuild the
+> arm from **`mattiaangeli/rsna-knee-radimagenet-foldsv1-heads` (58 MB, public, §3l-1)** and settle
+> `REFERENCE.md` §1.3's NC question first.
 >
 > **§3z and §3y stay valid and stay free. They are simply SECOND.**
 >
