@@ -97,6 +97,28 @@ Twelve-label knee-MRI classification, macro-AUROC. Final submission **2026-10-22
 > are silent when crossed (resolution, slice count, band, crop, window, normalisation, laterality,
 > slice ordering, slot scheme). Read it before touching any pixel path.
 >
+> **3b. ▶️ IN FLIGHT: §3y STAGE 0 — the multi-scale control.** Caches are BUILT:
+> **`data/tiles336_lr1`** (`SAGITTAL_LR=1`, ~12 GB) holds protocol (17,403 tiles, 80.6% fill,
+> 15.7 min) *and* anatomical (**20,684 tiles, 95.8% fill**, 9.8 min). **K16 covered it completely
+> — 8,048 series carry a bit, 0 tiles skipped.** `data/tiles336` was **deliberately preserved**
+> (§3y said rebuild in place; that would have made `runs_port` and `runs_cnn` unreproducible).
+>
+> **⛔ §3y-2: "protocol tiles are unaffected at depth 0.5" is MEASURED FALSE** — corpus-wide,
+> **1,021 of 3,599 studies (28.4%)** get different protocol pixels under the flip, and ~⅔ of those
+> are a genuinely different tile, not a channel permutation. `GROUP=3` has no fixed point under
+> reversal. Corrected in six places. **This is why Stage 0 is mandatory, not precautionary.**
+>
+> ```
+> caffeinate -i .venv/bin/python fusion/train_port.py --cache data/tiles336_lr1 \
+>     --tag protocol --run-folds 0 --out fusion/runs_port_lr1 --verbose     # ~2.4 h, RUNNING
+> .venv/bin/python fusion/score_oof.py fusion/runs_port_lr1 fusion/runs_port  # flip, priced alone
+> ```
+>
+> **That number becomes Stage 1's control** (bar = control **+0.007**). It also prices the
+> `SAGITTAL_LR` flip on its own for the first time. ⚠️ **The run pages in cold for ~100 steps**
+> (1.4 → 22 img/s instantaneous); `data/.metadata_never_index` was added to stop Spotlight
+> indexing the caches. Do not read the early `img/s` — it is a cumulative average.
+>
 > **4. 🎯 WHERE THE SCORE ACTUALLY IS — `IMPROVEMENTS.md` §3x, new 08-17. A DECOMPOSITION, NOT A
 > RESULT.** §3p's seven positive gaps sum to **+0.047 macro**, so **gold 0.916–0.927 → LB
 > 0.955–0.966**: *"reach 0.965"* and *"close every gap to the report teacher"* are the same
@@ -577,7 +599,10 @@ and MCL lands at zero positives in two of them.
   reproduce** — the dataset RNG restarts — so don't A/B a resumed fold at the third decimal.
 - **K16 is resolved by measurement** — `data/slice_direction_resolved.csv`, 8,048 sagittal series,
   50.4% reversed, cross-validated 21/21 against an independent instrument. It gates `sag_med` /
-  `sag_lat` only; protocol tiles sit at depth 0.5 where reversal maps the middle slice to itself.
+  `sag_lat` only. ⛔ **The old rider here — "protocol tiles sit at depth 0.5 where reversal maps
+  the middle slice to itself" — is MEASURED FALSE (§3y-2, 08-18): 28.4% of studies get different
+  protocol pixels under the flip, and ~⅔ of those are a genuinely different tile, not a channel
+  permutation. `GROUP=3` has no fixed point under reversal.**
   **It is not a header rule and it is our repair for a problem we created by converting to NIfTI
   (§3i-5)** — not an edge over the fork, whose own `order_slices` already sorts correctly.
 - **`fusion/pilkwang_model.py --check`** fingerprints all 20 members in ~2 min and is **the first

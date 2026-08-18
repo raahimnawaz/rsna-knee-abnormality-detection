@@ -5,10 +5,11 @@ lettered in the order they were written, never renumbered — they are cited fro
 `PLAN.md`, the code docstrings and the session memory, so a renumber breaks all of it. Newest is
 at the bottom.
 
-**Newest: §3w-2 (2026-08-17) — Workstream C is REFUTED at 4.8σ and its stop rule fires; the
-training loss looked excellent throughout and was worthless as a signal. Read §3v for what the
-board costs, then §3x (the 0.965 target = teacher-parity on five labels; the gap is SIZE, not
-supervision), then §3y (the multi-scale test, pre-registered, backbone now settled as the ViT).**
+**Newest: §3y-2 (2026-08-18) — "protocol tiles are unaffected at depth 0.5" is measured FALSE
+(28.4% of studies), corrected in six places, and it is why §3y's Stage 0 is mandatory. Before it,
+§3w-2: Workstream C REFUTED at 4.8σ with a training loss that looked excellent throughout and was
+worthless. Read §3v (what the board costs) → §3x (0.965 = teacher-parity on five labels; the gap
+is SIZE) → §3y + §3y-2 (the multi-scale test, pre-registered, ViT backbone, Stage 0 running).**
 
 ### Index
 
@@ -53,6 +54,7 @@ supervision), then §3y (the multi-scale test, pre-registered, backbone now sett
 | **3x** | **0.965 = TEACHER-PARITY.** §3p's seven positive gaps sum to **+0.047 macro** → gold 0.916–0.927 → **LB 0.955–0.966**. **The severity/F4 argument is REFUTED by §3p's own per-label column** — the model already *beats* the mention labels on every volumetric-threshold label (effusion +0.141, medial OA +0.075) and ACL's teacher is **0.995**. The real split is **SIZE**: model wins on large diffuse findings, loses on small localised ones. **§3k killed crop-INSTEAD-OF-context; crop-PLUS-context is untested.** Decomposition, **not a result** |
 | **3y** | **MULTI-SCALE SLOTS, PRE-REGISTERED BEFORE THE CACHE EXISTS.** `ANATOMICAL` was written 08-11 and never built; its 84 mm boxes are **0.25 mm/px vs 0.48**. **Stage 0 is mandatory** — the anatomical slots need `SAGITTAL_LR=1`, `tiles336` was built with `0`, so **`runs_port` 0.7323 is NOT a valid control** and the 6-slot port must be retrained on the rebuilt cache first. Covers only **+0.027 of §3x's +0.047** (no ACL/synovitis slot). **The vehicle problem is the real obstacle: the port is 0.7323 vs 0.8434 and §2y closed it at 15.4σ** |
 | **3w-2** | **WORKSTREAM C IS REFUTED AT 4.8σ.** `runs_cnn` **0.6924** vs `runs_port` **0.7323**, paired delta **+0.0399 ± 0.0084**, 11/12 labels, P=1.000. Below the 0.7323 stop line → **do not fund the cache build, no Stage 2**. **The training loss was monotone to 0.3686 (36.7% of prior→floor) the whole way and told you nothing** — it measured fitting, not ranking. "Exactly one variable" was too strong: the swap bundles architecture **and** pretraining. **Decides §3y's backbone: the ViT** |
+| **3y-2** | **"PROTOCOL TILES ARE UNAFFECTED AT DEPTH 0.5" IS FALSE**, measured corpus-wide on both full caches. `sag_fs` **890 (24.7%)**, `sag_nf` **875 (24.3%)**, **1,021/3,599 = 28.4% overall**; only ~⅓ are the channel-order case — **the rest are a genuinely different tile**. `GROUP=3` has no fixed point under reversal. Repeated in **6 places** since 08-11, all corrected. **§2q/0.7323/§3w-2 still stand but only within `flip=False`** — which is exactly why §3y's Stage 0 is mandatory |
 
 ---
 
@@ -845,10 +847,14 @@ slice axis only there — axial and coronal are already served by `canonicalise`
 mirror. That scoping is what makes a full-header pass affordable: ~296k opens, ~20 min at 01d's
 measured 122 opens/s, against ~95 min for the whole corpus.
 
-**None of this blocks the protocol slots or the reproduction gate.** The six protocol tiles sit
+~~**None of this blocks the protocol slots or the reproduction gate.** The six protocol tiles sit
 at depth 0.5, where a reversal maps the middle slice to itself, so the cache built on
-2026-08-10 is direction-invariant to within the channel order of one 3-slice group. K16 gates
-`sag_med` / `sag_lat` — the divergence — and nothing before it.
+2026-08-10 is direction-invariant to within the channel order of one 3-slice group.~~
+⛔ **RETRACTED 2026-08-18 — §3y-2 measured it corpus-wide and it is FALSE.** `sag_fs` changes for
+**890 studies (24.7%)** and `sag_nf` for **875 (24.3%)**; **1,021 of 3,599 (28.4%) overall**, and
+only 265/291 of those are the channel-order case this paragraph allowed for — **the rest are a
+genuinely different tile.** `GROUP=3` has no fixed point under reversal. K16 still gates
+`sag_med` / `sag_lat`, but it is **not** true that the protocol cache is unaffected.
 
 ### K16 IS NOW RESOLVED, by measurement `2026-08-10, same evening`
 
@@ -879,7 +885,10 @@ the 66.7%-overall figure is a corpus-wide *average over planes*, not a per-plane
 > bit. Each cache records both flags in its manifest (`sagittal_lr_slice_flip`,
 > `direction_bits`), so the disagreement is *visible* — but nothing yet *enforces* it.
 > **Rebuild the protocol tiles with the same flags before any run that consumes both**; it is
-> 21 minutes. The fold-0 gate result is unaffected and stands, for the depth-0.5 reason above.
+> 21 minutes. ~~The fold-0 gate result is unaffected and stands, for the depth-0.5 reason above.~~
+> ⛔ **The depth-0.5 reason is FALSE (§3y-2).** The fold-0 numbers still stand — both arms ran on
+> the same `flip=False` cache, so the comparison is internally consistent — but **not for this
+> reason, and they do not transfer to a `flip=True` arm.**
 
 ---
 
@@ -1111,8 +1120,10 @@ Recall-oriented review of `git diff 1049bcf..HEAD -- '*.py'` — the 1,683 new l
 `slot_cache.py`, `train_port.py`, `score_oof.py`, `resolve_slice_direction.py`,
 `kaggle_01e_direction_measure.py`. **Everything below was RECORDED, not repaired, when first
 written.** Fold 0's
-0.7323 and the paired +0.0171 (§2q) are *unaffected* — they ran on protocol tiles at depth 0.5,
-which is the one configuration none of the medial/lateral findings touch.
+0.7323 and the paired +0.0171 (§2q) still stand — both arms ran on the same `flip=False` cache,
+so each is internally consistent. ⛔ **But the reason given here was wrong (§3y-2, 08-18):**
+protocol tiles at depth 0.5 are *not* invariant to the flip — **28.4% of studies change**. The
+numbers are valid **within `flip=False` only** and do not transfer to a `flip=True` arm.
 
 **The headline: the medial/lateral safety story for the anatomical slabs is written in three
 docstrings and the README, and implemented in none of them.** A1, A3 and A4 are one gap seen from
@@ -1293,7 +1304,7 @@ failed at the modelling. Recorded in the same format as §3 because the failure 
 | K13 | `--self-test` covered **neither** of K7's or K8's mechanisms | probe thresholds started at 25 series and the synthetic corpus holds 21; `self_test` always passed `_SerialPool`, so the spawn pool was never constructed | thresholds are a constant the test lowers; a pool test asserts fan-out, thread pinning, and no re-glob |
 | K14 | **The backbone cannot run at `IMG_SIZE=224` at all.** The kernel sets it (`os.environ.setdefault("IMG_SIZE", "224")`) and `forward_features` raises `AssertionError: Input height (224) doesn't match model (518)` on the **first series** — past the GPU guard, past the corpus walk, past the weights download | `vit_base_patch14_reg4_dinov2.lvd142m` is 518-native (1,369 position tokens) and timm will not interpolate the position embedding unless asked. `create_model(MODEL, pretrained=True, num_classes=0)` has carried no size argument since `ab5be8a` | `dynamic_img_size=True` in **both** `kaggle_02` and `kaggle_03`, plus a one-slice smoke of the real `embed()` immediately after the model is built. Reproduced and fixed locally on timm 1.0.28, 2026-08-08 |
 | K15 | **`normalise_and_resample` raises on any large series.** `torch.quantile` has a hard ceiling at 2**24 (16,777,216) elements and a 32-slice series at 768×768 is 18,874,368. The corpus contains 768×768 series, so this is not a corner case — it is every large series | `torch.quantile()` is documented as limited but the limit is not in its signature, and the call sits in the **shared** path, so `kaggle_02` would have hit it mid-build after hours of GPU. The five failed attempts all died on the GPU lottery or mount latency before reaching a series this big | `np.percentile` — same statistic, same linear interpolation, agrees to 6.3e-8, no ceiling. Found 2026-08-09 on the **first real run** of `build_cache_local.py`, on the 12th study |
-| K16 | **A third of NIfTI series are stored back-to-front**, and nothing in the file says which. Measured on a stratified sample: 66.7% forward overall — Axial 12/12, Coronal 14/18, **Sagittal 8/21** | The affine carries no direction cosines (see §9.1's correction), so `load_series_nifti` cannot know. `load_series` always sorts ascending by IPP projection, so train and test disagree on ~1/3 of series — in the axis medial/lateral depends on, and invisible to `PREPROCESS_VERSION` | **OPEN, and the route changed 2026-08-10 — see §2n before touching this.** ~~Needs a per-series direction bit exported from the DICOMs (`PLAN.md` §9 Phase 0 step 2).~~ **The header-rule route is CLOSED**: InstanceNumber 56.9%, filename 60.8%, SliceLocation 56.9% against ~50% chance over the 51 series the thumbnails settle, and a full-header pass would export identical signs because `inst`/`loc` are already at \|rho\| = 1.000. **Do not re-attempt it.** The live route MEASURES the bit (`kaggle_01e_direction_measure.py` + `resolve_slice_direction.py --measured`), sagittal only. **K18 composes with this** — the sagittal handedness fix is an XOR against this bit and cannot be enabled without it. Not predictable from plane: a plane rule is ~72% accurate. The first verdict said 100% forward because every thumbnail in that sample was Axial_0; the stratified npz that corrects it had been sitting undownloaded in our own kernel output (§2m). **Scope note:** this gates `sag_med`/`sag_lat` only — protocol tiles sit at depth 0.5, where reversal maps the middle slice to itself |
+| K16 | **A third of NIfTI series are stored back-to-front**, and nothing in the file says which. Measured on a stratified sample: 66.7% forward overall — Axial 12/12, Coronal 14/18, **Sagittal 8/21** | The affine carries no direction cosines (see §9.1's correction), so `load_series_nifti` cannot know. `load_series` always sorts ascending by IPP projection, so train and test disagree on ~1/3 of series — in the axis medial/lateral depends on, and invisible to `PREPROCESS_VERSION` | **OPEN, and the route changed 2026-08-10 — see §2n before touching this.** ~~Needs a per-series direction bit exported from the DICOMs (`PLAN.md` §9 Phase 0 step 2).~~ **The header-rule route is CLOSED**: InstanceNumber 56.9%, filename 60.8%, SliceLocation 56.9% against ~50% chance over the 51 series the thumbnails settle, and a full-header pass would export identical signs because `inst`/`loc` are already at \|rho\| = 1.000. **Do not re-attempt it.** The live route MEASURES the bit (`kaggle_01e_direction_measure.py` + `resolve_slice_direction.py --measured`), sagittal only. **K18 composes with this** — the sagittal handedness fix is an XOR against this bit and cannot be enabled without it. Not predictable from plane: a plane rule is ~72% accurate. The first verdict said 100% forward because every thumbnail in that sample was Axial_0; the stratified npz that corrects it had been sitting undownloaded in our own kernel output (§2m). **Scope note:** this gates `sag_med`/`sag_lat` only. ⛔ ~~protocol tiles sit at depth 0.5, where reversal maps the middle slice to itself~~ — **MEASURED FALSE, §3y-2: 28.4% of studies get different protocol pixels under the flip** |
 
 | K17 | **A `--synthetic` smoke run overwrote the real result directory**, and the guard that should have caught it passed. `fusion/runs/` held the fold checkpoints, pooled OOF and summary of the 0.743 run; a smoke run replaced all three at 15:55 on 2026-08-09. The directory is gitignored, so nothing survived | `--out` defaulted to `fusion/runs` regardless of `--synthetic`, and the smoke command in the file's own docstring inherits that default. The second half is worse: synthetic mode left `cache_meta` as `None` and therefore wrote **no** manifest, so the genuine `manifest.json` from the previous run stayed in place and vouched for the random-tensor weights. `assert_matches()` reads only `preprocess_version`, which still said `cdaee5e66c6b`, so a Dataset bundled from that directory would have passed every guard and submitted noise | `--out` resolves **after** parsing to `fusion/runs_synthetic` under `--synthetic`; synthetic mode writes a self-marking manifest so a collision fails closed; `assert_matches()` refuses `synthetic: true` **before** the version check. Verified against all three manifests on disk — the archived clobbered directory still passes the version check, which is the hole demonstrated rather than argued |
 | K18 | **`canonicalise()` never corrected handedness for sagittal series.** Medial/lateral is the image x-axis for axial and coronal but the **slice axis** for sagittal, and `vol[:, :, ::-1]` is the only reversal in the whole pipeline — nothing ever touched axis 0. Exposure: sagittal is the largest plane at **9,864 of 24,371 series (40.5%)**, and **1,894 of 4,407 studies (43.0%)** resolve to left knees | The docstring argued that flipping a sagittal series "would mirror the knee front-to-back for no gain" — true of the *in-plane* axis, since sagittal's image x-axis is anterior-posterior, and it simply never considered the slice axis. `spatial_order` sorts ascending along the slice normal; for sagittal that normal is the patient's left-right axis, on which medial is +x for a right knee and −x for a left one, so one sort yields lateral→medial for one knee and medial→lateral for the other. `FusionHead.slice_pos` is a **learned per-index** embedding, so slice 5 meant lateral in one study and medial in the next | **OPEN — code written and gated off.** `canonicalise(..., slice_direction=)` reverses the slice axis for sagittal left knees, as an **XOR against the K16 bit** so the two corrections compose instead of colliding. Behind `SAGITTAL_LR_SLICE_FLIP`: **one** switch consulted by both readers, because `load_series` knows its direction and `load_series_nifti` does not, and a per-call decision would canonicalise the test set but not the training cache. Off is a byte-level no-op — the fingerprint is still `cdaee5e66c6b`, so the existing cache is not invalidated by a no-op. Needs K16's per-series bit to turn on; `preprocess.py --self-test` asserts the axis table both ways |
@@ -2767,8 +2778,9 @@ being chosen (see §3h-3's reference note).
 ### 3i-2. K16's first real test, and it passes
 
 `data/slice_direction_resolved.csv` was cross-validated 21/21 against the 01c thumbnails, but it
-had never been tested against anything that *cares* — the fold-0 gate sat at depth 0.5, where a
-reversal maps the middle slice to itself. The ablation is its first, with a **predicted sign**:
+had never been tested against anything that *cares* — the fold-0 gate sat at depth 0.5, which was
+believed to make reversal a no-op. **(§3y-2 later measured that belief false: 28.4% of studies do
+change. The gate was insensitive in practice, but not for the reason given.)** The ablation is its first, with a **predicted sign**:
 if the measured bit is right and slice order is what the residual is made of, applying it must
 lower the residual.
 
@@ -4450,4 +4462,62 @@ the only live test of the size thesis.**
 
 **Cost:** 108.8 min, ~10.5 min/epoch — the frozen-BN fix delivered its predicted 1.70 h/fold
 against the masked-gather path's projected 44 h. The engineering was correct; the arm was not.
+
+
+## 3y-2. "PROTOCOL TILES ARE UNAFFECTED AT DEPTH 0.5" IS FALSE, MEASURED CORPUS-WIDE `2026-08-18`
+
+**A claim this repo has repeated in six places since 2026-08-11 is wrong.** It appears as
+*"protocol tiles sit at depth 0.5, where reversal maps the middle slice to itself"*, and it was
+used to argue that `SAGITTAL_LR` cannot change the protocol cache and therefore that §2q's
+fold-0 numbers are safe from the flip. **The reasoning does not survive contact with the tiles.**
+
+Both full protocol caches now exist — `data/tiles336` (`flip=False`) and `data/tiles336_lr1`
+(`flip=True`) — same 3,599 studies, same study order, same 17,403-tile inventory at 80.6% fill,
+one variable changed. A direct byte comparison of all 3,599 × 6 × 3 × 336 × 336:
+
+| slot | studies changed | of which pure channel-reversal | **genuinely different tile** |
+|---|--:|--:|--:|
+| ax_fs, ax_nf, cor_fs, cor_nf | **0** | — | — |
+| sag_fs | **890 (24.7%)** | 265 | **625** |
+| sag_nf | **875 (24.3%)** | 291 | **584** |
+| **any protocol tile** | **1,021 / 3,599 = 28.4%** | | |
+
+**Axial and coronal are untouched, exactly as expected. Sagittal is not.**
+
+### Why the reasoning failed
+
+The middle *slice* does map to itself under reversal — that part is true. But `GROUP = 3` stacks
+**three adjacent slices as channels**, so reversing the order sends `[mid−1, mid, mid+1]` to
+`[mid+1, mid, mid−1]`. That is already a different tensor. And it is only the *best* case: for
+**about two-thirds of the affected studies the tile is genuinely different, not a permutation** —
+consistent with `depth × n_slices` landing on a different index when the slice count is even, so
+the "middle" is not a fixed point at all. *A claim about the middle **slice** was carried as a
+claim about the middle **tile**, and a 3-slice window has no fixed point under reversal.*
+
+### What this does and does not invalidate
+
+* **It does NOT invalidate §2q's +0.0171, `runs_port`'s 0.7323, or §3w-2's −0.0399.** Every one of
+  those is an internally consistent comparison with both arms on the *same* `flip=False` cache.
+  They stand as measurements. **What is void is the stated reason they are safe**, and with it any
+  claim that they transfer to a `flip=True` arm.
+* **It confirms §3y's Stage 0 is mandatory rather than precautionary.** A multi-scale arm must
+  train on `flip=True` pixels (the anatomical sagittal slots carry `needs_direction=True`), and
+  **28.4% of studies see different protocol pixels there.** Comparing it against `runs_port` would
+  change the flip and the slots at once. Stage 0 — the plain 6-slot port retrained on
+  `data/tiles336_lr1` — is the only valid control, and it also prices the flip on its own for the
+  first time.
+
+### The rebuild deviated from §3y's spec, deliberately
+
+§3y said rebuild `data/tiles336` in place. **Not done:** `runs_port` *and* `runs_cnn` were both
+trained on it, and overwriting would make two measured results unreproducible — including the
+4.8σ result recorded hours earlier in §3w-2. Built to **`data/tiles336_lr1`** instead: ~12 GB
+against 233 GB free, and `assert_caches_compatible()` validates the two `flip=True` manifests
+against each other while correctly refusing the old one. *Preserving the control cost 12 GB and
+preserved two measurements.*
+
+**Cache build, for the record:** protocol 17,403 tiles / 80.6% fill / 15.7 min; anatomical
+**20,684 tiles / 95.8% fill** / 9.8 min — a much better fill than protocol, because all six
+anatomical slots are fluid-sensitive and every study has all three planes. **K16 covered it
+completely: 8,048 series carry a resolved direction bit and 0 tiles were skipped for want of one.**
 
