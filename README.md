@@ -8,6 +8,66 @@ Twelve-label knee-MRI classification, macro-AUROC. Final submission **2026-10-22
 
 > # ⏭️ PICK UP HERE
 >
+> ## 🔴 SESSION HANDOFF — 2026-08-18, three things are IN FLIGHT. Read this first.
+>
+> ### A. ▶️ A KAGGLE KERNEL IS RUNNING AND HAS NOT BEEN SUBMITTED
+>
+> **`raahimnawaz/rsna-knee-f6-three-arm-blend-radimagenet`, version 2.** Three families:
+> pilkwang + `ft_b` + the public RadImageNet arm (§4c, +0.0146 gold / +0.0160 at 4.4σ large-n).
+> Built by **`notebooks/build_f6_rad_kernel.py`** — never hand-edit the notebook, rebuild and push.
+>
+> ```
+> .venv/bin/python -m kaggle kernels status raahimnawaz/rsna-knee-f6-three-arm-blend-radimagenet
+> .venv/bin/python -m kaggle kernels output raahimnawaz/rsna-knee-f6-three-arm-blend-radimagenet -p <dir>
+> ```
+>
+> **⛔ BEFORE SUBMITTING, GREP THE LOG FOR `rad:`. It must say `blended 3 families`.** If it says
+> `2 families`, a guard refused the arm and the file is just the banked 0.908 path — submitting it
+> gains nothing and burns a submission.
+>
+> **v1 ALREADY FAILED THAT WAY, and the guard is why we know.** Log read:
+> `rad: slot order [] != ['SAG_FLUID_FS', ...]; refusing the arm`. The notebook's `SLOTS` entries
+> are **4-tuples `(name, plane, fluid, fat_sat)`, not strings**, so the filter matched nothing.
+> The model half was perfect — all 6 SHA-256 verified, 3,174,924 params — and the arm still
+> correctly refused rather than blending a wrongly-conditioned tensor. **Fixed in v2 (`s[0]`).
+> Keep the guard; it earned its place on its first run.**
+>
+> ⚠️ **The in-notebook run sees a ~3-study dummy test set**, so a 4-line `submission.csv` is normal
+> and tells you nothing about coverage. The log lines are the signal.
+>
+> ### B. ⏳ ORTHODIFFUSION — STAGE 0 HALF DONE (`PLAN.md` §C-3, §C-3.2b)
+>
+> **Recipe is READ, from their code, and none of it was guessable** — input `[1, 16, 256, 256]`,
+> centre-crop depth to 16, resize 256² bilinear, **per-volume min-max → [−1,+1]** (a new trap-table
+> row; everything else here uses a 1/99 percentile), loaded by bare `nib.load` — **which is exactly
+> how `data/nifti/nifti_train` already stores 19,859 series.** Features are intermediate denoising
+> activations: linear probe `timestep 100 / mid_2`; 3-pose fusion **`timestep 200,150,50`,
+> `blockname mid_0,mid_0,mid_2`** — different per orientation.
+>
+> **⛔ BLOCKER BEFORE STAGE 1: which `pose_id` is which plane is UNRESOLVED.** It comes from a
+> per-file CSV, not a constant, and the checkpoints are named `sagittal/coronal/axial`. Feeding a
+> plane its neighbour's timestep runs perfectly and scores wrongly (§9h). **Resolve first.**
+>
+> **What is left in Stage 0:** pull the 1.66 GB from `hf://models/lanstat0123/orthodiffusion`, load
+> one, emit a feature for one study. Transcribe from `linear_fusion.py` (the 3-plane version),
+> `linear_classifier.py`, `pooling.py`. Repo cloned notes in §C-3.2b. **MIT, verified in `LICENSE`.**
+>
+> ### C. ✉️ THE AUTHORS WERE EMAILED 2026-08-18
+>
+> Dingyu Wang (`wang_dingyu@pku.edu.cn`), cc Dong Jiang — the two corresponding authors on **both**
+> OrthoDiffusion and OrthoFoundation. Asks whether **OrthoFoundation's weights** will be released
+> (still none) and asks them to **confirm MIT permits competition use**. **A reply may be waiting.**
+>
+> ### D. STILL OPEN, IN PRIORITY ORDER
+>
+> 1. **⛔ §3z-4's confound — fix BEFORE §3y Stage 1 is READ.** Stage 0 is done (§3y-3, control
+>    **0.7358**, bar **0.7428**); Stage 1's six slots are still **two treatments** (2 buy depth,
+>    4 buy resolution) and §3y attributes a gain to resolution in advance. Costs a paragraph now.
+> 2. **§3z — `fusion/band_ab.py` is BUILT and UNRUN.** MPS is free. 3 cache builds; do not run it
+>    beside a training job.
+> 3. **⚠️ The RadImageNet trunk is `CC-BY-NC-SA-4.0`** (§4c-3). Shipping A accepts that knowingly.
+>    `REFERENCE.md` §1.3 is unanswered. **§C-3's OrthoDiffusion is MIT and is the clean route.**
+>
 > **0. ⛔ FIRST: WE ARE BELOW THE FREE PUBLIC CEILING AGAIN. SHIP BEFORE YOU BUILD (`IMPROVEMENTS.md`
 > §4a, surveyed live 2026-08-18).** Rank **547 of 1,904** at 0.908 — **the last submission was
 > 2026-08-13 and 1,162 teams have submitted since.** Six *public notebooks* sit at **0.917–0.922**,

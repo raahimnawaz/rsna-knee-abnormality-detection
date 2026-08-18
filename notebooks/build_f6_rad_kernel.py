@@ -44,7 +44,9 @@ import re
 from pathlib import Path
 
 TITLE = "RSNA Knee - F6 three-arm blend (+ RadImageNet)"
-SLUG = "rsna-knee-f6-three-arm-blend"
+# Kaggle derives the slug from the TITLE, so the id must match what the title resolves to or
+# every push after the first returns 409 Conflict against a kernel that already exists.
+SLUG = "rsna-knee-f6-three-arm-blend-radimagenet"
 
 # Datasets the arm needs. The encoder our local run verified came from a slug that now returns
 # 403; `marwanmath/...` is the one the heads' own README names and its ResNet50.pt is
@@ -209,10 +211,13 @@ def rad_predict(all_ids, hte, plane_map, dev):
         CACHE_SLICES = N_GROUP = RAD_N_SLICE
         CROP_MM = RAD_CROP_FULL
         SLICE_BAND = RAD_BAND
-        SLOTS = [s for s in saved["SLOTS"] if s in RAD_SLOT_NAMES]
-        if [s for s in SLOTS] != RAD_SLOT_NAMES:
-            log(f"rad: slot order {SLOTS} != {RAD_SLOT_NAMES}; the plane embedding would "
-                f"shift -- refusing the arm")
+        # SLOTS entries are 4-TUPLES (name, plane, fluid, fat_sat), not strings -- v1 of this
+        # kernel filtered them as strings, got [], and the guard below correctly refused the
+        # arm rather than blending a wrongly-conditioned one. Keep the guard; fix the filter.
+        SLOTS = [s for s in saved["SLOTS"] if s[0] in RAD_SLOT_NAMES]
+        if [s[0] for s in SLOTS] != RAD_SLOT_NAMES:
+            log(f"rad: slot order {[s[0] for s in SLOTS]} != {RAD_SLOT_NAMES}; the plane "
+                f"embedding would shift -- refusing the arm")
             return None
         N_SLOT = len(SLOTS)
         t0 = time.time()
