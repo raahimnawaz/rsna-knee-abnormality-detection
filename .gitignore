@@ -23,3 +23,7 @@ data/features/
 data/features_224/
 data/nifti/
 fusion/runs*/
+
+# nnU-Net Gate 1 (PLAN C-4) -- separate env, nnunetv2 pulls its own deps
+.venv_nnunet/
+data/_nnunet/
