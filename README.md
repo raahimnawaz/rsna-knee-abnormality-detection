@@ -44,6 +44,27 @@ Twelve-label knee-MRI classification, macro-AUROC. Final submission **2026-10-22
 > was a free download.** §3w-2 is **narrowed, not retracted** — our *training* is refuted at 4.8σ,
 > the *architecture* is not.
 >
+> ### 🆕 ORTHODIFFUSION'S WEIGHTS ARE PUBLIC AND MIT — `PLAN.md` §C-3, found 2026-08-18
+>
+> `hf://models/lanstat0123/orthodiffusion` — **axial / coronal / sagittal, 553 MB each, `license:mit`**,
+> plus MIT training code at `github.com/lt-0123/OrthoDiffusion`. Three orientation-specific 3D models,
+> self-supervised on **15,948 unlabeled knee MRI scans**.
+>
+> **It is the only domain-matched encoder this project has ever had access to** — everything else is
+> DINOv2/v3 on natural images or RadImageNet on general radiology — the only **3D** one, and **MIT**,
+> so unlike the RadImageNet route it carries **no non-commercial exposure** and §1.3 does not gate it.
+>
+> **⛔ AND WE MISSED IT TWICE.** §C called the category empty on 08-13; the HF repo was last updated
+> **29 May 2026**, eleven weeks earlier. **Not an expiry — the claim was false when written.** The
+> model card is 603 bytes tagged only `en` / `arxiv:...` / `license:mit`: **no `knee`, no `mri`, no
+> `musculoskeletal`**, so a registry keyword search *cannot* find it. **Standing rule: for any paper
+> that matters, walk paper → GitHub → weights by hand. A registry search has false negatives.**
+>
+> **Gate is pre-registered in §C-3** (§4b's precedent: strength is binding — **stop below 0.83**).
+> ⚠️ **A diffusion model is not an encoder out of the box** — features are intermediate UNet
+> activations at a chosen timestep/layer; **read their code first, do not invent the recipe** (§3s).
+> **⛔ It does not jump the queue: it is many steps from a number, the RadImageNet arm is four.**
+>
 > ### ⏸️ PARKED MID-TASK 2026-08-18 — the RadImageNet arm, 1 of 5 steps done
 >
 > **⛔ NOTHING HAS BEEN SUBMITTED, and nothing should be until step 4 produces a number.**

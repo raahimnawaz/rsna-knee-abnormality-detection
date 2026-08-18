@@ -1083,7 +1083,8 @@ prompted the search.**
 | asset | verdict |
 |---|---|
 | **NVIDIA VirtualHip** (Boston Children's, on DGX) | ⛔ **Not usable, and not close.** **Hip only, not knee.** Builds a 3D hip model from routine X-ray/CT/MRI for surgical planning; trained on two decades of BCH clinical notes + imaging. **No weights, no code, no paper, no dataset** — the announcement is promotional, and the team states they *"plan to commercialize the product"*. Nothing to download now or later. |
-| **`OrthoFoundation`** (arXiv **2601.18250**) | ⚠️ **Exactly on target and unavailable — a SECOND watch item beside OrthoDiffusion.** A **DINOv3** backbone, self-supervised contrastive, pretrained on **1.2 M unlabeled knee X-ray + MRI**, SOTA on **14 downstream tasks** including *MRI structural injury detection*, and label-efficient (matches supervised baselines at 50% of labels). **No GitHub, no HuggingFace, no weights.** Paper is **CC BY-NC-ND 4.0**. |
+| **`OrthoDiffusion`** (arXiv **2602.20752**) | ✅ **⛔ CORRECTION — THE WEIGHTS ARE PUBLIC AND MIT. §C AND THIS TABLE'S FIRST DRAFT WERE BOTH WRONG.** See §C-3. |
+| **`OrthoFoundation`** (arXiv **2601.18250**) | ⚠️ **Exactly on target and STILL unavailable — the remaining watch item.** A **DINOv3** backbone, self-supervised contrastive, pretrained on **1.2 M unlabeled knee X-ray + MRI**, SOTA on **14 downstream tasks** including *MRI structural injury detection*, and label-efficient (matches supervised baselines at 50% of labels). **No GitHub, no HuggingFace, no weights.** Paper is **CC BY-NC-ND 4.0**. |
 | **HuggingFace model registry, searched directly** | ⛔ **No knee-MRI classification encoder exists publicly.** Searched `knee` and `musculoskeletal` by downloads: the hits are OA X-ray classifiers, a MURA ViT, physio LLMs, fastMRI reconstruction nets, and SDXL LoRAs. **Searched the registry rather than the literature on purpose** — §3d's rule is that descriptions and reality diverge, and a model card either has weights or it does not. |
 
 **✅ THE ONE FIND, AND IT IS A LOCALISER, NOT AN ENCODER: [`aagatti/nnunet_knee`](https://hf.co/aagatti/nnunet_knee)**
@@ -1109,3 +1110,96 @@ bug ran perfectly, and a mask that is silently mis-registered would move every c
 
 **Not funded, not pre-registered, not queued** — recorded so §3y has a named alternative to fixed
 boxes if the geometry turns out to be the thing that limits it.
+
+#### C-3 — ⛔ ORTHODIFFUSION'S WEIGHTS ARE PUBLIC, MIT, AND WE MISSED THEM TWICE `2026-08-18`
+
+**§C said "no public weights or code released as of this read" on 08-13. §C-2 repeated it hours
+before this was written. Both are wrong.**
+
+    hf://models/lanstat0123/orthodiffusion        license: mit
+      axial_model.pt      552,919,566
+      coronal_model.pt    552,919,566
+      sagittal_model.pt   552,919,566
+
+Three orientation-specific 3D models, exactly as the paper describes — self-supervised on **15,948
+unlabeled knee MRI scans** — plus training code at `github.com/lt-0123/OrthoDiffusion`, also MIT.
+
+**⚠️ THIS WAS NOT AN EXPIRY, IT WAS A MISS.** The HF repo was last updated **29 May 2026**, i.e. it
+was already public **eleven weeks before §C surveyed the category and called it empty.**
+[[check-whats-free-first]] has been treated here as *"re-survey, because claims expire"* (§3l-1,
+§4a). This is the other failure mode: **the claim was false when first written.**
+
+**WHY BOTH SURVEYS MISSED IT, WHICH IS THE REUSABLE PART.** The model card is **603 bytes** and its
+only tags are `en`, `arxiv:2602.20752`, `license:mit`. **There is no `knee` tag, no `mri` tag, no
+`musculoskeletal` tag.** A keyword search of the registry — which is exactly what §C-2 ran, and it
+is the *right* instinct, since a model card either has weights or it does not — **cannot return
+this repo.** The only path that finds it is **paper → GitHub → the HF badge in the README**.
+
+> **Standing rule: a registry keyword search has FALSE NEGATIVES, and an untagged card is
+> invisible to it. For any paper that matters, follow the paper → code → weights chain by hand
+> before concluding the weights do not exist.** §C's conclusion was drawn from the arXiv page,
+> which does not link the weights; the GitHub README does.
+
+### 1. ▶️ THE ASSET, AND WHY IT OUTRANKS EVERY ENCODER THIS PROJECT HAS TRIED
+
+| | pretraining | domain | dim | licence |
+|---|---|---|---|---|
+| pilkwang / `ft_b` | DINOv2, LVD-142M | **natural images** | 2.5D | — |
+| DINOv3 arm | DINOv3 | **natural images** | 2.5D | — |
+| RadImageNet R50 | supervised radiology | general radiology | 2.5D | **CC-BY-NC-SA-4.0** |
+| **OrthoDiffusion** | **SSL, 15,948 knee MRIs** | **knee MRI** | **3D** | **MIT** |
+
+**It is the only domain-matched encoder available to this project, the only 3D one, and it is
+MIT** — so unlike the RadImageNet route (§4b-3) it carries no non-commercial exposure and
+`REFERENCE.md` §1.3 does not gate it. The paper also reports robustness across clinical centres and
+field strengths, which is §2j/§3f's site-shift problem, and label efficiency, which is our 4,407.
+
+### 2. THE GATE, PRE-REGISTERED BEFORE A SINGLE FEATURE IS EXTRACTED
+
+**§4b is the governing precedent: STRENGTH is the binding constraint.** Every arm below ~0.83 lost
+(port 0.7323, our R50 0.6924, tonylica 0.788, DINOv3 0.8025); both winners were at parity (`ft_b`
+0.8522, RadImageNet 0.8514). **The bar is therefore parity, not diversity.**
+
+* **Stage 0 — does it load and emit features at all?** Local, CPU/MPS, one study. ⛔ **A diffusion
+  model is not an encoder out of the box** — features come from intermediate UNet activations at a
+  chosen timestep and layer, and *that choice is a free parameter the paper sets and we must read
+  from their code, not invent.* §3s is the precedent: their config advertised two features it did
+  not really use. **Read `lt-0123/OrthoDiffusion` before writing any extraction code.**
+* **Stage 1 — fold-resolved OOF on the same gold-47, same code path as §4b.**
+  **STOP RULE: below 0.83 → park it.** Not "try harder with a better readout": that is the
+  reasoning §3w-2 refuted at 4.8σ.
+* **Stage 2 — blend delta under §9e's equal-weight rank-mean**, against the *then-current* banked
+  blend, priced per §3v's sub-additivity. Bar: positive with the CI excluding zero on large-n, sign
+  confirmed on gold.
+
+**⚠️ Costs and traps, named in advance.** 1.66 GB of weights; **3D inference over full volumes is a
+different cost class** from our 2.5D tiles and may only be affordable as an offline feature cache,
+which makes the *submission* path the open question rather than the local read. It needs a **new
+`ARCHITECTURES.md` trap-table column** — its own resolution, orientation handling, normalisation and
+slice convention — and §9h is what a silently-wrong convention costs.
+
+**⛔ IT IS UNMEASURED, AND IT DOES NOT JUMP THE QUEUE ON EXCITEMENT.** The parked RadImageNet arm is
+**four steps from a measured +0.0135**; this is many steps from any number at all. Sequence by
+distance-to-a-number, not by how good the asset sounds.
+
+### 3. WHAT THE OTHER TWO ARE FOR
+
+* **`OrthoFoundation`** — still no weights, still no code. **A request has been drafted to the two
+  corresponding authors who appear on BOTH papers** (Dingyu Wang, Dong Jiang), asking about a
+  release and confirming MIT permits competition use of OrthoDiffusion. Zero cost, non-zero payoff,
+  65 days.
+* **`aagatti/nnunet_knee`** — 9 structures incl. **medial and lateral meniscus** and four cartilage
+  compartments, Dice 0.906 (meniscus 0.840), takes **NIfTI at any orientation**, which is the format
+  this corpus is already stored in. **Its best use is OFFLINE CALIBRATION, not test-time
+  inference** — an nnU-Net 3D cascade inside a decode-bound 9 h submission is likely unaffordable,
+  but running it *once, locally, on a sample* to measure where the lateral meniscus actually sits in
+  our canonical mm frame turns §3y's `centre_mm` from a guess into a measurement, **at zero
+  test-time cost.** Two cheaper audits come first: ① does §3y's fixed box land on the structure?
+  (§3y-2 showed geometric assumptions here are brittle) and ② it labels medial vs lateral
+  separately, so it is an **independent instrument for the K16 direction bit** — the axis four of
+  twelve labels depend on, currently resting on a 51-series read for axial and coronal.
+
+### 4. ⛔ PRE-REGISTRATION, NOT A RESULT
+
+Nothing here is measured. §C-3's only *measurements* are that three MIT-licensed checkpoints exist
+at the URI above and that two prior surveys said they did not.
