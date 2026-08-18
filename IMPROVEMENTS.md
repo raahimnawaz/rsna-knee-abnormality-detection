@@ -5,9 +5,10 @@ lettered in the order they were written, never renumbered — they are cited fro
 `PLAN.md`, the code docstrings and the session memory, so a renumber breaks all of it. Newest is
 at the bottom.
 
-**Newest: §3x (2026-08-17) — the 0.965 target decomposes into teacher-parity on five labels, the
-severity-label argument is refuted by §3p's own table, and the remaining gap is SIZE. Read §3v
-first for what the board actually costs, then §3x.**
+**Newest: §3x + §3y (2026-08-17) — the 0.965 target decomposes into teacher-parity on five labels,
+the severity-label argument is refuted by §3p's own table, the remaining gap is SIZE, and §3y
+pre-registers the multi-scale test of that. Read §3v for what the board costs, then §3x, then §3y
+before building anything.**
 
 ### Index
 
@@ -50,6 +51,7 @@ first for what the board actually costs, then §3x.**
 | **3v** | **F6 LANDED AT 0.908** (predicted 0.915–0.926). **The two gains do NOT add** — TTA +0.008 and `ft_b` +0.015–0.020 delivered **+0.017 together**, ~40% overlap; variance-reduction levers are **sub-additive**. **The offset is +0.039, not +0.046** — §3p check 2 matched a gold read to a differently-configured LB. §3p's direction stands, its "takes 10th" does not. **DINOv3's re-open condition is refuted** |
 | **3w** | **WORKSTREAM C's GATE, PRE-REGISTERED BEFORE ITS FIRST EPOCH.** RadImageNet R50 fully unfrozen on the port's own cache — one variable changed, ViT→CNN. **Stage 1 bar ≥ 0.739 vs `runs_port` 0.7323.** The **BatchNorm trap** and why its obvious fix costs **28×** (MPS recompiles per shape; what ships is forward-all + **frozen BN**, 1.70 h/fold) |
 | **3x** | **0.965 = TEACHER-PARITY.** §3p's seven positive gaps sum to **+0.047 macro** → gold 0.916–0.927 → **LB 0.955–0.966**. **The severity/F4 argument is REFUTED by §3p's own per-label column** — the model already *beats* the mention labels on every volumetric-threshold label (effusion +0.141, medial OA +0.075) and ACL's teacher is **0.995**. The real split is **SIZE**: model wins on large diffuse findings, loses on small localised ones. **§3k killed crop-INSTEAD-OF-context; crop-PLUS-context is untested.** Decomposition, **not a result** |
+| **3y** | **MULTI-SCALE SLOTS, PRE-REGISTERED BEFORE THE CACHE EXISTS.** `ANATOMICAL` was written 08-11 and never built; its 84 mm boxes are **0.25 mm/px vs 0.48**. **Stage 0 is mandatory** — the anatomical slots need `SAGITTAL_LR=1`, `tiles336` was built with `0`, so **`runs_port` 0.7323 is NOT a valid control** and the 6-slot port must be retrained on the rebuilt cache first. Covers only **+0.027 of §3x's +0.047** (no ACL/synovitis slot). **The vehicle problem is the real obstacle: the port is 0.7323 vs 0.8434 and §2y closed it at 15.4σ** |
 
 ---
 
@@ -4237,4 +4239,119 @@ It is the one label that is **bad on both axes**: teacher 0.848 (4th worst) *and
 conjunction — *inflammation **and** thickening* — which a mention detector will over-call, so a
 scoped re-extraction is defensible **for this label alone**. Ceiling +0.139/12 = **+0.012 macro**.
 Small, scoped, and not a reason to reopen F4 generally.
+
+
+## 3y. MULTI-SCALE ANATOMICAL SLOTS: PRE-REGISTERED BEFORE THE CACHE IS BUILT `2026-08-17`
+
+**Written before a single tile exists.** §3x argued the remaining gap is size, not supervision.
+This is the experiment that tests it, and its decision rule predates its first epoch — the second
+arm in this repo built that way, after §3w.
+
+### The slots already exist, and they already name their targets
+
+`pipeline/slot_cache.ANATOMICAL` — written 2026-08-11, **never built**. Its own comment states the
+mechanism §3x re-derived from the other end:
+
+> *"84 mm boxes at 336 px = **0.25 mm/px**, against **0.48 mm/px** for the full field of view."*
+
+| slot | plane | how it helps | §3p gap it targets |
+|---|---|---|--:|
+| `sag_lat` | Sagittal, depth 0.75 | **localisation** — full FOV, correct slice | **Lateral Meniscus +0.146** |
+| `sag_med` | Sagittal, depth 0.25 | **localisation** | Medial Meniscus +0.090 |
+| `cor_lat` | Coronal, 84 mm @ −30 | **1.9× resolution** | Lateral Meniscus, Lateral OA +0.022 |
+| `cor_med` | Coronal, 84 mm @ +30 | **1.9× resolution** | Medial Meniscus |
+| `ax_pf` | Axial, 84 mm @ −30 row | **1.9× resolution** | **PF OA +0.069** |
+| `sag_pf` | Sagittal, 84 mm | **1.9× resolution** | PF OA |
+
+**Note the two mechanisms are not the same and the table separates them.** The sagittal slabs take
+the **full** field of view and vary only in `depth` — they buy *localisation*, not resolution. Only
+the four `box_mm=84` slots buy resolution. §3x's thesis predicts **both** should pay, for different
+reasons, and a result that splits them is more informative than the macro.
+
+**Two focal labels are NOT covered.** There is no intercondylar-notch slot for **ACL (+0.076)** and
+nothing aimed at **Synovitis (+0.139)**. So the six slots address at most **+0.327 of the +0.567**
+total gap — a ceiling of **+0.027 macro**, not +0.047. State that before running, not after.
+
+### ⚠️ THE BUILD HAZARD, WHICH IS ALREADY GUARDED AND WILL STILL COST 45 MINUTES
+
+`sag_med`/`sag_lat` carry `needs_direction=True`, so they require **`SAGITTAL_LR=1`**. The existing
+`data/tiles336` protocol cache was built with **`SAGITTAL_LR=0`**, and `CACHE_COMPAT_KEYS` includes
+`sagittal_lr_slice_flip`, so `assert_caches_compatible()` **refuses to feed both to one model**.
+Without the flip, *"slice 25% is medial"* is exactly inverted for the **43% of studies that are
+left knees** — silent, per-study, and exactly the class §2m/§3g exist to catch.
+
+    SAGITTAL_LR=1 python pipeline/slot_cache.py --slots protocol      # REBUILD, ~21 min
+    SAGITTAL_LR=1 python pipeline/slot_cache.py --slots anatomical    # ~25 min
+
+**The protocol rebuild is not optional and it invalidates `runs_port` as a control** — see the
+anchor problem below, which is §2o's error class arriving a third time and being caught in advance.
+
+### ⛔ THE CONTROL ANCHOR PROBLEM, NAMED BEFORE IT BITES
+
+§3w's control is `runs_port` **0.7323**, trained on the `SAGITTAL_LR=0` cache. A multi-scale arm
+runs on a `SAGITTAL_LR=1` cache. **Those are different pixels, so `runs_port` is NOT a valid
+control for this arm** — the comparison would change the flip *and* the slots at once.
+
+**Therefore Stage 0 is mandatory and is a re-run, not a new idea:** retrain the 6-slot port on the
+rebuilt `SAGITTAL_LR=1` protocol cache, fold 0, and use **that** as the control. It also prices the
+flip on its own, which has never been measured and is a real question — §2n found sagittal is
+~50/50 reversed, so the flip touches half the corpus.
+
+### THE GATE
+
+| stage | arm | control | bar |
+|---|---|---|--:|
+| **0** | 6-slot port, `SAGITTAL_LR=1` | `runs_port` 0.7323 (informational) | none — this *is* the control |
+| **1** | **12-slot multi-scale**, fold 0 | **Stage 0's number** | **≥ control + 0.007** |
+| 2 | strong backbone | only if Stage 1 clears | blend delta > **+0.009** (§3v) |
+
+**+0.007 is the same ~1σ bar §3w uses** (`score_oof.py` reports ±0.0086; §2q measured the paired
+SE at ±0.0088). **`score_oof.py` is the correct instrument** for the same reason as §3w: this is a
+**fixed-target** question in §2g's sense — same labels, same folds, same head, only the input
+changes — and §3l-2's amplification is about converting to the *board*, not a paired local A/B.
+
+**Which backbone Stage 1 runs on is decided by §3w, not by preference.** If Workstream C clears
+0.739, the CNN is the base — locality bias and high-frequency detail are the *same* hypothesis and
+should compound. If it does not, the base is the ViT port. **§3w's fold 0 is running now and this
+is what makes its result decision-relevant either way.**
+
+### ⛔ STAGE 1 IS NECESSARY AND NOT SUFFICIENT, AND THE VEHICLE PROBLEM IS THE REAL OBSTACLE
+
+**Even a large Stage 1 pass may be worth nothing at the leaderboard, and this is the honest
+weakness of the whole route.** The port is **0.7323** against pilkwang's **0.8434**. A +0.02 gain
+takes it to 0.752 — still 0.09 short, and §2y closed it as a member at **−0.111, 15.4σ, 0/12
+labels, no blend weight helping at any value**. §3q and §3s then showed twice more that
+**diversity never binds and strength always does** ([[diversity-is-not-the-constraint]]).
+
+**So Stage 1 answers one question only: does multi-scale input pay on an arm we can train?** It
+does *not* establish a blend slot. Everything downstream depends on carrying the gain into
+something strong, and the only candidate is **fine-tuning pilkwang's own CC0 weights with the slot
+embedding extended from 6 to 12 entries** (`fusion/pilkwang_model.py` already reproduces all 20
+members at 7e-06). That is Stage 2, it is ~15–20 h, and it should not be funded on a hunch.
+
+### Cost, and the §2v caveat that makes the estimate soft
+
+12 slots is **2× the forward passes** of 6. The ViT control is quoted at **3.7 h/fold**, so Stage 1
+is **~7.4 h/fold** — but §2v established that **the 3.7 h figure may itself contain sleep**
+(~2 of fold 0's 3.6 h were asleep before `caffeinate` was standard). **Re-measure under
+`caffeinate` before trusting any of these numbers.** Disk: ~7 GB for the anatomical cache against
+245 GB free, which is not a constraint. Stage 0 + Stage 1 ≈ 1 h of cache + ~11 h of training.
+
+### Pre-registered expectation, and the stop rules
+
+**Expectation: a small positive, +0.005 to +0.015, and a slot-attribution map that is
+anatomically coherent.** §3s established that slot-conditioned models do use their slots
+sensibly, so an incoherent map would mean the arm is not doing what the design says. Adding six
+slots also adds dilution risk on 2,871 training studies — capacity is not free.
+
+* **Below the control** → the size thesis is refuted on this data; §3x §3–4 are wrong and must be
+  retracted in place. Do not build the notch/synovitis slots.
+* **[control, control+0.007)** → the sign is right and the size is not. Do **not** fund Stage 2.
+* **≥ control + 0.007** → run the **leave-one-slot-out map** (§3s's method) before Stage 2, to see
+  whether the gain is resolution (`box_mm` slots) or localisation (sagittal depth slots). That
+  attribution decides whether Stage 2 needs the full 12 or a cheaper subset.
+
+**Confound, declared:** 12 slots changes resolution **and** view count at once. If Stage 1 passes,
+the clean control is six *duplicate* protocol slots at other depths — more views, no extra
+resolution. That is a third run and is deliberately not funded up front.
 

@@ -106,7 +106,19 @@ Twelve-label knee-MRI classification, macro-AUROC. Final submission **2026-10-22
 > deficit to the **posterior horn**. **§3k killed crop-INSTEAD-OF-context — its own mechanism
 > ("the periphery carries ranking signal") predicts that crop-PLUS-context as extra slots works,
 > and that has never been run.** §2l's canonical 132/132 axes place the boxes without a detector.
-> **Pre-register before building.**
+> **§3y PRE-REGISTERS THAT TEST — read it before touching the cache.** `pipeline/slot_cache.py`
+> already defines six `ANATOMICAL` slots (written 08-11, never built) whose own comment states the
+> mechanism: **84 mm boxes at 336 px = 0.25 mm/px against 0.48 for the full field**. Two traps it
+> names in advance: ① the anatomical slots need **`SAGITTAL_LR=1`** and `tiles336` was built with
+> **`0`**, so `assert_caches_compatible()` refuses and **`runs_port` 0.7323 is NOT a valid
+> control** — a mandatory **Stage 0** retrains the 6-slot port on the rebuilt cache first
+> (§2o's error class, caught in advance for once). ② The six slots cover only **+0.027 of the
+> +0.047** — there is no ACL or synovitis slot.
+> ⛔ **The vehicle problem is the real obstacle**, and §3y says so up front: the port is 0.7323
+> against pilkwang's 0.8434 and §2y closed it at **15.4σ**, so even a big Stage 1 pass does not
+> earn a blend slot. Carrying a gain into strength means fine-tuning pilkwang's own CC0 weights
+> with the slot embedding extended 6 → 12. **Which backbone Stage 1 uses is decided by §3w's
+> fold 0, not by preference.**
 >
 > **What NOT to re-derive:** F2-as-replacement (§3k+§3m, closed both instruments) · tonylica (§3q,
 > dropped) · label-correlation stacking (§3r, closed two ways) · F4 (§3p, and §3x re-confirmed it

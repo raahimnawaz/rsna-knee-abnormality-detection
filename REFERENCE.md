@@ -76,6 +76,13 @@ and no host has confirmed it. **Downgraded from "very likely admissible" to "unr
 It gates a Phase 2 lever, so ask directly rather than assume — that is one forum post and it
 costs nothing.
 
+**STATUS 2026-08-17: STILL UNRESOLVED, STILL UNASKED BY US — seven days.** A third-time-of-asking
+post is drafted and **not yet sent** (it needs a Kaggle account action, not a repo change). It
+cites 2.6.a against 2.5.a and 1.6's CC-BY-NC winner licence and asks for a yes/no. **`IMPROVEMENTS.md`
+§3x flags this as the only lever that could supply image-read severity supervision** — MRNet and
+OAI/MOAKS carry expert *image* grades for exactly the meniscus/ACL findings §3p shows the model
+cannot extract. **The answer takes days to arrive, so send it before starting anything else.**
+
 ### 1.4 What the host confirmed about the labels `discussion/733826, read 2026-08-10`
 
 A participant audited 20 gold studies report-only (240 decisions) and put agreement at
