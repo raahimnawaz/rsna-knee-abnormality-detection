@@ -4232,13 +4232,37 @@ untested and must be pre-registered before it is built**, in §3w's form: a bar,
 rule, and an instrument named in advance — and per §3l-2, a training-side change means
 `score_oof.py` is the *wrong* instrument for converting to the board.
 
-### 6. Synovitis is the only live label question left
+### 6. Synovitis: the mechanism is confirmed, and it is STILL not worth running
 
-It is the one label that is **bad on both axes**: teacher 0.848 (4th worst) *and* blend 0.708
-(worst). Every other label is bottlenecked on exactly one of the two. Its criterion is a
-conjunction — *inflammation **and** thickening* — which a mention detector will over-call, so a
-scoped re-extraction is defensible **for this label alone**. Ceiling +0.139/12 = **+0.012 macro**.
-Small, scoped, and not a reason to reopen F4 generally.
+It is the one label **bad on both axes**: teacher 0.848 (4th worst) *and* blend 0.708 (worst).
+Its criterion is a conjunction — *inflammation **and** thickening* — which a mention detector will
+over-call. **Measured 2026-08-17, and the over-call is worse than §2.1 predicted:**
+
+| targets.csv Synovitis vs gold-58, threshold 0.5 | |
+|---|--:|
+| TP / FP / FN / TN | **27 / 26 / 0 / 5** |
+| agreement | 0.552 |
+| AUROC as a predictor | **0.790** (gold-58; §3p's 0.848 is gold-47) |
+
+**It calls 53 of 58 studies positive and never once says no.** Corpus-wide it also has the
+**lowest spread of all twelve labels** — std **0.231** against 0.28–0.42 for the rest, and 65
+distinct values, the most of any label. Least informative target on the board, by two measures.
+
+**⛔ AND IT IS STILL NOT WORTH RUNNING, which is the point of recording it.** The blend reads
+**0.708 against a teacher of 0.790–0.848 — it LAGS.** Improving the teacher raises a ceiling the
+model is not touching; the binding constraint here is vision, exactly as for the other eleven.
+Ceiling **+0.012 macro** to teacher-parity, **+0.020** if Synovitis were fixed outright, against
+§3y's **+0.027** — which is pre-registered and unbuilt. **Second-order lever; do not fund it ahead
+of the first-order one.**
+
+**Costed, so nobody re-derives it:** `extractor/llm_extract.py --dry-run` (no key, no spend) prices
+the full 12-label re-extraction at **$88.23 standard / $44.11 batched** on `claude-opus-5` —
+1.73 M report tokens in, ~3.08 M out at 700/report. Scoped to Synovitis alone it is ~**$10–12**.
+**And the script grades the WRONG AXIS anyway:** its five states are `pos/hedged/weak/neg/absent`
+— *diagnostic certainty*, which `REFERENCE.md` §2.1 explicitly distinguishes from *severity*.
+Re-running it unchanged would not test the severity thesis at all; it needs a new prompt on the
+criterion axis. **`--submit` and `--collect` have also never executed** — only `--dry-run` has, so
+that path is unproven against a paid API and would need a `--limit` smoke test first.
 
 
 ## 3y. MULTI-SCALE ANATOMICAL SLOTS: PRE-REGISTERED BEFORE THE CACHE IS BUILT `2026-08-17`
