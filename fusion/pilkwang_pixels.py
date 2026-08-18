@@ -70,9 +70,18 @@ N_SLICE = 12          # cfg["slices"]; with group 3 this is ten overlapping TTA 
 GROUP = 3
 
 
-def band_indices(n: int, n_slice: int = N_SLICE) -> np.ndarray:
-    """Their sampler, verbatim: linspace across the central band, deduplicated, then padded."""
-    lo, hi = int(SLICE_BAND[0] * (n - 1)), int(SLICE_BAND[1] * (n - 1))
+def band_indices(n: int, n_slice: int = N_SLICE,
+                 band: tuple[float, float] = SLICE_BAND) -> np.ndarray:
+    """Their sampler, verbatim: linspace across the central band, deduplicated, then padded.
+
+    `band` is a parameter for §3z. It defaults to theirs, so every existing caller -- the gate,
+    crop_ab, the fold recovery -- produces the identical indices it produced before, and the
+    20/20 fingerprint match and the §3i partition are unaffected. Widening it is the one knob
+    §3g proved is unguarded: `SLICE_BAND` is not an argument to `fingerprint()`, so the members
+    load and run, and the ONLY risk is that slices outside (0.2, 0.8) are out of distribution
+    for weights fitted inside it. That is the empirical question §3z exists to answer.
+    """
+    lo, hi = int(band[0] * (n - 1)), int(band[1] * (n - 1))
     idx = np.unique(np.linspace(lo, hi, n_slice).astype(int)) if hi > lo else np.array([n // 2])
     while len(idx) < n_slice:
         idx = np.append(idx, idx[-1])
@@ -97,7 +106,8 @@ def normalise_laterality(img: torch.Tensor, plane: str, lat: str | None) -> torc
 
 def read_slot_nifti(path: Path, plane: str, lat: str | None, *, crop_mm: float = CROP_MM,
                     centre_mm: tuple[float, float] = (0.0, 0.0), out_size: int = IMG,
-                    n_slice: int = N_SLICE, reverse: bool = False,
+                    n_slice: int = N_SLICE, band: tuple[float, float] = SLICE_BAND,
+                    reverse: bool = False,
                     px_hdr: float | None = None) -> tuple[torch.Tensor | None, dict]:
     """One slot image: uint8 [n_slice, out, out], plus what was decided while making it."""
     info: dict = {"reversed": bool(reverse), "px": None, "px_hdr": px_hdr,
@@ -121,7 +131,7 @@ def read_slot_nifti(path: Path, plane: str, lat: str | None, *, crop_mm: float =
 
     px = float(g["in_plane_mm"])
     info["px"] = px
-    vol = np.ascontiguousarray(vol[band_indices(n, n_slice)])
+    vol = np.ascontiguousarray(vol[band_indices(n, n_slice, band)])
 
     # constant physical extent, then resize -- their comment: PixelSpacing varies 3.4x
     if px and np.isfinite(px) and px > 0:
@@ -164,8 +174,8 @@ def direction_map() -> dict[str, bool]:
 
 def build_cache(studies, slots: pd.DataFrame, *, crop_mm: float = CROP_MM,
                 centre_mm: tuple[float, float] = (0.0, 0.0), out_size: int = IMG,
-                n_slice: int = N_SLICE, use_direction: bool = True,
-                verbose: bool = True):
+                n_slice: int = N_SLICE, band: tuple[float, float] = SLICE_BAND,
+                use_direction: bool = True, verbose: bool = True):
     """Decode (study, slot) -> uint8 [n_study, 6, n_slice, out, out] plus the presence mask.
 
     An absent slot is a False in the mask and zeros in the cache, which is exactly what the
@@ -208,7 +218,7 @@ def build_cache(studies, slots: pd.DataFrame, *, crop_mm: float = CROP_MM,
             rv = bool(rev.get(r["SeriesInstanceUID"], False))
             img, info = read_slot_nifti(f, SLOT_PLANE[r["slot"]], lat, crop_mm=crop_mm,
                                         centre_mm=centre_mm, out_size=out_size,
-                                        n_slice=n_slice, reverse=rv,
+                                        n_slice=n_slice, band=band, reverse=rv,
                                         px_hdr=r.get("px"))
             if img is None:
                 stats["unreadable"] += 1

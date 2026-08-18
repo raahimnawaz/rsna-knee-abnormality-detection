@@ -55,6 +55,7 @@ is SIZE) → §3y + §3y-2 (the multi-scale test, pre-registered, ViT backbone, 
 | **3y** | **MULTI-SCALE SLOTS, PRE-REGISTERED BEFORE THE CACHE EXISTS.** `ANATOMICAL` was written 08-11 and never built; its 84 mm boxes are **0.25 mm/px vs 0.48**. **Stage 0 is mandatory** — the anatomical slots need `SAGITTAL_LR=1`, `tiles336` was built with `0`, so **`runs_port` 0.7323 is NOT a valid control** and the 6-slot port must be retrained on the rebuilt cache first. Covers only **+0.027 of §3x's +0.047** (no ACL/synovitis slot). **The vehicle problem is the real obstacle: the port is 0.7323 vs 0.8434 and §2y closed it at 15.4σ** |
 | **3w-2** | **WORKSTREAM C IS REFUTED AT 4.8σ.** `runs_cnn` **0.6924** vs `runs_port` **0.7323**, paired delta **+0.0399 ± 0.0084**, 11/12 labels, P=1.000. Below the 0.7323 stop line → **do not fund the cache build, no Stage 2**. **The training loss was monotone to 0.3686 (36.7% of prior→floor) the whole way and told you nothing** — it measured fitting, not ranking. "Exactly one variable" was too strong: the swap bundles architecture **and** pretraining. **Decides §3y's backbone: the ViT** |
 | **3y-2** | **"PROTOCOL TILES ARE UNAFFECTED AT DEPTH 0.5" IS FALSE**, measured corpus-wide on both full caches. `sag_fs` **890 (24.7%)**, `sag_nf` **875 (24.3%)**, **1,021/3,599 = 28.4% overall**; only ~⅓ are the channel-order case — **the rest are a genuinely different tile**. `GROUP=3` has no fixed point under reversal. Repeated in **6 places** since 08-11, all corrected. **§2q/0.7323/§3w-2 still stand but only within `flip=False`** — which is exactly why §3y's Stage 0 is mandatory |
+| **3z** | **THE SLICE BAND, PRE-REGISTERED BEFORE THE FIRST CACHE.** Every arm that rivals pilkwang sees more of the volume than it does (`ft_b` 32/full stack, DINOv3 16/0.12–0.88 vs **our 12/0.20–0.80**) — so the shipped members have **never seen the outer 20% of any sagittal stack**, where the slice axis IS medial–lateral and where Lateral Meniscus (**0.720, gap +0.146**) lives. **Free: §3g proved `SLICE_BAND` is unguarded and `SlotHead` has no per-slice embedding, so K19 cannot recur.** Four arms decompose **coverage** from **density**. **Improves the 0.8434 arm, so the vehicle problem does not apply.** Also: **⛔ AUPRC is the wrong currency** (prevalence shifts, AUROC is insensitive and AUPRC is not) · **0.965 = oracle-parity and beats the 0.951 leader** · **⛔ §3y confounds coverage with resolution — 2 of its 6 slots have no box** · the port sees **18 slices to pilkwang's 72** and that has never been considered as the vehicle problem. **A PRE-REGISTRATION, NOT A RESULT** |
 
 ---
 
@@ -4521,3 +4522,231 @@ preserved two measurements.*
 anatomical slots are fluid-sensitive and every study has all three planes. **K16 covered it
 completely: 8,048 series carry a resolved direction bit and 0 tiles were skipped for want of one.**
 
+
+---
+
+## 3z. THE SLICE BAND: PRE-REGISTERED BEFORE THE FIRST CACHE IS BUILT `2026-08-18`
+
+**Written in §3w's form — bar, control, stop rule, instrument, all named before a number exists.**
+Prompted by a "what has the highest return" review on 08-18 that also settled two questions of
+framing (§3z-1, §3z-2) and found one design defect in a run that was already in flight (§3z-4).
+
+### 1. ⛔ THE METRIC IS macro-AUROC. AUPRC IS THE WRONG CURRENCY, AND NOT MARGINALLY
+
+Optimising for AUPRC was proposed on 08-18. **It is a currency error and the reason is specific to
+this competition, not a generic preference.**
+
+`README.md`'s first line and `extractor/metrics.py` agree: rank-AUC, macro over twelve labels.
+AUPRC appears nowhere in this repo's code or docs. The decisive fact is in `PLAN.md` §4, from the
+host's own statement:
+
+> **Prevalence differs across train / public LB / private LB.**
+
+**AUROC is prevalence-insensitive within a label. AUPRC is not** — the same ranking scores
+differently at a different base rate. So a local AUPRC gain has *no stable relationship to the
+private leaderboard*, which is the only number that pays. Tuning against it means tuning against a
+quantity that moves when the test set changes underneath you, and `PLAN.md` §4's whole conclusion
+— **"trust CV"** — depends on the prevalence-insensitivity that AUPRC discards.
+
+**This is the `measure-in-the-target-currency` rule (§3l-2, §3u) pointed at a new instrument, and
+it fails the same way F1's site prior did:** a precise number that is not the number being scored.
+
+**⚠️ THE ONE LEGITIMATE USE, so this is not over-read.** AUROC averages all pairs equally and
+therefore cannot say *where* in a ranking a label fails. For Lateral Meniscus at 0.720 that
+distinction is real — failing at the top of the ranking and failing uniformly imply different
+fixes. **AUPRC as a DIAGNOSTIC lens is fine and may be informative. AUPRC as a gate, a training
+objective, or a selection criterion is forbidden.** §3x's error class applies directly: an
+aggregate cannot tell you which labels it came from.
+
+### 2. 0.965 IS NOT A STRETCH TARGET, IT IS ORACLE-PARITY — AND IT BEATS THE CURRENT LEADER
+
+§3x already did this arithmetic; it is restated here with the board attached because the target was
+named again on 08-18 without it.
+
+| | gold | → LB (+0.039) |
+|---|--:|--:|
+| banked (`55490186`) | 0.869 | **0.908** |
+| **teacher-parity on all twelve** | 0.916–0.927 | **0.955–0.966** |
+
+**So 0.965 ≡ closing every remaining gap to an oracle that reads the report at test time**, which
+§3p explicitly calls "not an attainable bound — part of every positive gap is irreducible". And the
++0.039 offset was calibrated over gold 0.85–0.90 and has **never been checked above 0.90**, where
+AUROC compresses; both caveats push the same way.
+
+**Against the board: top is 0.951.** 0.965 is not "top ten", it is *winning by 0.014 in a regime
+where the whole F6 workstream bought +0.009*. **The decision-relevant target is the 0.940 prize
+line — gap 0.032, 65 days.** Plan against that; treat 0.965 as the optimistic tail of a
+decomposition whose own author flagged it as such.
+
+### 3. ▶️ THE LEVER: pilkwang HAS NEVER SEEN THE OUTER 20% OF ANY SAGITTAL STACK
+
+`ARCHITECTURES.md`'s trap table, re-read on 08-18 for a different reason, contains a pattern nobody
+wrote down:
+
+| arm | slices / series | band | claim |
+|---|--:|---|--:|
+| **pilkwang — what we ship** | **12** | **(0.20, 0.80)** | 0.8434 |
+| `ft_b` | **32** | **FULL STACK** | 0.883 solo |
+| DINOv3 | 16 | (0.12, 0.88) | — |
+| tonylica | 9 | (0.20, 0.80) | 0.788 |
+
+**Every arm that rivals or beats pilkwang looks at more of the volume than pilkwang does.** The two
+that match its band are the two it beats.
+
+**Why that is not a curiosity.** On sagittal the slice axis **is** medial–lateral (`slot_cache.py`;
+§2l's canonical 132/132 axes). A band of (0.20, 0.80) means the twenty members we ship have never
+been shown the far medial or far lateral compartment of any sagittal series — and the labels that
+live there are the ones we are worst at:
+
+| label | blend | teacher | gap | lives at |
+|---|--:|--:|--:|---|
+| Lateral Meniscus | **0.720** | 0.865 | **+0.146** | far lateral, posterior horn (§3f) |
+| Medial Meniscus | 0.866 | 0.956 | +0.090 | far medial |
+
+§3y's own `sag_lat` slot sits at **depth 0.75 — just inside a band the members were never trained
+past.** **This is a hypothesis, not a measurement, and it is free to test.**
+
+**Why it is free, and where the risk actually is.** §3g measured that `fingerprint()` takes
+`img_size` and **not** `SLICE_BAND`, so members load and run at any band. `SlotHead` carries
+`slot_emb` (per-**slot**) and **no per-slice positional embedding**, so K19's failure mode — a
+learned index silently read at the wrong positions — **cannot occur here**; the windows are
+independent forward passes pooled afterwards. The one real risk is **domain shift**: weights fitted
+inside (0.2, 0.8) may simply degrade outside it. §3g named exactly this and called it "an empirical
+question with a cheap paired local answer."
+
+**⚠️ This lever improves the arm that is already 0.8434. It does not touch the port, so §3y's
+vehicle problem does not apply to it.** That is most of why it ranks first.
+
+#### The arms, and why there are four `fusion/band_ab.py`
+
+**§3z-4 below is this file's own lesson applied to itself:** a bundled change cannot say what it
+bought, so the two mechanisms are separated *before* the run.
+
+    A   band (0.20, 0.80), 12 slices -> 10 windows   the banked control, rebuilt in-run
+    B   band (0.12, 0.88), 12 slices -> 10 windows   COVERAGE only — same window count and TTA
+                                                     density, strictly more anatomy in frame
+    C   band (0.20, 0.80), 16 slices -> 14 windows   DENSITY only — same anatomy, more windows
+    D   A + B pooled per target                      the arm that would actually ship
+
+**B−A and C−A are one variable each.** DINOv3 changes both at once (16 slices *and* 0.12–0.88);
+this does not.
+
+**THE POOLING RULE FOR D IS FIXED IN CODE BEFORE ANY AUC EXISTS**, and it is §3d's *confirmed*
+mechanism — a focal finding appears in *some* windows so a mean dilutes it and a max does not —
+applied to the axis B actually moves:
+
+* **max(A, B)** — both menisci, Medial OA, Lateral OA, MCL: findings at the medial/lateral extremes,
+  which is precisely the anatomy B adds and A cannot see.
+* **A only** — ACL: intercondylar notch, the *centre* of the slice axis. B's extra windows are pure
+  out-of-distribution noise for it and must not dilute a label already at 0.919.
+* **mean(A, B)** — Effusion, Synovitis, Baker's, Contusion, Fracture, PF OA: diffuse, or anterior
+  rather than lateral.
+
+**§3b is unrepealed. This run may EVALUATE that rule; it may never CHOOSE it.** Retuning
+`pool_arm_d` after seeing these AUCs is the §3u error, and §3u is what it costs at a submission.
+
+#### Instrument, control, and the stop rule — all fixed here
+
+* **Control is arm A, rebuilt inside the same run**, never the historical 0.8488. This is §2o's
+  error class and §3w-2's vindication: `runs_port` reproduced at 0.7323 *exactly* because its
+  control was rebuilt rather than quoted.
+* **Primary instrument: the large-n OOF read** — `lixin_gpt56`, n≈550 non-gold, paired bootstrap
+  over studies (§2q: the unpaired SE read 1.9σ as 1.2σ). **Fold-resolved, not all-member** — a
+  memorised study is exactly where a wider band cannot help, so an all-member read is biased toward
+  *"the band does nothing"*, the expensive direction to be wrong in.
+* **⚠️ The primary instrument is biased AGAINST this arm, and that is recorded in advance.** §3l-2:
+  a model that sees better departs from the *report* precisely where the report was wrong. A null
+  on the report instrument is therefore **weaker evidence of failure** than it looks.
+* **Confirmatory: gold, n≈47, SIGN ONLY.** 58 studies can evaluate one fixed decision and can never
+  choose one (§3b). No re-draw, no seed to vary — fixed id order.
+
+**OUTCOMES, ALL FOUR COMMITTED TO NOW:**
+
+1. **B − A > 0, sign confirmed on gold** → coverage is real; pilkwang discards signal that is free
+   to recover. Next is a properly-powered read and then a submission — **priced against 0.908**.
+2. **B − A ≤ 0 but C − A > 0** → the lever is TTA *density*, not anatomy. Cheaper still and with no
+   OOD risk, but it is variance reduction and **§3v's sub-additivity applies in full**.
+3. **Both ≤ 0** → ⛔ **the band/count axis is CLOSED.** Record it and stop. This is worth as much as
+   a positive: it also refutes §3z-6's alternative explanation of the vehicle problem.
+4. **B − A > 0 but D ≤ A** → the arms do not combine and the pooling rule is wrong. **The rule may
+   not be retuned on this run.** Report it and re-register.
+
+**⛔ SUB-ADDITIVITY, PRE-STATED.** §3v measured TTA (+0.008) and `ft_b` (+0.015–0.020) delivering
+**+0.017 together**. D and any crop lever (§3z-5) are **both window-pool levers** and must be priced
+*jointly against 0.908*, never summed from separate runs.
+
+**Cost:** three cache builds + 20 members each. ⚠️ **Do not run against a live training job** —
+~4.9 GB (A/B) and ~6.5 GB (C) on a 17.2 GB box that already swaps at 336 (§2p, §2v).
+
+### 4. ⛔ §3y CONFOUNDS COVERAGE WITH RESOLUTION, AND IT IS STILL FIXABLE
+
+Found 08-18 while Stage 0 was running. `slot_cache.py`'s six `ANATOMICAL` slots are **not one
+treatment**:
+
+| slot | box | depth | what it changes |
+|---|---|---|---|
+| `sag_med`, `sag_lat` | **none — full 160 mm FOV** | **0.25 / 0.75** | **depth coverage only** |
+| `cor_med`, `cor_lat`, `ax_pf`, `sag_pf` | **84 mm** | 0.5 | **resolution only** |
+
+**§3y attributes a Stage 1 gain to resolution in advance** — *"84 mm boxes at 336 px = 0.25 mm/px
+against 0.48"* — but two of its six slots contain no box at all and buy **depth**, which is §3z-3's
+mechanism, not §3y's. **A gain would be unattributable as designed, and the two readings imply
+opposite follow-ups: build more crops, or sample more slices.**
+
+**Required before Stage 1 is read:** pre-register the 2-vs-4 split as a decomposition — an ablation
+over the two subsets, or the per-diagnosis attention mass `SlotHead` already computes over slots.
+It costs a paragraph now and an unattributable result later. **Stage 0 is unaffected** (six protocol
+slots, no anatomical slot involved) and is still running.
+
+### 5. §3d's POOLING RULE PUTS TWO OF OUR FIVE WORST LABELS ON "mean" `UNTESTED`
+
+§3d's per-target rule, inherited from `aadigupta7686` and **never fitted on our own data**:
+
+| pool | labels |
+|---|---|
+| max | Fracture, Contusion, both menisci, Baker's |
+| top-2 mean | ACL, MCL |
+| **mean** | **the three OA labels, Effusion, Synovitis** |
+
+**PF OA and Synovitis are two of the five labels §3x identifies as focal and losing** (0.866 and
+0.708), and both sit on the estimator §3d reserves for *diffuse* findings. PF OA was lumped with
+Medial and Lateral OA — both of which we win at ~0.99 — on the strength of the word "OA" rather
+than its anatomy: the patellofemoral compartment is a specific anterior location.
+
+**Cheap, config-only, and secondary to §3z-3.** ⚠️ If it is run: fit on the **4,407-study OOF**,
+never on gold-58. §3u is a rule fitted and scored on one source; §3b is why 58 studies cannot choose.
+
+### 6. THE VEHICLE PROBLEM MAY BE A SLICE-COVERAGE PROBLEM, AND THAT HAS NEVER BEEN CONSIDERED
+
+The port's input is **six tiles × three adjacent slices, every one at depth 0.5** — 18 slices, one
+position per series. pilkwang sees 12 per series across 10 windows. **That is a ~4× input deficit,
+and the port's weakness has been attributed throughout to *capacity*** (§2y closed it at 15.4σ; §3y
+calls it "the vehicle problem"; §3w tested a *backbone* swap and lost at 4.8σ).
+
+**Nobody has asked whether the port is weak because it sees a quarter of the volume.** It is an
+alternative hypothesis to capacity, it is cheaper to fix, and §3w-2 is a standing warning about how
+confidently the wrong explanation can be held.
+
+**§3y's Stage 1 partially tests this by accident** — `sag_med`/`sag_lat` are pure extra depths.
+Watch those two slots specifically, which is a second reason §3z-4's decomposition matters.
+**Not a claim. A hypothesis with a named test that is already funded.**
+
+### 7. THE BOARD SURVEY IS 5 DAYS OLD AND THE LAST ONE EXPIRED IN 24 HOURS
+
+§3l's survey is dated 08-13. **§3l-1 is the record of a survey that was true when written and false
+one day later** — the field went from "public ceiling reached" to a three-family vote overnight, and
+it reframed the whole project. The board has since moved to top 0.951 / prize 0.940 while F6 ran.
+
+**Re-survey before funding anything expensive. It is minutes and it can invalidate the rest of this
+section.** Standing rule, from §3l and re-earned here: *claims about the outside world expire.*
+
+### 8. ⛔ THIS SECTION IS A PRE-REGISTRATION, NOT A RESULT
+
+**Nothing in §3z-3 has been measured.** The trap table is §3l/§3n/§3s's, the per-label gaps are
+§3p's, the unguarded-knob finding is §3g's, and the pooling mechanism is §3d's. What is new is the
+*pattern across them* and a harness that can test it. §3z-1 and §3z-2 are rulings on framing;
+§3z-4 is a design defect in a live run; §3z-5, §3z-6 and §3z-7 are named, unfunded, and unmeasured.
+
+`fusion/band_ab.py` carries the decision rule in its docstring so it cannot drift from this file.
+`fusion/pilkwang_pixels.py` gained a `band` parameter, **verified byte-identical on its default for
+n = 3…399**, so the 20/20 fingerprint match and the §3i partition are untouched.

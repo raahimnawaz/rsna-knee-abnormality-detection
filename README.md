@@ -119,6 +119,48 @@ Twelve-label knee-MRI classification, macro-AUROC. Final submission **2026-10-22
 > (1.4 → 22 img/s instantaneous); `data/.metadata_never_index` was added to stop Spotlight
 > indexing the caches. Do not read the early `img/s` — it is a cumulative average.
 >
+> **⛔ AND §3y IS CONFOUNDED AS DESIGNED (§3z-4) — fix before Stage 1 is READ, not before it is
+> run.** Its six anatomical slots are two treatments, not one: `sag_med`/`sag_lat` have **no box**
+> and buy **depth coverage**; the other four have **no depth change** and buy **resolution**. §3y
+> attributes a gain to resolution in advance (0.25 vs 0.48 mm/px), and the two readings imply
+> opposite follow-ups. Pre-register the 2-vs-4 split as an ablation, or read the per-diagnosis
+> attention mass `SlotHead` already computes. **Stage 0 is unaffected** — protocol slots only.
+>
+> **3c. ▶️ NEXT, AND IT IS FREE: §3z — THE SLICE BAND.** Pre-registered 2026-08-18 before any
+> cache exists; harness is built and smoke-tested (`fusion/band_ab.py`). **Every arm that rivals
+> pilkwang looks at more of the volume than pilkwang does** — `ft_b` 32 slices/full stack, DINOv3
+> 16 at 0.12–0.88, against **our 12 at 0.20–0.80**. On sagittal the slice axis **is** medial–
+> lateral, so **the twenty members we ship have never seen the outer 20% of any sagittal stack** —
+> where **Lateral Meniscus (0.720, our worst label, gap +0.146)** lives. §3y's own `sag_lat` sits at
+> depth 0.75, just inside a band the members were never trained past.
+>
+> **Free, and the K19 trap cannot recur here:** §3g proved `fingerprint()` takes `img_size` and not
+> `SLICE_BAND`, and `SlotHead` has `slot_emb` (per-**slot**) with **no per-slice embedding**, so
+> there is no learned index to misalign. The only real risk is domain shift outside (0.2, 0.8),
+> which is the empirical question. **It improves the 0.8434 arm, so the vehicle problem does not
+> apply to it** — that is most of why it ranks first.
+>
+> ```
+> .venv/bin/python fusion/band_ab.py --n 600 --out data/_band_ab_n600.npz   # AFTER Stage 0 exits
+> .venv/bin/python fusion/band_ab.py --gold --out data/_band_ab_gold.npz    # sign only, §3b
+> ```
+>
+> ⚠️ **Do not run it while Stage 0 holds MPS** — ~4.9–6.5 GB of cache on a 17.2 GB box that already
+> swaps at 336. **Four arms, because coverage and density are separated on purpose (§3z-3):**
+> A = control rebuilt in-run · B = wider band, **coverage only** · C = more slices, **density
+> only** · D = A+B pooled per target, the shippable arm. **`pool_arm_d` is fixed in code and §3b
+> forbids retuning it on this run.** All four outcomes are committed to in §3z-3, including
+> "both ≤ 0 → the axis is closed".
+>
+> **⛔ AUPRC IS THE WRONG CURRENCY (§3z-1). Do not optimise for it.** The metric is macro-AUROC;
+> the host states prevalence differs train→public→private; **AUROC is prevalence-insensitive within
+> a label and AUPRC is not**, so a local AUPRC gain has no stable relation to the private LB. Legit
+> as a *diagnostic* of where in a ranking a label fails; never as a gate or objective.
+>
+> **📐 0.965 = ORACLE-PARITY, and it beats the current leader (§3z-2).** It equals closing every gap
+> to a teacher that reads the report at test time, which §3p calls unattainable — against a board
+> top of **0.951**. **Plan against the 0.940 prize line: gap 0.032, 65 days.**
+>
 > **4. 🎯 WHERE THE SCORE ACTUALLY IS — `IMPROVEMENTS.md` §3x, new 08-17. A DECOMPOSITION, NOT A
 > RESULT.** §3p's seven positive gaps sum to **+0.047 macro**, so **gold 0.916–0.927 → LB
 > 0.955–0.966**: *"reach 0.965"* and *"close every gap to the report teacher"* are the same
