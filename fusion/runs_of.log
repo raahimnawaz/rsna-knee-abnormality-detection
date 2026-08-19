@@ -1,0 +1,31 @@
+  loading features 500/4,407 (1s)  loading features 1,000/4,407 (2s)  loading features 1,500/4,407 (3s)  loading features 2,000/4,407 (4s)  loading features 2,500/4,407 (5s)  loading features 3,000/4,407 (6s)  loading features 3,500/4,407 (7s)  loading features 4,000/4,407 (8s)  loading features 4,407/4,407 (9s)
+  4,407 studies / 24,371 series resident, 2.80 GB fp16
+device mps · 4,407 studies with features · labels pseudo_labels.csv
+  fold 0: trained on 3,474, predicted 882
+  fold 1: trained on 3,481, predicted 882
+  fold 2: trained on 3,482, predicted 881
+  fold 3: trained on 3,478, predicted 881
+  fold 4: trained on 3,481, predicted 881
+
+==============================================================
+OOF on 58 gold studies (pooled across folds)
+==============================================================
+label              n_pos      AUC
+ACL                   24    0.752
+MCL                    9    0.673
+Medial Meniscus       26    0.825
+Lateral Meniscus      23    0.718
+Medial OA             15    0.950
+Lateral OA            11    0.807
+PF OA                 21    0.735
+Effusion              35    0.872
+Synovitis             27    0.679
+Baker's               12    0.830
+Contusion             19    0.773
+Fracture              18    0.839
+---------------------------------
+MACRO                       0.788
+
+1002s on mps
+n=58 with 9-35 positives per label: the +-0.038 bootstrap CI from IMPROVEMENTS.md 0 applies here too.
+Do not read a macro difference under ~0.04 as real.

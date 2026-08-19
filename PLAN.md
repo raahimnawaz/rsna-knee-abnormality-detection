@@ -1232,7 +1232,34 @@ check passed at 4,407/4,407 *while a truncated file sat in the cache*, because a
 file. **Verify by loading, never by listing.**
 
 
-⚠️ **Strength is still unmeasured. Nothing below strength has been established** — §4b's rule is screen on
+**⛔ STRENGTH IS MEASURED AND THE ARM FAILS ITS PRE-REGISTERED GATE. `MEASURED 2026-08-19`**
+`fusion/runs_of`, 5 folds, 4,407 studies, 1,002 s on MPS, scored by `score_oof.py` on the large-n
+instrument (n=4,349, gold excluded) exactly as §9e requires:
+
+| | macro | vs 0.7229 baseline |
+|---|--:|--:|
+| **`runs_of`** (OrthoFoundation-L, frozen, 2048-d) | **0.7710 ± 0.0032** | +0.0481 (8.3σ) |
+| `runs_pilkwang` (the banked ensemble) | **0.8469 ± 0.0024** | +0.1240 (23.1σ) |
+
+**PAIRED on the 4,407 studies both cover: `pilkwang − of` = +0.0759 ± 0.0027, 27.6σ, P = 1.000,
+and 12 of 12 labels.** §4b's bar is parity, arms below ~0.83 lost, and 0.7710 is not near it.
+**Park it. The stop rule is not being renegotiated after the fact (§3u, §3z-3).**
+
+**⚠️ AND THE NUMBER IS DIAGNOSTIC OF SOMETHING LARGER THAN THIS ARM.** OrthoFoundation-L is the
+best-matched encoder this project has ever had — DINOv3-L continued-pretrained on 1.25 M knee
+images, 2048-d, domain-matched, 3D-adjacent — and it landed at **0.7710**, inside the band every
+model TRAINED HERE occupies (port 0.7323, our R50 0.6924, Workstream C 0.6924) and nowhere near the
+band every model DOWNLOADED occupies (pilkwang 0.8469, `ft_b` 0.8522, RadImageNet 0.8514).
+
+**Five encoders have now been swapped and the band has not moved.** That is no longer an encoder
+question. §3i-3 already measured what the two bands actually differ by: the downloaded arms are
+scored from *their own* `oof.npz`, computed on *their* DICOM path, while everything trained here is
+trained on **our** pixel corpus — which carries a reconstruction residual of **0.0168 against a
+~1e-5 floor, ≈34% of fully scrambled**. **§3i-4's header-only CPU kernel is the open blocker, and
+it is upstream of every cache on disk, this one included.**
+
+
+⚠️ ~~Strength is still unmeasured~~ **— SUPERSEDED by the measurement above. The rule it states still binds** — §4b's rule is screen on
 **strength** first ([[diversity-is-not-the-constraint]]), and the gate is §9e's pre-registered one,
 on the 4,407-study OOF, never gold-58.
 
