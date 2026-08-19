@@ -156,7 +156,33 @@ ANATOMICAL = [
     Slot("sag_pf", "Sagittal", 1, box_mm=84.0, centre_mm=(-10.0, -30.0)),
 ]
 
-BY_NAME = {s.name: s for s in PROTOCOL + ANATOMICAL}
+# --- the FORK's six, for the §2y-2 reproduction. `2026-08-19`
+#
+# ⛔ TWO THINGS HERE DIVERGE FROM `PROTOCOL` AND BOTH ARE THE POINT. `contract_audit.py` read the
+# config that produced the fork's 0.8398 out of `pilkwang_weights/manifest.json` and found this
+# file supplying neither:
+#
+#   1. box_mm = 130, not the full 160 mm field. At 336 px that is 0.387 mm/px against our 0.476 --
+#      23% finer, on exactly the millimetre-scale labels §3x and `resolution-ceiling-k17-k19`
+#      measure us losing. This file's own line 27 says a tear line at 160 mm/336 px is about one
+#      pixel wide.
+#   2. The split is (plane x fluid x FAT-SAT), which competition metadata cannot express --
+#      `Fluid_Sensitive` and `Fat_Suppression` are byte-identical over all 24,371 series
+#      (FINDINGS.md 3.1). So the series for each slot is NOT derivable from `train_series.csv` and
+#      is read per study from `data/slots_pilkwang.csv`, which `slot_assign_pilkwang.py` already
+#      built for all 4,407 studies off the DICOM-header parquet.
+#
+# `fluid` is carried for grouping/provenance only; the assignment is the CSV's, never a rule here.
+PILKWANG = [
+    Slot("SAG_FLUID_FS", "Sagittal", 1, box_mm=130.0),
+    Slot("COR_FLUID_FS", "Coronal", 1, box_mm=130.0),
+    Slot("AX_FLUID_FS", "Axial", 1, box_mm=130.0),
+    Slot("SAG_FLUID_NOFS", "Sagittal", 1, box_mm=130.0),
+    Slot("COR_T1", "Coronal", 0, box_mm=130.0),
+    Slot("SAG_T1", "Sagittal", 0, box_mm=130.0),
+]
+
+BY_NAME = {s.name: s for s in PROTOCOL + ANATOMICAL + PILKWANG}
 
 
 # Flags that change what a tile CONTAINS rather than which tiles exist. Two caches that
@@ -228,6 +254,8 @@ def slot_set(which: str) -> list[Slot]:
         return list(PROTOCOL)
     if which == "anatomical":
         return list(ANATOMICAL)
+    if which == "pilkwang":
+        return list(PILKWANG)
     if which == "all":
         return PROTOCOL + ANATOMICAL
     names = [n.strip() for n in which.split(",") if n.strip()]
@@ -342,7 +370,7 @@ def build(which: str, limit: int | None, out_dir: Path, workers: int) -> None:
     # trusting that a zero tile is black anatomy. Axial non-FS exists for only 971 of the series
     # on disk, so this is the common case, not a corner one.
     out_dir.mkdir(parents=True, exist_ok=True)
-    tag = which if which in ("protocol", "anatomical", "all") else "custom"
+    tag = which if which in ("protocol", "anatomical", "pilkwang", "all") else "custom"
 
     # --- guard 3: refuse to write a cache that cannot be fed to one model alongside the caches
     # already sitting in this directory. Checked HERE, before the first NIfTI read, because after
@@ -362,9 +390,39 @@ def build(which: str, limit: int | None, out_dir: Path, workers: int) -> None:
     # Group the slots by the series they read, so a study opens each .nii once no matter how
     # many tiles come out of it. sag_fs, sag_med, sag_lat and sag_pf are four tiles from one
     # file; reading it four times would quadruple the only expensive step.
-    by_series: dict[tuple[str, int], list[tuple[int, Slot]]] = {}
-    for j, s in enumerate(slots):
-        by_series.setdefault((s.plane, s.fluid), []).append((j, s))
+    # ⛔ THE KEY IS THE SERIES, NOT (plane, fluid) `2026-08-19`. It used to be the pair, which is
+    # fine while a slot's series FOLLOWS from it -- true for PROTOCOL and ANATOMICAL. It is false
+    # for the fork's set: SAG_FLUID_FS and SAG_FLUID_NOFS are both (Sagittal, 1) and resolve to
+    # DIFFERENT series, because they split on fat-suppression, which the competition metadata
+    # cannot express (FINDINGS.md 3.1). Keyed on the pair, one of them would silently overwrite
+    # the other's tile and the cache would look complete.
+    pilk = None
+    if which == "pilkwang":
+        _p = pd.read_csv(D / "slots_pilkwang.csv")
+        pilk = {(r.StudyInstanceUID, r.slot): r.SeriesInstanceUID
+                for r in _p.itertuples(index=False)}
+        print(f"  slot assignment: {len(pilk):,} (study, slot) pairs from slots_pilkwang.csv "
+              f"-- the fork's own split, NOT a rule in this file")
+
+    def groups_for(st: str, rows: pd.DataFrame) -> list[tuple[str, str, list]]:
+        """One study -> [(series_uid, plane, [(slot_index, Slot), ...]), ...].
+
+        Still one open per .nii: slots sharing a series are grouped, which is what makes
+        sag_fs/sag_med/sag_lat/sag_pf four tiles from one read rather than four reads.
+        """
+        out: dict[str, tuple[str, list]] = {}
+        for j, s in enumerate(slots):
+            if pilk is not None:
+                se = pilk.get((st, s.name))
+                if se is None:
+                    continue
+            else:
+                m = rows[(rows.Anatomical_Plane == s.plane) & (rows.Fluid_Sensitive == s.fluid)]
+                if m.empty:
+                    continue
+                se = m.SeriesInstanceUID.iloc[0]     # first matching series; protocols repeat
+            out.setdefault(se, (s.plane, []))[1].append((j, s))
+        return [(se, pl, mem) for se, (pl, mem) in out.items()]
 
     t0 = time.time()
     n_tiles = 0
@@ -373,11 +431,7 @@ def build(which: str, limit: int | None, out_dir: Path, workers: int) -> None:
     for i, st in enumerate(studies):
         rows = ser[ser.StudyInstanceUID == st]
         side = lat.get(st, (None, "none"))
-        for (plane, fluid), members in by_series.items():
-            m = rows[(rows.Anatomical_Plane == plane) & (rows.Fluid_Sensitive == fluid)]
-            if m.empty:
-                continue
-            se = m.SeriesInstanceUID.iloc[0]        # first matching series; protocols repeat
+        for se, plane, members in groups_for(st, rows):
             p = path_of.get((st, se))
             if p is None:
                 continue
@@ -400,7 +454,8 @@ def build(which: str, limit: int | None, out_dir: Path, workers: int) -> None:
                     p, plane=plane, laterality=side[0], laterality_source=side[1],
                     slice_direction=dirn)
             except Exception as e:                                     # noqa: BLE001
-                print(f"    ! {st[:16]} {plane}_{fluid}: {type(e).__name__} {str(e)[:50]}")
+                print(f"    ! {st[:16]} {plane} {[s.name for _, s in members]}: "
+                      f"{type(e).__name__} {str(e)[:50]}")
                 continue
             if vol is None:
                 continue
