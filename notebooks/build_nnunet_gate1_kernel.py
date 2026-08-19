@@ -44,10 +44,11 @@ SRC = r'''
 # Either alone would probably do. Both cost nothing and this kernel is not cheap to re-run.
 import subprocess, sys, time, os, textwrap
 t0 = time.time()
-import numpy
-NP = numpy.__version__
-print(f"pinning numpy=={NP} (the image's own) so the install cannot swap it", flush=True)
-subprocess.run([sys.executable, "-m", "pip", "install", "-q", "nnunetv2", f"numpy=={NP}"], check=True)
+# NO numpy pin. v2 pinned numpy to the image's 2.0.2 and the subprocess died in 0.1 s: nnunetv2's
+# compiled deps (blosc2, acvl_utils, batchgeneratorsv2) ship wheels built against a NEWER numpy, so
+# forcing the old one is a binary mismatch at import. The subprocess guard ALONE already fixes v1 --
+# a fresh interpreter imports whatever pip left, consistently. The pin was redundant and harmful.
+subprocess.run([sys.executable, "-m", "pip", "install", "-q", "nnunetv2"], check=True)
 print(f"[{time.time()-t0:6.1f}s] nnunetv2 installed", flush=True)
 
 WORK = textwrap.dedent("""
@@ -111,9 +112,16 @@ WORK = textwrap.dedent("""
               open("/kaggle/working/gate1_result.json", "w"), indent=2)
 """)
 open("/kaggle/working/g1_work.py", "w").write(WORK)
-r = subprocess.run([sys.executable, "-u", "/kaggle/working/g1_work.py"])
-print(f"[{time.time()-t0:6.1f}s] work subprocess exited {r.returncode}", flush=True)
-sys.exit(r.returncode)
+# STREAM the child's output. v2 inherited its fds and papermill captured nothing, so a subprocess
+# that died in 0.1 s reported only "exited 1" with no traceback -- blind. Never again: merge stderr
+# into stdout and pump it line by line, so a failure explains itself in the log.
+proc = subprocess.Popen([sys.executable, "-u", "/kaggle/working/g1_work.py"],
+                        stdout=subprocess.PIPE, stderr=subprocess.STDOUT, text=True, bufsize=1)
+for line in proc.stdout:
+    print(line.rstrip(), flush=True)
+rc = proc.wait()
+print(f"[{time.time()-t0:6.1f}s] work subprocess exited {rc}", flush=True)
+sys.exit(rc)
 '''
 
 
