@@ -2907,6 +2907,47 @@ scored locally. That is the missing measurement: not a residual, an **AUROC**. I
 **Until that number exists, the cause of the band gap is UNIDENTIFIED.** [[loss-curve-is-not-evidence]]
 in a new dress: a real measurement (the residual) was made to answer a question it does not address.
 
+### 3i-7. THE MEMORISATION PROBE IS SENSITIVE, AND ITS DYNAMIC RANGE IS TOO SMALL TO SETTLE THE QUESTION `MEASURED 2026-08-19`
+
+`fusion/pixel_fidelity.py`, 20 members × 47 gold studies × 3 arms, ~46 min. The design: their
+`annot` cannot be the reference (every member trained on 4/5 of the corpus, so member
+`44128e3ff3` reads **0.9960** against a declared 0.8669 — memorisation, and the fold map is not
+recoverable, §2y). So recognition of training data becomes the probe, calibrated internally.
+
+| arm | mean | vs `none` |
+|---|--:|--:|
+| **`none`** — our decode | **0.9774** | — |
+| `permute` — slice order scrambled per series | 0.9673 | **+0.0102 ± 0.0010, 10.3σ, 20/20** |
+| `reverse` — whole stack flipped | 0.9768 | +0.0007 ± 0.0005, 1.5σ, 13/20 |
+
+**✅ TWO THINGS ARE ESTABLISHED.** The probe **works** — 20/20 members prefer our order at 10.3σ,
+so our decode is not producing noise and these weights do recognise our pixels. And **reversal is a
+null**: +0.0007 at 1.5σ, which independently corroborates K16's measured smallness (+0.0035 on the
+port, §2y-2) and §3g's argument that a symmetric band maps the sampled set to itself.
+
+**⛔ AND IT DOES NOT ANSWER THE QUESTION IT WAS BUILT FOR. The two defensible extrapolations
+disagree by 7× and bracket the answer:**
+
+    absolute delta transfers      0.0102   -> an order of magnitude too small to be the band
+    headroom FRACTION transfers   45% of headroom; at 0.847 that is 0.0689 -> IS the band
+
+At 0.9774 the metric is saturated: total headroom is 0.0226, and destroying slice order entirely
+consumes 45% of it. **A probe whose full dynamic range is 0.0102 cannot discriminate "faithful"
+from "costs 0.076".** It can only detect gross breakage, and it correctly reports none.
+
+**⛔ A `permute33` ARM WAS PLANNED AND IS CANCELLED, because it answers the wrong uncertainty.**
+It would locate us on the scramble scale (§3i-3 put us at 34% of scrambled *in residual terms*);
+but the binding uncertainty is **regime transfer**, not position on that scale, and interpolating
+inside a saturated range does not fix a saturated range. Running it would have produced a precise
+number that changes no decision — §3w-2's error in a new costume.
+
+**WHAT ACTUALLY SETTLES IT IS PHASE C, WHICH WAS ALREADY QUEUED.** If the reproduction reaches
+~0.84 **on our pixels**, the pixel hypothesis is dead by demonstration and no extrapolation is
+needed. If it misses, pixels re-enter as a live candidate with §3i-4's CPU kernel as the next step.
+**A direct measurement in the target regime beats any amount of extrapolation from a saturated one**
+— [[measure-in-the-target-currency]], which is the memory that already says exactly this.
+
+
 ### 3i-4. The fix is one Kaggle CPU kernel, and it is not GPU quota
 
 Export, per series, the permutation that sorts slices by `k = p · (r_x × r_y)` — the fork's own
