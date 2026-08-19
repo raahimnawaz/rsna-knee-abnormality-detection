@@ -57,6 +57,21 @@ t0 = time.time()
 print(f"numpy {np.__version__} | torch {torch.__version__} | cuda {torch.cuda.is_available()} "
       f"| {torch.cuda.get_device_name(0) if torch.cuda.is_available() else 'CPU'}", flush=True)
 
+# FAIL FAST ON THE GPU. v4 answered this question only after installing, downloading 816 MB and
+# loading the model -- 58 s to learn the device could not run a conv3d. Five seconds now instead.
+if torch.cuda.is_available():
+    print("arch list: " + str(torch.cuda.get_arch_list())
+          + " | capability " + str(torch.cuda.get_device_capability(0)), flush=True)
+    try:
+        _x = torch.zeros(1, 1, 8, 8, 8, device="cuda")
+        _c = torch.nn.Conv3d(1, 1, 3, padding=1).cuda()
+        _ = _c(_x); torch.cuda.synchronize()
+        print("conv3d smoke test OK on cuda", flush=True)
+    except Exception as e:
+        print("CONV3D SMOKE TEST FAILED: " + type(e).__name__ + ": " + str(e)[:200], flush=True)
+        print("the installed torch has no kernels for this device -- pin the image's torch", flush=True)
+        raise SystemExit(3)
+
 REPO = "aagatti/nnunet_knee"
 M = "models/Dataset500_KneeMRI/nnUNetTrainer__nnUNetResEncUNetMPlans__3d_fullres"
 root = "/kaggle/working/model"
@@ -128,7 +143,16 @@ import subprocess, sys, time
 
 t0 = time.time()
 # No numpy pin: v2 pinned it and nnunetv2's compiled deps are built against a newer numpy.
-subprocess.run([sys.executable, "-m", "pip", "install", "-q", "nnunetv2"], check=True)
+# But torch IS pinned. v4 let pip replace the image's torch with a PyPI build carrying no kernels
+# for the T4's sm_75, and it died at the first conv3d with
+#   "CUDA error: no kernel image is available for execution on the device"
+# after paying the full install + 816 MB download + model load. The image's torch is the one built
+# for this hardware, so pin it and let pip solve around it.
+import torch as _t
+TORCH = _t.__version__.split("+")[0]
+print(f"pinning torch=={TORCH} (the image's, built for this GPU)", flush=True)
+subprocess.run([sys.executable, "-m", "pip", "install", "-q", "nnunetv2", f"torch=={TORCH}"],
+               check=True)
 print(f"[{time.time()-t0:6.1f}s] nnunetv2 installed", flush=True)
 
 open("/kaggle/working/g1_work.py", "w").write(WORK)
