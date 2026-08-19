@@ -4,420 +4,207 @@ Twelve-label knee-MRI classification, macro-AUROC. Final submission **2026-10-22
 
 ---
 
-## START HERE — state as of 2026-08-17
+## START HERE — state as of 2026-08-19
 
 > # ⏭️ PICK UP HERE
 >
-> ## 🔴 SESSION HANDOFF — 2026-08-18, three things are IN FLIGHT. Read this first.
+> **LB 0.914** (kernel `rsna-knee-f6-three-arm-blend-radimagenet` v2, submission `55608011`,
+> 08-18 20:13 UTC). Banked before it: 0.908. **64 days to 2026-10-22.**
 >
-> ### A. ✅ SCORED **0.914** — the arm earned its slot, at HALF the predicted gain
+> | | |
+> |---|---|
+> | our score | **0.914** |
+> | every public ensemble kernel | **0.917 – 0.922** (Tony Li 0.922, Angeli 0.920, Atar 0.920, Desale 0.920) |
+> | the actual leaders | **0.942 – 0.952**, and they publish nothing |
+> | prize line (10th) | 0.941 |
 >
-> **`raahimnawaz/rsna-knee-f6-three-arm-blend-radimagenet`, version 2.** Three families:
-> pilkwang + `ft_b` + the public RadImageNet arm (§4c, +0.0146 gold / +0.0160 at 4.4σ large-n).
-> Built by **`notebooks/build_f6_rad_kernel.py`** — never hand-edit the notebook, rebuild and push.
+> Measured over all 1,992 board rows on 08-19: **every publisher runs the same 22 M dinov2-small
+> forked from the same baseline.** So the public ceiling is 0.922, blending more public arms lands
+> inside it *by construction*, and there is no 0.94 kernel to fork. Getting above 0.922 requires an
+> arm we build. Which is the problem below.
+>
+> ---
+>
+> ## ⛔ THE ONE FINDING THAT SHOULD DRIVE EVERY DECISION: FIVE ENCODERS, ONE BAND
+>
+> **On the large-n report-OOF instrument, one instrument throughout (§9e):**
+>
+> | | macro | |
+> |---|--:|---|
+> | our RadImageNet R50 (§3w-2) | 0.6924 | trained here |
+> | the port, dinov2-small (§2q) | 0.7323 | trained here |
+> | port + `SAGITTAL_LR=1` (§3y-3) | 0.7358 | trained here |
+> | **OrthoFoundation-L** (§C-5) | **0.7710** | trained here |
+> | **pilkwang, the banked ensemble** | **0.8469** | **downloaded, scored from *their* `oof.npz`** |
+>
+> OrthoFoundation-L is a **303 M DINOv3-L continued-pretrained on 1.25 M knee images** — the
+> best-matched encoder this project has ever had, 14× the parameters of what the field runs. It
+> landed at 0.7710, **inside the band everything trained here occupies.** Paired on the 4,407
+> studies both cover: **pilkwang − of = +0.0759 ± 0.0027, 27.6σ, 12 of 12 labels.**
+>
+> **Five encoders have been swapped and the band has not moved. The encoder is not the variable.**
+> Something in *our* harness costs ~0.07, and it is upstream of every arm we have ever trained.
+>
+> ### ⚠️ AND THERE IS A MIDDLE BAND, WHICH IS THE MOST INFORMATIVE PART
+>
+> Two sets of **downloaded** weights have been re-run through **our** pixel path rather than read
+> from their own OOF. On gold-47 (a *different, noisier* instrument — ±0.031, do not difference it
+> against the column above):
+>
+> | | gold-47 | |
+> |---|--:|---|
+> | pilkwang / `ft_b` / public RadImageNet | 0.8516 / 0.8522 / 0.8486 | their own OOF, their pixels |
+> | **DINOv3** (§3t) | **0.8025** | **their weights, OUR pixels** |
+> | **tonylica** (§3q) | **0.7880** | **their weights, OUR pixels** |
+>
+> **Weights that score 0.85 in their authors' hands read 0.79–0.80 in ours.** That is the closest
+> thing to a controlled read on the harness, and it points at the pixel/inference path rather than
+> at training alone. ⚠️ **It is not clean** — both went through `fold_recover.py`, whose
+> misassignment biases **upward** (so these are ceilings), and neither arm's true strength is
+> independently known here. **Treat it as the strongest available hint, not as a measurement.**
+>
+> **⛔ Every LB point this project has ever scored came from someone else's weights**
+> (0.891 forked → 0.899 → 0.908 → 0.914). Nothing self-built has ever shipped. That is the
+> constraint to break, and it is the only route above 0.922.
+>
+> ---
+>
+> ## ▶️ NEXT, AND IT IS THE ONLY THING QUEUED: PHASE C
+>
+> **`fusion/train_port.py` is written for it and has never been run.** It trains the fork's own
+> model object, at their epochs, without their prior, at their `crop_mm` — the first faithful
+> reproduction attempted here.
+>
+> **⚠️ It needs a cache that does not exist in either `tiles336` or `tiles336_lr1`** — both are the
+> 160 mm PROTOCOL grid. `slot_cache.py` grew a `PILKWANG` slot set on 08-19 (the fork's six at
+> **`box_mm=130`**, keyed on the assigned **series** rather than `(plane, fluid)`, read per study
+> from `data/slots_pilkwang.csv`). **A full build was launched 08-19 12:18 — check whether it
+> finished before rebuilding.**
 >
 > ```
-> .venv/bin/python -m kaggle kernels status raahimnawaz/rsna-knee-f6-three-arm-blend-radimagenet
-> .venv/bin/python -m kaggle kernels output raahimnawaz/rsna-knee-f6-three-arm-blend-radimagenet -p <dir>
+> # 1. the 130 mm cache, fork slots. Fresh dir: the sibling flag-compat check in slot_cache
+> #    is what stops a 130 mm tile sitting next to a 160 mm one under the same manifest.
+> caffeinate -i .venv/bin/python pipeline/slot_cache.py --slots pilkwang \
+>     --out data/tiles336_pilkwang --workers 4
+>
+> # 2. the gate. Run it BEFORE and AFTER — it is the instrument §2y-2 was written around.
+> .venv/bin/python fusion/contract_audit.py
+>
+> # 3. the reproduction. EPOCHS is 30 (median of the members' 20-60, not their notebook's 10),
+> #    SLOT_PRIOR_STRENGTH is 0.0 (`prior: false`), and the model object is pilkwang's own.
+> caffeinate -i .venv/bin/python fusion/train_port.py --cache data/tiles336_pilkwang \
+>     --tag pilkwang --backbone pilkwang --run-folds 0 --out fusion/runs_phasec --verbose
+>
+> .venv/bin/python fusion/score_oof.py fusion/runs_phasec fusion/runs_port
 > ```
 >
-> **⛔ BEFORE SUBMITTING, GREP THE LOG FOR `rad:`. It must say `blended 3 families`.** If it says
-> `2 families`, a guard refused the arm and the file is just the banked 0.908 path — submitting it
-> gains nothing and burns a submission.
+> ⚠️ Long runs go under `caffeinate -i` — ~2 of fold 0's 3.6 h were once *asleep* (§2v). The cache
+> pages in cold for ~100 steps; do not read the early `img/s`, it is a cumulative average.
 >
-> **✅ THAT CHECK HAS RUN — 2026-08-18 13:09, version 2, `KernelWorkerStatus.COMPLETE` in 132 s.**
-> The log reads `blended 3 families at equal weight: pilkwang + ft_b(3/3) + rad(3/3)`, and every
-> upstream guard passed with it: **20/20 pilkwang members fingerprint-match within 4.6e-06**, all
-> **5 `ft_b` folds strict-OK**, `rad` **6/6 SHA-256 verified, 8/8 slots filled, pixel contract
-> restored**, `submission.csv` **(3, 13), nulls 0**. No warnings in the log beyond nbconvert
-> boilerplate. **The slot-filter fix works and the arm shipped. This file is submittable.**
+> **It is the experiment that discriminates, and both outcomes are decisive:**
 >
-> **✅ AND IT IS SUBMITTED — `55608011`, 2026-08-18 20:13 UTC, 4 submissions left that day.**
-> ⚠️ **This is a CODE competition: submit the KERNEL, never the file.** The in-notebook
-> `submission.csv` is 3 rows off the dummy test set; Kaggle re-runs the kernel on the hidden 1,322
-> studies (~2 h of the 30 h weekly quota, §3e). The command that worked:
-> `kaggle competitions submit rsna-knee-abnormality-detection -k <kernel> -v 2 -f submission.csv -m ...`
-> **✅ RESULT: 0.914** (banked 0.908, predicted 0.921). **The arm is real — +0.006 — and the
-> prediction was optimistic by the same amount.** It landed short and the cause is where this
-> file said to look: **§4b's debias/offset chain, not the arm.** See `IMPROVEMENTS.md` §4c-4.
-> ⛔ **Standing correction: price a future arm's LB gain at ~HALF its gold gain.** Gold +0.0135
-> and large-n +0.0102 at 8.8σ both delivered +0.006 shipped.
+> * **Reaches ~0.84** → the harness is fine, the config was wrong, this project can build arms.
+>   Everything parked below becomes fundable, and the 0.922 ceiling is no longer binding.
+> * **Misses** → the config was not the cause, the pixel path re-enters as the live candidate, and
+>   **§3i-4's header-only CPU kernel is the next step** — it is upstream of every cache on disk.
 >
-> ⚠️ Only soft note: `rad: prob mean 0.3985 std 0.2671` against a local reference of `0.345/0.261`.
-> **On a 3-study dummy set that is noise** — the std matches to 0.006 — but if a full run ever shows
-> the same +0.05 offset on 1,322 studies, that is a calibration drift worth reading.
+> **Nothing else should be funded until this number exists.** Every parked item is downstream of
+> knowing whether a model trained here can reach the downloaded band.
 >
-> **v1 ALREADY FAILED THAT WAY, and the guard is why we know.** Log read:
-> `rad: slot order [] != ['SAG_FLUID_FS', ...]; refusing the arm`. The notebook's `SLOTS` entries
-> are **4-tuples `(name, plane, fluid, fat_sat)`, not strings**, so the filter matched nothing.
-> The model half was perfect — all 6 SHA-256 verified, 3,174,924 params — and the arm still
-> correctly refused rather than blending a wrongly-conditioned tensor. **Fixed in v2 (`s[0]`).
-> Keep the guard; it earned its place on its first run.**
+> ### The two live explanations for the band
 >
-> ⚠️ **The in-notebook run sees a ~3-study dummy test set**, so a 4-line `submission.csv` is normal
-> and tells you nothing about coverage. The log lines are the signal.
+> ⚖️ **The middle band above leans toward (2); Phase A's five divergences are hard evidence for
+> (1). Phase C is the one run that separates them, which is why it outranks everything.**
 >
-> ### B. ⏳ ORTHODIFFUSION — STAGE 0 HALF DONE (`PLAN.md` §C-3, §C-3.2b)
+> **1. Config divergence — five concrete, documented defects (§2y-2, Phase A, 08-19).** `contract_audit.py`
+> diffed `pilkwang_weights/manifest.json` (mean holdout **0.8398**) against the live constants.
+> Six fields agree, **five do not**:
 >
-> **Recipe is READ, from their code, and none of it was guessable** — input `[1, 16, 256, 256]`,
-> centre-crop depth to 16, resize 256² bilinear, **per-volume min-max → [−1,+1]** (a new trap-table
-> row; everything else here uses a 1/99 percentile), loaded by bare `nib.load` — **which is exactly
-> how `data/nifti/nifti_train` already stores 19,859 series.** Features are intermediate denoising
-> activations: linear probe `timestep 100 / mid_2`; 3-pose fusion **`timestep 200,150,50`,
-> `blockname mid_0,mid_0,mid_2`** — different per orientation.
->
-> **⛔ BLOCKER BEFORE STAGE 1: which `pose_id` is which plane is UNRESOLVED.** It comes from a
-> per-file CSV, not a constant, and the checkpoints are named `sagittal/coronal/axial`. Feeding a
-> plane its neighbour's timestep runs perfectly and scores wrongly (§9h). **Resolve first.**
->
-> **What is left in Stage 0:** pull the 1.66 GB from `hf://models/lanstat0123/orthodiffusion`, load
-> one, emit a feature for one study. Transcribe from `linear_fusion.py` (the 3-plane version),
-> `linear_classifier.py`, `pooling.py`. Repo cloned notes in §C-3.2b. **MIT, verified in `LICENSE`.**
->
-> ### C. ✉️ THE AUTHORS WERE EMAILED 2026-08-18
->
-> Dingyu Wang (`wang_dingyu@pku.edu.cn`), cc Dong Jiang — the two corresponding authors on **both**
-> OrthoDiffusion and OrthoFoundation. Asks whether **OrthoFoundation's weights** will be released
-> (still none) and asks them to **confirm MIT permits competition use**. **A reply may be waiting.**
->
-> ### D. STILL OPEN, IN PRIORITY ORDER
->
-> 1. **✅ §3z-4's confound — FIXED 2026-08-18.** The decomposition is pre-registered in
->    `IMPROVEMENTS.md` §3z-4: three masked reads (FULL / −DEPTH / −BOX) off the one Stage 1
->    checkpoint, **no retraining** — `SlotHead.forward` already takes a slot mask and training runs
->    `slot_dropout=0.2`, so a masked read is in-distribution in kind. **Writing it turned up two
->    things the section's own table got wrong:** (a) **`sag_pf` is listed as a "resolution" slot but
->    shares the *sagittal-series* availability of the two depth slots** — `has_sag_med ==
->    has_sag_lat == has_sag_pf` on all 3,599 studies — so an unrestricted read silently compares a
->    4-slot arm against a **3-slot** arm on 216 of them; hence **all reads are paired on the 3,254
->    studies with all six slots present**. (b) **Handedness stays confounded with depth** —
->    `needs_direction=True` on exactly `sag_med`/`sag_lat`, and the bit is **50.4% reversed**, so it
->    is doing real work. **A Stage 1 depth gain still may not be cited for `SAGITTAL_LR=1`**, and
->    there is **no non-flipped anatomical cache** to test it against — only `tiles336_lr1` has one.
-> 2. **§3z — `fusion/band_ab.py` is BUILT and UNRUN.** MPS is free. 3 cache builds; do not run it
->    beside a training job.
-> 3. **🆕 `aagatti/nnunet_knee` IS NOW FUNDED — `PLAN.md` §C-4, pre-registered 08-18.** MIT, verified
->    on the Hub. **Funded as an OFFLINE CALIBRATOR only** — run once over training studies, fit
->    §3y's `centre_mm`/`box_mm` from real anatomy, ship *calibrated fixed boxes*. It never touches
->    the scored path, so §10's ruling that an nnU-Net 3D cascade is unaffordable at inference does
->    not bind it. ⚠️ `fold_1` only, not the 5-fold ensemble. Gate 1 is free (they ship their own
->    `test_prediction.nii.gz`); **Gate 2 is the real risk and must be read per plane × sequence**,
->    since OAI-ZIB is DESS sagittal and this corpus is clinical multi-protocol.
->    **🆕 It may also dissolve §3z-4's handedness blocker** — medial/lateral meniscus are
->    distinguishable in a mask, giving a second independent instrument on that axis with **no cache
->    rebuild**, where §2n left the measured K16 bit with no cross-check at all.
-> 4. **⚠️ The RadImageNet trunk is `CC-BY-NC-SA-4.0`** (§4c-3). Shipping A accepts that knowingly.
->    `REFERENCE.md` §1.3 is unanswered. **§C-3's OrthoDiffusion is MIT and is the clean route.**
->
-> **0. ⛔ FIRST: WE ARE BELOW THE FREE PUBLIC CEILING AGAIN. SHIP BEFORE YOU BUILD (`IMPROVEMENTS.md`
-> §4a, surveyed live 2026-08-18).** Rank **547 of 1,904** at 0.908 — **the last submission was
-> 2026-08-13 and 1,162 teams have submitted since.** Six *public notebooks* sit at **0.917–0.922**,
-> each confirmed against its author's own LB row, **including `pilkwang` at 0.919** — the author of
-> the 0.891 fork we are still running. The board is compressed where we sit: **rank 100 = 0.920,
-> rank 500 = 0.910, +0.012 is worth ~444 ranks.**
->
-> **The field gets there by rank-mean-blending DINOv3 + RadImageNet + tonylica — §3t, §3w-2 and
-> §3q, the three arms we each tested and rejected.** The obvious explanation is checked and wrong:
-> we already rank-mean (`blend_test.py:59`). **What survives is that §3t's CI was [−0.0182,
-> +0.0133] while the entire gap is +0.012 — it measured a NULL and the record wrote it down as a
-> refutation.** Every "does not earn its slot" verdict resting on gold-47/58 is suspect for the
-> same reason. Strength findings (DINOv3 0.8025, tonylica 0.788) stand; the inference from them
-> does not.
->
-> **✅ THAT TEST HAS RUN — §4b, same day. The instrument is FINE; the SOURCING was not.**
-> Scored `tonylica`'s shipped `v52_e11_oof.csv` through §9e's pre-registered rule on gold-47:
->
-> | | macro | Δ vs banked | draws |
-> |---|--:|--:|--:|
-> | 2-family blend (banked) | 0.8798 | — | — |
-> | 3-family **+ their RadImageNet** | **0.8932** | **+0.0135** | **98%**, CI [+0.0004, +0.0262] |
-> | 3-family + DINOv3 (§3t, re-run) | 0.8775 | −0.0022 | 38% — **reproduced to the digit** |
->
-> Large-n says the same at **8.8σ** (+0.0102 ± 0.0012, n=4,349). **Debiased and offset, this
-> predicts LB 0.921 — against a public frontier of 0.917–0.922.** The instrument lands on the board.
->
-> **⛔ SO §4a-3's "the instrument cannot resolve it" IS RETRACTED, and so is the false-negative
-> story.** Every rejection was **correct** — §2y 0.7323, §3w-2 0.6924, §3q 0.788, §3t 0.8025 were
-> all genuinely weak. The winning arm is at **parity (0.8514)** and its Spearman is **0.713**, *less*
-> diverse than DINOv3's 0.644. **Screening on strength was right the whole time.**
->
-> **The real failure: §3w-2 spent Workstream C training a RadImageNet to 0.6924 while a 0.8514 one
-> was a free download.** §3w-2 is **narrowed, not retracted** — our *training* is refuted at 4.8σ,
-> the *architecture* is not.
->
-> ### 🆕 ORTHODIFFUSION'S WEIGHTS ARE PUBLIC AND MIT — `PLAN.md` §C-3, found 2026-08-18
->
-> `hf://models/lanstat0123/orthodiffusion` — **axial / coronal / sagittal, 553 MB each, `license:mit`**,
-> plus MIT training code at `github.com/lt-0123/OrthoDiffusion`. Three orientation-specific 3D models,
-> self-supervised on **15,948 unlabeled knee MRI scans**.
->
-> **It is the only domain-matched encoder this project has ever had access to** — everything else is
-> DINOv2/v3 on natural images or RadImageNet on general radiology — the only **3D** one, and **MIT**,
-> so unlike the RadImageNet route it carries **no non-commercial exposure** and §1.3 does not gate it.
->
-> **⛔ AND WE MISSED IT TWICE.** §C called the category empty on 08-13; the HF repo was last updated
-> **29 May 2026**, eleven weeks earlier. **Not an expiry — the claim was false when written.** The
-> model card is 603 bytes tagged only `en` / `arxiv:...` / `license:mit`: **no `knee`, no `mri`, no
-> `musculoskeletal`**, so a registry keyword search *cannot* find it. **Standing rule: for any paper
-> that matters, walk paper → GitHub → weights by hand. A registry search has false negatives.**
->
-> **Gate is pre-registered in §C-3** (§4b's precedent: strength is binding — **stop below 0.83**).
-> ⚠️ **A diffusion model is not an encoder out of the box** — features are intermediate UNet
-> activations at a chosen timestep/layer; **read their code first, do not invent the recipe** (§3s).
-> **⛔ It does not jump the queue: it is many steps from a number, the RadImageNet arm is four.**
->
-> ### ✅ THE RadImageNet ARM PASSED ITS GATE — 4 of 5 steps done (`IMPROVEMENTS.md` §4c)
->
-> **Strength 0.8486 gold-47 (bar 0.83) · blend +0.0146 gold · +0.0160 ± 0.0036 = 4.4σ, 100% of
-> draws on large-n.** **§4b's unshippable e11 arm scored +0.0135 / +0.0102 — this one is BETTER.**
-> **⛔ STILL NOT SUBMITTED. The remaining blocker is the LICENCE, not the score — see below.**
->
-> | # | step | state |
+> | field | fork — 0.8398 | port — 0.7323 |
 > |---|---|---|
-> | 1 | **`fusion/rad_model.py`** — reproduce the arm | ✅ **DONE.** Encoder + all 5 head SHA-256s verify against `rad_heads_manifest.json`, every fold loads **strict**, parameter count **3,174,924** matches the manifest to the digit, forward OK incl. the missing-planes case |
-> | 2 | **`fusion/rad_pixels.py`** | ✅ **DONE.** 224 px · **full-frame, no crop** · **fat-suppressed only** · 3 planes × **8 slices** · band **(0.12, 0.88)** · per-series 1/99 · **grayscale→RGB at `x/127.5−1`** (NOT ImageNet stats). Add a column to `ARCHITECTURES.md`'s trap table |
-> | 3 | local OOF (`fusion/rad_arm.py`) | ✅ **DONE.** gold-47 in 10 s, n=600 in 66 s on MPS |
-> | 4 | **blend delta, §9e rule** | ✅ **PASS.** +0.0146 gold (95%), **+0.0160 at 4.4σ large-n** |
-> | 5 | kernel → push → run → submit | ⏳ **BLOCKED ON LICENCE, not on the number.** Their config is `_RAD_ALPHA = 0.50`, `_RAD_EXCLUDE = ("Baker's", "Fracture")`; §3b forbids tuning either on 47 studies — reproduce theirs or ship the flat §9e rank-mean actually measured. **Do not invent a third option at submission time** |
+> | **crop_mm** | **130.0** → 0.387 mm/px | **160.0** → **0.476 mm/px** (23% coarser) |
+> | backbone | `facebook/dinov2-small`, no registers | timm `...reg4`, 4 registers |
+> | prior | `false` | `SLOT_PRIOR_STRENGTH = 0.55` |
+> | epochs | 20, 24, 25, 27, 29, 30, 37, **60** | **10** |
+> | slots | the fork's six | ours, differently keyed |
 >
-> **✅ THE VARIANT WARNING RESOLVED THE GOOD WAY.** §4b's +0.0135 was measured on `e11` (130 mm
-> crop) and these are `folds_v1` (full-frame) — a different arm, so it was re-measured rather than
-> assumed. It transfers **and is larger**. folds_v1's own `best_val` ≈ 0.807 looked like DINOv3
-> territory; on our instrument it reads **0.8486**, because `best_val` is a different reference
-> (§2o, three numbers near 0.89). **The screen is what settled it, not the vendor's number.**
+> **`crop_mm` was written down nowhere and lands exactly on the mechanism** — `slot_cache.py:27`
+> says *"at 160 mm across 336 px a tear line is about one pixel"*, and the six labels we lose are
+> the millimetre-scale ones. **⛔ §2y's closure of the port is therefore reopened:** its −0.111 at
+> 15.4σ measured five bundled divergences, not "the port is not good enough."
 >
-> **⛔ THE LICENCE IS THE BLOCKER AND THE PUBLIC HEADS DO NOT SOLVE IT.** Using
-> `mattiaangeli/...foldsv1-heads` removes the *private-bundle* problem, not the *non-commercial* one:
-> the 12.7 MB heads are useless without the **official RadImageNet ResNet-50 trunk, which is
-> `CC-BY-NC-SA-4.0`** and is pinned by SHA-256 in the manifest. **`REFERENCE.md` §1.3 — asked twice,
-> never answered — is now load-bearing for prize eligibility.** The whole 0.917–0.922 public frontier
-> carries the same exposure, which is context, not a licence. **This is a call to make deliberately.**
+> **2. The pixel path — its proposed mechanism is refuted, the hypothesis is not (§3i-3/6/7).** Downloaded arms are scored from
+> *their* `oof.npz` on *their* DICOM path; we train on our NIfTI corpus, whose reconstruction
+> residual is **0.0168 against a ~1e-5 floor**. But **§3i-6 refuted the residual as the mechanism**
+> (0.0165 of perturbation costs 0.0013), and **§3i-7's memorisation probe is saturated** — it works
+> at 10.3σ and its entire dynamic range is 0.0102 against a 0.076 gap, so it *cannot* settle this.
+> **A `permute33` arm was planned and cancelled: it refines a number that changes no decision.**
 >
-> **⛔ Note what it does NOT block: §C-3's OrthoDiffusion is MIT.** If NC resolves badly, that is the
-> route that survives.
+> ---
 >
-> ⚠️ **Licence, unchanged:** ship from **`mattiaangeli/rsna-knee-radimagenet-foldsv1-heads`** (58 MB,
-> public) — *not* from tonylica's bundle, whose own README says it must stay private and includes
-> **CC-BY-NC-SA-4.0** assets. RadImageNet is NC either way, so `REFERENCE.md` §1.3's unanswered
-> question is now **load-bearing for a prize**, not academic. The whole 0.917–0.922 public frontier
-> carries the same exposure.
+> ## ⏸️ FROZEN UNTIL PHASE C REPORTS — this is deliberate, do not restart it
 >
-> **Fallback if step 4 fails:** the two-arm F6 kernel is unchanged and still submittable on its own.
+> Five encoder swaps have not moved the band. **A sixth is not an experiment, it is the same one.**
 >
-> **§3z and §3y stay valid and stay free. They are simply SECOND.**
+> * **OrthoFoundation-L fine-tune** — `OrthoNet` is built in `train_port.py`, costed at **101 h on
+>   MPS / 7.3 h on a T4**, so it runs on Kaggle if it runs. It is still an encoder swap.
+> * **OrthoDiffusion** (§C-3) — MIT, weights public. **Blocker: which `pose_id` is which plane is
+>   unresolved**; feeding a plane its neighbour's timestep runs perfectly and scores wrongly (§9h).
+> * **`fusion/band_ab.py`** (§3z) — built, smoke-tested, unrun. Note it improves the *0.8434* arm,
+>   so the vehicle problem does not apply to it; it is the first thing to unfreeze if Phase C slips.
+> * **nnU-Net calibrator** (§C-4) — Gate 1 scored 0.9878 and **failed**; the threshold was what was
+>   wrong. Offline calibrator only, never on the scored path.
 >
-> **1. ✅ THE F6 SUBMISSION LANDED: `55490186` = 0.908. BANKED, and it is the new best.**
-> Predicted 0.915–0.926; **came in below the band at 0.908**, +0.009 over the old 0.899.
-> **§3v has the full reconciliation and it reprices three things** — read it before planning:
-> * **The two gains DO NOT ADD.** TTA pooling (+0.008) and the `ft_b` blend (+0.015–0.020
->   expected) delivered **+0.017 together**, ~40% overlap. **Variance-reduction levers are
->   sub-additive** — never price a new arm against the plain fork, price it against 0.908.
-> * **The offset is +0.039, not +0.046.** §3p's coherence check matched pilkwang's *TTA-free*
->   gold to our *TTA-included* LB and absorbed the +0.008 into the constant. `score_gold.py` is
->   updated. Debias the gold read first: 0.869 + 0.039 = **0.908 exactly**.
-> * **§3p's direction stands, its headline does not.** No shared label ceiling and model capacity
->   is still the binding constraint — but a perfect learner of the free labels is now **0.938 vs
->   a 0.940 prize line**, i.e. borderline, not "10th place or better".
+> ## ⚠️ ONE THING THAT DOES NOT WAIT: THE LICENCE
 >
-> **Board moved faster than we did (§3v-5), and again since (§4a): top 0.951, 10th/prize
-> **0.941**, **1,904 teams**, we are **rank 547**. Gap to prize **0.033**. **65 days left.**
+> **The shipped 0.914 rides on a `CC-BY-NC-SA-4.0` trunk.** The public RadImageNet heads are
+> useless without the official ResNet-50, which `rad_heads_manifest.json` names and pins.
+> `REFERENCE.md` §1.3 has been asked **twice and never answered**, and it is load-bearing for
+> **prize eligibility** — if it resolves badly the current score is worth nothing. One forum post.
+> The whole 0.917–0.922 public frontier carries the same exposure, which is context, not a licence.
+> **§C-3's OrthoDiffusion is MIT and is the route that survives a bad answer.**
 >
-> **2. ⛔ DINOv3 STAYS PARKED — ITS RE-OPEN CONDITION IS REFUTED, NOT UNMET (§3v-6).** §3t said
-> re-open only if local numbers ran *pessimistic*. They ran **optimistic** (0.880 gold predicted
-> 0.915–0.926, delivered 0.908). **Do not revisit.** Same for `ft_a` (same family as `ft_b`, the
-> least diverse arm available) and tonylica (§3q) — sub-additivity makes both worse than they
-> looked. **F6 is spent; it has no arm left worth adding.**
+> ## SUBMITTING — this is a CODE competition
 >
-> **§3t's original verdict, unchanged:** built, audited, scored, parked.
-> OOF **0.8025** vs pilkwang 0.8516 / `ft_b` 0.8522; 3-family blend **0.8775 vs 0.8798 banked**,
-> delta **−0.0022**, positive in 38% of draws. **Spearman vs `ft_b` 0.571 — the most diverse arm
-> this project has measured**, and it still fails on strength. Third time: the port 0.639/0.7323,
-> tonylica 0.704/0.788, this 0.571/0.8025. **Diversity has never been the binding constraint.**
-> **Parked, not dropped** — its direction handicap is local-only (§9h). Re-open only if item 1
-> shows local numbers running pessimistic. **Do not re-derive any of this.**
->
-> **📐 `IMPROVEMENTS.md` §3s — what is actually inside it.** Both headline features are nearly
-> inert: the `xcodex` cross-attention is gated to ~0.001 (deleting it costs **+0.0003**) and slot
-> conditioning enters at **2.1%** of a patch token. Its slot usage is **anatomically correct**.
->
-> **3. ⛔ WORKSTREAM C IS CLOSED — REFUTED AT 4.8σ, 2026-08-17 (`IMPROVEMENTS.md` §3w-2).**
-> The gate was pre-registered before the first epoch and the arm lost:
->
-> | | macro report-OOF, fold 0, n=681 |
-> |---|--:|
-> | `runs_cnn` RadImageNet R50 | **0.6924 ± 0.0089** |
-> | `runs_port` dinov2-small | **0.7323 ± 0.0086** |
-> | **paired delta** | **+0.0399 ± 0.0084 → 4.8σ, P=1.000, 11/12 labels** |
-> | bar was | ≥ 0.739 |
->
-> **The stop rule fires: do NOT build the 35–78 GB cache, do NOT run Stage 2.** `runs_port`
-> reproduced at 0.7323 exactly, vindicating §3w's pre-training anchor correction.
->
-> **⚠️ AND THE TRAINING LOSS LOOKED GREAT THE WHOLE WAY** — monotone 0.4592 → **0.3686**, 36.7% of
-> the way prior→floor, past the ViT's recorded epoch-1 0.4523 by epoch 3. **It measured fitting,
-> not ranking, and was worth nothing as a signal.** 23.5M unfrozen params at 1e-4 on 2,871 studies
-> fit the soft targets hard and generalised worse. Gating on `score_oof.py` is the only reason this
-> was caught before a cache build.
->
-> **"Exactly one variable" was too strong:** the encoder swap bundles architecture **and**
-> pretraining (dinov2-small self-supervised on LVD-142M vs RadImageNet R50 supervised on
-> radiology). What is refuted is the **RadImageNet R50 arm**, cleanly. **✅ It settles §3y's
-> backbone: build multi-scale on the ViT port.**
->
-> **STAGE 1 BAR: ≥ 0.739** against `runs_port` **0.7323** (`score_oof.py`, NOT summary.json's
-> 0.7298 — §2o). **Below 0.7323 → stop**, the inductive-bias argument is refuted and the big pixel
-> cache is not worth funding. **In [0.7323, 0.739) → the question becomes the pixel path, not the
-> backbone; do not run Stage 2 on this cache.** ⛔ **Stage 1 is NECESSARY, NOT SUFFICIENT** — the
-> control is 0.7323 against pilkwang's 0.8434, so beating it proves the CNN bias helps, *not* that
-> the arm earns a slot. §3w records the expectation that it probably does **not**.
->
-> **Two traps already paid for, both in §3w — do not re-derive.** ① `SlotDataset` zeroes absent
-> slots, which is inert under a ViT's LayerNorm and **silently poisons every BN layer** under a
-> CNN. ② The obvious fix (gather only present slots) makes the tensor size vary and **MPS
-> recompiles per shape: 1.57 → 44.20 s/step**. What ships is *forward all slots with BN frozen* —
-> 1.70 h/fold, faster than the ViT control's 3.7 h.
->
-> **§3v sets its real bar: the arm must beat +0.009**, which is what the best free diverse family
-> on the board delivered on top of what we already had.
->
-> **⛔ F1 IS DEAD — §3u. Do not queue the site prior.** The "+0.0023, free, unshipped" line was
-> an estimator with no deployable counterpart: built in the form a submission runs, it is
-> **−0.0057, positive in 0/2,000 draws**. The gain splits by *prior source*, not by
-> fit/score matching. **§3f's harmonising-away result is untouched.**
-> **Standing rule it produced: re-measure any gain in the exact configuration the submission will
-> run before shipping it — an A/B measures an estimator, not an idea.**
->
-> **Cheap screens waiting, no GPU or quota (§9g):** second-order/covariance pooling on
-> `data/features_*`; a topological feature block on the same.
->
-> **📐 `ARCHITECTURES.md` is new — how all five external arms actually work**, in one place:
-> the load recipe per arm, and a **cross-arm trap table** of the ten conventions that differ and
-> are silent when crossed (resolution, slice count, band, crop, window, normalisation, laterality,
-> slice ordering, slot scheme). Read it before touching any pixel path.
->
-> **3b. ✅ §3y STAGE 0 IS DONE — `IMPROVEMENTS.md` §3y-3, landed 2026-08-18, 100.3 min.**
-> **`runs_port_lr1` 0.7358 ± 0.0086** vs **`runs_port` 0.7323** (reproduced exactly), **paired
-> +0.0035 ± 0.0025, 1.4σ**, flip better in 91.6% of draws.
-> **▶️ STAGE 1's CONTROL IS 0.7358. ITS BAR IS 0.7428.**
->
-> **⛔ DO NOT CITE THIS AS EVIDENCE FOR `SAGITTAL_LR=1`.** The four labels that depend on the
-> medial/lateral axis moved **≤0.008 and in both directions** (Lateral Meniscus **−0.003**);
-> the macro rides on **Fracture +0.027** and **MCL +0.017**, which do not depend on it. That is
-> expected — at **depth 0.5** reversal yields a different **TILE**, not a corrected **AXIS**
-> (§3y-2's `GROUP=3` point). **Handedness cannot bind until depth 0.25/0.75, i.e. Stage 1.**
-> The flip still changed the pixels for 28.4% of studies, which is why the control was
-> mandatory — both halves of §3y-2 stand.
->
-> **⛔ FIX §3z-4's CONFOUND BEFORE STAGE 1 IS READ — this is the last cheap moment.**
-> Caches are BUILT:
-> **`data/tiles336_lr1`** (`SAGITTAL_LR=1`, ~12 GB) holds protocol (17,403 tiles, 80.6% fill,
-> 15.7 min) *and* anatomical (**20,684 tiles, 95.8% fill**, 9.8 min). **K16 covered it completely
-> — 8,048 series carry a bit, 0 tiles skipped.** `data/tiles336` was **deliberately preserved**
-> (§3y said rebuild in place; that would have made `runs_port` and `runs_cnn` unreproducible).
->
-> **⛔ §3y-2: "protocol tiles are unaffected at depth 0.5" is MEASURED FALSE** — corpus-wide,
-> **1,021 of 3,599 studies (28.4%)** get different protocol pixels under the flip, and ~⅔ of those
-> are a genuinely different tile, not a channel permutation. `GROUP=3` has no fixed point under
-> reversal. Corrected in six places. **This is why Stage 0 is mandatory, not precautionary.**
+> Submit the **kernel**, never the file: the in-notebook `submission.csv` is 3 rows off a dummy test
+> set, and Kaggle re-runs the kernel on the hidden 1,322 studies (**~2 h of the 30 h weekly quota**).
+> Never hand-edit the notebook — rebuild with `notebooks/build_f6_rad_kernel.py` and push.
 >
 > ```
-> # DONE 2026-08-18 — outputs in fusion/runs_port_lr1/ (fold0.pt, oof_all.csv, summary.json, stage0.log)
-> caffeinate -i .venv/bin/python fusion/train_port.py --cache data/tiles336_lr1 \
->     --tag protocol --run-folds 0 --out fusion/runs_port_lr1 --verbose
-> .venv/bin/python fusion/score_oof.py fusion/runs_port_lr1 fusion/runs_port
+> kaggle competitions submit rsna-knee-abnormality-detection -k <kernel> -v <n> -f submission.csv -m ...
 > ```
 >
-> ⚠️ For the NEXT run: it pages in cold for ~100 steps (1.4 → 30 img/s); `data/.metadata_never_index`
-> stops Spotlight indexing the caches. Do not read the early `img/s` — it is a cumulative average.
+> **⛔ Before submitting, grep the log for `rad:` — it must read `blended 3 families`.** If it says
+> `2 families` a guard refused the arm and the file is the banked 0.908 path. That guard has already
+> earned its place: v1's `SLOTS` are 4-tuples, the filter matched strings, and it correctly refused
+> rather than blending a wrongly-conditioned tensor.
 >
-> **⛔ AND §3y IS CONFOUNDED AS DESIGNED (§3z-4) — fix before Stage 1 is READ, not before it is
-> run.** Its six anatomical slots are two treatments, not one: `sag_med`/`sag_lat` have **no box**
-> and buy **depth coverage**; the other four have **no depth change** and buy **resolution**. §3y
-> attributes a gain to resolution in advance (0.25 vs 0.48 mm/px), and the two readings imply
-> opposite follow-ups. Pre-register the 2-vs-4 split as an ablation, or read the per-diagnosis
-> attention mass `SlotHead` already computes. **Stage 0 is unaffected** — protocol slots only.
+> ## STANDING RULES EARNED THE HARD WAY
 >
-> **3c. ▶️ NEXT, AND IT IS FREE: §3z — THE SLICE BAND.** Pre-registered 2026-08-18 before any
-> cache exists; harness is built and smoke-tested (`fusion/band_ab.py`). **Every arm that rivals
-> pilkwang looks at more of the volume than pilkwang does** — `ft_b` 32 slices/full stack, DINOv3
-> 16 at 0.12–0.88, against **our 12 at 0.20–0.80**. On sagittal the slice axis **is** medial–
-> lateral, so **the twenty members we ship have never seen the outer 20% of any sagittal stack** —
-> where **Lateral Meniscus (0.720, our worst label, gap +0.146)** lives. §3y's own `sag_lat` sits at
-> depth 0.75, just inside a band the members were never trained past.
+> * **Price a new arm's LB gain at ~HALF its gold gain.** Gold +0.0135 and large-n +0.0102 at 8.8σ
+>   both delivered +0.006 shipped.
+> * **Check what is free before building it.** §3w-2 trained a RadImageNet to 0.6924 while a 0.8514
+>   one was a free download.
+> * **A comparison is only as good as its contract.** Nobody read the manifest that shipped in the
+>   same directory as the weights (§2y-2). `contract_audit.py` is now the gate.
+> * **Walk paper → GitHub → weights by hand.** A registry keyword search has false negatives —
+>   OrthoDiffusion was missed twice by survey and had been public for eleven weeks.
+> * **Do not renegotiate a stop rule after seeing the number** (§3u, §3z-3, §C-5).
 >
-> **Free, and the K19 trap cannot recur here:** §3g proved `fingerprint()` takes `img_size` and not
-> `SLICE_BAND`, and `SlotHead` has `slot_emb` (per-**slot**) with **no per-slice embedding**, so
-> there is no learned index to misalign. The only real risk is domain shift outside (0.2, 0.8),
-> which is the empirical question. **It improves the 0.8434 arm, so the vehicle problem does not
-> apply to it** — that is most of why it ranks first.
->
-> ```
-> .venv/bin/python fusion/band_ab.py --n 600 --out data/_band_ab_n600.npz   # AFTER Stage 0 exits
-> .venv/bin/python fusion/band_ab.py --gold --out data/_band_ab_gold.npz    # sign only, §3b
-> ```
->
-> ⚠️ **Do not run it while Stage 0 holds MPS** — ~4.9–6.5 GB of cache on a 17.2 GB box that already
-> swaps at 336. **Four arms, because coverage and density are separated on purpose (§3z-3):**
-> A = control rebuilt in-run · B = wider band, **coverage only** · C = more slices, **density
-> only** · D = A+B pooled per target, the shippable arm. **`pool_arm_d` is fixed in code and §3b
-> forbids retuning it on this run.** All four outcomes are committed to in §3z-3, including
-> "both ≤ 0 → the axis is closed".
->
-> **⛔ AUPRC IS THE WRONG CURRENCY (§3z-1). Do not optimise for it.** The metric is macro-AUROC;
-> the host states prevalence differs train→public→private; **AUROC is prevalence-insensitive within
-> a label and AUPRC is not**, so a local AUPRC gain has no stable relation to the private LB. Legit
-> as a *diagnostic* of where in a ranking a label fails; never as a gate or objective.
->
-> **📐 0.965 = ORACLE-PARITY, and it beats the current leader (§3z-2).** It equals closing every gap
-> to a teacher that reads the report at test time, which §3p calls unattainable — against a board
-> top of **0.951**. **Plan against the 0.940 prize line: gap 0.032, 65 days.**
->
-> **4. 🎯 WHERE THE SCORE ACTUALLY IS — `IMPROVEMENTS.md` §3x, new 08-17. A DECOMPOSITION, NOT A
-> RESULT.** §3p's seven positive gaps sum to **+0.047 macro**, so **gold 0.916–0.927 → LB
-> 0.955–0.966**: *"reach 0.965"* and *"close every gap to the report teacher"* are the same
-> instruction. Treat 0.965 as the optimistic end — the **+0.039 offset was calibrated over gold
-> 0.85–0.90 and has never been checked above 0.90**, and AUROC compresses up there.
->
-> **⛔ A severity-label / F4 revival was argued on 08-17 and §3p's own per-label column refutes
-> it.** The model already **beats** the mention labels on every volumetric-threshold label
-> (effusion **+0.141**, medial OA **+0.075**, Baker's +0.037) and **ACL's mention teacher scores
-> 0.995 against gold** — nothing to repair. Better labels help least where the model is
-> bottlenecked. **F4 stays deprioritised.**
->
-> **The real split is SIZE.** Model wins on the 5 large diffuse findings; loses on the 5 small
-> localised ones (meniscal surface contact, synovial thickening, ACL fibres, PF cartilage) — the
-> findings a 336 downsample destroys. Agreeing evidence: **§2d's 224→518 = +0.013** (the only
-> positive resolution reading here, dropped when §2e reframed it) and §3f localising the lateral
-> deficit to the **posterior horn**. **§3k killed crop-INSTEAD-OF-context — its own mechanism
-> ("the periphery carries ranking signal") predicts that crop-PLUS-context as extra slots works,
-> and that has never been run.** §2l's canonical 132/132 axes place the boxes without a detector.
-> **§3y PRE-REGISTERS THAT TEST — read it before touching the cache.** `pipeline/slot_cache.py`
-> already defines six `ANATOMICAL` slots (written 08-11, never built) whose own comment states the
-> mechanism: **84 mm boxes at 336 px = 0.25 mm/px against 0.48 for the full field**. Two traps it
-> names in advance: ① the anatomical slots need **`SAGITTAL_LR=1`** and `tiles336` was built with
-> **`0`**, so `assert_caches_compatible()` refuses and **`runs_port` 0.7323 is NOT a valid
-> control** — a mandatory **Stage 0** retrains the 6-slot port on the rebuilt cache first
-> (§2o's error class, caught in advance for once). ② The six slots cover only **+0.027 of the
-> +0.047** — there is no ACL or synovitis slot.
-> ⛔ **The vehicle problem is the real obstacle**, and §3y says so up front: the port is 0.7323
-> against pilkwang's 0.8434 and §2y closed it at **15.4σ**, so even a big Stage 1 pass does not
-> earn a blend slot. Carrying a gain into strength means fine-tuning pilkwang's own CC0 weights
-> with the slot embedding extended 6 → 12. **Which backbone Stage 1 uses is decided by §3w's
-> fold 0, not by preference.**
->
-> **What NOT to re-derive:** F2-as-replacement (§3k+§3m, closed both instruments) · tonylica (§3q,
-> dropped) · label-correlation stacking (§3r, closed two ways) · F4 (§3p, and §3x re-confirmed it
-> against a fresh challenge).
+> **Do not re-derive:** F2-as-replacement (§3k, §3m — closed on both instruments) · tonylica (§3q) ·
+> label-correlation stacking (§3r) · F4 / better labels (§3p, §3x) · diversity-as-the-constraint
+> (§4b — every rejected arm was rejected for *weakness*, and every one of those calls was correct).
 
-## The state as of 2026-08-17
+## The score history, and what the labels are worth
 
-> **Banked 0.908** (submission `55490186` = pilkwang 20-member + per-target TTA pooling + `ft_b`).
-> Board (§4a, 08-18): top **0.951**, 10th/prize **0.941**, **1,904 teams**, we are **rank 547**.
-> **65 days left.** The 0.899 that appears in older notes is the superseded previous best; 0.891 is the
-> original unmodified fork.
+> **0.891** original unmodified fork → **0.899** → **0.908** (submission `55490186`, pilkwang
+> 20-member + per-target TTA pooling + `ft_b`) → **0.914** (three-arm, 08-18). Board at the 0.908
+> reading (§4a, 08-18): top **0.951**, 10th/prize **0.941**, **1,904 teams**, rank **547**.
 >
 > **F6 is DONE and SPENT (§3v).** It delivered +0.009 and has no arm left worth adding.
-> **Next is Workstream C, the trained CNN** — see item 3 above.
+> **⛔ Workstream C, which this file used to name as next, was REFUTED at 4.8σ (§3w-2).** What
+> replaced it is Phase C, at the top of this file — and note the distinction §4b drew: *our
+> training* of a CNN was refuted, the architecture was not.
 >
 > **⛔ AND THE LABELS WERE NEVER THE CEILING — §3p, still the most important measurement here,
 > with §3v's correction applied.** The best public label table, used as a predictor, scores
@@ -498,7 +285,7 @@ Each was measured, not argued. The section named is where the evidence lives.
 
 | route | verdict | where |
 |---|---|---|
-| our port as an ensemble member | **no weight helps**, −0.111 at 15.4σ | §2y |
+| ~~our port as an ensemble member~~ | ⛔ **REOPENED 08-19.** The −0.111 measured **five bundled config divergences**, not the port's strength. Pending Phase C | §2y, **§2y-2** |
 | crops as extra TTA windows (F2-cheap) | **DEAD ON BOTH INSTRUMENTS.** report −0.0031; **gold-47 −0.0038**, pre-registered | §3k, §3m |
 | blending the fork's shipped `merge_gain` arm | +0.0007, 0/12 labels | §3h-2 |
 | K16 from DICOM header rules | 56.9–60.8% vs ~50% chance; resolved by *measurement* | §2n, §2m |
@@ -528,7 +315,9 @@ Each was measured, not argued. The section named is where the evidence lives.
   before 2026-08-10 was inflated by ~0.024 of site leakage (§2j).
 - **Live hazard: `data/tiles336` is `SAGITTAL_LR=0`; anatomical slabs need `SAGITTAL_LR=1`.**
   `pipeline/slot_cache.assert_caches_compatible()` raises on any run consuming both.
-  `data/tiles336lr` is the rebuilt one — built, never consumed.
+  **`data/tiles336_lr1`** is the rebuilt one — built *and consumed*: it produced `runs_port_lr1`
+  at **0.7358** (§3y-3). ⚠️ Both are the **160 mm** grid; Phase C's fork slots are **130 mm** and
+  need their own cache (see the top of this file).
 
 ## Read these in order
 
@@ -618,6 +407,26 @@ eda_03_langid.py       lingua-based language detection (supersedes the heuristic
 eda_04_metadata_baseline.py   series metadata alone scores 0.471 on gold. "do not retest" was
                        written from n=58 and is retracted -- a public probe gets 0.5954 from the
                        same four columns over 4,407 (IMPROVEMENTS 2i-b). Still not a shortcut
+
+--- THE LIVE INVESTIGATION: the band, and Phase C -------------------------------------------
+pipeline/slot_cache.py   the 336 uint8 tile cache. THREE slot sets: PROTOCOL (six, 160 mm),
+                         ANATOMICAL (six, 84 mm boxes), PILKWANG (the fork's six at 130 mm,
+                         keyed on the assigned series -- added 08-19 for Phase C)
+fusion/train_port.py     the port, and now the reproduction. --backbone pilkwang | orthofoundation
+fusion/pilkwang_model.py the fork's own model object + SlotHead. `--check` fingerprints all 20
+                         members in ~2 min and is the FIRST thing to run if anything looks wrong,
+                         because it separates a model problem from a pixel one
+fusion/contract_audit.py diffs pilkwang_weights/manifest.json against the live constants. Found
+                         the five divergences (§2y-2). Run BEFORE and AFTER any port change
+fusion/pixel_fidelity.py the memorisation probe (§3i-7). Works at 10.3 sigma and is SATURATED --
+                         0.0102 of range against a 0.076 gap. Cannot settle the band question
+fusion/slot_assign_pilkwang.py  builds data/slots_pilkwang.csv off the DICOM-header parquet.
+                         The fat-sat split competition metadata cannot express (FINDINGS 3.1)
+fusion/orthofoundation_model.py DINOv3-L on 1.25M knee images. Scored 0.7710 frozen, gate FAILED
+fusion/band_ab.py        the slice-band A/B (§3z). Built, smoke-tested, UNRUN. Frozen, see top
+fusion/score_oof.py      the one scoring definition. large-n report-OOF; score_gold.py is gold-47
+fusion/rad_arm.py        the public RadImageNet arm that took us 0.908 -> 0.914
+fusion/blend_test.py     rank-mean blending. NB line 59: we already rank-mean (§4a)
 ```
 
 ## Setup
