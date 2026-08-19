@@ -14,6 +14,19 @@ description (`IMPROVEMENTS.md` 2e):
     SlotHead: per-diagnosis attention over slot embeddings, SLOT_PRIOR_STRENGTH = 0.55
     confidence-weighted targets, W = 0.25 + 0.75 * conf
 
+⛔ THREE OF THOSE FOUR LINES WERE READ OFF THEIR NOTEBOOK AND ARE NOT WHAT PRODUCED THEIR WEIGHTS
+`2026-08-19`. `fusion/contract_audit.py` diffs them against `pilkwang_weights/manifest.json`, which
+records the config behind a mean member holdout of 0.8398:
+
+    EPOCHS = 10                  the 20 shipped members did 20, 24, 25, 27, 29, 30, 37, 60
+    SLOT_PRIOR_STRENGTH = 0.55   the manifest records `prior: false`
+    backbone (timm, reg4)        the manifest names `facebook/dinov2-small`, which has NO registers
+    crop 160 mm (slot_cache)     the manifest records `crop_mm: 130.0` -- 0.476 vs 0.387 mm/px
+
+§2y measured this file at 0.7323 against the fork's 0.8434 and closed §2w step 4 on it. That
+comparison bundled all five divergences, so it never measured what it claimed. **The model is now
+built by `pilkwang_model.build_model` -- their object, not our reconstruction of it.**
+
 The fork's six slots are `SAG_FLUID_FS, COR_FLUID_FS, AX_FLUID_FS, SAG_FLUID_NOFS, COR_T1,
 SAG_T1` -- it separates fat-suppression from fluid-sensitivity and carries two sagittal
 fluid-sensitive variants but no axial non-fluid slot. **That split is not reconstructable from
@@ -61,9 +74,11 @@ LABELS = ["ACL", "MCL", "Medial Meniscus", "Lateral Meniscus", "Medial OA", "Lat
 UNFREEZE_LAST = 6
 LR_BACKBONE = 8e-6
 LR_HEAD = 1e-3
-EPOCHS = 10
-SLOT_PRIOR_STRENGTH = 0.55
-BACKBONE = "vit_small_patch14_reg4_dinov2"
+EPOCHS = 30           # median of the members' 20-60; the old 10 was their notebook, not their weights
+# Both now match the manifest. They are read by the superseded SlotNet below and by
+# contract_audit.py, which must see what the live path uses.
+SLOT_PRIOR_STRENGTH = 0.0             # manifest: `prior: false`
+BACKBONE = "facebook/dinov2-small"    # manifest: NOT timm's reg4 variant
 
 IMAGENET_MEAN = torch.tensor([0.485, 0.456, 0.406]).view(1, 3, 1, 1)
 IMAGENET_STD = torch.tensor([0.229, 0.224, 0.225]).view(1, 3, 1, 1)
@@ -130,8 +145,12 @@ class SlotDataset(torch.utils.data.Dataset):
             s = float(self.rng.uniform(0.9, 1.1))
             x = (x.clamp(0, 1) ** g * s).clamp(0, 1)
 
-        x = (x - IMAGENET_MEAN) / IMAGENET_STD
-        x = x * m.view(-1, 1, 1, 1)                   # absent slots are exactly zero, not noise
+        # ⛔ NORMALISATION MOVED INTO THE MODEL, 2026-08-19. `pilkwang_model.Model.forward` does
+        # `.div_(255)` and then `(x - mean) / std` itself -- it is the fork's own object, verified
+        # 20/20 at 7e-06 -- so normalising here as well would apply it twice. That runs perfectly
+        # and scores wrongly, which is §9h exactly. Augmentation stays in [0,1] where the gamma is
+        # meaningful; the tensor is handed back on the 0-255 scale the fork's forward expects.
+        x = (x * 255.0) * m.view(-1, 1, 1, 1)         # absent slots are exactly zero, not noise
 
         y = torch.from_numpy(self.y[i])
         # The fork's confidence weighting. Our targets are soft (0.5 means "the report does not
@@ -295,8 +314,20 @@ def run_fold(fold: int, folds: pd.DataFrame, store: TileStore, targets: pd.DataF
     va_dl = torch.utils.data.DataLoader(va_ds, batch_size=a.batch, num_workers=nw,
                                         persistent_workers=nw > 0)
 
-    model = SlotNet(len(store.slots), img=a.img, unfreeze_last=a.unfreeze_last,
-                    dropout=a.dropout).to(dev)
+    # ⛔ THE FORK'S OWN OBJECT, NOT OUR RECONSTRUCTION OF IT `2026-08-19`. `contract_audit.py`
+    # found this port diverging from the config that produced the fork's 0.8398 on five axes;
+    # three of them -- backbone, prior, pool -- are fixed by simply building THEIR model, which
+    # `pilkwang_model.py` already exposes and which `--check` verifies at 20/20, 7e-06:
+    #
+    #     backbone   timm vit_small_patch14_reg4_dinov2  ->  facebook/dinov2-small (no registers)
+    #     prior      SLOT_PRIOR_STRENGTH = 0.55          ->  prior=False, as the manifest records
+    #     pool       (implicit in SlotNet)               ->  cls_mean, CLS || patch-mean
+    #
+    # SlotNet below is kept as the record of what was measured at 0.7323 and is no longer used.
+    # `img_size=None` at the call sites is correct: the tiles are already `a.img`, so the fork's
+    # forward skips its interpolate rather than resampling a resampled image.
+    from fusion.pilkwang_model import build_model
+    model = build_model(a.unfreeze_last, prior=False, pool="cls_mean").to(dev)
     n_tr = sum(p.numel() for p in model.parameters() if p.requires_grad)
     n_all = sum(p.numel() for p in model.parameters())
     print(f"  fold {fold}: train {len(tr):,} / val {len(va):,} studies · "
@@ -305,7 +336,12 @@ def run_fold(fold: int, folds: pd.DataFrame, store: TileStore, targets: pd.DataF
     print(f"  loss scale: floor {lo:.4f} (perfect, p=y) .. {hi:.4f} (constant prior). "
           f"It CANNOT reach 0 -- the targets are soft.")
 
-    opt = torch.optim.AdamW(model.param_groups(), weight_decay=a.wd)
+    # The fork's Model has no `param_groups`; the two-rate split is the port's own contribution
+    # and is preserved exactly (LR_BACKBONE on the opened blocks, LR_HEAD on the head).
+    groups = [{"params": [p for p in model.backbone.parameters() if p.requires_grad],
+               "lr": LR_BACKBONE},
+              {"params": list(model.head.parameters()), "lr": LR_HEAD}]
+    opt = torch.optim.AdamW(groups, weight_decay=a.wd)
     sched = torch.optim.lr_scheduler.OneCycleLR(
         opt, max_lr=[LR_BACKBONE, LR_HEAD], total_steps=max(a.epochs * len(tr_dl), 1),
         pct_start=0.25)
