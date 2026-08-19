@@ -1198,6 +1198,40 @@ loading a 1.21 GB checkpoint and a 303 M ViT-L (which merely *looked* like an OO
 frees the checkpoint, died on `FileNotFoundError` instead. **One bug, two symptoms, and the memory
 tuning shipped in v2 was treating a coincidence.**
 
+**✅ THE FULL 4,407-STUDY CACHE IS BUILT, DOWNLOADED AND VERIFIED `2026-08-19`.** All eight shards
+ran on Kaggle overnight and `data/_of_features` now holds **4,407 `.npz`, 2.4 GB** — against the
+~2.6 GB the pilot predicted. Every shard exited 0 with **0 skipped**:
+
+| shard | studies | min | s/study | | shard | studies | min | s/study |
+|---|--:|--:|--:|---|---|--:|--:|--:|
+| 0 | 551 | 39.1 | 4.26 | | 4 | 551 | 37.7 | 4.11 |
+| 1 | 551 | — | — | | 5 | 551 | 41.3 | 4.49 |
+| 2 | 551 | — | — | | 6 | 551 | 40.5 | 4.41 |
+| 3 | 551 | 41.7 | 4.54 | | 7 | **550** | 39.4 | 4.30 |
+
+**Shard 7 holding 550 and not 551 is a check that passed, not an anomaly** — 4,407 = 7×551 + 550
+under `i % 8 == S`, so it was predicted before the download and confirmed after. Kernel logs are
+kept at `data/_of_logs/`.
+
+**What was verified, because "present" is not "well-formed" (§3s):**
+
+    all 8 manifests share ONE fingerprint   3ae0c719d72a / orthofoundation-L / 2048 / 336
+    laterality unresolved                   0 of 4,407, summed across shards
+    study set vs train_series.csv           EXACT -- 0 missing, 0 extra
+    every file loads, feats (n, 2048) f16   4,407 / 4,407, metadata arrays length-matched
+    both halves alive                       CLS std 0.467 vs patch 0.201, mean -0.0011
+    total tiles                             684,715, mean 155.4 per study
+
+⚠️ **ONE FILE ARRIVED ZERO-BYTE AND ONLY A FULL SCAN FOUND IT.** `kaggle kernels output` is **not
+resumable** and Kaggle broke the connection three times mid-shard (`BrokenPipeError`); worse, the
+CLI opens a request for *every* file before checking whether it already holds it, so a retry
+re-pays for the whole prefix and progresses only because the listing order shifts — 68, 111, 209
+files over three attempts. The replacement (`fetch_of_shard.py`, scratch) pages the listing itself
+and skips what is on disk. **The lesson is the scan, not the downloader:** a study-set identity
+check passed at 4,407/4,407 *while a truncated file sat in the cache*, because a filename is not a
+file. **Verify by loading, never by listing.**
+
+
 ⚠️ **Strength is still unmeasured. Nothing below strength has been established** — §4b's rule is screen on
 **strength** first ([[diversity-is-not-the-constraint]]), and the gate is §9e's pre-registered one,
 on the 4,407-study OOF, never gold-58.
