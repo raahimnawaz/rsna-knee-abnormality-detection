@@ -40,8 +40,15 @@ import argparse
 import json
 from pathlib import Path
 
-SLUG = "rsna-knee-orthofoundation-screen"
 OWNER = "raahimnawaz"
+# One kernel per shard, so Kaggle can run several concurrently and queue the rest instead of us
+# re-pushing one slug eight times. Shard 0 keeps the original slug because its output already
+# exists and re-running it would spend 39 min of quota to reproduce bytes we hold.
+BASE_SLUG = "rsna-knee-orthofoundation-screen"
+
+
+def slug_for(shard: int) -> str:
+    return BASE_SLUG if shard == 0 else f"rsna-knee-of-screen-s{shard}"
 
 WORK_SRC = '''
 # C-5 OrthoFoundation feature cache, pilot shard.
@@ -197,6 +204,7 @@ def main() -> None:
     ap.add_argument("--n-shards", type=int, default=8)
     a = ap.parse_args()
     out = Path(a.out); out.mkdir(parents=True, exist_ok=True)
+    SLUG = slug_for(a.shard)
     parent = PARENT.replace("__SHARD__", str(a.shard)).replace("__NSHARDS__", str(a.n_shards))
     src = "WORK = " + json.dumps(WORK_SRC) + "\n\n" + parent
     compile(WORK_SRC, "work", "exec")
