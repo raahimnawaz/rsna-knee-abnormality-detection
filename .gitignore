@@ -27,3 +27,6 @@ fusion/runs*/
 # nnU-Net Gate 1 (PLAN C-4) -- separate env, nnunetv2 pulls its own deps
 .venv_nnunet/
 data/_nnunet/
+
+# OrthoFoundation weights (PLAN C-5) -- 1.21 GB, licence is the authors email
+data/_orthofoundation/
