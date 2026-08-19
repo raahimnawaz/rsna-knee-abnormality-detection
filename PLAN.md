@@ -1084,7 +1084,7 @@ prompted the search.**
 |---|---|
 | **NVIDIA VirtualHip** (Boston Children's, on DGX) | ⛔ **Not usable, and not close.** **Hip only, not knee.** Builds a 3D hip model from routine X-ray/CT/MRI for surgical planning; trained on two decades of BCH clinical notes + imaging. **No weights, no code, no paper, no dataset** — the announcement is promotional, and the team states they *"plan to commercialize the product"*. Nothing to download now or later. |
 | **`OrthoDiffusion`** (arXiv **2602.20752**) | ✅ **⛔ CORRECTION — THE WEIGHTS ARE PUBLIC AND MIT. §C AND THIS TABLE'S FIRST DRAFT WERE BOTH WRONG.** See §C-3. |
-| **`OrthoFoundation`** (arXiv **2601.18250**) | ⚠️ **Exactly on target and STILL unavailable — the remaining watch item.** A **DINOv3** backbone, self-supervised contrastive, pretrained on **1.2 M unlabeled knee X-ray + MRI**, SOTA on **14 downstream tasks** including *MRI structural injury detection*, and label-efficient (matches supervised baselines at 50% of labels). **No GitHub, no HuggingFace, no weights.** Paper is **CC BY-NC-ND 4.0**. |
+| **`OrthoFoundation`** (arXiv **2601.18250**) | ✅ **⛔ RELEASED — SEE §C-5. "STILL UNAVAILABLE" IS RETRACTED `2026-08-18`.** The weights are public and the authors confirmed competition use by email the same day. Original note follows: ⚠️ *"Exactly on target and STILL unavailable — the remaining watch item.* A **DINOv3** backbone, self-supervised contrastive, pretrained on **1.2 M unlabeled knee X-ray + MRI**, SOTA on **14 downstream tasks** including *MRI structural injury detection*, and label-efficient (matches supervised baselines at 50% of labels). **No GitHub, no HuggingFace, no weights.** Paper is **CC BY-NC-ND 4.0**. |
 | **HuggingFace model registry, searched directly** | ⛔ **No knee-MRI classification encoder exists publicly.** Searched `knee` and `musculoskeletal` by downloads: the hits are OA X-ray classifiers, a MURA ViT, physio LLMs, fastMRI reconstruction nets, and SDXL LoRAs. **Searched the registry rather than the literature on purpose** — §3d's rule is that descriptions and reality diverge, and a model card either has weights or it does not. |
 
 **✅ THE ONE FIND, AND IT IS A LOCALISER, NOT AN ENCODER: [`aagatti/nnunet_knee`](https://hf.co/aagatti/nnunet_knee)**
@@ -1110,6 +1110,49 @@ bug ran perfectly, and a mask that is silently mis-registered would move every c
 
 **⛔ SUPERSEDED 2026-08-18 — this is now FUNDED and pre-registered as §C-4 below.** The sentence
 that stood here said *"not funded, not pre-registered, not queued."*
+
+#### C-5 — ⛔ ORTHOFOUNDATION IS RELEASED, AND IT IS THE ENCODER §C SAID DID NOT EXIST `2026-08-18`
+
+**§C's closing verdict was:** *"the shortcut it would have offered, a pretrained MSK encoder, does
+not exist in public weights today."* **That is now false, and it was false within five days.**
+[[check-whats-free-first]] again: this is the fifth belief about the outside world to expire here.
+
+**`github.com/ytrsk/OrthoFoundation` → `OrthoFoudation-L.pth`** (their spelling), **1,213,056,638
+bytes = 1.21 GB**, served over Git LFS — the `raw.githubusercontent` URL returns a **135-byte LFS
+pointer**, so pull it from `media.githubusercontent.com/media/...` or the file is useless. Verified
+live by HTTP HEAD, 2026-08-18.
+
+| | |
+|---|---|
+| backbone | **ViT-L, initialised from DINOv3-L**, chosen over candidates by five transferability estimators (SFDA, PED, LogME, PARC, ITM) on **the knee ACL injury task** |
+| pretraining | DINO student-teacher continued SSL on **1,251,655 knee images** — **357,670 radiographs + 893,985 MRI slices** |
+| corpus | OAI + fastMRI (~600k public) **plus a private four-centre PKU Third Hospital cohort, 130,567 patients** |
+| evaluation | **17 downstream tasks**, including knee MRI, OA prognosis, and cross-joint transfer |
+| compute | 4×A100, CUDA 12.5 |
+
+**🆕 AND IT IS 2D, WHICH IS THE MOST IMPORTANT LINE IN THIS TABLE.** It is pretrained on MRI
+**slices**, not volumes. So unlike §C-3's OrthoDiffusion it needs **no new vehicle**: it drops
+straight into `fusion/train_port.py`'s `BACKBONE` slot beside the current
+`vit_small_patch14_reg4_dinov2`, and inherits `SlotHead`, the six protocol slots, and the whole
+measured harness. **The cheapest strong candidate this project has had.**
+
+**⚠️ THIS IS NOT §3t's DINOv3, AND THE DISTINCTION IS THE WHOLE POINT.** §3t tested a **generic**
+DINOv3 and measured strength **0.8025**. This is DINOv3-L **continued-pretrained on 1.25 M knee
+images** — the same architecture with the domain the architecture was missing. §3w-2's narrowed
+verdict is exactly on point: **our *training* is refuted, the *architecture* is not**, and a free
+public download beat our own fine-tune by **4.8σ**. This is the free download of the right thing.
+
+**⛔ LICENCE: THERE IS NO `LICENSE` FILE IN THE REPO.** GitHub's API reports **no licence**, which
+by default means all rights reserved. **The permission rests ENTIRELY on the authors' email reply
+of 2026-08-18** — Dingyu Wang / Dong Jiang, the corresponding authors emailed under §C, who
+confirmed **(1)** the weights are open at that URL and **(2)** *"the models can be used in a public
+machine learning competition."* **Preserve that email.** It is the only licence this arm has, and
+it is a stronger grant than §4c-3's RadImageNet `CC-BY-NC-SA-4.0`, which is a real exposure we are
+shipping knowingly. **This is the clean replacement for that arm.**
+
+⚠️ **Unmeasured. Nothing below strength has been established** — §4b's rule is screen on
+**strength** first ([[diversity-is-not-the-constraint]]), and the gate is §9e's pre-registered one,
+on the 4,407-study OOF, never gold-58.
 
 #### C-4 — `aagatti/nnunet_knee` IS FUNDED, AS AN OFFLINE CALIBRATOR `PRE-REGISTERED 2026-08-18`
 
