@@ -34,69 +34,86 @@ OWNER = "raahimnawaz"
 SRC = r'''
 # C-4 Gate 1 -- reproduce aagatti/nnunet_knee's OWN prediction on their OWN test volume.
 # Reference is their test_prediction.nii.gz. This tests OUR harness, not their model.
-import subprocess, sys, time, json
+#
+# VERSION 1 FAILED HERE, and the failure is worth keeping. `pip install nnunetv2` pulled
+# numpy 2.5.2 over the numpy this session had ALREADY IMPORTED, and the next import died with
+# `cannot import name '_center' from 'numpy._core.umath'`. The install itself was fine -- it
+# reported success at 18.8 s. Only the live interpreter was poisoned. Two independent guards now:
+#   1. numpy is PINNED to whatever the image already ships, so pip has no reason to touch it.
+#   2. the real work runs in a SUBPROCESS, so its imports happen fresh no matter what pip did.
+# Either alone would probably do. Both cost nothing and this kernel is not cheap to re-run.
+import subprocess, sys, time, os, textwrap
 t0 = time.time()
-subprocess.run([sys.executable, "-m", "pip", "install", "-q", "nnunetv2"], check=True)
+import numpy
+NP = numpy.__version__
+print(f"pinning numpy=={NP} (the image's own) so the install cannot swap it", flush=True)
+subprocess.run([sys.executable, "-m", "pip", "install", "-q", "nnunetv2", f"numpy=={NP}"], check=True)
 print(f"[{time.time()-t0:6.1f}s] nnunetv2 installed", flush=True)
 
-import numpy as np, torch, nibabel as nib
-from huggingface_hub import hf_hub_download
-print(f"torch {torch.__version__} | cuda {torch.cuda.is_available()} "
-      f"| {torch.cuda.get_device_name(0) if torch.cuda.is_available() else 'CPU'}", flush=True)
+WORK = textwrap.dedent("""
+    import json, time, os, shutil
+    import numpy as np, torch, nibabel as nib
+    from huggingface_hub import hf_hub_download
+    t0 = time.time()
+    print(f"numpy {np.__version__} | torch {torch.__version__} | cuda {torch.cuda.is_available()} "
+          f"| {torch.cuda.get_device_name(0) if torch.cuda.is_available() else 'CPU'}", flush=True)
 
-REPO = "aagatti/nnunet_knee"
-M = "models/Dataset500_KneeMRI/nnUNetTrainer__nnUNetResEncUNetMPlans__3d_fullres"
-import os, shutil
-root = "/kaggle/working/model"; os.makedirs(f"{root}/fold_1", exist_ok=True)
-for rel, dst in [(f"{M}/plans.json", f"{root}/plans.json"),
-                 (f"{M}/dataset.json", f"{root}/dataset.json"),
-                 (f"{M}/fold_1/checkpoint_final.pth", f"{root}/fold_1/checkpoint_final.pth")]:
-    shutil.copy(hf_hub_download(REPO, rel), dst)
-img_p = hf_hub_download(REPO, "test_data/test_image.nii.gz")
-ref_p = hf_hub_download(REPO, "test_data/test_prediction.nii.gz")
-print(f"[{time.time()-t0:6.1f}s] weights + test data pulled", flush=True)
+    REPO = "aagatti/nnunet_knee"
+    M = "models/Dataset500_KneeMRI/nnUNetTrainer__nnUNetResEncUNetMPlans__3d_fullres"
+    root = "/kaggle/working/model"; os.makedirs(f"{root}/fold_1", exist_ok=True)
+    for rel, dst in [(f"{M}/plans.json", f"{root}/plans.json"),
+                     (f"{M}/dataset.json", f"{root}/dataset.json"),
+                     (f"{M}/fold_1/checkpoint_final.pth", f"{root}/fold_1/checkpoint_final.pth")]:
+        shutil.copy(hf_hub_download(REPO, rel), dst)
+    img_p = hf_hub_download(REPO, "test_data/test_image.nii.gz")
+    ref_p = hf_hub_download(REPO, "test_data/test_prediction.nii.gz")
+    print(f"[{time.time()-t0:6.1f}s] weights + test data pulled", flush=True)
 
-from nnunetv2.inference.predict_from_raw_data import nnUNetPredictor
-from nnunetv2.imageio.simpleitk_reader_writer import SimpleITKIO
+    from nnunetv2.inference.predict_from_raw_data import nnUNetPredictor
+    from nnunetv2.imageio.simpleitk_reader_writer import SimpleITKIO
+    dev = "cuda" if torch.cuda.is_available() else "cpu"
+    # perform_everything_on_device is CUDA-only -- exactly what MPS refused locally (C-4).
+    pred = nnUNetPredictor(tile_step_size=0.5, use_gaussian=True, use_mirroring=True,
+                           perform_everything_on_device=(dev == "cuda"),
+                           device=torch.device(dev), verbose=False, allow_tqdm=True)
+    pred.initialize_from_trained_model_folder(root, use_folds=(1,),
+                                              checkpoint_name="checkpoint_final.pth")
+    arr, props = SimpleITKIO().read_images([img_p])
+    print(f"[{time.time()-t0:6.1f}s] loaded {arr.shape} spacing {props['spacing']}", flush=True)
+    t1 = time.time()
+    ours = np.asarray(pred.predict_single_npy_array(arr, props, None, None, False))
+    mins = (time.time() - t1) / 60
+    print(f"[{time.time()-t0:6.1f}s] PREDICTED in {mins:.2f} min on {dev}", flush=True)
 
-dev = "cuda" if torch.cuda.is_available() else "cpu"
-# perform_everything_on_device is CUDA-only -- this is exactly what MPS refused locally.
-pred = nnUNetPredictor(tile_step_size=0.5, use_gaussian=True, use_mirroring=True,
-                       perform_everything_on_device=(dev == "cuda"),
-                       device=torch.device(dev), verbose=False, allow_tqdm=True)
-pred.initialize_from_trained_model_folder(root, use_folds=(1,), checkpoint_name="checkpoint_final.pth")
+    theirs = np.asanyarray(nib.load(ref_p).dataobj)
+    if ours.shape != theirs.shape:
+        theirs = np.transpose(theirs, (2, 0, 1))      # nnU-Net returns z,y,x
+    print(f"ours {ours.shape} theirs {theirs.shape}")
 
-arr, props = SimpleITKIO().read_images([img_p])
-print(f"[{time.time()-t0:6.1f}s] loaded {arr.shape} spacing {props['spacing']}", flush=True)
-t1 = time.time()
-ours = np.asarray(pred.predict_single_npy_array(arr, props, None, None, False))
-mins = (time.time() - t1) / 60
-print(f"[{time.time()-t0:6.1f}s] PREDICTED in {mins:.2f} min on {dev}", flush=True)
-
-theirs = np.asanyarray(nib.load(ref_p).dataobj)
-if ours.shape != theirs.shape:
-    theirs = np.transpose(theirs, (2, 0, 1))          # nnU-Net returns z,y,x
-print(f"ours {ours.shape} theirs {theirs.shape}")
-
-labels = json.load(open(f"{root}/dataset.json"))["labels"]
-inv = {int(v): k for k, v in labels.items() if int(v) != 0}
-def dice(a, b):
-    tot = a.sum() + b.sum()
-    return 1.0 if tot == 0 else float(2.0 * np.logical_and(a, b).sum() / tot)
-
-print(f"\n{'class':<16}{'dice':>8}{'ours':>10}{'theirs':>10}")
-ds = []
-for c in sorted(inv):
-    d = dice(ours == c, theirs == c); ds.append(d)
-    print(f"{inv[c]:<16}{d:>8.4f}{int((ours==c).sum()):>10}{int((theirs==c).sum()):>10}")
-mean = float(np.mean(ds)); agree = float((ours == theirs).mean())
-print(f"\nmean foreground Dice vs THEIR prediction: {mean:.4f}")
-print(f"exact voxel agreement:                    {agree:.6f}")
-print(f"\nGATE 1 {'PASS' if mean >= 0.99 else 'FAIL'} (threshold 0.99, fixed in PLAN.md C-4 before the run)")
-print(f"PER-VOLUME COST ON {dev.upper()}: {mins:.2f} min  <- this is the number C-4's Variant A needs")
-json.dump({"mean_dice": mean, "exact_agreement": agree, "minutes": mins, "device": dev,
-           "per_class": {inv[c]: d for c, d in zip(sorted(inv), ds)}},
-          open("/kaggle/working/gate1_result.json", "w"), indent=2)
+    labels = json.load(open(f"{root}/dataset.json"))["labels"]
+    inv = {int(v): k for k, v in labels.items() if int(v) != 0}
+    def dice(a, b):
+        tot = a.sum() + b.sum()
+        return 1.0 if tot == 0 else float(2.0 * np.logical_and(a, b).sum() / tot)
+    print(f"\n{'class':<16}{'dice':>8}{'ours':>10}{'theirs':>10}")
+    ds = []
+    for c in sorted(inv):
+        d = dice(ours == c, theirs == c); ds.append(d)
+        print(f"{inv[c]:<16}{d:>8.4f}{int((ours==c).sum()):>10}{int((theirs==c).sum()):>10}")
+    mean = float(np.mean(ds)); agree = float((ours == theirs).mean())
+    print(f"\nmean foreground Dice vs THEIR prediction: {mean:.4f}")
+    print(f"exact voxel agreement:                    {agree:.6f}")
+    print(f"\nGATE 1 {'PASS' if mean >= 0.99 else 'FAIL'} "
+          f"(threshold 0.99, fixed in PLAN.md C-4 before the run)")
+    print(f"PER-VOLUME COST ON {dev.upper()}: {mins:.2f} min  <- the number C-4 Variant A needs")
+    json.dump({"mean_dice": mean, "exact_agreement": agree, "minutes": mins, "device": dev,
+               "per_class": {inv[c]: d for c, d in zip(sorted(inv), ds)}},
+              open("/kaggle/working/gate1_result.json", "w"), indent=2)
+""")
+open("/kaggle/working/g1_work.py", "w").write(WORK)
+r = subprocess.run([sys.executable, "-u", "/kaggle/working/g1_work.py"])
+print(f"[{time.time()-t0:6.1f}s] work subprocess exited {r.returncode}", flush=True)
+sys.exit(r.returncode)
 '''
 
 
