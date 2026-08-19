@@ -69,14 +69,19 @@ def main() -> int:
         str(model), use_folds=tuple(int(f) for f in a.folds.split(",")),
         checkpoint_name=a.checkpoint)
 
+    # IN-PROCESS, deliberately. `predict_from_files` spawns preprocessing/export workers and
+    # deadlocked here for 18 min at 0.0% CPU on macOS spawn -- three idle children, no output.
+    # `predict_single_npy_array` does the same work in this process, so there is nothing to
+    # deadlock. Slower in principle, finite in practice.
+    from nnunetv2.imageio.simpleitk_reader_writer import SimpleITKIO
     t0 = time.time()
-    pred.predict_from_files([[str(staged)]], [str(outd / "case.nii.gz")],
-                            save_probabilities=False, overwrite=True,
-                            num_processes_preprocessing=1, num_processes_segmentation_export=1)
+    arr, props = SimpleITKIO().read_images([str(staged)])
+    print(f"loaded {arr.shape} spacing {props['spacing']}", flush=True)
+    ours = pred.predict_single_npy_array(arr, props, None, None, False)
     mins = (time.time() - t0) / 60
-    print(f"predicted in {mins:.1f} min")
-
-    ours = np.asanyarray(nib.load(outd / "case.nii.gz").dataobj)
+    print(f"predicted in {mins:.1f} min", flush=True)
+    nib.save(nib.Nifti1Image(np.asarray(ours).astype(np.uint8),
+                             nib.load(img_p).affine), outd / "case.nii.gz")
     theirs = np.asanyarray(nib.load(ref_p).dataobj)
     if ours.shape != theirs.shape:
         print(f"⛔ SHAPE MISMATCH ours {ours.shape} theirs {theirs.shape}")

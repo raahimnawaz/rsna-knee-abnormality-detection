@@ -1181,7 +1181,34 @@ resolved series is a **free read** once Gate 2 passes on sagittal, and it needs 
 If they agree, the bit is corroborated; if they disagree, §3y-2's 28.4% finding gets an explanation.
 
 **Cost:** ~816 MB (`3d_fullres/fold_1` alone — skip the cascade and lowres until Gate 1 passes),
-plus their 307 MB test volume. MPS is free. **Not on the critical path to the next submission.**
+plus their 307 MB test volume. **Not on the critical path to the next submission.**
+
+**⛔ COST CORRECTION — "MPS is free" WAS WRONG, AND IT IS THE MOST IMPORTANT THING MEASURED HERE.**
+`MEASURED 2026-08-18` — Gate 1 ran locally on MPS and reached **127 of 150 sliding-window tiles in
+1 h 29 m** before being killed. Not slow-and-steady: it *degraded*, 17.9 s/tile at the start to
+~7 min/tile averaged over the last stretch, with **one tile taking 17 min 50 s**.
+
+**The diagnosis is not swap, and the first diagnosis written here was wrong.** Swap sat at 4.9 GB
+used, but **nothing on the box held RAM** — `gate1` RSS was **0.42 GB**, the next largest processes
+were Claude and Chrome at 0.4 GB. It is MPS unified-memory behaviour plus a CPU-side aggregation
+buffer that exists *only* because **MPS forces `perform_everything_on_device=False`** — nnU-Net
+prints *"only supported for cuda devices"*. A 160×512×512×10 float32 accumulator is ~1.7 GB by
+itself and never touches RSS the way a normal allocation does.
+
+⚠️ **So the local cost is ~2–3 h PER VOLUME.** §C-4's Variant A said *"run it ONCE over training
+studies"* against 3,599 studies. **That is not a sample-size problem, it is infeasible locally at
+any sample size worth fitting on**, and no amount of trimming rescues it.
+
+**✅ THE FIX IS THE KERNEL, AND IT RESTORES THE THING MPS REFUSED.** `notebooks/
+build_nnunet_gate1_kernel.py` builds `raahimnawaz/rsna-knee-nnunet-gate1` — T4, `enable_internet`
+(not a submission kernel; it pip-installs `nnunetv2` and pulls the weights from the Hub), and
+`perform_everything_on_device=True` because the device is CUDA. **The kernel prints the per-volume
+CUDA cost explicitly**, which is the number Variant A actually needs before it can be scheduled.
+
+⚠️ **One local artefact to keep:** `predict_from_files` **deadlocked on macOS spawn** — 18 min at
+0.0% CPU, three idle children, zero output. `pipeline/nnunet_gate1.py` uses
+`predict_single_npy_array` in-process instead. Whichever device Variant A eventually runs on, do
+not reach for the multiprocessing entry point here.
 
 #### C-3 — ⛔ ORTHODIFFUSION'S WEIGHTS ARE PUBLIC, MIT, AND WE MISSED THEM TWICE `2026-08-18`
 
