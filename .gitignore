@@ -30,3 +30,6 @@ data/_nnunet/
 
 # OrthoFoundation weights (PLAN C-5) -- 1.21 GB, licence is the authors email
 data/_orthofoundation/
+
+# OrthoFoundation feature cache (PLAN C-5) -- ~2.6 GB when complete
+data/_of_features/
