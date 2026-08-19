@@ -1173,6 +1173,31 @@ is the pattern. ⛔ **Do NOT edit `pipeline/preprocess.py` to do it** — that f
 submission notebook and its docstring is explicit that a disagreement feeds the model a
 distribution it never trained on **with nothing raising an error**.
 
+**✅ PILOT SHARD LANDED — THE PIPELINE WORKS AND THE FULL PASS IS 5.21 h `2026-08-18`.**
+`rsna-knee-orthofoundation-screen` v4, shard 0/8, T4: **551 studies / 3,035 series in 39.1 min =
+4.26 s/study**, steady at ~840 studies/h, output 327 MB (so the full cache is **~2.6 GB**).
+
+| check | result |
+|---|---|
+| `PREPROCESS_VERSION` | **`3ae0c719d72a`** — distinct from the ViT-B `2eddb3ec68d0`, so the two caches cannot be confused |
+| `embed()` width | **2048-d**, as `EMBED_DIM` declares |
+| laterality unresolved | **0 of 3,035** — against `kaggle_02`'s 2% warning line. Medial/lateral labels rest on this |
+| parent RSS before decode | **3.24 GB** |
+
+**Decode-bound exactly as predicted:** 4.26 s/study against an encode half of 0.10 s/study, so
+**97.6% of the cost is decode** and the backbone swap is ~2.4% of the bill. **§3e holds.**
+
+⚠️ **5.21 h is a real slice of the 30 h weekly GPU quota**, and it fits in one 12 h session — but
+shard it anyway: `build_cache` skips finished studies on restart, so a shard loses at most one
+study while a single long session loses everything.
+
+**⛔ Four kernel versions were spent on scaffolding and the last bug is worth remembering.**
+`build_cache` drives a **spawn-context** pool, and spawn **re-imports `__main__` in every worker**.
+Without an `if __name__ == "__main__"` guard all four workers re-ran the whole script: v1 had each
+loading a 1.21 GB checkpoint and a 303 M ViT-L (which merely *looked* like an OOM), and v2, which
+frees the checkpoint, died on `FileNotFoundError` instead. **One bug, two symptoms, and the memory
+tuning shipped in v2 was treating a coincidence.**
+
 ⚠️ **Strength is still unmeasured. Nothing below strength has been established** — §4b's rule is screen on
 **strength** first ([[diversity-is-not-the-constraint]]), and the gate is §9e's pre-registered one,
 on the 4,407-study OOF, never gold-58.
