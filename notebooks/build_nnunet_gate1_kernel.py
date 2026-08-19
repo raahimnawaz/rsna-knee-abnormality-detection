@@ -74,7 +74,7 @@ if torch.cuda.is_available():
 
 REPO = "aagatti/nnunet_knee"
 M = "models/Dataset500_KneeMRI/nnUNetTrainer__nnUNetResEncUNetMPlans__3d_fullres"
-root = "/kaggle/working/model"
+root = "/tmp/model"          # NOT /kaggle/working: 816 MB there makes `kernels output` time out
 os.makedirs(root + "/fold_1", exist_ok=True)
 for rel, dst in [(M + "/plans.json", root + "/plans.json"),
                  (M + "/dataset.json", root + "/dataset.json"),
@@ -102,10 +102,36 @@ ours = np.asarray(pred.predict_single_npy_array(arr, props, None, None, False))
 mins = (time.time() - t1) / 60
 print(f"[{time.time()-t0:6.1f}s] PREDICTED in {mins:.2f} min on {dev}", flush=True)
 
-theirs = np.asanyarray(nib.load(ref_p).dataobj)
-if ours.shape != theirs.shape:
-    theirs = np.transpose(theirs, (2, 0, 1))          # nnU-Net returns z,y,x
-print("ours " + str(ours.shape) + " theirs " + str(theirs.shape), flush=True)
+theirs_raw = np.asanyarray(nib.load(ref_p).dataobj)
+print("ours " + str(ours.shape) + " theirs(raw) " + str(theirs_raw.shape), flush=True)
+
+# v6 GUESSED transpose (2,0,1) and scored 0.103. nibabel gives (x,y,z), nnU-Net returns (z,y,x),
+# so (2,0,1) yields (z,x,y) -- it swaps the two in-plane axes, and both are 512 so the shape check
+# passed anyway. The signature was exactly that: femur 0.589, every small elongated structure 0.000.
+# Do not guess twice. Search every permutation x flip, score BINARY foreground (cheap), and NAME
+# the winner. This is orientation plumbing, not model selection -- the question is whether ANY
+# convention reproduces them, and which. If none does, the harness is wrong somewhere else.
+import itertools
+of = ours > 0
+best = (-1.0, None, None)
+for perm in itertools.permutations((0, 1, 2)):
+    cand0 = np.transpose(theirs_raw, perm)
+    if cand0.shape != ours.shape:
+        continue
+    for flips in [(), (0,), (1,), (2,), (0, 1), (0, 2), (1, 2), (0, 1, 2)]:
+        cand = np.flip(cand0, axis=flips) if flips else cand0
+        cf = cand > 0
+        tot = of.sum() + cf.sum()
+        d = 0.0 if tot == 0 else float(2.0 * np.logical_and(of, cf).sum() / tot)
+        if d > best[0]:
+            best = (d, perm, flips)
+print("", flush=True)
+print(f"ORIENTATION SEARCH: best binary-foreground Dice {best[0]:.4f} "
+      f"at permutation {best[1]} flips {best[2]}", flush=True)
+theirs = np.transpose(theirs_raw, best[1])
+if best[2]:
+    theirs = np.flip(theirs, axis=best[2])
+theirs = np.ascontiguousarray(theirs)
 
 labels = json.load(open(root + "/dataset.json"))["labels"]
 inv = {int(v): k for k, v in labels.items() if int(v) != 0}
@@ -131,7 +157,9 @@ print(f"exact voxel agreement:                    {agree:.6f}")
 print("")
 print(f"GATE 1 {'PASS' if mean >= 0.99 else 'FAIL'} (threshold 0.99, fixed in PLAN.md C-4 before the run)")
 print(f"PER-VOLUME COST ON {dev.upper()}: {mins:.2f} min  <- the number C-4 Variant A needs")
+nib.save(nib.Nifti1Image(ours.astype(np.uint8), np.eye(4)), "/kaggle/working/ours.nii.gz")
 json.dump({"mean_dice": mean, "exact_agreement": agree, "minutes": mins, "device": dev,
+           "orientation": {"perm": list(best[1]), "flips": list(best[2]), "binary_dice": best[0]},
            "per_class": {inv[c]: d for c, d in zip(sorted(inv), ds)}},
           open("/kaggle/working/gate1_result.json", "w"), indent=2)
 '''
