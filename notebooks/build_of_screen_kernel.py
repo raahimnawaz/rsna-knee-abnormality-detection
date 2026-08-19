@@ -51,6 +51,12 @@ SHARD, N_SHARDS = os.environ["SHARD"], os.environ["N_SHARDS"]
 os.environ["MODEL"] = "orthofoundation-L"
 os.environ["EMBED_DIM"] = "2048"
 os.environ["IMG_SIZE"] = "336"
+# v1 died with BrokenProcessPool at 453 s, AFTER both smoke tests passed -- i.e. in decode, not in
+# the model. kaggle_02 defaults to min(8, 2*cpu_count) workers and PREFETCH 16, sized for a 22 M
+# ViT-S. This parent also holds a 1.21 GB checkpoint and a 303 M ViT-L, on a box with ~13 GB. Fewer
+# workers and a shorter queue; both are already env-configurable there, so nothing is forked.
+os.environ.setdefault("N_WORKERS", "4")
+os.environ.setdefault("PREFETCH", "6")
 
 import torch, timm
 
@@ -98,7 +104,12 @@ with torch.no_grad():
     model.rope.periods.copy_(periods.to(model.rope.periods.dtype))   # NON-PERSISTENT buffer
 assert torch.allclose(model.rope.periods.float(), periods.float(), atol=0)
 model = model.eval().to(dev)
-print(f"[{time.time()-t0:6.1f}s] OrthoFoundation-L strict, rope=theirs", flush=True)
+# Free the CPU-side checkpoint BEFORE the decode pool forks. `raw` and `sd` are ~1.2 GB each and
+# the weights now live on the GPU; without this every worker forks a parent carrying both.
+del raw, sd
+os.remove(DST)
+import gc; gc.collect()
+print(f"[{time.time()-t0:6.1f}s] OrthoFoundation-L strict, rope=theirs, checkpoint freed", flush=True)
 
 import kaggle_02_dinov2_cache as k2
 from preprocess import (BATCH_HINT, EMBED_DIM, IMG_SIZE, MODEL, PREPROCESS_VERSION,
@@ -119,6 +130,12 @@ studies = sorted(series.StudyInstanceUID.unique())
 S, N = int(SHARD), int(N_SHARDS)
 mine = [s for i, s in enumerate(studies) if i % N == S]
 print(f"\\nshard {S}/{N}: {len(mine):,} of {len(studies):,} studies", flush=True)
+print(f"decode workers {os.environ['N_WORKERS']}, prefetch {os.environ['PREFETCH']}", flush=True)
+try:
+    import resource
+    print(f"RSS before decode: {resource.getrusage(resource.RUSAGE_SELF).ru_maxrss/1e6:.2f} GB", flush=True)
+except Exception:
+    pass
 
 t1 = time.time()
 done, skipped, lat = k2.build_cache(root, mine, series.set_index("SeriesInstanceUID"), OUT,
