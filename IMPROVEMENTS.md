@@ -2828,6 +2828,40 @@ the stack sorted at all", and that is now the open question.**
 last only** — three anchors per series, 29,592 entries over ~9,900 series. Enough for a direction,
 never for a permutation. Per-slice `ImagePositionPatient` exists only in the DICOMs.
 
+### 3i-6. ⛔ THE RESIDUAL'S MAGNITUDE DOES NOT IMPLY THE BAND GAP, AND THAT INFERENCE WAS MINE `2026-08-19`
+
+§3i-3's residual (0.0168 against a ~1e-5 floor) was read on 08-19 as the explanation for why every
+model trained here lands at 0.69–0.77 while every downloaded model lands at 0.847–0.852. **That
+step is refuted by a free measurement that was sitting in the weights dataset the whole time.**
+
+The fork ships two prediction matrices of the same lineage. `merge_gain.npz::ours` differs from
+`oof.npz::pred` by **mean |Δ| = 0.01652** — the same magnitude as our reconstruction residual.
+Scored through `score_oof.py` on the same 4,349 studies:
+
+    oof::pred          0.8469 +- 0.0024
+    merge_gain::ours   0.8482 +- 0.0024
+    PAIRED delta       +0.0013 +- 0.0004
+
+**A perturbation of exactly our residual's size moves the macro by 0.0013.** The band gap is
+0.076–0.081. So residual magnitude alone accounts for **under 2%** of it, and "our pixels are 34%
+of scrambled, therefore the band" does not follow.
+
+⚠️ **WHAT SURVIVES, STATED NARROWLY.** Their run-to-run difference is *random* (seeds); a permuted
+slice order would be *systematic*, and a systematic error of a given mean magnitude can cost far
+more than a random one. So this refutes the INFERENCE, not the hypothesis. §3i-4's kernel is still
+unrun and slice order is still load-bearing (scrambled 0.0501 ≈ a different member, 0.0495).
+
+**⛔ THE EXPERIMENT THAT ACTUALLY SETTLES IT IS ALREADY WRITTEN AND HAS NEVER PRODUCED A NUMBER.**
+`fusion/band_ab.py` **arm A** is the shipped config — the fork's own 20 members, run on OUR pixels,
+scored locally. That is the missing measurement: not a residual, an **AUROC**. It ran to 20/20 on
+08-19 and the result was discarded before writing, which is the bug `86903e8` fixed.
+
+    arm A ~= 0.847  ->  our pixels are fine; the band is training/targets, not decode
+    arm A ~= 0.77   ->  pixels are the cause after all, and §3i-4 is the fix
+
+**Until that number exists, the cause of the band gap is UNIDENTIFIED.** [[loss-curve-is-not-evidence]]
+in a new dress: a real measurement (the residual) was made to answer a question it does not address.
+
 ### 3i-4. The fix is one Kaggle CPU kernel, and it is not GPU quota
 
 Export, per series, the permutation that sorts slices by `k = p · (r_x × r_y)` — the fork's own
