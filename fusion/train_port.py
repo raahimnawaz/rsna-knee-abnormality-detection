@@ -234,6 +234,57 @@ class SlotNet(nn.Module):
                 {"params": list(self.head.parameters()), "lr": LR_HEAD}]
 
 
+class OrthoNet(nn.Module):
+    """OrthoFoundation-L in the fork's harness. The one configuration nobody public is running.
+
+    ⛔ WHY THIS EXISTS AND WHY IT IS NOT ANOTHER ARM. Measured 2026-08-19 over all 1,992 leaderboard
+    rows: every author publishing an ensemble kernel sits in **0.917-0.922** -- Tony Li 0.922,
+    Mattia Angeli 0.920, Aman Atar 0.920, Kunal Desale 0.920 -- and every one of them runs the same
+    **22 M dinov2-small pretrained on natural images**, because they all forked the same baseline.
+    The leaders at 0.942-0.952 publish nothing. So the public ceiling is 0.922, blending public
+    arms lands inside it by construction, and the way out is not another arm.
+
+    This is a **303 M DINOv3-L continued-pretrained on 1,251,655 knee images** (§C-5), 14x the
+    parameters with the domain the architecture was missing. §3t's generic DINOv3 measured 0.8025
+    and §3w-2's narrowed verdict is the point: *our training was refuted, the architecture was
+    not.* It scored 0.7710 FROZEN this morning and failed its gate -- and a frozen cache cannot
+    fine-tune at any resolution, under any head (§2e), which is exactly what that measured.
+
+    Head, pooling and slot geometry are the fork's, unchanged, so the ONLY variable against the
+    reproduction is the encoder. Pooling is `preprocess.embed`'s verified convention --
+    `num_prefix_tokens`, not a hardcoded 1 -- because this backbone carries **4 register tokens**
+    after CLS and slicing at `[:, 1:]` would fold four registers into the patch mean.
+    """
+
+    def __init__(self, n_slots: int, img: int = 336, unfreeze_last: int = UNFREEZE_LAST,
+                 dropout: float = 0.1):
+        super().__init__()
+        from fusion.orthofoundation_model import build as build_of
+        from fusion.pilkwang_model import SlotHead as ForkSlotHead
+        self.backbone, _ = build_of(img=img)
+        for p in self.backbone.parameters():
+            p.requires_grad = False
+        for blk in self.backbone.blocks[len(self.backbone.blocks) - unfreeze_last:]:
+            for p in blk.parameters():
+                p.requires_grad = True
+        for p in self.backbone.norm.parameters():
+            p.requires_grad = True
+        dim = self.backbone.num_features
+        self.head = ForkSlotHead(dim * 2, n_slots, len(LABELS), prior=False)
+        self.register_buffer("mean", torch.tensor([0.485, 0.456, 0.406]).view(1, 3, 1, 1))
+        self.register_buffer("std", torch.tensor([0.229, 0.224, 0.225]).view(1, 3, 1, 1))
+        print(f"  backbone: OrthoFoundation-L, {len(self.backbone.blocks)} blocks, "
+              f"last {unfreeze_last} trainable, dim {dim}, prefix {self.backbone.num_prefix_tokens}")
+
+    def forward(self, x: torch.Tensor, m: torch.Tensor) -> torch.Tensor:
+        b, k = x.shape[:2]
+        z = x.flatten(0, 1).float().div(255.0)
+        z = (z - self.mean) / self.std
+        tok = self.backbone.forward_features(z)
+        cls, patch = tok[:, 0], tok[:, self.backbone.num_prefix_tokens:].mean(1)
+        return self.head(torch.cat([cls, patch], -1).view(b, k, -1), m)
+
+
 def weighted_bce(logits: torch.Tensor, y: torch.Tensor, w: torch.Tensor) -> torch.Tensor:
     return (F.binary_cross_entropy_with_logits(logits, y, reduction="none") * w).mean()
 
@@ -326,8 +377,12 @@ def run_fold(fold: int, folds: pd.DataFrame, store: TileStore, targets: pd.DataF
     # SlotNet below is kept as the record of what was measured at 0.7323 and is no longer used.
     # `img_size=None` at the call sites is correct: the tiles are already `a.img`, so the fork's
     # forward skips its interpolate rather than resampling a resampled image.
-    from fusion.pilkwang_model import build_model
-    model = build_model(a.unfreeze_last, prior=False, pool="cls_mean").to(dev)
+    if a.backbone == "orthofoundation":
+        model = OrthoNet(len(store.slots), img=a.img, unfreeze_last=a.unfreeze_last,
+                         dropout=a.dropout).to(dev)
+    else:
+        from fusion.pilkwang_model import build_model
+        model = build_model(a.unfreeze_last, prior=False, pool="cls_mean").to(dev)
     n_tr = sum(p.numel() for p in model.parameters() if p.requires_grad)
     n_all = sum(p.numel() for p in model.parameters())
     print(f"  fold {fold}: train {len(tr):,} / val {len(va):,} studies · "
@@ -411,6 +466,10 @@ def main() -> None:
     ap = argparse.ArgumentParser(description=__doc__.splitlines()[0])
     ap.add_argument("--cache", default=str(D / "tiles336"))
     ap.add_argument("--tag", default="protocol")
+    ap.add_argument("--backbone", default="pilkwang",
+                    choices=["pilkwang", "orthofoundation"],
+                    help="pilkwang = the fork's dinov2-small (the reproduction); "
+                         "orthofoundation = DINOv3-L on 1.25M knee images, 303M params")
     ap.add_argument("--folds", default=str(D / "folds_site.csv"),
                     help="site-grouped by default: ungrouped folds inflate by +0.024 (2j)")
     ap.add_argument("--labels", default=str(D / "targets.csv"))
