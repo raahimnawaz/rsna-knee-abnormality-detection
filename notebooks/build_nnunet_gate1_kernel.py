@@ -143,8 +143,10 @@ import subprocess, sys, time
 
 t0 = time.time()
 # No numpy pin: v2 pinned it and nnunetv2's compiled deps are built against a newer numpy.
-# But torch IS pinned. v4 let pip replace the image's torch with a PyPI build carrying no kernels
-# for the T4's sm_75, and it died at the first conv3d with
+# torch is pinned, but ⚠️ NOT for the reason v5 claimed. v5 blamed pip for replacing the image's
+# torch; v5's own smoke test then showed the real cause was that Kaggle had assigned a P100 (sm_60)
+# because machine_shape was missing. The pin is kept as cheap insurance against pip clobbering a
+# working torch, which is a real failure mode -- it is just not what v4 hit. v4 died with
 #   "CUDA error: no kernel image is available for execution on the device"
 # after paying the full install + 816 MB download + model load. The image's torch is the one built
 # for this hardware, so pin it and let pip solve around it.
@@ -193,7 +195,12 @@ def main() -> None:
             "language": "python", "kernel_type": "notebook", "is_private": True,
             "enable_gpu": True, "enable_tpu": False, "enable_internet": True,
             "keywords": ["gpu"], "dataset_sources": [], "kernel_sources": [],
-            "competition_sources": [], "model_sources": []}
+            "competition_sources": [], "model_sources": [],
+            # ⛔ REQUIRED. Omitting this got a Tesla P100 (sm_60), and the image's own
+            # torch 2.10.0+cu128 supports sm_70..sm_120 -- so the P100 is too OLD for it and no
+            # pin can fix that. v5 died in the conv3d smoke test naming exactly this. The F6
+            # submission kernel has always specified T4; this one simply forgot to.
+            "machine_shape": "NvidiaTeslaT4"}
     (out / "kernel-metadata.json").write_text(json.dumps(meta, indent=2))
     print(f"built {out}/{SLUG}.ipynb  (id {meta['id']})")
 
