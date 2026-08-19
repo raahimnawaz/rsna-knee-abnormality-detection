@@ -130,6 +130,35 @@ def paired_boot(y, pa, pb, n_boot=2000, seed=0):
     return float(d.mean()), float(d.std()), float((d > 0).mean())
 
 
+def _checkpoint(out, P) -> None:
+    """Write the per-arm predictions as each arm lands.
+
+    MEASURED 2026-08-19: this file wrote NOTHING until every arm had finished, so a run killed
+    during arm B threw away arm A's 2.6 h as well. The arms are independent by construction --
+    that is the point of the decomposition -- so there is no reason for one to be able to destroy
+    another. Cheap: [20, n_study, 12] float32 is well under a megabyte per arm.
+    """
+    if not out:
+        return
+    import numpy as _np
+    tmp = Path(str(out) + ".partial.npz")
+    _np.savez_compressed(tmp, **{f"P_{k}": v for k, v in P.items()})
+    print(f"  checkpoint: arms {sorted(P)} -> {tmp.name}", flush=True)
+
+
+def _free_accel() -> None:
+    """Return freed accelerator blocks to the OS. No-op off MPS/CUDA."""
+    import gc
+    gc.collect()
+    try:
+        if torch.backends.mps.is_available():
+            torch.mps.empty_cache()
+        elif torch.cuda.is_available():
+            torch.cuda.empty_cache()
+    except Exception:                                   # never let bookkeeping kill a run
+        pass
+
+
 def run_arm(name, band, n_slice, studies, slots, members, verbose=False):
     """Build one arm's pixels, run all twenty members, return [20, n_study, 12]."""
     t = time.time()
@@ -146,9 +175,18 @@ def run_arm(name, band, n_slice, studies, slots, members, verbose=False):
         model, _, _ = load_member(m, dev=dev)
         Q[k] = predict_member(model, cache, mask, dev, int(m["config"]["img"]))
         del model
+        # ⛔ MPS memory is UNIFIED: torch's caching allocator keeps freed GPU blocks out of the
+        # same 17.2 GB the 4.88 GB host cache lives in, and `del model` does not return them.
+        # MEASURED 2026-08-19: without this, arm A ran at ~470 s/member and arm B -- allocating a
+        # second cache while arm A's GPU blocks were still held -- collapsed to ~2,400 s/member,
+        # 5x, with process RSS reading only 0.61 GB while swap sat at 4.0 GB. Same signature as
+        # PLAN.md §C-4's nnU-Net run. Cheap to call, and it is called per MEMBER rather than per
+        # arm because twenty member loads is where the blocks accumulate.
+        _free_accel()
         print(f"  [{k + 1:>2}/20] {m['id']} fold {m['fold']}  {time.time() - t0:.0f}s",
               flush=True)
     del cache
+    _free_accel()
     return Q
 
 
@@ -187,10 +225,17 @@ def main() -> int:
         studies = list(rng.permutation(ok)[:a.n])
         print(f"{len(studies)} studies of {len(ok):,} eligible")
 
-    P = {"A": run_arm("A", *ARM_A, studies, slots, members),
-         "B": run_arm("B", *ARM_B, studies, slots, members)}
+    # Sequential rather than one dict literal, so a checkpoint can land BETWEEN arms. The arms
+    # are independent by construction (that is what decomposing the lever means), so losing one
+    # should never cost another -- see _checkpoint.
+    P = {}
+    P["A"] = run_arm("A", *ARM_A, studies, slots, members)
+    _checkpoint(a.out, P)
+    P["B"] = run_arm("B", *ARM_B, studies, slots, members)
+    _checkpoint(a.out, P)
     if not a.skip_c:
         P["C"] = run_arm("C", *ARM_C, studies, slots, members)
+        _checkpoint(a.out, P)
 
     # Fold recovery runs on arm A -- the config the shipped OOF was produced at (§3i). Doing it
     # on B would ask a wrongly-banded prediction to identify the holdout group.
