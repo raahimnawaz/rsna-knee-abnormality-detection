@@ -1150,7 +1150,30 @@ machine learning competition."* **Preserve that email.** It is the only licence 
 it is a stronger grant than §4c-3's RadImageNet `CC-BY-NC-SA-4.0`, which is a real exposure we are
 shipping knowingly. **This is the clean replacement for that arm.**
 
-⚠️ **Unmeasured. Nothing below strength has been established** — §4b's rule is screen on
+**✅ COST IS MEASURED AND IT IS NOT A BARRIER — `2026-08-18`, T4, fp16, the port's real shape
+(6 slots x 3-channel 336 px).** This section's own warning — *"303 M against ~22 M, price it
+against §3e's 9 h budget BEFORE proposing it for the scored path"* — is **answered and withdrawn**:
+
+| | ms/tile | ms/study | 1,322 test studies | 4,407 OOF |
+|---|--:|--:|--:|--:|
+| **OrthoFoundation-L** (303 M) | 16.95 | 101.71 | **2.24 min** | 7.47 min |
+| baseline DINOv2 ViT-S/14 (22 M) | 2.68 | 16.07 | 0.35 min | 1.18 min |
+| ratio | | **6.33×** | **+1.9 min added** | |
+
+⚠️ **The parameter count was the WRONG INSTRUMENT and it was mine.** 303/22 = 14× predicted;
+**measured is 6.33×** — a T4's tensor cores absorb the larger model proportionally better in fp16.
+And the ratio is the misleading half: the **absolute** figure is **+1.9 min on a 9 h ceiling that
+§3e/§9g establish is decode-dominated**. Decode is unchanged by an encoder swap, so this arm costs
+essentially nothing to ship. **Never price a forward pass by parameter count again — `bench` it.**
+
+**Consequence for the feature cache:** encoding the whole 4,407-study OOF is **7.47 min of GPU**.
+The strength screen is therefore **decode-bound like every other cache build here** (§3e), and the
+backbone swap adds ~6 min to a job whose cost was already known. `notebooks/kaggle_02_dinov2_cache.py`
+is the pattern. ⛔ **Do NOT edit `pipeline/preprocess.py` to do it** — that file is shared with the
+submission notebook and its docstring is explicit that a disagreement feeds the model a
+distribution it never trained on **with nothing raising an error**.
+
+⚠️ **Strength is still unmeasured. Nothing below strength has been established** — §4b's rule is screen on
 **strength** first ([[diversity-is-not-the-constraint]]), and the gate is §9e's pre-registered one,
 on the 4,407-study OOF, never gold-58.
 
