@@ -10,7 +10,7 @@ Twelve-label knee-MRI classification, macro-AUROC. Final submission **2026-10-22
 >
 > ## 🔴 SESSION HANDOFF — 2026-08-18, three things are IN FLIGHT. Read this first.
 >
-> ### A. ✅ SUBMITTED 2026-08-18 — ref `55608011`, SCORE PENDING
+> ### A. ✅ SCORED **0.914** — the arm earned its slot, at HALF the predicted gain
 >
 > **`raahimnawaz/rsna-knee-f6-three-arm-blend-radimagenet`, version 2.** Three families:
 > pilkwang + `ft_b` + the public RadImageNet arm (§4c, +0.0146 gold / +0.0160 at 4.4σ large-n).
@@ -37,8 +37,11 @@ Twelve-label knee-MRI classification, macro-AUROC. Final submission **2026-10-22
 > `submission.csv` is 3 rows off the dummy test set; Kaggle re-runs the kernel on the hidden 1,322
 > studies (~2 h of the 30 h weekly quota, §3e). The command that worked:
 > `kaggle competitions submit rsna-knee-abnormality-detection -k <kernel> -v 2 -f submission.csv -m ...`
-> **Predicted LB ~0.921 (§4b) against banked 0.908.** If it lands short, suspect §4b's debias/offset
-> chain rather than the arm — every guard in the log passed.
+> **✅ RESULT: 0.914** (banked 0.908, predicted 0.921). **The arm is real — +0.006 — and the
+> prediction was optimistic by the same amount.** It landed short and the cause is where this
+> file said to look: **§4b's debias/offset chain, not the arm.** See `IMPROVEMENTS.md` §4c-4.
+> ⛔ **Standing correction: price a future arm's LB gain at ~HALF its gold gain.** Gold +0.0135
+> and large-n +0.0102 at 8.8σ both delivered +0.006 shipped.
 >
 > ⚠️ Only soft note: `rad: prob mean 0.3985 std 0.2671` against a local reference of `0.345/0.261`.
 > **On a 3-study dummy set that is noise** — the std matches to 0.006 — but if a full run ever shows
