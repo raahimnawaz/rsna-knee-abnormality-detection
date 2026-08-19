@@ -23,12 +23,17 @@ Two structural facts from the data drive the design:
 Masked attention pooling, not mean pooling: a meniscal tear occupies a handful of slices out of
 24, and averaging over the volume dilutes it by ~20x.
 """
+import os
 import torch
 import torch.nn as nn
 import torch.nn.functional as F
 
 N_LABELS = 12
-EMBED_DIM = 1536          # must match pipeline.preprocess.EMBED_DIM
+EMBED_DIM = int(os.environ.get("EMBED_DIM", 1536))   # must match pipeline.preprocess.EMBED_DIM
+# Reads the env for the same reason preprocess.py does, and the comment above was already the
+# contract -- it just was not enforced anywhere. PLAN.md §C-5's ViT-L arm concatenates to 2048,
+# and without this the head would build a 1536-wide projection and fail on the first batch.
+# Default unchanged, so every existing checkpoint and run is unaffected.
 N_SERIES_TYPES = 6
 
 
