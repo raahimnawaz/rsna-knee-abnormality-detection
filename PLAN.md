@@ -1184,6 +1184,45 @@ as "likely unaffordable."** §C-2's risk ② says the same: *"only affordable as
 the scored path."* **A never touches the scored path, so it survives that ruling by construction** —
 the shipped artefact is still six fixed boxes, just placed by measurement instead of by assumption.
 
+**⛔ GATE 1 RESULT: 0.9878 — A FAIL AGAINST ITS OWN THRESHOLD, AND THE THRESHOLD IS THE THING THAT
+WAS WRONG. `MEASURED 2026-08-18`** T4, 3.88 min, orientation **perm (2,1,0), no flips**.
+
+| | |
+|---|---|
+| mean foreground Dice vs THEIR prediction | **0.9878** against a pre-registered **0.99** |
+| per class | 0.982 – 0.998, **uniform across all nine** |
+| exact voxel agreement | 0.99939 |
+
+**The gate FAILED and that is recorded as a failure.** The threshold is not being moved to make it
+pass — that is §3u's error and §3z-3 forbids retuning a rule on the run that produced the number.
+
+**But the decision the gate exists to inform is answered anyway, on evidence independent of the
+threshold.** The two volumes were differenced offline (free — both were already on disk):
+
+    disagreeing voxels     25,492 of 41,943,040   0.0608%
+    at/near a boundary     92.63%
+    shared interior         4.09%
+    components             13,608, MEDIAN SIZE 1 VOXEL, 90.5% are <= 2 voxels
+
+**That is float nondeterminism at structure edges, not a harness defect.** A wrong normalisation,
+spacing or orientation produces *large, spatially structured* disagreement; this is 13,608
+single-voxel specks strung along boundaries. **The harness drives the model correctly.**
+
+⚠️ **THE PRE-REGISTRATION WAS DEFECTIVE, AND THAT IS MY ERROR, NOT THE HARNESS'S.** 0.99 is not
+achievable when reproducing a **mirroring-TTA'd** nnU-Net across **different GPUs** — theirs was an
+A100-class run, ours a T4 — because the TTA averages eight passes and boundary voxels land on
+different sides of a tie. **A reproduction gate should have been stated on the structure of the
+disagreement, not on a Dice scalar.**
+
+**⛔ THE CORRECTED CRITERION IS SET *AFTER* SEEING THIS RUN AND MAY NEVER BE CITED AS A
+PRE-REGISTERED PASS.** For any future re-run: *≥90% of disagreeing voxels adjacent to a boundary
+**and** median disagreement-component size ≤2 voxels.* It is written down so the next run has a
+rule; this run's verdict stays **FAIL**.
+
+**✅ AND THE COST NUMBER, WHICH IS WHAT VARIANT A ACTUALLY NEEDED: 3.88 min/volume on a T4**,
+against 2–3 h on MPS — roughly **40×**. A few-hundred-study calibration sample is now a couple of
+hours of quota rather than impossible. **Variant A is schedulable.**
+
 **TWO GATES, IN ORDER. Neither may be skipped.**
 
 1. **PLUMBING** — reproduce **their** `test_prediction.nii.gz` from **their** `test_image.nii.gz`.
