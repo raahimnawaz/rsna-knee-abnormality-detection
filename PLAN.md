@@ -1255,8 +1255,11 @@ band every model DOWNLOADED occupies (pilkwang 0.8469, `ft_b` 0.8522, RadImageNe
 question. §3i-3 already measured what the two bands actually differ by: the downloaded arms are
 scored from *their own* `oof.npz`, computed on *their* DICOM path, while everything trained here is
 trained on **our** pixel corpus — which carries a reconstruction residual of **0.0168 against a
-~1e-5 floor, ≈34% of fully scrambled**. **§3i-4's header-only CPU kernel is the open blocker, and
-it is upstream of every cache on disk, this one included.**
+~1e-5 floor, ≈34% of fully scrambled**. **⛔ BUT SEE §3i-6 (08-19): THE RESIDUAL'S MAGNITUDE DOES NOT IMPLY THE BAND.** Two of the
+fork's own runs differ by that same 0.0165 and score 0.8469 vs 0.8482 — a perturbation of our
+residual's size is worth **+0.0013**, under 2% of the gap. **The cause of the band is UNIDENTIFIED.**
+The measurement that settles it is `band_ab.py` **arm A** — the fork's members on OUR pixels, scored
+as an AUROC, not a residual. It has never produced a number.
 
 
 ⚠️ ~~Strength is still unmeasured~~ **— SUPERSEDED by the measurement above. The rule it states still binds** — §4b's rule is screen on
