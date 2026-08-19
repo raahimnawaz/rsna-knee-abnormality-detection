@@ -2001,7 +2001,8 @@ fusion died. **The port had genuine diversity to sell and is simply not good eno
 slot.** That is a cleaner and more damning result than redundancy would have been.
 
 **§2w step 4 is therefore CLOSED, for free, in minutes.** The port gets no more compute as an
-ensemble member. It remains what §2e justified it for: a local loop for testing *our* ideas, one
+ensemble member. ⛔ **REOPENED 2026-08-19 — see §2y-2: this comparison bundled FIVE config
+divergences from the weights' own manifest.** It remains what §2e justified it for: a local loop for testing *our* ideas, one
 that the frozen cache structurally could not provide.
 
 ### What we hold that DOES compose with the fork
@@ -2025,6 +2026,50 @@ above is one no submission could have bought:
    sagittal series, 50.4% reversed, cross-validated 21/21**. Consistent train/infer, so it is not
    a bug in their pipeline — it is *signal they are leaving on the floor*, and a member trained on
    the resolved direction would be genuinely diverse from all 20 rather than a 21st seed.
+
+---
+
+### 2y-2. ⛔ THE PORT WAS NEVER THE FORK'S CONFIG, SO §2y's CLOSURE RESTS ON AN INVALID COMPARISON `2026-08-19`
+
+§2y calls the port *"a 21st sample of the same config"* and closes §2w step 4 on −0.1111 at 15.4σ.
+**The config it was a 21st sample of is not the one that produced the weights**, and the true one
+ships *with* them: `data/external/pilkwang_weights/manifest.json` records, per member, the exact
+`config` and `pixel_group` behind a mean holdout of **0.8398**.
+
+`fusion/contract_audit.py` (new, free, seconds) diffs it field-by-field against the live constants.
+**Six fields agree. Five disagree.**
+
+| field | fork — 0.8398 | port — 0.7323 |
+|---|---|---|
+| **crop_mm** | **130.0** → 0.387 mm/px | **160.0** → **0.476 mm/px** |
+| **backbone** | `facebook/dinov2-small` (HF, **no registers**) | `vit_small_patch14_reg4_dinov2` (timm, **reg4**) |
+| **prior** | `false` | `SLOT_PRIOR_STRENGTH = 0.55` |
+| **epochs** | 20, 24, 25, 27, 29, 30, 37, **60** | **10** |
+| **slots** | SAG_FLUID_FS, COR_FLUID_FS, AX_FLUID_FS, SAG_FLUID_NOFS, COR_T1, SAG_T1 | ax_fs, ax_nf, cor_fs, cor_nf, sag_fs, sag_nf |
+
+**⛔ `crop_mm` IS THE ONE NOBODY HAD WRITTEN DOWN ANYWHERE, and it was found by the audit's first
+bug.** `pilkwang_pixels.CROP_MM` is 130.0 and gives a clean PASS — but **`train_port.py` does not
+import `pilkwang_pixels`.** It trains on `slot_cache` tiles, where a PROTOCOL slot has
+`box_mm is None`, so `crop_box` returns the full 457 px grid: **`FOV_MM` = 160 mm.** Reading a
+constant from the faithful-but-unused module printed a PASS over a real divergence, which is §9h's
+failure mode inside the very instrument built to catch it.
+
+**And it lands exactly on the mechanism `resolution-ceiling-k17-k19` identified.** `slot_cache.py`'s
+own line 27 reads *"At 160 mm across 336 px a tear line is about one pixel."* The fork trains at
+**0.387 mm/px and we train at 0.476** — 23% coarser, on the six millimetre-scale labels that branch
+measured us losing.
+
+**⚠️ WHAT THIS DOES AND DOES NOT ESTABLISH.** It does **not** show the port would reach 0.84 — no
+run has been made. It shows §2y's −0.111 measured *five bundled divergences*, not "the port is not
+good enough", and that the conclusion drawn from it (**§2w step 4 CLOSED, the port gets no more
+compute**) is not supported by the evidence offered for it. **The closure is reopened pending the
+Phase-C reproduction.**
+
+**The reusable rule.** §3v, §3w-2 and §4a all say *decompose the lever*; this is the same error one
+level up — **a comparison is only as good as its contract, and nobody read the contract that
+shipped in the same directory as the weights.** `contract_audit.py` is now the gate, run before and
+after any change to the port.
+
 
 ---
 
