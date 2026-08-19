@@ -39,7 +39,12 @@ IMG_SIZE = int(os.environ.get("IMG_SIZE", 518))
 SLICES_PER_SERIES = int(os.environ.get("SLICES_PER_SERIES", 32))   # train on 24; see below
 TARGET_MM = float(os.environ.get("TARGET_MM", 0.35))   # in-plane resample target, mm/px
 FOV_MM = float(os.environ.get("FOV_MM", 160.0))        # centre crop/pad field of view
-EMBED_DIM = 1536        # CLS(768) || patch-mean(768) -- what embed() concatenates
+EMBED_DIM = int(os.environ.get("EMBED_DIM", 1536))   # CLS(768) || patch-mean(768), what embed() concatenates
+# Env-overridable for the same reason MODEL and IMG_SIZE are, and it is a PROVENANCE fix rather
+# than a behaviour change: `embed()` never reads this, so the default leaves every cached value
+# and every fingerprint byte-identical. But a ViT-L arm (PLAN.md C-5) concatenates to 2048, and
+# without this its cache would be stamped with the ViT-B fingerprint -- two different caches
+# carrying one version, which is exactly the silent mismatch _fingerprint() exists to catch.
 
 # Slices used per series at TRAIN time, out of the SLICES_PER_SERIES cached. The gap is the
 # only pixel-space augmentation that survives a frozen backbone: everything else in PLAN 3.3
