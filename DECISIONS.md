@@ -118,3 +118,60 @@ A real measurement gets made, then used to answer a question it does not address
 - and §R: seven runs sharing one defect, read as evidence about encoders
 
 **Before believing a number, name the question it can and cannot answer.**
+
+---
+
+## §S. BOARD SURVEY `MEASURED 2026-09-06` — supersedes every earlier ceiling claim
+
+Downloaded leaderboard, 3,239 teams. Every notebook below is confirmed against its author's own
+LB row, per the standing rule.
+
+| | 2026-08-18 | **2026-09-06** |
+|---|--:|--:|
+| teams | 1,904 | **3,239** |
+| our 0.914 | rank 547 | **rank ~1374** (42nd pct) |
+| rank 100 | 0.920 | **0.940** |
+| rank 500 | 0.910 | **0.936** |
+| top | — | **0.954** |
+
+**0.914 lost 827 places without changing.** The board did not drift; it re-formed.
+
+**The 0.936 plateau is one public notebook.** Eight unrelated authors sit at *exactly* 0.9360 —
+`anhadmahajan06` (527), `kunaldesale2408` (512), `tamerlanomralinov` (390), `evgendvorkin` (564),
+`ieshanmeghani` (640), `aadigupta7686` (709), `nishantkharga` (696), `anvithpothula` (752).
+That is the free ceiling and **we are 0.022 under it — the fifth time (§3l-1, §4a).**
+
+**The frontier is public too.** `dreaddevelopment/knee-mri-twelve-findings-from-a-single-model`
+**0.9410, rank 92**, with its training notebook published 2026-09-06.
+`mattiaangeli/bend-the-knee-to-the-dinosaurs-all-public` **0.9390** is an all-public blend of
+pilkwang + prvsiyan + `raptor-*` + RadImageNet heads.
+
+⚠️ **`pilkwang` — the fork this entire project is built on — is now rank 899 at 0.9350.**
+
+### ✅ §R IS CONFIRMED EXTERNALLY, FROM THE FRONTIER NOTEBOOK'S OWN SOURCE
+
+`knee-mri-twelve-findings-from-a-single-model.py:92-93`:
+
+    IMG = 336
+    CROP_MM = 140.0
+
+and its line 53 states the mechanism outright — *"Every slice is cropped to a 140 mm box around
+the centre of the image using the pixel spacing... so the model is not asked to learn scale
+differences that carry no medical [meaning]."* The all-public blend carries `CROP_MM` of **130.0
+and 140.0** at IMG 224/336.
+
+**The entire public field crops in millimetres at 130–140 mm. Our training path was at 160 mm.
+Nobody else is. §R was not a local hypothesis — it is the field's settled practice, and we are the
+only ones outside it.**
+
+### What this does to the plan
+
+**The gap that matters is 0.004, not 0.026.** Running the free notebook reaches 0.936; the prize
+line is 0.940. The OrthoFoundation route was priced against a 0.026 gap that does not exist.
+
+1. **Get onto the public baseline first.** 0.914 → ~0.936 is available for the cost of a submission.
+2. **0.936 is not a placing** — it ties several hundred teams and will shake out on the private LB.
+   Beating the public blend needs an arm the field does not have.
+3. **The only such asset we hold is OrthoFoundation-L** — knee-pretrained DINOv3-L, free, absent
+   from every public blend surveyed, +1.9 min on a 9 h ceiling, and **never yet evaluated at a
+   130–140 mm crop.** That is the differentiator, and §R is why its 0.7710 does not price it.

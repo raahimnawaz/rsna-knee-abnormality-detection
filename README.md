@@ -4,10 +4,13 @@ Twelve-label knee-MRI classification, macro-AUROC. Final submission **2026-10-22
 
 | | |
 |---|---|
-| **best submitted** | **0.914** (2026-08-18, three-family blend: pilkwang + `ft_b` + RadImageNet) |
-| **banked fallback** | 0.908 |
+| **best submitted** | **0.914** (2026-08-18) — **rank ~1374 of 3,239 as of 2026-09-06** |
+| **free public notebook** | **0.936** — 8+ independent teams sit on exactly this score |
+| **public frontier** | **0.941**, source public (`dreaddevelopment`, rank 92) |
+| **prize line** | 0.940 ≈ rank 100 |
 | **baseline** | 0.7229 ± 0.0048, site-grouped report-OOF, n=2,612 |
-| **public ceiling** | ~0.920 as of 2026-08-18 — **stale, re-survey before deciding anything** |
+
+⛔ **WE ARE 0.022 BELOW THE FREE PUBLIC CEILING. SHIP BEFORE YOU BUILD.** See §S.
 
 ---
 
