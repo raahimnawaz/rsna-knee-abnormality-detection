@@ -229,3 +229,67 @@ question it cannot answer.
 That is a real research thesis and it names its own mechanism, which is more than "aim high" does.
 It also says where to aim: **Synovitis 0.790, Fracture 0.793, Lateral OA 0.830, Contusion 0.831.**
 Four labels carry most of the recoverable headroom, and macro-AUROC weights all twelve equally.
+
+---
+
+## §U. WHERE THE HEADROOM ACTUALLY IS: COMPARTMENT LOCALISATION `MEASURED 2026-09-06`
+
+⛔ **This corrects §T's closing paragraph, which was mine and was wrong.** §T ranked labels by
+*lowest ceiling* and named Synovitis / Fracture / Lateral OA / Contusion. That is the wrong
+statistic. A low ceiling means the labels are noisy there, **not** that the model has room. The
+right statistic is **ceiling − model**: how far below what the labels could teach the model sits.
+Measured against pilkwang's shipped OOF on gold-58, bootstrapped 2,000 draws:
+
+| label | ceiling | pilkwang | gap | 95% CI | |
+|---|--:|--:|--:|---|---|
+| **Lateral Meniscus** | 0.8621 | **0.6422** | **+0.222** | [+0.070, +0.385] | **HEADROOM** |
+| **ACL** | 0.9933 | 0.8689 | **+0.123** | [+0.043, +0.224] | **HEADROOM** |
+| **Lateral OA** | 0.8298 | 0.7079 | **+0.123** | [+0.012, +0.260] | **HEADROOM** |
+| Medial Meniscus | 0.9543 | 0.8498 | +0.106 | [−0.005, +0.233] | |
+| PF OA | 0.9009 | 0.8005 | +0.101 | [−0.019, +0.228] | |
+| MCL | 0.9637 | 0.8844 | +0.078 | [−0.014, +0.196] | |
+| Synovitis | 0.7903 | 0.7419 | +0.049 | [−0.076, +0.180] | |
+| Baker's / Contusion / Medial OA | | | ~0 | spans 0 | at ceiling |
+| Effusion | 0.8534 | 0.9429 | −0.089 | [−0.203, +0.007] | above its labels |
+| Fracture | 0.7931 | 0.8944 | −0.100 | [−0.260, +0.036] | above its labels |
+
+**Only three gaps clear zero at n=58, and one dominates.** Note also that the model **beats its own
+training labels** on Fracture, Effusion, Contusion, Baker's and Medial OA — denoising is real and
+already happening, so §T's "0.887 is not a hard cap" is confirmed by direct observation.
+
+### THE MECHANISM: THE MODEL DETECTS THE FINDING AND NOT THE COMPARTMENT
+
+Cross-scoring every prediction against every truth:
+
+| pred \ truth | Medial Meniscus | Lateral Meniscus | | pred \ truth | Medial OA | Lateral OA |
+|---|--:|--:|---|---|--:|--:|
+| Medial Meniscus | **0.8498** | 0.5441 | | Medial OA | **0.9504** | 0.6925 |
+| Lateral Meniscus | **0.6683** | 0.6422 | | Lateral OA | **0.8636** | 0.7079 |
+
+**In both pairs the LATERAL head predicts MEDIAL truth better than it predicts its own.** Lateral
+OA reads medial truth at 0.8636 against 0.7079 for its own compartment.
+
+⛔ **It is NOT a flip.** Swapping the pair makes both worse (meniscus 0.746 → 0.606; OA 0.829 →
+0.778), so §2n's reversed direction bit is not simply mis-signed. The failure is weaker and more
+damaging: **the model detects that a finding is present and does not localise which compartment it
+is in.** The lateral head is largely a shadow of the medial one plus a prevalence prior.
+
+### WHY THIS IS THE BEST TARGET AVAILABLE
+
+- **It is the largest measured gap in the project**, and it sits on labels macro-AUROC weights
+  equally with the eight that are already near ceiling.
+- **The field cannot be working on it.** Every public arm surveyed in §S is a general-purpose
+  encoder blend, which lifts all twelve labels roughly uniformly. A compartment fix is targeted and
+  is worth more per unit of effort than anything uniform.
+- **The instruments already exist here.** §3z-4 flagged handedness as an unresolved confound with
+  no cross-check; §C-4 already observed that `aagatti/nnunet_knee` segments medial and lateral
+  meniscus separately and would give **a second independent instrument on exactly this axis, with
+  no cache rebuild**. That was funded as a box calibrator. §U says its real value is here.
+
+### ⚠️ THE RULE THIS MUST NOT BREAK
+
+`n=58`, and the CIs are wide — Lateral Meniscus is somewhere in [+0.07, +0.39].
+**This set generates the hypothesis. It must not be used to select anything**
+(`[[never-select-on-a-tiny-set]]`, §3b: a choice made on 58 studies claimed +0.0137 and delivered
+−0.0034). Any compartment fix is validated on the large-n instrument or on the leaderboard, with
+its gate written down first.
