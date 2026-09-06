@@ -293,3 +293,91 @@ is in.** The lateral head is largely a shadow of the medial one plus a prevalenc
 (`[[never-select-on-a-tiny-set]]`, §3b: a choice made on 58 studies claimed +0.0137 and delivered
 −0.0034). Any compartment fix is validated on the large-n instrument or on the leaderboard, with
 its gate written down first.
+
+---
+
+## §V. THE COMPARTMENT EXPERIMENT — PRE-REGISTERED BEFORE ANY NUMBER `2026-09-06`
+
+### 0. ⛔ FIRST: THERE IS NO CLEAN GATE, AND THAT IS THE HARDEST PART OF THIS DESIGN
+
+pilkwang's per-label AUROC on the **large-n report instrument** (n=4,349, gold excluded) against
+its reads on **gold-58 image truth**:
+
+| | large-n (reports) | gold-58 (image) | difference |
+|---|--:|--:|--:|
+| Medial Meniscus | 0.8604 | 0.8498 | +0.011 |
+| **Lateral Meniscus** | **0.7969** | **0.6422** | **+0.155** |
+| Medial OA | 0.8779 | 0.9504 | −0.073 |
+| **Lateral OA** | **0.8442** | **0.7079** | **+0.136** |
+
+**The compartment asymmetry is far smaller against reports than against images.** Medial−lateral
+is **0.064** on the report instrument and **0.208** on gold. The medial labels move little between
+instruments; **both lateral labels read ~0.15 higher against reports.**
+
+The most likely reading is that **the reports share the model's confusion** — an LLM extracting
+"meniscal tear" from prose inherits whatever localisation the prose carries. If so, the large-n
+instrument is **biased against this specific fix**: a model that genuinely learns to localise gets
+credited only for the part the reports also localise. That is `[[measure-in-the-target-currency]]`
+precisely — the precise, high-n instrument is the biased one here.
+
+⚠️ And the alternative reading is live: **n=58 with 23 lateral-meniscus positives**, so part of the
+0.155 is sampling. **Both readings are on the table and Stage A does not depend on which is true.**
+
+### Stage A — the mechanism test. Label-free, so no instrument problem at all `RUN THIS FIRST`
+
+§U's diagnosis is causal — *"the model detects the finding and does not localise the compartment."*
+**Test it causally, with no labels and therefore no small-set and no currency problem.**
+
+For each study, three forward passes through the fork's own weights on `tiles336_pilk`:
+`FULL`, `MASK-LEFT` (left half of every tile zeroed), `MASK-RIGHT`.
+
+Then per study compute the response of each head: `Δ_M = FULL − MASK` for Medial Meniscus,
+`Δ_L` for Lateral Meniscus, on each occlusion side.
+
+**⛔ The test needs no direction bit.** It asks only whether the two heads respond *differently*
+to the two occlusions. Define, per study:
+
+    S = (Δ_M[left] − Δ_M[right]) − (Δ_L[left] − Δ_L[right])
+
+- **S ≈ 0 corpus-wide → the heads are not compartment-specific.** §U confirmed causally. Proceed.
+- **|S| large and consistent → the heads DO localise**, and the gold-58 gap is something else —
+  label noise, or lateral findings being genuinely harder. **§U's mechanism is refuted; stop and
+  re-diagnose rather than building a fix for a problem that is not there.**
+
+**PRE-REGISTERED BAR:** run on **all 3,599 cached studies, one member, paired bootstrap**. §U is
+confirmed only if `mean|S|` is **under half** the mean absolute single-head response
+`(|Δ_M| + |Δ_L|)/2`. Written before the run; not to be renegotiated after it.
+⚠️ Zeroing is out-of-distribution for the backbone. Pair every arm against a **`MASK-NEITHER`
+control that zeroes the same pixel count in a random location**, or the effect is measuring
+"tile was tampered with" rather than "compartment was hidden" (§3y-3's resampling lesson).
+
+### Stage B — nnU-Net as the direction instrument `ONLY IF A CONFIRMS`
+
+`aagatti/nnunet_knee`, MIT, `fold_1` only. It segments medial and lateral meniscus **separately**,
+which is a second independent read on the axis §3z-4 left with no cross-check at all.
+
+- **Gate B1 (free):** their shipped `test_prediction.nii.gz` reproduces. Costs nothing.
+- **Gate B2 (the real risk):** OAI-ZIB is **DESS sagittal**; this corpus is clinical
+  multi-protocol. **Read agreement per plane × sequence, never pooled** — a pooled number that
+  looks fine can be carried entirely by the sagittal fluid-sensitive slots
+  (`[[aggregates-hide-their-composition]]`).
+- **Gate B3:** nnU-Net-derived handedness vs §2n's K16 direction bit. §2n measured that bit at
+  **56.9–60.8%** against ~50% chance. If nnU-Net agrees at ~57%, the two instruments corroborate
+  and the bit is weak-but-real; if nnU-Net is decisive where the bit is not, **it replaces it**.
+
+### Stage C — the fix, and what it must clear
+
+Only after A and B. Whatever the fix (canonicalised handedness, compartment-specific crops,
+mask-guided pooling), the gate is **pre-registered here, now**:
+
+1. **Not gold-58.** It generated the hypothesis (§U). §3b: a choice made on these 58 claimed
+   +0.0137 and delivered −0.0034. `[[never-select-on-a-tiny-set]]`
+2. **Primary gate: large-n, per-label, on Lateral Meniscus and Lateral OA specifically** —
+   paired against the same arm without the fix, same folds, same members. Macro is the wrong
+   readout: eight of twelve labels are near ceiling and will dilute a real compartment gain to
+   invisibility.
+3. **Pre-register the attenuation.** Per §0 above, the report instrument may show roughly a third
+   of the true image-truth effect. **The bar is therefore +0.02 on each lateral label at large-n,
+   not the +0.12–0.22 gold suggests.** Setting the bar at the gold number would fail a working fix.
+4. **Confirm in the deployment config before believing it** (`[[revalidate-in-deployment-config]]`)
+   — an offline per-label A/B measures an estimator, not a shipped arm.
