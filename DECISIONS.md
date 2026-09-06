@@ -175,3 +175,57 @@ line is 0.940. The OrthoFoundation route was priced against a 0.026 gap that doe
 3. **The only such asset we hold is OrthoFoundation-L** — knee-pretrained DINOv3-L, free, absent
    from every public blend surveyed, +1.9 min on a 9 h ceiling, and **never yet evaluated at a
    130–140 mm crop.** That is the differentiator, and §R is why its 0.7710 does not price it.
+
+---
+
+## §T. THE LABEL-NOISE CEILING, MEASURED `2026-09-06`
+
+**The question:** is 0.97 reachable, or is it above what the available labels can teach?
+
+**The instrument.** Competition ground truth is *image-read*, not report-derived — the official
+overview states every study was labelled independently by **two subspecialty MSK radiologists with
+a third adjudicating** (`REFERENCE.md` §2). The 58 gold studies in `train.csv` are that same
+standard. So scoring `targets.csv` — the LLM report-extracted labels we actually train on — **as
+if they were predictions** against gold-58 measures exactly what a model that perfectly learned its
+training targets would score.
+
+    macro 0.8873   bootstrap 95% CI [0.8505, 0.9195]   n=58, 12/12 labels scorable
+
+| label | ceiling | | label | ceiling |
+|---|--:|---|---|--:|
+| ACL | 0.9933 | | PF OA | 0.9009 |
+| MCL | 0.9637 | | Lateral Meniscus | 0.8621 |
+| Medial Meniscus | 0.9543 | | Effusion | 0.8534 |
+| Baker's | 0.9457 | | Contusion | 0.8306 |
+| Medial OA | 0.9310 | | Lateral OA | 0.8298 |
+| | | | Fracture | 0.7931 |
+| | | | **Synovitis** | **0.7903** |
+
+**The weak labels are weakest exactly where §resolution said we lose** — the meniscus/effusion/
+synovitis group — and near-perfect on ACL. This is not uniform noise and it should not be modelled
+as such.
+
+### ⚠️ WHAT THIS DOES AND DOES NOT SAY
+
+A model **can** beat its own training labels against clean truth — noise partly averages out. So
+0.8873 is **not** a hard cap. It is the point at which further agreement with `targets.csv` stops
+buying agreement with a radiologist, and every gain past it must come from denoising.
+
+**Do not convert this to an LB number and act on it.** `score_gold.py` is explicit that the
+gold→LB offset is the *smaller half* of the error: subset choice alone (gold-58 vs gold-47) swings
+it +0.051 vs +0.039 on the same submission, and the F6 band missed because the gold read it was
+applied to carried fold-recovery optimism. A naive `0.8873 + 0.039 ≈ 0.926` is **not** evidence
+about the leaderboard, and the fact that it lands near the 0.936 plateau (§S) is **suggestive of
+convergence, not proof of it** — the same error §3i-6 records, a real measurement aimed at a
+question it cannot answer.
+
+### THE HONEST READ ON A 0.97 TARGET
+
+- The top of 3,239 teams is **0.954**, and ranks 1–100 span **0.014**.
+- Our training labels reach **0.887** against a radiologist on the one image-read set we hold.
+- So 0.97 is not "more of the same, harder". It requires **beating the report-extracted labels by a
+  wide margin against image truth** — finding signal in pixels that the reports never carried.
+
+That is a real research thesis and it names its own mechanism, which is more than "aim high" does.
+It also says where to aim: **Synovitis 0.790, Fracture 0.793, Lateral OA 0.830, Contusion 0.831.**
+Four labels carry most of the recoverable headroom, and macro-AUROC weights all twelve equally.
