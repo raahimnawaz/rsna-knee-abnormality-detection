@@ -1,0 +1,37 @@
+{
+  "macro_report_oof": 0.7297950461905264,
+  "per_label": {
+    "ACL": 0.7406519275870247,
+    "MCL": 0.591222926321763,
+    "Medial Meniscus": 0.7434129876236377,
+    "Lateral Meniscus": 0.6894012096324235,
+    "Medial OA": 0.7881373285099993,
+    "Lateral OA": 0.7238988965387154,
+    "PF OA": 0.7493654928985629,
+    "Effusion": 0.7644297697661967,
+    "Synovitis": 0.7677019291922832,
+    "Baker's": 0.735675392670157,
+    "Contusion": 0.7385856079404467,
+    "Fracture": 0.7250570856051074
+  },
+  "macro_gold": 0.757435064935065,
+  "n_oof": 691,
+  "folds": [
+    0
+  ],
+  "epochs": 10,
+  "batch": 8,
+  "img": 336,
+  "unfreeze_last": 6,
+  "slots": [
+    "ax_fs",
+    "ax_nf",
+    "cor_fs",
+    "cor_nf",
+    "sag_fs",
+    "sag_nf"
+  ],
+  "lr_backbone": 8e-06,
+  "lr_head": 0.001,
+  "minutes": 220.1630707303683
+}

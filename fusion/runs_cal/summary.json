@@ -1,0 +1,22 @@
+{
+  "macro_auc": 0.6989755041887663,
+  "per_label": {
+    "ACL": 0.6801242236024845,
+    "MCL": 0.71875,
+    "Medial Meniscus": 0.717391304347826,
+    "Lateral Meniscus": 0.5116959064327485,
+    "Medial OA": 0.9285714285714286,
+    "Lateral OA": 0.7,
+    "PF OA": 0.6766666666666666,
+    "Effusion": 0.8508771929824561,
+    "Synovitis": 0.5952380952380952,
+    "Baker's": 0.9623655913978495,
+    "Contusion": 0.53,
+    "Fracture": 0.5160256410256411
+  },
+  "n_gold": 37,
+  "labels_source": "state_calibration.json (cross-fitted)",
+  "synthetic": false,
+  "epochs": 12,
+  "d": 256
+}

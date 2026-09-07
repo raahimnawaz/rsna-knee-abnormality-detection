@@ -1,0 +1,24 @@
+{
+  "preprocess_version": "2eddb3ec68d0",
+  "model": "vit_base_patch14_reg4_dinov2.lvd142m",
+  "img_size": 518,
+  "slices_per_series": 32,
+  "slices_per_series_train": 24,
+  "target_mm": 0.35,
+  "fov_mm": 160.0,
+  "embed_dim": 1536,
+  "canonical_side": "R",
+  "decode_backend": "auto",
+  "source": "nifti_local",
+  "validated": true,
+  "written": 710,
+  "skipped": 290,
+  "rebuilt": 0,
+  "series_missing": 0,
+  "incomplete_studies": 2,
+  "laterality": {
+    "tag": 335,
+    "geometry": 375
+  },
+  "elapsed_s": 13967.1
+}

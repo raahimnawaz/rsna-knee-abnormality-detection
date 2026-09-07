@@ -1,0 +1,20 @@
+{
+  "preprocess_version": "3ae0c719d72a",
+  "model": "orthofoundation-L",
+  "img_size": 336,
+  "slices_per_series": 32,
+  "slices_per_series_train": 24,
+  "target_mm": 0.35,
+  "fov_mm": 160.0,
+  "embed_dim": 2048,
+  "canonical_side": "R",
+  "decode_backend": "auto",
+  "written": 551,
+  "shard": 0,
+  "n_shards": 8,
+  "laterality": {
+    "tag": 1551,
+    "geometry": 1484,
+    "none": 0
+  }
+}

@@ -1,0 +1,14 @@
+{
+  "arch": "radimagenet_r50",
+  "folds": [
+    0
+  ],
+  "epochs": 10,
+  "batch": 8,
+  "img": 336,
+  "lr_backbone": 0.0001,
+  "lr_head": 0.001,
+  "cache": "/Users/raahimnawaz/rsna-knee-abnormality-detection/data/tiles336",
+  "n_oof": 691,
+  "minutes": 108.76651135285695
+}

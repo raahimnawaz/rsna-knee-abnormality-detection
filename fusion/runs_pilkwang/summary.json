@@ -1,0 +1,23 @@
+{
+  "source": "pilkwang/rsna-knee-weights::oof.npz",
+  "n_studies": 4407,
+  "n_gold_in_oof": 58,
+  "note": "OOF of a 20-member 5-fold x 4-seed average of ONE dinov2-small@336 config.",
+  "n_members": 20,
+  "distinct_configs": 1,
+  "folds": [
+    0,
+    1,
+    2,
+    3,
+    4
+  ],
+  "seeds": [
+    2026,
+    7717,
+    31337,
+    20260808
+  ],
+  "mean_holdout_auc": 0.8398,
+  "mean_gold58_auc": 0.8375
+}
