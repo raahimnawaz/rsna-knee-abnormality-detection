@@ -1,145 +1,128 @@
 # The build plan — 2026-09-07 → 2026-10-22
 
-**45 days. One deliverable per stage. Every stage ships something runnable.**
+**45 days. Three independent pipelines, each with its own gate, run in parallel.**
 
-## The decision this plan rests on
+Read `DATA.md` first — it sets the ceiling. `MODEL.md` is the architecture.
 
-**The local NIfTI training path is abandoned for competition purposes.** §W measured it: same
-config, same folds, same labels — our pixels 0.7597, their pixels 0.8453, 14.1σ. Three weeks and
-five closed divergences did not move it. We stop paying for it.
+## The decision this rests on
 
-**Everything moves to Kaggle, against DICOMs, at the field's proven geometry (140 mm / 336 px).**
-The M5 keeps what it is genuinely good at: head training on cached features, blending, scoring.
+**The local NIfTI path is abandoned.** §W measured it: identical config, folds and labels — our
+pixels 0.7597, theirs 0.8453, 14.1σ. Five closed divergences did not move it. It is a third-party
+repackaging covering 81.7% of the corpus. We stop paying for it and read DICOMs on Kaggle.
 
 ## Standing rules — these are what stop the circling
 
-1. **Every stage ends in an artifact** — a published Dataset, a trained checkpoint, a submission.
-   Not a finding.
-2. **One gate per stage, written before the run.** Fail → take the written fallback. **Do not
-   investigate a gate failure.** The fallback is already chosen; execute it.
-3. **Ship every week.** A submission every 7 days minimum, even if nothing improved. Never go
-   19 days blind again.
-4. **New findings go in `DECISIONS.md` as one line.** No new `§` essays. If a finding does not
-   change a stage in this file, it does not get written down at all.
+1. **Every stage ends in an artifact** — a published Dataset, a checkpoint, a submission. Not a
+   finding.
+2. **One gate per stage, written before the run. Fail → execute the written fallback.** Do not
+   investigate a gate failure.
+3. **Ship every week.** A submission every 7 days minimum, improvement or not. Never go 19 days
+   blind again.
+4. **Findings go in `DECISIONS.md` as one line.** If it does not change a stage here, it is not
+   written down.
+5. **L and P run at the same time.** L is CPU/API, P is Kaggle GPU, M is local. Never leave two
+   idle — that is what 2026-09-06 cost.
 
 ---
 
-## Stage 0 — bank the floor `Sep 7, 1 day, 1 submission`
+## Stage 0 — bank the floor `Sep 7 · 1 day · 1 submission`
 
-We sit at 0.914 / rank ~1374 while 0.936 is free. Fix that first.
+We sit at 0.914 / rank ~1374 while 0.936 is free.
 
-- Fork the public 0.936 notebook. Run it unmodified. Submit the **kernel**, not the file.
-- Verify in the log that every arm loaded before submitting — a refused arm ships the old path.
+Fork the public 0.936 notebook, run unmodified, submit the **kernel** not the file. Grep the log to
+confirm every arm loaded — a refused arm silently ships the old path and burns a submission.
 
-**GATE:** LB ≥ 0.930. **FALLBACK if under:** keep the 0.914 kernel as the banked submission and
-carry on to Stage 1 regardless. This stage is insurance, never the strategy.
-
-**Artifact:** a banked submission at ~0.936.
+**GATE** LB ≥ 0.930. **FALLBACK** keep 0.914 banked and continue. Insurance, never the strategy.
 
 ---
 
-## Stage 1 — our own DICOM tile cache `Sep 8–13, ~8 h Kaggle GPU`
+## Stage L — labels `Sep 8–15 · CPU/API · minutes per iteration` ⭐ HIGHEST IMPACT
 
-The one thing that has never existed here: a pixel path we control that is not crippled.
+`DATA.md` is the full spec. The public labels over-call gold **6.68 : 1** because ten of twelve
+criteria carry a severity or acuity cut-point and the extractors detect mentions.
 
-- New kernel `notebooks/kaggle_04_dicom_tiles.py`. Read DICOMs directly, **never NIfTI**.
-- Geometry copied from the frontier, which is public and proven: `CROP_MM = 140.0`, `IMG = 336`,
-  crop in **millimetres via pixel spacing**, then resize. Six protocol slots as in `slot_cache`.
-- Shard 8 ways (`build_cache` skips finished studies; one kernel per shard, Kaggle caps at 2
-  concurrent GPU sessions).
-- Publish as a private Kaggle Dataset `rsna-knee-tiles140`. **This is the asset. Everything
-  downstream reuses it and it never gets rebuilt.**
+    4,349 reports
+      -> severity extraction, per-label schema  -> data/severity_v1.jsonl
+      -> threshold mapping                      -> data/targets_sev.csv  (+ schema hash)
 
-**GATE — the whole plan turns on this one.** Train DINOv2-small on it, fold 0, 30 epochs, the exact
-`train_port.py` recipe that scored 0.7597 on NIfTI. On the same 691-study window, same labels:
+**GATE — free, instant, no GPU.** Score the labels *as predictions* against gold-58:
 
-    >= 0.83  -> the pixel path is fixed. Proceed to Stage 2.
-    0.80-0.83 -> partially. Proceed anyway; note the residue and do NOT chase it.
-    <  0.80  -> our DICOM decode is broken too.
+    macro-AUROC   current public 0.8873   TARGET >= 0.93
+    over-call     current        6.68:1   TARGET <  2:1
 
-**FALLBACK if under 0.80:** stop building arms. Go directly to Stage 4 and compete purely as a
-blender of public weights. That path is already worth ~0.94 and needs no pixels of our own.
+Iterate the prompt until both clear. **This is the fastest loop in the project — use it.**
 
-**Artifact:** `rsna-knee-tiles140` Dataset + a fold-0 checkpoint and its score.
+**FALLBACK** if it stalls under 0.91 after a week: keep the public targets, note the ceiling in
+`DECISIONS.md` as one line, move on. Do not spend a second week here.
+
+**Artifact:** `data/targets_sev.csv`, versioned, plus the raw graded fields.
 
 ---
 
-## Stage 2 — OrthoFoundation-L, the arm nobody else has `Sep 14–20, ~10 h Kaggle GPU`
+## Stage P — pixels `Sep 8–15 · ~8 h Kaggle GPU · RUNS IN PARALLEL WITH L`
 
-Every public arm surveyed in §S is DINOv2 / DINOv3 / RadImageNet / CoAtNet. **OrthoFoundation-L is
-DINOv3-L continued-pretrained on 1.25 M knee images and appears in no public blend.** Its 0.7710
-was measured on the 160 mm cache and is void (§R, §W).
+`notebooks/kaggle_04_dicom_tiles.py`. **DICOMs, never NIfTI.** Geometry per `MODEL.md`: five slots,
+64 slices sampled **6–94%** of each stack, 140 mm mm-crop via `PixelSpacing`, resize 336. Shard 8
+ways; Kaggle caps concurrent GPU sessions at two. Publish as `rsna-knee-tiles140`.
 
-- `--backbone orthofoundation` against `rsna-knee-tiles140`. Fine-tune, not frozen — frozen is what
-  scored 0.7710.
-- 5 folds. ~7.3 h on a T4 per §C-5's measured bench.
-- Cost at inference is **+1.9 min on a 9 h ceiling** — already benchmarked, not a barrier.
+⚠️ **Write every geometry constant into the manifest.** §R happened because `box_mm` was recorded
+nowhere and silently defaulted.
 
-**GATE:** parity with the Stage 1 DINOv2 arm on the large-n instrument, paired, same folds.
-Below parity → **park it permanently and do not re-open.** This is its second and last funding.
+**GATE** DINOv2-small, fold 0, the exact recipe that scored 0.7597 on NIfTI, same 691-study window:
 
-**Artifact:** 5 fold checkpoints + OOF, published as a Dataset.
+    >= 0.83   pixel path fixed -> Stage M
+    0.80-0.83 partial -> proceed anyway, do NOT chase the residue
+    <  0.80   our DICOM decode is broken too
 
----
-
-## Stage 3 — compartment heads `Sep 21–30, mostly M5`
-
-§U: Lateral Meniscus has **+0.222** of headroom and Lateral OA **+0.123**, and the lateral head
-predicts *medial* truth better than its own. Eight of twelve labels are already near their label
-ceiling; these two are not. Macro weights all twelve equally.
-
-- Run §V Stage A first — three forward passes per study, `FULL` / `MASK-LEFT` / `MASK-RIGHT`, plus
-  the random-location control. **Timebox: 1 day.** It is label-free and needs no direction bit.
-- If the heads are not compartment-specific, add compartment-conditioned pooling: separate
-  medial/lateral crops from the same tile, one head each.
-
-**GATE:** **+0.02 on each of Lateral Meniscus and Lateral OA**, large-n, paired, per-label — *not*
-macro, which would dilute it to invisibility. Bar set at +0.02 not +0.12 because the report
-instrument is attenuated ~3× on exactly these labels (§V).
-
-**FALLBACK:** drop it, keep Stages 1–2, proceed to Stage 4. **Timebox 10 days; do not extend.**
-
-**Artifact:** either a compartment arm or a one-line `DECISIONS.md` entry closing it.
+**FALLBACK** under 0.80: stop building arms, go straight to Stage B and compete as a blender. That
+path is already worth ~0.94 and needs no pixels of our own.
 
 ---
 
-## Stage 4 — the blend `Oct 1–12`
+## Stage M — model `Sep 16–Oct 5 · ~3 h Kaggle GPU per experiment`
 
-Rank-mean over **families**, equal weight, nothing fitted — §9e's pre-registered rule. §2z measured
-that re-fitting weights on site-grouped folds is worth −0.0000, so do not fit.
+`MODEL.md` is the spec. Build in this order; **1 and 2 ship together** — outer slices added to a
+shared pool dilute the midline findings that currently work.
 
-Families, most already on disk:
+| # | change | gate |
+|---|---|---|
+| 1+2 | 64-slice coverage **and** per-label attention head | Lat. Meniscus and MCL **+0.05 each**; macro **+0.02** from the head |
+| 3 | 140 mm crop | already measured at +0.027 (§W) — fold in, do not re-test |
+| 4 | OrthoFoundation-L backbone, **fine-tuned not frozen** | parity with the DINOv2 arm, or **park permanently** |
+
+Retrain on `targets_sev.csv` once Stage L clears. **If 1+2 land, one model should reach ~0.90
+gold-58 alone** — which is what the frontier gets and no arm here has ever produced.
+
+---
+
+## Stage B — blend `Oct 1–12 · submit weekly`
+
+Rank-mean over **families**, equal weight, nothing fitted (§9e). §2z: fitting weights is −0.0000.
 
 | family | source | status |
 |---|---|---|
-| pilkwang (DINOv2, 20 members) | public | held |
-| RadImageNet R50 | public | held, NC licence — §5a of the rules carves it out |
-| CoAtNet ×4 | `dreaddevelopment/raptor-*` | **public, unused, architecturally novel to us** |
-| DINOv2 @ 140 mm | Stage 1 | ours |
-| OrthoFoundation-L | Stage 2 | ours, and unique |
-| compartment arm | Stage 3 | ours, if it clears |
+| pilkwang, 20 members | public | held |
+| RadImageNet R50 | public | held; NC licence carved out by rules §5a |
+| **CoAtNet ×4** | `dreaddevelopment/raptor-*` | **public, unused, architecturally novel to us** |
+| DINOv2 @ 140 mm | Stage P | ours |
+| OrthoFoundation-L | Stage M-4 | ours, and unique |
 
-**GATE per arm:** it enters only if it is at parity or better on the large-n instrument. §4b:
-every arm below ~0.83 lost. Screen on **strength** first — `[[diversity-is-not-the-constraint]]`.
-
-**Submit weekly from Oct 1.** Price each arm's LB gain at **~half** its gold gain (§4c-4).
+**GATE per arm:** parity or better on the large-n instrument before it enters. Screen on
+**strength** first — every arm below ~0.83 has lost. Price each arm's LB gain at ~half its gold gain.
 
 ---
 
 ## Stage 5 — buffer `Oct 13–22`
 
-No new arms after Oct 12. Final submission selection, kernel hardening, the ~2 h re-run margin,
-and the writeup. **Reserve 3 days for the submission itself failing.**
-
----
+No new arms after Oct 12. Selection, kernel hardening, the ~2 h re-run margin, writeup. **Reserve
+3 days for the submission itself failing.**
 
 ## Budget
 
 | resource | available | planned |
 |---|--:|--:|
-| Kaggle GPU | ~195 h (30/wk) | ~25 h |
+| Kaggle GPU | ~195 h (30/wk) | ~30 h |
 | submissions | ~97 (15/wk) | ~15 |
-| M5 MPS | unlimited | Stage 3 + all blending |
+| M5 / MPS | unlimited | blending, scoring, Stage L |
 
-**We are resource-rich and time-poor.** Every stage that can run on Kaggle should be running while
-the M5 does something else. Never leave both idle — that is what today cost.
+**Resource-rich, time-poor.** Something should be running on Kaggle at all times.

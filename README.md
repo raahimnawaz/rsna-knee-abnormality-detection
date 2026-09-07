@@ -4,58 +4,38 @@ Twelve-label knee-MRI classification, macro-AUROC. Final submission **2026-10-22
 
 | | |
 |---|---|
-| **best submitted** | **0.914** (2026-08-18) — **rank ~1374 of 3,239 as of 2026-09-06** |
-| **free public notebook** | **0.936** — 8+ independent teams sit on exactly this score |
-| **public frontier** | **0.941**, source public (`dreaddevelopment`, rank 92) |
+| **best submitted** | **0.914** (2026-08-18) — **rank ~1374 of 3,239** |
+| **free public notebook** | **0.936** — 8+ teams sit on exactly this |
+| **public frontier** | **0.941**, source published, single model |
 | **prize line** | 0.940 ≈ rank 100 |
-| **baseline** | 0.7229 ± 0.0048, site-grouped report-OOF, n=2,612 |
 
-⛔ **WE ARE 0.022 BELOW THE FREE PUBLIC CEILING.**
+# ▶️ NEXT SESSION: START HERE
 
-# ▶️ START HERE
-| | |
+**State on 2026-09-06.** Three things were measured and they redirect the project.
+
+1. **The labels over-call gold 6.68 : 1.** Ten of twelve criteria carry a severity or acuity
+   cut-point; every public extractor detects *mentions*. This is the ceiling the whole field
+   shares, and it is the only lead not already on the leaderboard. → **`DATA.md`**
+2. **We sample 18 slices, all at `depth 0.5`.** The frontier takes 64 across 6–94% of each stack,
+   which is where the lateral meniscus and collateral ligaments are. Ours read 0.6422 and 0.6433;
+   ACL, midline, reads 0.8689. → **`MODEL.md`**
+3. **Our NIfTI pixel path costs 0.085** against the same config on DICOMs, 14.1σ. **Abandoned.**
+   → **`PIPELINE.md`** Stage P
+
+**Do next:** `PIPELINE.md` Stage 0 (bank 0.936, one day, one submission), then Stages **L and P in
+parallel** — L is CPU and free, P is Kaggle GPU. Both machines idle is the failure of 09-06.
+
+| read | for |
 |---|---|
-| **`DATA.md`** | **the ceiling, and the only lead the field does not share.** Labels over-call gold **6.68:1**. Read first |
-| **`MODEL.md`** | the architecture — 64 slices at 6–94%, 140 mm, per-label attention |
-| **`PIPELINE.md`** | the build schedule, stages and gates |
-| `DECISIONS.md` | the ledger of what is settled — consult it, do not extend it |
-
-This README is setup and reproduction only.
+| **`DATA.md`** | the ceiling, the extraction schema, why re-thresholding is worthless |
+| **`MODEL.md`** | the architecture — 64 slices, 140 mm, per-label attention |
+| **`PIPELINE.md`** | stages, gates, fallbacks, budget |
+| `DECISIONS.md` | what is settled. **Consult it, do not extend it** |
+| `REFERENCE.md` | external ground truth — §2 is the official label criteria, the most useful document here |
+| `FINDINGS.md` | measured facts about the data |
+| `fusion/archive/`, `docs/archive/` | provenance. Not maintained, do not read in full |
 
 ---
-
-## Where this stands
-
-Every arm that has ever scored for this project was **downloaded**. Every arm trained here landed
-at 0.69–0.77 against a downloaded band of 0.847–0.852.
-
-On 2026-09-06 that gap got a mechanical explanation: **every locally trained model was trained at
-0.476 mm/px because `slot_cache`'s protocol slots had `box_mm=None`, while the fork's 20 members
-are unanimously `crop_mm=130.0` → 0.387 mm/px.** Read `DECISIONS.md` §R before trusting any
-conclusion drawn from a locally trained run — a fair number of them do not survive it.
-
-**Phase C is done and it answered the question.** `runs_port_repro` — the first run at the fork's
-real config — scored **0.7597** against pilkwang's **0.8453** on the same 691 studies. The crop fix
-was worth **+0.0268 (4.1σ)** and **76% of the gap survives at 14.1σ**. All five config divergences
-are closed, so the residue is the pixels. Full result in `DECISIONS.md` §W.
-
-**Consequence: the local NIfTI training path is abandoned.** `PIPELINE.md` Stage 1 rebuilds the
-cache from DICOMs on Kaggle at the field's 140 mm geometry.
-
-## Layout
-
-| path | what it is |
-|---|---|
-| **`DECISIONS.md`** | **the ledger.** Every settled question, one line, tagged `CLOSED` / `CONFOUNDED-160`. Read before proposing anything |
-| `REFERENCE.md` | external ground truth — host rulings, label criteria, forum claims, literature. Every claim carries a source and a read-date |
-| `FINDINGS.md` | measured facts about the data — label coverage, languages, series structure |
-| `ARCHITECTURES.md` | model/architecture notes |
-| `COMPETITION_RULES.txt` | verbatim |
-| `pipeline/` | preprocessing, caches, site fingerprints. **Shared with the submission notebook** |
-| `fusion/` | training, scoring, arms, audits |
-| `extractor/`, `labeling/` | report → label work (retired as a target source, §2f) |
-| `notebooks/` | Kaggle kernels — build from the `.py`, never hand-edit the notebook |
-| `docs/archive/` | `PLAN.md`, `IMPROVEMENTS.md`, the pre-cut README. Provenance only — **not maintained, do not read in full** |
 
 ## Setup
 
