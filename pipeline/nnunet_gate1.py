@@ -12,6 +12,13 @@ separate script and MUST NOT be folded into this one -- C-4 fixes that order.
 PASS: mean Dice vs their prediction >= 0.99 across the foreground classes. Anything materially
 below that is a harness difference (spacing, orientation, TTA, checkpoint) and must be found
 before any box is calibrated, because a mis-registered mask moves every crop silently.
+
+STATUS 2026-09-07: this gate FAILED at 0.9878 against its pre-registered 0.99 (see 9a11a89), the
+question it existed to inform was answered by differencing the volumes instead, and nnU-Net now
+appears in no live doc. So `data/_nnunet` (weights, test volumes, staged input) and the dedicated
+`.venv_nnunet` were DELETED to reclaim 2.6 GB. To run this again, re-fetch the model and the two
+test volumes from `aagatti/nnunet_knee` and `pip install nnunetv2` into a fresh venv -- nothing
+about the harness here changed.
 """
 import argparse
 import json
