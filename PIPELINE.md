@@ -162,7 +162,9 @@ longer claims it is.**
 
 ## S5 — pixels `Sep 12–20 · CHECK BEFORE BUILDING`
 
-D3 stands: our NIfTI path costs 0.085 and is abandoned. But **before spending 8 h of Kaggle GPU
+D3 stands: our NIfTI path costs 0.085 and is abandoned. **The 458 GB local NIfTI corpus was
+deleted on 2026-09-07**, so "rebuild tiles" is no longer 8 GPU-hours — it is a ~178 GB
+re-download first. That raises the bar on the public-dataset check below, it does not lower it. But **before spending 8 h of Kaggle GPU
 rebuilding tiles**, check the two public preprocessed pixel datasets found on 09-06 —
 `barun2104/rsna-knee-mri-processed-3d-volumes` (21,238 downloads) and
 `alenic/rsna-knee-abnormality-detection-jpeg-224x224`. Neither carries a description, so read the

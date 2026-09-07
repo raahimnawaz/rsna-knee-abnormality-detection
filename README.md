@@ -146,6 +146,14 @@ correct answer there; anything above it means a leak.
 
 ### Building the pixel cache locally
 
+> **The local NIfTI corpus was deleted on 2026-09-07** — 19,859 `.nii`, 458.4 GB, stored
+> uncompressed. Nothing here reads it any more: D3 abandoned the NIfTI path and the tile caches
+> under `data/tiles336*` are already built. The steps below still work, but step 1 is now a
+> ~178 GB download, not a no-op. Before paying it, read S5 in PIPELINE.md — the plan is to take
+> a public preprocessed pixel dataset instead. `pipeline/validate_nifti.py` re-checks coverage
+> against `data/train_series.csv`, which was kept.
+
+
 ```bash
 # 1. one NIfTI per series, ~178 GB zipped / ~386 GB extracted. Delete each zip as you go
 python -m kaggle datasets download -d davidadekanmi/rsna-knee-nifti-part1 -p data/nifti --unzip
