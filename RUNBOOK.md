@@ -3,6 +3,13 @@
 **Purpose: any session can pick this up cold and know the next command to type.** `PLAN-C6.md`
 says *why*; this says *what to run, what to expect, and what to do with the answer.*
 
+> ⛔ **Read [`PREMORTEM.md`](PREMORTEM.md) before Stage A.** Four defects in the plan are already
+> known: Stage C is priced off a 6-tile benchmark and written for 54 windows (**5–10× over, and
+> over the 12 h session cap**); Gate B's bar is built on `runs_port` 0.7323, which §3y states is
+> **not a valid control**; the noise floor was never measured, so both paired gates may be
+> unreadable at one fold; and no stage closes the teacher→truth gap, which caps the whole plan at
+> ~0.8985. Stage 0 is unaffected — run it. Do not fund Stage A/B/C on the prices in `PLAN-C6.md`.
+
 Last updated **2026-09-07**. If today is much later than that, re-run §0.3 before trusting any
 claim here about the outside world — five beliefs about it have already expired in this project,
 one after 24 hours.

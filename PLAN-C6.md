@@ -228,6 +228,13 @@ correct. Price the LB gain at ~half the gold gain (4c-4).
 
 ---
 
+## ⛔ These prices are wrong — see `PREMORTEM.md` §1–2
+
+Stage C's ~15 GPU-h comes from a benchmark measured at **6 tiles/study** (16.95 ms/tile,
+101.71 ms/study) applied to a plan that uses **54 windows/study**. The corrected figure is
+**50–160 GPU-h**, above the 30 h weekly quota and above the 12 h per-session cap. Gate B's bar and
+the noise floor are also unsound. Re-price with a real bench before funding any GPU stage.
+
 ## Budget · 30 GPU-h/week
 
 | stage | GPU-h | week |
