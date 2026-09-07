@@ -61,6 +61,8 @@ grounds to re-measure, a disappointing *result* is not.
 | "79.0% → 84.7% cell agreement" as the label headroom | same artifact; prevalence-matched already reads 84.8% | audit §1 |
 | the image-model OOF as a large-n label gate | ρ=0.429 p=0.337 vs gold-58 order, and it ranks its own training labels first | audit §5 |
 | exporting our own labels as bits | costs **0.086 macro**, measured. Grade, or do not bother | audit §3 |
+| **weighting label sources by accuracy** — reverse-log, rank-discount or sharpened | **works as designed and still cannot win.** Equal rank-mean −0.0041 vs best single; reverse-log `−log(1−acc)` −0.0005; `acc^8` −0.0005. Sharpening the weights just converges the blend *to* the best member. Cause: the sources are one read repeated — steven_v4↔v2 **r=0.995**, LLM-to-LLM mean **0.819**. Weighting repairs the harm of including weak members; it cannot manufacture absent signal | `bench_external.py` |
+| **building our own severity extractor from scratch** | the public frontier **already ships one** — `SEV_LOW`/`SEV_HIGH` in 9 languages, directional negation, OA inheritance, graded pathology, Synovitis backoff — and it scores **0.8617 vs our incumbent 0.8873** (paired −0.0255, P(better)=0.009). Its own `read_labels()` refuses to train on it, calling it *"the weaker labels"* | `bench_external.py` |
 | a single severity prompt as the whole fix | six labels, six causes; Synovitis is mentioned in **12.4%** of reports and is an imputation problem | audit §2, §6 |
 | post-hoc calibration / thresholds / priors | **AUROC is invariant to monotone transforms** | 3a |
 | forking prvsiyan for its 0.906 | needs a private dataset | 3c |
@@ -87,6 +89,13 @@ grounds to re-measure, a disappointing *result* is not.
   incompatibly licensed pretrained models — **not a blocker**. OrthoFoundation has **no LICENSE at
   all**; its only grant is the authors' email of 2026-08-18. **Preserve that email.**
 - **Write geometry into the manifest.** §R happened because `box_mm` was never recorded anywhere.
+- **⛔ Two public label tables have GOLD BAKED IN** — `rayanbabur_soft` and `yunus_v5_merged`
+  reproduce all 58 gold rows exactly, 0/1-valued there against 506 distinct values elsewhere.
+  They score a fake **1.0000** on gold-58. `bench_external.py` refuses to report a score for a
+  source that fails its leak check. **Never benchmark a downloaded table without that check.**
+- **The public-source survey expires.** The 08-10 survey was 27 days stale on 09-06 and had
+  missed **four** new label tables, one of them a different model family (Qwen3-8B). Re-run
+  `kaggle datasets list -s "rsna knee"` before treating any source list as complete.
 
 ## The failure mode this project repeats
 
