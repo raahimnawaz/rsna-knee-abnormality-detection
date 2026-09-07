@@ -12,9 +12,15 @@ Twelve-label knee-MRI classification, macro-AUROC. Final submission **2026-10-22
 
 ⛔ **WE ARE 0.022 BELOW THE FREE PUBLIC CEILING.**
 
-# ▶️ THE PLAN IS `PIPELINE.md`. START THERE.
-`DECISIONS.md` is the ledger of what is settled — consult it, do not extend it. This README is
-setup and reproduction only.
+# ▶️ START HERE
+| | |
+|---|---|
+| **`DATA.md`** | **the ceiling, and the only lead the field does not share.** Labels over-call gold **6.68:1**. Read first |
+| **`MODEL.md`** | the architecture — 64 slices at 6–94%, 140 mm, per-label attention |
+| **`PIPELINE.md`** | the build schedule, stages and gates |
+| `DECISIONS.md` | the ledger of what is settled — consult it, do not extend it |
+
+This README is setup and reproduction only.
 
 ---
 
