@@ -1,143 +1,219 @@
-# C6 — the architecture fixes, and OrthoFoundation on top of them
+# C6 — best single model, then the blend that actually wins
 
-**Goal: the best single model this project can build.** Not a prize, not an efficiency entry.
-That changes what gets built: the efficiency track rewarded a small fast encoder, and this plan
-deliberately spends parameters and time instead.
+**Goal: the best model this project can build.** Not a prize, not an efficiency entry. That
+changes what gets spent: the efficiency track rewarded a small fast encoder, and this plan spends
+parameters and T4 hours instead.
 
-Written 2026-09-07, after the local corpus was deleted. **Everything here runs on Kaggle**, where
-the competition DICOMs mount directly. Nothing needs a local download, and nothing may be built
-from a repackaging — see D3 below.
+Written 2026-09-07 after the local corpus was deleted. **Everything runs on Kaggle**, where the
+competition DICOMs mount directly. Nothing is downloaded, and nothing is built from a
+repackaging — D3 is why.
 
 ---
 
-## 0. What this fixes, and why each is a measured defect
+## 0. Two premises the record contradicts, corrected before planning on them
 
-The record diagnosed four things. C5's OrthoFoundation run fixed **none** of them and is therefore
-not evidence about OrthoFoundation.
+**"pilkwang is the best arm" is false.** Four arms sit at parity on the only honest instrument
+(fold-resolved gold-47):
 
-| # | defect | measured cost | fixed by |
+| arm | gold-47 | note |
+|---|--:|---|
+| `ft_b` | **0.8522** | strongest single |
+| pilkwang | 0.8516 | ships its own OOF **and a per-member fingerprint** — that is its real value |
+| tonylica's RadImageNet | 0.8514 | §4b |
+| public RadImageNet folds_v1 | 0.8486 | §4c, χ² p=0.442 flat |
+
+**The blend is the model.** 3-family blend **0.8932** against 0.8522 for the best single — the
+single largest gain in the record, larger than any architecture delta. So the deliverable is not
+"one great arm", it is *the best arm at the centre of a blend that has room for it.*
+
+**Licences are not a blocker** (DECISIONS.md): competition §2.5.a explicitly carves out
+incompatibly-licensed pretrained models. ⚠️ But **OrthoFoundation has no LICENSE at all** — the
+only grant is the authors' email of 2026-08-18. **Preserve that email**; it is the whole claim.
+
+---
+
+## 1. What is being fixed, and the measured cost of each
+
+| # | defect | cost | fixed in |
 |---|---|--:|---|
-| **D3** | pixels are a third-party NIfTI repackaging | **0.085** @ 14.1σ | build on Kaggle from DICOMs, Stage A |
-| **§2e** | frozen encoder cannot adapt; everything lands near 0.70 | caps the whole project | `OrthoNet` already unfreezes 6 blocks |
-| **D2** | 18 slices, every slot at `depth 0.5` | Lat.Men **0.6422**, MCL **0.6433** vs midline ACL **0.8689** | `slots64.py`, 64 slices over 6–94% |
-| **§R** | 160 mm crop → 0.476 mm/px | **+0.0268** @ 4.1σ | `slots64.py`, 140 mm mm-crop |
-| **§5** | one shared pool over all 12 labels | never measured | `perlabel_head.py` |
+| **D3** | pixels are a third-party NIfTI repackaging | **0.085** @ 14.1σ | Stage A |
+| **§2e** | frozen encoder cannot adapt; everything lands near 0.70 | caps the project | Stage C |
+| **D2** | 18 slices, every slot at `depth 0.5` | Lat.Men **0.6422**, MCL **0.6433** vs ACL **0.8689** | Stage A |
+| **§R** | 160 mm crop → 0.476 mm/px | **+0.0268** @ 4.1σ | Stage A |
+| **§5** | one shared pool across all 12 labels | never measured | Stage B |
 
-⛔ **D3 is the largest and it is upstream of everything.** A cache built from *any* repackaging —
-ours, `alenic/…jpeg-224x224`, or `barun2104/…3d-volumes` — reintroduces it. Those datasets are a
-throughput convenience and this plan does not use them. 0.085 is larger than every architecture
-delta in the record combined.
+You said the data is the number-one thing. The record agrees numerically: **D3 alone (0.085) is
+larger than every architecture delta combined.** Stages 0 and A are therefore the only stages
+that cannot be skipped or reordered.
 
-⛔ **Coverage and per-label attention ship together or not at all** (`MODEL.md` §5). Adding outer
-slices to a shared pool dilutes the midline findings that already work. The gates below are
-written so a coverage-only run cannot pass one.
+⛔ **Coverage and per-label attention ship together** (`MODEL.md` §5). Outer slices fed to a shared
+pool dilute the midline findings that already work. Gate B is written so coverage-only cannot pass.
 
 ---
 
-## Stage A — the cache `8 kernels, ~1.1 h each`
+## Stage 0 — measure the data `CPU only, minutes, no GPU lottery`
 
-`notebooks/build_c6_cache_kernel.py --shard N --n-shards 8`
+**Nothing downstream may be decided before this runs.** Every item here is currently an
+assumption, including two I was about to build on.
 
-64 slices/study over 6–94% of each stack, five slots, 140 mm mm-crop, 336 px, uint8. Built from
-competition DICOMs. Windows are **not** cached — consecutive 2.5D triples share two of three
-slices, so caching 54 windows would store every slice three times for no extra information
-(95 GB vs 32 GB). The Dataset assembles them.
+**0.1 Anisotropy — the fact that decides whether a 3D arm is even admissible.**
+Per plane, over all series: median in-plane `PixelSpacing`, `SliceThickness`,
+`SpacingBetweenSlices`, and the ratio. `FINDINGS.md` §6.4 confirms all four tags are present
+200/200, so this is a header pass — **no pixels decoded.**
 
-Sharded eight ways because Kaggle caps kernel output at 20 GB; each shard is ~4 GB and mounts
-into the training kernel via `kernel_sources`, so **nothing is ever downloaded**.
+> **PRE-REGISTERED DECISION RULE.** Let *r* = median(through-plane ÷ in-plane).
+> - **r ≥ 4** → isotropic 3D is **contraindicated**; see §2 below. Any 3D arm must use
+>   anisotropic kernels, and Triad/MedicalNet-style isotropic encoders are excluded.
+> - **r < 4** → an isotropic 3D arm is admissible and §2's exclusion is void.
+>
+> Fixing this *before* the number exists is the point. §3y and §3z were both pre-registered and
+> both survived; §3t's verdict was not, and had to be retracted.
 
-**GATE A** — this is a plumbing gate, not a strength gate. No AUC may be quoted from it (§3b,
-[[never-select-on-a-tiny-set]]).
-1. `manifest.json` records `spec: c6-64slice`, `fov_mm 140`, `depth_range [0.06, 0.94]`.
-2. Slot fill rate ≥ the `tiles336` build's, per slot. A slot that silently stops filling would
-   read as a coverage gain and be a coverage *loss*.
-3. Spot-render 20 studies: the 6% and 94% slices must show real anatomy, not wrap or air.
+**0.2 Stack depth per plane.** Median/p10 slices per series. If the median sagittal stack is ~20,
+then "18 slices across 6–94%" is nearly the whole stack and D2's fix is much cheaper than assumed
+— and `slots64.py`'s repeat-padding behaviour becomes load-bearing rather than a corner case.
 
-**STOP** if fill rate drops on any slot — the assignment rule regressed, and a masked slot costs
-more than a mis-preferred one.
+**0.3 Protocol composition.** Studies having each plane × fluid-sensitivity, and the resulting
+five-slot fill rate. The `slots64.py` spec assumes two usable sagittals and two coronals per
+study. **That is an assumption and it is untested.**
 
----
+**0.4 Re-run the public-source survey.** `kaggle datasets list -s "rsna knee"`. The standing
+caution is explicit: the 08-10 survey was 27 days stale by 09-06 and had missed **four** label
+tables, one a different model family. Any arm list — including this plan's — expires.
 
-## Stage B — do the architecture fixes pay? `2 kernels × ~7 h`
+**0.5 Re-pull the leaderboard.** "A leaderboard number older than a few days is not evidence."
+Five beliefs about the outside world have already expired here; one lasted 24 hours.
 
-The encoder is held at the fork's **dinov2-small**, so the only variables are cache + head. This
-is the arm the record never ran and it must run *before* OrthoFoundation, or a C6 gain and a
-knee-pretraining gain are confounded in exactly the way §3w-2 confounded domain with architecture.
-
-| arm | cache | head | encoder |
-|---|---|---|---|
-| **B0** control | C6 | **shared** | dinov2-small, 6 blocks |
-| **B1** | C6 | **per-label** | dinov2-small, 6 blocks |
-
-Anchor: `runs_port` = **0.7323** ± 0.0086, fold 0, n=681, report-OOF (`score_oof.py`).
-
-**GATE B, pre-registered:**
-- **B0 ≥ 0.7591.** That is the anchor plus the crop confound alone (+0.0268). B0 gets the crop and
-  the coverage and the correct pixels; if it cannot clear the crop's own value, coverage is not
-  paying and D2 is refuted on this data.
-- **B1 − B0 > 0**, paired, same folds and seed. This is the §5 claim, measured for the first time.
-- **Per-label read:** Lateral Meniscus and MCL must both improve on B1 vs the 0.6422 / 0.6433
-  baseline. Macro alone can rise while the two structures D2 named stay flat, which would mean
-  the gain came from somewhere else and D2's mechanism is still unproven.
-
-**STOP** if B0 < 0.7591: the cache is not the lever, and OrthoFoundation on top of a cache that
-does not pay is a second variable on an unvalidated instrument. Re-open D2 before spending T4
-hours on a 303 M encoder.
-
-⛔ **The training loss is not evidence** — Workstream C's loss fell monotonically through 36.7% of
-its range and the arm still lost by 4.8σ. Only `score_oof.py` large-n decides these gates.
+**GATE 0:** 0.1–0.3 written into `DATA.md` as measured tables. **No AUC is produced or quoted at
+this stage.**
 
 ---
 
-## Stage C — is knee pretraining worth anything? `2 kernels × ~7.3 h`
+## 2. The 3D arm — researched, and currently excluded on evidence
 
-Only now, and only if Gate B passed. The control is chosen so the comparison is clean:
+You asked me to research rather than invent one. I did, and the honest finding is that **the
+strongest candidate fails on your data's physics, and a from-scratch 3D CNN repeats your own
+diagnosed failure.**
 
-| arm | encoder | differs from C0 by |
+**Triad** ([Nature/ScienceDirect 2026](https://www.sciencedirect.com/science/article/abs/pii/S1361841526000617)) is the leading open 3D-MRI foundation model — 129 K volumes, CC-BY-4.0,
++4.38% over Swin-B-scratch on classification. Two disqualifiers, both checked not assumed:
+- **Anatomy: brain, breast and prostate only.** No musculoskeletal, no knee, and no MSK task in
+  its downstream evaluation.
+- **It requires isotropic 1 mm resampling to 256×256×128.** Clinical knee MRI is 2D fast spin
+  echo, multi-plane. If Stage 0.1 returns r ≈ 10, isotropic resampling *interpolates ~10× data
+  that was never acquired* along the slice axis. That is not a 3D reconstruction, it is
+  invention — and it is upstream of the model, i.e. exactly the class of defect D3 is.
+
+**A 3D CNN trained from scratch is the failure the record already paid for.** §3w-2 trained a
+RadImageNet to **0.6924** while a **0.8514** one was a free download, and §4b's verdict was that
+*our training* was refuted, not the architecture. 4,407 studies is not enough to train a 3D
+encoder that beats a pretrained 2D one. [[diversity-is-not-the-constraint]] — screen on strength.
+
+**If Stage 0.1 returns r ≥ 4** (which the clinical protocol makes likely), the principled 3D route
+is not a video-model or an isotropic foundation model but **anisotropic kernels** — nnU-Net's
+spacing-adaptive scheme: `(1,3,3)` convolutions and in-plane-only pooling until the axes equalise.
+You already have nnU-Net wiring in `pipeline/nnunet_gate1.py`. **Deferred to Stage E, and only if
+Stage D leaves a diversity gap that a parity-strength arm could fill.**
+
+The field's convergence is corroborating rather than decisive: knee-MRI work from MRNet onward is
+predominantly 2.5D, and reviews attribute that to exactly this anisotropy ([systematic review](https://link.springer.com/article/10.1007/s00330-024-11105-8), [KneeXNet-2.5D](https://www.nature.com/articles/s44401-026-00072-5)).
+
+---
+
+## Stage A — the cache `8 kernels, ~9 GPU-h`
+
+`slots64.py` as specified, **rebuilt against Stage 0's measurements** — slot counts and the 6–94%
+range are provisional until 0.2/0.3 land. From competition DICOMs, 140 mm mm-crop, 336 px, uint8,
+64 slices. Slices cached, not windows (triples share 2 of 3 slices: 32 GB vs 95 GB, and Kaggle
+caps kernel output at 20 GB). Geometry written into the manifest — §R happened because `box_mm`
+was recorded nowhere.
+
+**GATE A** — plumbing only, no AUC (§3b, [[never-select-on-a-tiny-set]]):
+1. manifest records `fov_mm 140`, `depth_range`, and the resolved spacing.
+2. Slot fill ≥ Stage 0.3's prediction, per slot. A slot that quietly stops filling reads as a
+   coverage gain and is a coverage loss.
+3. Render 20 studies at the 6% and 94% positions: real anatomy, not wrap or air.
+
+---
+
+## Stage B — do the data fixes pay? `2 kernels, ~14 GPU-h`
+
+Encoder held at the fork's dinov2-small so **cache and head are the only variables.** Running an
+encoder change first would confound a C6 gain with an encoder gain exactly as §3w-2 confounded
+domain with architecture.
+
+| arm | cache | head |
 |---|---|---|
-| **C0** control | `vit_large_patch16_dinov3`, stock | — |
+| **B0** | C6 | shared pool |
+| **B1** | C6 | **per-label** |
+
+Anchor `runs_port` = **0.7323 ± 0.0086**, fold 0, n=681, `score_oof.py`.
+
+**GATE B:**
+- **B0 ≥ 0.7591** — the anchor plus the crop's own +0.0268. B0 also gets coverage and correct
+  pixels; failing to clear the crop alone refutes D2 on this data.
+- **B1 − B0 > 0**, paired. First measurement of §5.
+- **Lateral Meniscus and MCL must both rise** vs 0.6422 / 0.6433. Macro can rise while the two
+  structures D2 named stay flat — that would mean the gain came from elsewhere and D2's mechanism
+  is unproven.
+
+⛔ **Training loss is not evidence.** Workstream C's loss fell monotonically through 36.7% of its
+range and lost by 4.8σ. Only `score_oof.py` large-n decides.
+
+**STOP** if B0 < 0.7591 — re-open D2 before spending T4 hours on a 303 M encoder.
+
+---
+
+## Stage C — the encoder, and knee pretraining `2 kernels, ~15 GPU-h`
+
+Only after Gate B. `OrthoNet` already exists and unfreezes 6 blocks; it has never run.
+
+| arm | encoder | differs by |
+|---|---|---|
+| **C0** | `vit_large_patch16_dinov3`, stock | — |
 | **C1** | **OrthoFoundation-L** | **1,251,655 knee images. Nothing else.** |
 
-`fusion/orthofoundation_model.py:1` maps OrthoFoundation-L onto timm's `vit_large_patch16_dinov3`,
-so C1 *is* C0 continued-pretrained. Same architecture, same 303 M parameters, same RoPE, same
-head, same cache, same folds, same schedule. **This is the ablation §3w-2 could not give**, because
-there RadImageNet was domain-pretrained *and* the only CNN, so domain and architecture moved
-together.
+`orthofoundation_model.py:1` maps OrthoFoundation-L onto timm's `vit_large_patch16_dinov3`, so C1
+*is* C0 continued-pretrained. Same architecture, params, RoPE, head, cache, folds, schedule.
+**This is the ablation §3w-2 could not give**, where domain and architecture moved together.
 
-**GATE C, pre-registered:** **C1 − C0 > 0**, paired, fold 0, `score_oof.py` large-n.
-- Positive → knee pretraining pays, and C-5's 0.7710 is confirmed as an artefact of freezing.
-- **Null or negative → that is the answer**, and it is worth having. It says a 1.25 M-image
-  domain corpus does not transfer to this label set, which no public result reports either way.
+External corroboration, not evidence: knee-MRI-specific pretraining significantly outperformed
+generic and general-medical pretrained weights on MRNet ([MedNet-FS, Sci Rep 2026](https://www.nature.com/articles/s41598-026-54489-x)).
 
-⚠️ **A null here is a real result, not a failed experiment.** The record's repeated error was
-reading a null on a small instrument as a refutation (§4a). `score_oof.py` large-n at n≈681 is
-the instrument for this, **never gold-58** — §3b: selecting on gold-58 claims +0.0137 and delivers
-−0.0034.
+**GATE C:** **C1 − C0 > 0**, paired, fold 0, `score_oof.py` large-n — **never gold-58** (§3b:
+claims +0.0137, delivers −0.0034). ⚠️ **A null is a real result** and must be recorded as one; §4a
+was the record reading a null as a refutation.
+
+Bench the forward pass, do not price it by parameter count — predicted 14×, measured 6.33× (C-5).
 
 ---
 
-## Budget
+## Stage D — the blend, which is where the model actually is `~6 GPU-h`
 
-Kaggle gives 30 GPU-h/week.
+Best single is 0.8522; the 3-family blend is **0.8932**. Equal-weight rank-mean over families,
+§9e's pre-registered rule, nothing fitted — §2z measured that re-fitting blend weights on
+site-grouped folds is **−0.0000**.
 
-| stage | kernels | GPU-h | week |
-|---|--:|--:|--:|
-| A cache | 8 | ~9 | 1 |
-| B0 + B1 | 2 | ~14 | 1–2 |
-| C0 + C1 | 2 | ~15 | 2–3 |
-
-Fold 0 only throughout. Five folds is 5× and buys a tighter interval on a question that fold 0
-already answers directionally; spend it only after a gate passes.
+Members: C6's winner, `ft_b`, public RadImageNet folds_v1, pilkwang. **Screen on strength first**
+— every arm the record rejected was genuinely weak (0.6924–0.8025) and every rejection was
+correct. Price the LB gain at ~half the gold gain (4c-4).
 
 ---
 
-## What must be true before any of this runs
+## Budget · 30 GPU-h/week
 
-1. **`raahimnawaz/rsna-knee-code` must be refreshed** with `pipeline/slots64.py` and
-   `fusion/perlabel_head.py`. The kernels import from that Dataset; a stale copy fails at import,
-   after the queue wait.
-2. **Kaggle API credentials.** `~/.kaggle/` currently holds only an `access_token`, no
-   `kaggle.json`, so `kaggle kernels push` cannot authenticate.
-3. **Smoke each kernel with `--limit 20` before the full shard.** Every cache build in this
-   project's history died hours in on something a 20-study run would have caught
-   (`normalise_and_resample`'s `torch.quantile` ceiling, the pool restart, mount latency).
+| stage | GPU-h | week |
+|---|--:|--:|
+| 0 measure | **0** (CPU) | 1 |
+| A cache | ~9 | 1 |
+| B0/B1 | ~14 | 2 |
+| C0/C1 | ~15 | 3 |
+| D blend | ~6 | 4 |
+
+Fold 0 throughout; five folds only after a gate passes.
+
+## Blockers
+
+1. **`kaggle.json`** — `~/.kaggle/` holds only an `access_token`. `kaggle kernels push` cannot authenticate.
+2. **Refresh `raahimnawaz/rsna-knee-code`** with `slots64.py` and `perlabel_head.py`, or kernels fail at import after the queue wait.
+3. **Smoke every kernel at `--limit 20`.** Every cache build in this project's history died hours in on something a 20-study run would have caught.
