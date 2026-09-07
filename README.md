@@ -10,7 +10,11 @@ Twelve-label knee-MRI classification, macro-AUROC. Final submission **2026-10-22
 | **prize line** | 0.940 ≈ rank 100 |
 | **baseline** | 0.7229 ± 0.0048, site-grouped report-OOF, n=2,612 |
 
-⛔ **WE ARE 0.022 BELOW THE FREE PUBLIC CEILING. SHIP BEFORE YOU BUILD.** See §S.
+⛔ **WE ARE 0.022 BELOW THE FREE PUBLIC CEILING.**
+
+# ▶️ THE PLAN IS `PIPELINE.md`. START THERE.
+`DECISIONS.md` is the ledger of what is settled — consult it, do not extend it. This README is
+setup and reproduction only.
 
 ---
 
@@ -24,24 +28,13 @@ On 2026-09-06 that gap got a mechanical explanation: **every locally trained mod
 are unanimously `crop_mm=130.0` → 0.387 mm/px.** Read `DECISIONS.md` §R before trusting any
 conclusion drawn from a locally trained run — a fair number of them do not survive it.
 
-**In flight:** `fusion/runs_port_repro` — the first training run in this project's history at the
-fork's actual config, on the 130 mm cache `data/tiles336_pilk` built 2026-08-19. Fold 0, 30 epochs.
+**Phase C is done and it answered the question.** `runs_port_repro` — the first run at the fork's
+real config — scored **0.7597** against pilkwang's **0.8453** on the same 691 studies. The crop fix
+was worth **+0.0268 (4.1σ)** and **76% of the gap survives at 14.1σ**. All five config divergences
+are closed, so the residue is the pixels. Full result in `DECISIONS.md` §W.
 
-```bash
-tail -f fusion/runs_port_repro.log
-.venv/bin/python fusion/train_port.py --cache data/tiles336_pilk --tag pilkwang \
-  --backbone pilkwang --epochs 30 --run-folds 0 --out fusion/runs_port_repro --resume
-```
-
-Fold 0's 691 val studies give SD ≈ 0.008 against a 0.076 gap — about 9σ, so **one fold settles it**
-and the other four are not needed to read the answer.
-
-| result | meaning | next |
-|---|---|---|
-| **≈ 0.84** | the local loop works; the band was the crop | re-measure the arms tagged `CONFOUNDED-160`, starting with OrthoFoundation-L |
-| **≈ 0.77** | pixels are genuinely the cause | §3i-4's header-only CPU kernel becomes the critical path |
-
-Either way it is the first uncontaminated number this project has produced from its own training.
+**Consequence: the local NIfTI training path is abandoned.** `PIPELINE.md` Stage 1 rebuilds the
+cache from DICOMs on Kaggle at the field's 140 mm geometry.
 
 ## Layout
 
