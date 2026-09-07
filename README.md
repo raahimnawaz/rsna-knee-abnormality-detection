@@ -13,9 +13,13 @@ Twelve-label knee-MRI classification, macro-AUROC. Final submission **2026-10-22
 
 **State on 2026-09-06.** Three things were measured and they redirect the project.
 
-1. **The labels over-call gold 6.68 : 1.** Ten of twelve criteria carry a severity or acuity
-   cut-point; every public extractor detects *mentions*. This is the ceiling the whole field
-   shares, and it is the only lead not already on the leaderboard. → **`DATA.md`**
+1. **The label stage was re-audited on 09-06 and `DATA.md` rewritten.** The "6.68 : 1 over-call"
+   was a binarisation threshold — the same file reads 29.2:1 or 1.00:1 depending on the cut,
+   with macro-AUROC 0.8873 throughout. What is real, on the 30 studies that are both gold and
+   hand-read: **graded output +0.086** (the incumbent already banks it) and **reading skill
+   +0.055, CI [+0.005, +0.111]**. The job is **six labels wide**, and **Synovitis is an
+   imputation problem, not an extraction one** — 12.4% mention rate.
+   → **`DATA.md`**, reproduce with `python extractor/audit_label_stage.py`
 2. **We sample 18 slices, all at `depth 0.5`.** The frontier takes 64 across 6–94% of each stack,
    which is where the lateral meniscus and collateral ligaments are. Ours read 0.6422 and 0.6433;
    ACL, midline, reads 0.8689. → **`MODEL.md`**
@@ -27,7 +31,7 @@ parallel** — L is CPU and free, P is Kaggle GPU. Both machines idle is the fai
 
 | read | for |
 |---|---|
-| **`DATA.md`** | the ceiling, the extraction schema, why re-thresholding is worthless |
+| **`DATA.md`** | **the data plan** — the per-label map, the two-tier instrument, the paired gate, the schema |
 | **`MODEL.md`** | the architecture — 64 slices, 140 mm, per-label attention |
 | **`PIPELINE.md`** | stages, gates, fallbacks, budget |
 | `DECISIONS.md` | what is settled. **Consult it, do not extend it** |
@@ -55,6 +59,10 @@ python extractor/run_extract.py    # writes data/pseudo_labels.csv
 
 **Run `eda_01` before `eda_03`** — `eda_03` reads `data/lang_guess.csv` and `eda_01` is the only
 thing that writes it.
+
+Once the tables below exist, `python extractor/audit_label_stage.py` reproduces every number in
+`DATA.md` in about a minute and writes nothing. **Run it before trusting that document** — it is
+what retracted two of the three findings the plan previously rested on.
 
 ### Regenerating derived data — `data/` is gitignored, so this is the only record
 

@@ -12,7 +12,7 @@ files are provenance — not maintained, not read in full.
 
 | # | finding | number |
 |---|---|---|
-| **D1** | **Labels over-call gold 6.68 : 1** — all twelve, 1.17–2.00×. Ten of twelve carry a severity or acuity cut-point; the public extractors detect *mentions*. **This is the field's shared ceiling.** → `DATA.md` | 127 false-pos cells vs 19 false-neg |
+| **D1** | ~~**Labels over-call gold 6.68 : 1**~~ **⛔ AMENDED 2026-09-06 — the ratio was a binarisation threshold.** Same file: 29.2:1 at cut 0.5, 6.63:1 at 0.60, 1.00:1 prevalence-matched, **macro-AUROC 0.8873 throughout**. The over-call gate was deleted. What survives is measured on the 30 gold∩hand studies: **graded output +0.086** (the incumbent already has it) and **reading skill +0.055, CI [+0.005, +0.111]**. → `DATA.md`, `extractor/audit_label_stage.py` | +0.055 over `targets.csv`, not a ratio |
 | **D2** | **We sample 18 slices, all at `depth 0.5`.** The frontier takes 64 across 6–94% of the stack. Lateral meniscus and collateral ligaments sit in the outer thirds. → `MODEL.md` | Lat. Meniscus 0.6422, MCL 0.6433, ACL (midline) 0.8689 |
 | **D3** | **Our pixels are a third-party NIfTI repackaging and it costs 0.085.** Same config, folds, labels. → `PIPELINE.md` Stage P | ours 0.7597, theirs 0.8453, 14.1σ |
 
@@ -51,6 +51,11 @@ grounds to re-measure, a disappointing *result* is not.
 | re-fitting blend weights on site-grouped folds | −0.0000 — **do not fit weights** | 2z |
 | harmonising scanner/site away (ComBat) | −0.013 to −0.032; case mix is real | 3f |
 | selecting anything on gold-58 | claims +0.0137, delivers −0.0034 | 3b |
+| the over-call ratio as a label gate | a threshold, not a property — AUROC invariant across the whole sweep | audit §1 |
+| "79.0% → 84.7% cell agreement" as the label headroom | same artifact; prevalence-matched already reads 84.8% | audit §1 |
+| the image-model OOF as a large-n label gate | ρ=0.429 p=0.337 vs gold-58 order, and it ranks its own training labels first | audit §5 |
+| exporting our own labels as bits | costs **0.086 macro**, measured. Grade, or do not bother | audit §3 |
+| a single severity prompt as the whole fix | six labels, six causes; Synovitis is mentioned in **12.4%** of reports and is an imputation problem | audit §2, §6 |
 | post-hoc calibration / thresholds / priors | **AUROC is invariant to monotone transforms** | 3a |
 | forking prvsiyan for its 0.906 | needs a private dataset | 3c |
 | a C++ port for the efficiency track | 93 s per 0.001 AUC; decode is already native | PLAN 6.1 |

@@ -36,26 +36,46 @@ confirm every arm loaded — a refused arm silently ships the old path and burns
 
 ---
 
-## Stage L — labels `Sep 8–15 · CPU/API · minutes per iteration` ⭐ HIGHEST IMPACT
+## Stage L — labels `Sep 8–15 · CPU/API` ⭐ HIGHEST IMPACT
 
-`DATA.md` is the full spec. The public labels over-call gold **6.68 : 1** because ten of twelve
-criteria carry a severity or acuity cut-point and the extractors detect mentions.
+`DATA.md` is the full spec and it was **rewritten on 2026-09-06 after an audit retracted two of
+the three numbers this stage was built on** — reproduce them with
+`python extractor/audit_label_stage.py`. The short version:
 
-    4,349 reports
-      -> severity extraction, per-label schema  -> data/severity_v1.jsonl
-      -> threshold mapping                      -> data/targets_sev.csv  (+ schema hash)
+- **the 6.68:1 over-call is a binarisation threshold**, not a property of the labels. The same
+  file reads 29.2:1 at cut 0.5 and 1.00:1 prevalence-matched, with macro-AUROC 0.8873 throughout.
+  **The old "over-call < 2:1" gate was satisfiable by editing a constant. Deleted.**
+- what is real, measured on the 30 studies that are both gold and hand-read: **graded output
+  +0.086** (which the incumbent already banks) and **reading skill +0.055, 95% CI [+0.005,
+  +0.111]**. That +0.055 is the honest headroom over `data/targets.csv`.
+- the job is **six labels wide** — Effusion, Lateral OA, Contusion, Fracture, Lateral Meniscus —
+  and **Synovitis is not an extraction problem at all** (mentioned in 12.4% of reports).
 
-**GATE — free, instant, no GPU.** Score the labels *as predictions* against gold-58:
+<!-- -->
 
-    macro-AUROC   current public 0.8873   TARGET >= 0.93
-    over-call     current        6.68:1   TARGET <  2:1
+    L0 fix glossary, re-export hand labels WITH their four states  (binarising costs 0.086)
+    L1 finish the hand set: 217 of 303 remain -> the iteration instrument
+    L2 graded extractor, criteria verbatim in the system block  -> data/severity_v1.jsonl
+    L3 full pass for winners only, then the gate               -> data/targets_sev.csv
+    L4 emit the `mentioned` mask   L5 version and freeze
 
-Iterate the prompt until both clear. **This is the fastest loop in the project — use it.**
+**GATE — free, instant, no GPU, and PAIRED.** The marginal CI on gold-58 is 0.068 wide; pairing
+against the incumbent on the same studies cuts the SD 4.1× and makes +0.008 the smallest
+detectable delta.
 
-**FALLBACK** if it stalls under 0.91 after a week: keep the public targets, note the ceiling in
-`DECISIONS.md` as one line, move on. Do not spend a second week here.
+    PRIMARY   paired macro-AUROC delta vs data/targets.csv, 4000 bootstrap resamples
+              PASS  >= +0.010  AND  95% CI excludes 0
+    GUARD     no single label falls more than 0.02 below the incumbent
+    BUDGET    at most 3 candidates ever touch gold-58 -- iterate on the 303-study hand set
 
-**Artifact:** `data/targets_sev.csv`, versioned, plus the raw graded fields.
+**Iterate on the hand set, not on gold-58.** §3b priced selection on 58 studies at *claims
++0.0137, delivers −0.0034*, and a large-n substitute was tested and rejected: the image model's
+OOF ranks candidate label sets at ρ=0.429 (p=0.337) and puts its own training labels first.
+
+**FALLBACK** three candidates spent without a pass → keep `data/targets.csv`, one line in
+`DECISIONS.md`, move on. **This stage ends Sep 15 whether or not it has won.**
+
+**Artifact:** `data/targets_sev.csv`, versioned, plus `mentioned` and the raw graded fields.
 
 ---
 
