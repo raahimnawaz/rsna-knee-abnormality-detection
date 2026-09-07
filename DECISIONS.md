@@ -22,12 +22,17 @@ files are provenance — not maintained, not read in full.
 later — it is **not** the highest-impact stage, and `PIPELINE.md`'s ⭐ was wrong. The 0.05 is in
 `MODEL.md`. Run L because it costs a different machine, not because it is the lever.
 
-## Board `MEASURED 2026-09-06 — expires in days; re-survey before any submission decision`
+## Board `PULLED LIVE 2026-09-06 — re-pull weekly, it moved +0.016 in 25 days`
 
-3,239 teams. Our 0.914 ranks **~1374**. Free public notebook **0.936** (8+ teams sit on it
-exactly). Public frontier **0.941** — source published, single model, no ensemble, no TTA. Prize
-line 0.940 ≈ rank 100. Top 0.954, and ranks 1–100 span only 0.014. `pilkwang`, the fork this repo
-is built on, is now rank 899.
+3,243 teams. Our 0.914 ranks **~1389**. Free public notebook **0.9360 — 506 teams on it exactly**,
+877 at or above it. Rank 100 is 0.9410. Top **0.9540**.
+
+⛔ **The prize line is 10th place = 0.9500, not 0.940.** Eleven teams are already there. Every
+document in this repo quoted 0.940 ≈ rank 100 until 09-06; that was an 08-12 read and the cutoff
+had risen +0.016. **`MODEL.md`'s own best case (~0.90 gold-58 → LB ~0.939) is rank ~125, not a
+prize** — and 0.950 needs gold ~0.911, above the best public label table's 0.8927, i.e. the model
+would have to beat its teacher by 0.018 while §3p measures us 0.05 below it. → `PIPELINE.md`,
+reassessed: **the efficiency track is the primary target.**
 
 ## CONFOUNDED-160 — verdicts measured on a 0.476 mm/px model
 

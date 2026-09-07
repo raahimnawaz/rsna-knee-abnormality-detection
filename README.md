@@ -2,12 +2,16 @@
 
 Twelve-label knee-MRI classification, macro-AUROC. Final submission **2026-10-22**.
 
+**Board pulled live 2026-09-06 — 3,243 teams.**
+
 | | |
 |---|---|
-| **best submitted** | **0.914** (2026-08-18) — **rank ~1374 of 3,239** |
-| **free public notebook** | **0.936** — 8+ teams sit on exactly this |
-| **public frontier** | **0.941**, source published, single model |
-| **prize line** | 0.940 ≈ rank 100 |
+| **best submitted** | **0.914** — **rank ~1389** |
+| **free public notebook** | **0.9360** — **506 teams sit on exactly this**; 877 are ≥ it |
+| **rank 100** | 0.9410 |
+| **prize line — 10th place** | **0.9500** (was read as 0.940; it moved +0.016 in 25 days) |
+| **top** | 0.9540 |
+| **efficiency track** | 3 prizes, $18,000 — **now the primary target**, see `PIPELINE.md` |
 
 # ▶️ NEXT SESSION: START HERE
 
@@ -31,8 +35,15 @@ prize line, while the model reproduces those same labels at only **0.8486**. We 
 the labels we have than they are from truth — so **Stage L is cheap and parallel, not the lever.**
 The 0.05 is in `MODEL.md`.
 
-**Do next:** `PIPELINE.md` Stage 0 (bank 0.936, one day, one submission), then Stages **L and P in
-parallel** — L is CPU and free, P is Kaggle GPU. Both machines idle is the failure of 09-06.
+**And the plan was reassessed on 09-06 against the live board.** The prize line is **0.950**, not
+0.940. This plan's own best case — `MODEL.md`'s "~0.90 gold-58" — converts to LB ~0.939, **rank
+~125**. The accuracy track is not reachable on the evidence. The **efficiency track** (3 prizes,
+$18k) is: a 0.936 model run in 12 minutes scores better than a 0.950 model run in 30. Both tracks
+share the pipeline and diverge only at the two final submissions.
+
+**Do next:** `PIPELINE.md` **S0** — bank 0.936 (one day, one submission, and it is the efficiency
+entry ticket), re-read the efficiency formula on the competition page, and post the MRNet/OAI
+question that has been drafted and unsent for 27 days.
 
 | read | for |
 |---|---|
