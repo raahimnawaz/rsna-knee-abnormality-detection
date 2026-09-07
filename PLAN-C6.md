@@ -180,6 +180,34 @@ Only after Gate B. `OrthoNet` already exists and unfreezes 6 blocks; it has neve
 External corroboration, not evidence: knee-MRI-specific pretraining significantly outperformed
 generic and general-medical pretrained weights on MRNet ([MedNet-FS, Sci Rep 2026](https://www.nature.com/articles/s41598-026-54489-x)).
 
+### ⛔ C-PRE: resolve the normalisation from the checkpoint, or C1 is a false negative
+
+`train_port.py:274-275` hardcodes ImageNet constants as buffers inside `OrthoNet`:
+
+    self.register_buffer("mean", torch.tensor([0.485, 0.456, 0.406])...)
+    self.register_buffer("std",  torch.tensor([0.229, 0.224, 0.225])...)
+
+and `fusion/orthofoundation_model.py` resolves **no** normalisation at all. Those constants are
+correct for DINOv2. **They are an assumption for OrthoFoundation-L**, which was continued-
+pretrained on 1.25 M greyscale knee MRIs and whose intensity distribution is not ImageNet's.
+
+This is not hypothetical. A competitor hit exactly this swapping in RAD-DINO (ViT-B/14 finetuned
+from dinov2-base on 882,775 chest radiographs, `image_mean` **0.5307**, `image_std` **0.2583**
+vs ImageNet's 0.485/0.229). Their arm lost from epoch 1 and the gap widened every epoch, with
+*lower* training loss — fitting worse, not overfitting. Their words: left to finish, the run
+*"would have produced a real number, from a real 11-hour experiment, supporting a false
+conclusion about the exact hypothesis we most wanted to test."*
+<https://www.kaggle.com/competitions/rsna-knee-abnormality-detection/discussion/735154>
+
+**That is our hypothesis and our experiment.** An encoder fed inputs shifted from its pretraining
+distribution underperforms silently — no error, no warning, a plausible curve pointing the wrong
+way. It would read as "knee pretraining does not transfer" and be recorded as a null.
+
+**Required before C1 runs:** read `image_mean`/`image_std` from OrthoFoundation's own checkpoint
+or config; if it ships none, **measure** them from its pretraining corpus description or fall back
+to greyscale stats — and record which, because a guessed constant is a confound either way.
+Assert C0 resolves to byte-identical ImageNet constants, so §2's comparison stays clean.
+
 **GATE C:** **C1 − C0 > 0**, paired, fold 0, `score_oof.py` large-n — **never gold-58** (§3b:
 claims +0.0137, delivers −0.0034). ⚠️ **A null is a real result** and must be recorded as one; §4a
 was the record reading a null as a refutation.
