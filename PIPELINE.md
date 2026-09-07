@@ -2,7 +2,9 @@
 
 **45 days. Three independent pipelines, each with its own gate, run in parallel.**
 
-Read `DATA.md` first — it sets the ceiling. `MODEL.md` is the architecture.
+Read `DATA.md` first — it is the data plan, re-measured 09-06. `MODEL.md` is the architecture,
+and per `DECISIONS.md` D4 it is where the score is: the labels we already have convert to ~0.938
+and the model reproduces them at 0.849.
 
 ## The decision this rests on
 
@@ -36,7 +38,13 @@ confirm every arm loaded — a refused arm silently ships the old path and burns
 
 ---
 
-## Stage L — labels `Sep 8–15 · CPU/API` ⭐ HIGHEST IMPACT
+## Stage L — labels `Sep 8–15 · CPU/API` — cheap, parallel, NOT the lever
+
+⛔ **This stage lost its ⭐ on 2026-09-06.** `§3p` (restored, `DECISIONS.md` D4) measures our own
+`targets.csv` at gold 0.8985 → LB ~0.938 against a 0.940 prize line, while the model reproduces
+those same labels at only 0.8486. **The labels are not the binding constraint — we are further
+from the labels we have than they are from truth.** Run L because it is CPU/API and costs Stage P
+nothing, not because it is where the score is. The 0.05 is in `MODEL.md`.
 
 `DATA.md` is the full spec and it was **rewritten on 2026-09-06 after an audit retracted two of
 the three numbers this stage was built on** — reproduce them with

@@ -36,6 +36,35 @@ headroom in that currency — and cell agreement is not the currency the competi
 every public extractor detects mentions. That is still true, still unexploited by the field, and
 §3 below now measures what it is worth instead of asserting it.
 
+### ⛔ And the thing this stage is NOT — `§3p`, restored 2026-09-06
+
+**`§3p` (measured 2026-08-13, valid, and dropped from `DECISIONS.md` in the 09-06 rewrite) says
+the labels are not the binding constraint, and nothing since has overturned it.**
+
+| on the same gold studies | gold | → LB at §3v's +0.039 |
+|---|--:|--:|
+| **`steven_v2` — literally our `data/targets.csv`** — used as a predictor | **0.8985** | **~0.938** |
+| pilkwang 20-member OOF | 0.8516 | ~0.891 |
+| our model reproducing **its own training labels**, n=4,407 | **0.8486** | |
+
+**A model that perfectly fit the labels we already have would score ~0.938 — at the prize line of
+0.940.** The teacher→gold gap is 0.10; the model→teacher gap is 0.15. **We are further from the
+labels we have than those labels are from truth.**
+
+So Stage L raises a ceiling the model is currently **0.05 below**. That is worth doing — it is
+cheap, it is CPU/API, it runs on a different machine than Stage P, and the ceiling will bind once
+Stage M lands. **It is not the highest-impact stage, and `PIPELINE.md` was wrong to label it so.**
+`MODEL.md`'s slice coverage and per-label attention are where the 0.05 is.
+
+**One correction to §3p's companion.** `§3x` refuted the severity argument on the grounds that
+"if severity confusion were binding, the teacher would be weakest on the threshold labels." That
+is a cross-label correlation and it does not carry: teacher AUROC against the fraction of mentions
+that are explicitly sub-threshold reads **ρ = −0.38 (p = 0.22)**, and against mention rate
+**ρ = +0.49 (p = 0.11)** — both the right direction for their respective stories, **neither
+significant at n = 12 labels.** Severity is therefore *unprioritised by §3p's structural argument*,
+not refuted by §3x's. Same practical conclusion, honest reasoning, and the third re-derivation of
+this argument stops here.
+
 ---
 
 ## 1. The two effects that are real, and how big they are `§3`

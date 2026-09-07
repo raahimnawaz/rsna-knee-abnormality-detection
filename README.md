@@ -26,6 +26,11 @@ Twelve-label knee-MRI classification, macro-AUROC. Final submission **2026-10-22
 3. **Our NIfTI pixel path costs 0.085** against the same config on DICOMs, 14.1σ. **Abandoned.**
    → **`PIPELINE.md`** Stage P
 
+**And `§3p` was restored as D4:** our own `targets.csv` converts to LB **~0.938** against a 0.940
+prize line, while the model reproduces those same labels at only **0.8486**. We are further from
+the labels we have than they are from truth — so **Stage L is cheap and parallel, not the lever.**
+The 0.05 is in `MODEL.md`.
+
 **Do next:** `PIPELINE.md` Stage 0 (bank 0.936, one day, one submission), then Stages **L and P in
 parallel** — L is CPU and free, P is Kaggle GPU. Both machines idle is the failure of 09-06.
 

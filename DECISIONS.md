@@ -16,6 +16,12 @@ files are provenance — not maintained, not read in full.
 | **D2** | **We sample 18 slices, all at `depth 0.5`.** The frontier takes 64 across 6–94% of the stack. Lateral meniscus and collateral ligaments sit in the outer thirds. → `MODEL.md` | Lat. Meniscus 0.6422, MCL 0.6433, ACL (midline) 0.8689 |
 | **D3** | **Our pixels are a third-party NIfTI repackaging and it costs 0.085.** Same config, folds, labels. → `PIPELINE.md` Stage P | ours 0.7597, theirs 0.8453, 14.1σ |
 
+| **D4** | **The labels are not the binding constraint** — `§3p`, measured 08-13, **restored 09-06 after being dropped in that day's rewrite.** `steven_v2` (= our `targets.csv`) used as a predictor reads gold 0.8985 → LB ~0.938 at §3v's +0.039, against a prize line of 0.940. Our model reproduces **its own training labels** at 0.8486. **We are further from the labels we have than those labels are from truth.** → `DATA.md` §0 | teacher→gold 0.10, model→teacher 0.15 |
+
+**What D1 and D4 together mean:** Stage L is cheap, parallel and raises a ceiling that will bind
+later — it is **not** the highest-impact stage, and `PIPELINE.md`'s ⭐ was wrong. The 0.05 is in
+`MODEL.md`. Run L because it costs a different machine, not because it is the lever.
+
 ## Board `MEASURED 2026-09-06 — expires in days; re-survey before any submission decision`
 
 3,239 teams. Our 0.914 ranks **~1374**. Free public notebook **0.936** (8+ teams sit on it
