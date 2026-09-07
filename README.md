@@ -2,6 +2,19 @@
 
 Twelve-label knee-MRI classification, macro-AUROC. Final submission **2026-10-22**.
 
+> ## ▶ START HERE: [`RUNBOOK.md`](RUNBOOK.md)
+>
+> **The plan changed on 2026-09-07 and this README predates it.** `RUNBOOK.md` is the
+> operational handoff — current state, the exact next command, and what to do with its answer.
+> `PLAN-C6.md` is the reasoning behind it.
+>
+> Two things below are now stale: the efficiency track is **no longer** the target (the goal is
+> the best model, not a placing), and the local corpus was **deleted** — `data/` does not exist,
+> and this repo is the only copy of the project. Everything runs on Kaggle now.
+
+**Board pulled live 2026-09-07 — 3,289 teams.** Top **0.954**, prize line (10th) **0.950**,
+ours **0.914** at rank **1446**. The table below is the 09-06 pull, kept for comparison.
+
 **Board pulled live 2026-09-06 — 3,243 teams.**
 
 | | |
