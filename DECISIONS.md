@@ -381,3 +381,55 @@ mask-guided pooling), the gate is **pre-registered here, now**:
    not the +0.12–0.22 gold suggests.** Setting the bar at the gold number would fail a working fix.
 4. **Confirm in the deployment config before believing it** (`[[revalidate-in-deployment-config]]`)
    — an offline per-label A/B measures an estimator, not a shipped arm.
+
+---
+
+## §W. PHASE C LANDED: THE CROP IS REAL AND IT IS 24% OF THE GAP `MEASURED 2026-09-06`
+
+The first training run in this project's history at the fork's actual config — `crop_mm=130`,
+`facebook/dinov2-small`, no prior, 30 epochs, the six protocol slots. Fold 0, 169.3 min on MPS.
+**All three arms scored on the SAME 691 studies against the SAME held-out label source**
+(`labels_llm_gpt56sol`), paired bootstrap 2,000 draws — `[[compare-on-a-common-window]]`:
+
+| arm | config | macro |
+|---|---|--:|
+| `runs_port` | 160 mm, 10 ep, prior on, timm reg4 | 0.7331 |
+| **`runs_port_repro`** | **130 mm, 30 ep, no prior, HF dinov2-small** | **0.7597** |
+| `pilkwang` | same config, **their pixels** | 0.8453 |
+
+| | delta | 95% CI | |
+|---|--:|---|--:|
+| **the crop + config fix** | **+0.0268** | [+0.0144, +0.0398] | **4.1σ** |
+| **what REMAINS** | **+0.0855** | [+0.0738, +0.0971] | **14.1σ** |
+
+### ⛔ THE PRE-REGISTERED BRANCH, READ HONESTLY
+
+The README's table said **≈0.84 → the loop works; ≈0.77 → pixels are the cause**. It landed at
+**0.7597 — the pixel branch.** Not the middle band, and not the good one.
+
+**§R is confirmed as a real effect and refuted as the explanation.** The crop cost a genuine
++0.0268 at 4.1σ, so every `CONFOUNDED-160` tag was justified — those verdicts were all measured on
+an arm sitting 0.027 too low. But **it closes 23.8% of the gap and 76% survives at 14.1σ.**
+
+⚠️ **The optimism in §R's framing was mine.** "The band was the crop" was never measured; it was
+the shape of a good story. The measurement was pre-registered before the run, which is the only
+reason this reads as a result rather than a rationalisation.
+
+**Ensembling is not the residue.** pilkwang's own `manifest.json` puts **mean single-member holdout
+at 0.8398** against our single member's 0.7597, so 20-member averaging accounts for well under
+0.01 of the 0.0855.
+
+**All five of §2y-2's divergences are now closed** — crop, backbone, prior, epochs, slots. What
+still differs between `runs_port_repro` at 0.7597 and `pilkwang` at 0.8453 is **the pixels**: our
+NIfTI decode against their DICOM path, §3i's measured 0.0168 reconstruction residual.
+
+### ▶️ WHAT IS NOW THE CRITICAL PATH
+
+**§3i-4's header-only CPU kernel**, exactly as pre-registered. Export per series the permutation
+that sorts slices by `k = p·(r_x × r_y)`. It is the last untested difference and it is upstream of
+every cache on disk.
+
+⚠️ **`fusion/band_ab.py` arm A is STILL the cheaper decisive test and has still never produced a
+number** — the fork's own 20 members run on OUR pixels, scored locally. If arm A ≈ 0.847 the
+pixels are fine and the residue is training; if arm A ≈ 0.77 the pixels are it. **Run arm A before
+funding the kernel.** It has been the open question since 2026-08-19 and nothing above changes that.
