@@ -83,50 +83,85 @@ def log(msg: str) -> None:
 
 # ----------------------------------------------------------------------------- corpus
 class Corpus:
-    """The two published parts as one (N, 44, 336, 336) uint8 view. ROW ORDER IS THE CONTRACT:
-    ids[i] names vols[i] and masks[i]; nothing here sorts any of the three."""
+    """Row-ordered parts as one (N, D, 336, 336) uint8 view. ROW ORDER IS THE CONTRACT: within a
+    part, ids[i] names vols[i] and masks[i]; nothing here sorts any of the three.
 
-    PARTS = (("all_vols.npy", "all_masks.npy", "all_ids.npy"),
-             ("extra_vols.npy", "extra_masks.npy", "extra_ids.npy"))
+    Two layouts, found by what is attached:
+      raptor44  dreaddevelopment's CC0 corpus, two parts, D = 44 = 12+10+8+6+8 (15-85%)
+      stage_a   our `pipeline/build_slots64.py` shards, D = 64 = 18+14+12+8+12, span in the manifest.
+                Every shard of one build must be present, or the run refuses.
+    """
 
-    def __init__(self, root: Path):
-        found = {}
+    RAPTOR_PARTS = (("all_vols.npy", "all_masks.npy", "all_ids.npy"),
+                    ("extra_vols.npy", "extra_masks.npy", "extra_ids.npy"))
+
+    def __init__(self, root: Path, layout: str = "auto"):
+        found, c6 = {}, []
         for d, dirs, fs in os.walk(root):
             dirs[:] = [x for x in dirs if x not in ("train_series", "test_series", "train_images")]
             for f in fs:
                 found.setdefault(f, Path(d) / f)
-        self.vols, masks, ids = [], [], []
-        for v, m, i in self.PARTS:
-            if v not in found:
-                raise SystemExit(f"corpus part {v} not found under {root} -- attach "
-                                 f"dreaddevelopment/knee-raptor-corpus and knee-raptor-corpus-ext")
-            vol = np.load(found[v], mmap_mode="r")
-            msk = np.load(found[m])
-            idv = np.load(found[i], allow_pickle=True).astype(str)
-            if not (len(vol) == len(msk) == len(idv)) or vol.shape[1:] != (44, 336, 336):
+            if "manifest.json" in fs and "vols.npy" in fs:
+                try:
+                    j = json.loads((Path(d) / "manifest.json").read_text())
+                except (OSError, ValueError):
+                    continue
+                if j.get("spec") == "c6-64slice":
+                    c6.append((int(j.get("shard", 0)), Path(d), j))
+        if layout == "stage_a" or (layout == "auto" and c6):
+            if not c6:
+                raise SystemExit(f"no Stage A shard (manifest spec c6-64slice) under {root}")
+            c6.sort(key=lambda t: t[0])
+            n_sh = {j["n_shards"] for _, _, j in c6}
+            got = [s for s, _, _ in c6]
+            if len(n_sh) != 1 or got != list(range(next(iter(n_sh)))):
+                raise SystemExit(f"Stage A shards incomplete or mixed: have {got} of {n_sh}")
+            if len({tuple(j["depth_range"]) for _, _, j in c6}) != 1:
+                raise SystemExit("Stage A shards were built with different spans")
+            self.slot_sizes = tuple(s["n_slices"] for s in c6[0][2]["slots"])
+            self.layout = f"stage_a span {c6[0][2]['depth_range']}"
+            parts = [(d / "vols.npy", d / "masks.npy", d / "ids.npy") for _, d, _ in c6]
+        else:
+            self.slot_sizes = SLOT_SIZES
+            self.layout = "raptor44"
+            parts = []
+            for v, m, i in self.RAPTOR_PARTS:
+                if v not in found:
+                    raise SystemExit(f"corpus part {v} not found under {root} -- attach "
+                                     f"dreaddevelopment/knee-raptor-corpus and knee-raptor-corpus-ext")
+                parts.append((found[v], found[m], found[i]))
+        depth = sum(self.slot_sizes)
+        self.vols, masks, ids, self.starts = [], [], [], []
+        for v, m, i in parts:
+            vol = np.load(v, mmap_mode="r")
+            msk = np.load(m)
+            idv = np.load(i, allow_pickle=True).astype(str)
+            if not (len(vol) == len(msk) == len(idv)) or vol.shape[1:] != (depth, 336, 336):
                 raise SystemExit(f"{v}: shapes {vol.shape} / {msk.shape} / {idv.shape} break the contract")
+            self.starts.append(sum(len(x) for x in self.vols))
             self.vols.append(vol)
             masks.append(msk)
             ids.append(idv)
-            log(f"corpus part {v}: {vol.shape} {vol.dtype}  from {found[v].parent}")
+            log(f"corpus part {v.name}: {vol.shape} {vol.dtype}  from {v.parent}")
         self.masks = np.concatenate(masks)
         self.ids = np.concatenate(ids)
-        self.n0 = len(self.vols[0])
         self.row = {u: k for k, u in enumerate(self.ids)}
         if len(self.row) != len(self.ids):
             raise SystemExit("duplicate StudyInstanceUIDs in the corpus ids")
+        log(f"corpus layout {self.layout}: {len(self.ids)} studies, slots {self.slot_sizes}")
 
     def study(self, uid: str) -> tuple[np.ndarray, np.ndarray]:
         r = self.row[uid]
-        vol = self.vols[0][r] if r < self.n0 else self.vols[1][r - self.n0]
-        return vol, self.masks[r]
+        p = int(np.searchsorted(self.starts, r, side="right")) - 1
+        return self.vols[p][r - self.starts[p]], self.masks[r]
 
 
 class SyntheticCorpus:
-    """Random stacks in the corpus's exact layout, for a wiring check off Kaggle."""
+    """Random stacks in the raptor44 layout, for a wiring check off Kaggle."""
 
     def __init__(self, uids: list[str], seed: int = 0):
         rng = np.random.default_rng(seed)
+        self.slot_sizes, self.layout = SLOT_SIZES, "synthetic raptor44"
         self.ids = np.asarray(uids)
         self.row = {u: k for k, u in enumerate(uids)}
         self.vol = rng.integers(0, 255, (len(uids), 44, 336, 336), dtype=np.uint8)
@@ -139,10 +174,10 @@ class SyntheticCorpus:
         return self.vol[r], self.masks[r]
 
 
-def window_centres(mask: np.ndarray) -> list[int]:
+def window_centres(mask: np.ndarray, slot_sizes=SLOT_SIZES) -> list[int]:
     """Centres whose three slices are all valid AND inside one slot."""
     out, o = [], 0
-    for n in SLOT_SIZES:
+    for n in slot_sizes:
         for c in range(o + 1, o + n - 1):
             if mask[c - 1] and mask[c] and mask[c + 1]:
                 out.append(c)
@@ -162,7 +197,7 @@ class Windows(torch.utils.data.Dataset):
 
     def __getitem__(self, i: int):
         vol, mask = self.c.study(self.uids[i])
-        cs = window_centres(mask)
+        cs = window_centres(mask, self.c.slot_sizes)
         if not cs:                                          # nothing valid: the stack's middle
             cs = [len(mask) // 2]
         if self.k is not None:                              # train: k draws, no repeats if possible
@@ -276,6 +311,7 @@ def main() -> None:
     ap = argparse.ArgumentParser(description=__doc__.splitlines()[0])
     ap.add_argument("--arch", choices=sorted(ARCHS), required=True)
     ap.add_argument("--corpus", type=Path, default=Path("/kaggle/input"))
+    ap.add_argument("--layout", choices=["auto", "raptor44", "stage_a"], default="auto")
     ap.add_argument("--synthetic", type=int, default=0, help="N random studies instead of a corpus")
     ap.add_argument("--train", type=Path, help="csv with StudyInstanceUID")
     ap.add_argument("--val", type=Path, help="csv with StudyInstanceUID -- scored, never selected on")
@@ -321,7 +357,7 @@ def main() -> None:
                            index=uids, columns=LABELS)
         tr, va = uids[: a.synthetic * 2 // 3], uids[a.synthetic * 2 // 3:]
     else:
-        corpus = Corpus(a.corpus)
+        corpus = Corpus(a.corpus, a.layout)
         tgt = pd.read_csv(a.labels).drop_duplicates("StudyInstanceUID").set_index("StudyInstanceUID")
         tr, va = load_split(a.train), load_split(a.val)
         if a.gold:
@@ -342,7 +378,7 @@ def main() -> None:
         f"(missing {len(miss_va)}) | gold {len(gold_ids)}")
     ytr = tgt.loc[tr, LABELS].to_numpy(np.float32, copy=True)   # pandas CoW hands back read-only
     yva = np.zeros((len(va), 12), np.float32)
-    nwin = [len(window_centres(corpus.study(u)[1])) for u in va]
+    nwin = [len(window_centres(corpus.study(u)[1], corpus.slot_sizes)) for u in va]
     log(f"val windows per study: median {int(np.median(nwin))}, min {min(nwin)}, max {max(nwin)}")
 
     # ---- model
@@ -459,7 +495,7 @@ def main() -> None:
         from metrics import auc
         yg = gtab.loc[gold_ids, LABELS].to_numpy(float)
         gold_auc = float(np.nanmean([auc((yg[:, i] > 0.5).astype(float), pg[:, i]) for i in range(12)]))
-    summary = {"arch": a.arch, "epochs": a.epochs, "epochs_done": len(hist), "stopped_early": stopped_early,
+    summary = {"arch": a.arch, "layout": corpus.layout, "epochs": a.epochs, "epochs_done": len(hist), "stopped_early": stopped_early,
                "n_train": len(tr), "n_val": len(va), "n_gold": len(gold_ids), "k": a.k, "bs": a.bs,
                "bb_lr": a.bb_lr, "head_lr": a.head_lr, "wd": a.wd, "seed": a.seed,
                "primary": "last epoch", "secondary": "mean of last-3 epoch weights (fixed, not selected)",
