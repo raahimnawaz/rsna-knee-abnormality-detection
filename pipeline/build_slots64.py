@@ -250,15 +250,27 @@ def main() -> None:
         render_edges(vols, masks, mine, a.out)
 
     fill = {s.name: float(masks[:, x:y].any(1).mean()) for (x, y), s in zip(S.slot_offsets(), S.SLOTS)}
+    # GATE A, measured over the whole shard rather than eyeballed: the share of pixels that are
+    # tissue (> 25/255) on each slot's first, middle and last slice. The 09-23 smoke read the
+    # sagittal edges at ~0.43 of pixels against ~0.82 mid-stack, and the anterior coronal at ~0.21.
+    edge = {}
+    for (x, y), s in zip(S.slot_offsets(), S.SLOTS):
+        ok = np.flatnonzero(masks[:, x])[:300]
+        if len(ok):
+            t = lambda k: float((np.asarray(vols[ok, k]) > 25).mean())   # noqa: E731
+            edge[s.name] = {"first": t(x), "mid": t((x + y) // 2), "last": t(y - 1), "n": int(len(ok))}
     ordered = meta.ordered_by.value_counts(dropna=True).to_dict() if len(meta) else {}
     man = {**S.manifest(tuple(a.span)), "split": a.split, "shard": a.shard, "n_shards": a.n_shards,
-           "n_studies": len(mine), "errors": errs, "slot_fill": fill, "ordered_by": ordered,
+           "n_studies": len(mine), "errors": errs, "slot_fill": fill, "edge_tissue": edge,
+           "ordered_by": ordered,
            "decode_fail": int(meta.decode_fail.sum()) if len(meta) else 0,
            "crop": "physical, padded (not clamped)", "window_pct": list(PCT),
            "sec_per_study_per_worker": float(np.mean(secs)) if secs else None,
            "wall_min": (time.time() - t0) / 60}
     (a.out / "manifest.json").write_text(json.dumps(man, indent=2, default=str))
     log(f"slot fill {json.dumps({k: round(v, 3) for k, v in fill.items()})}")
+    log("edge tissue (first/mid/last) " + " | ".join(
+        f"{k} {v['first']:.2f}/{v['mid']:.2f}/{v['last']:.2f}" for k, v in edge.items()))
     log(f"ordered_by {ordered} | decode failures {man['decode_fail']} | study errors {len(errs)}")
     log(f"done {len(mine)} studies in {man['wall_min']:.1f} min")
     if a.check:
