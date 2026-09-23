@@ -14,7 +14,9 @@ copied its **training**, and that is public: `dreaddevelopment/knee-mri-training
 (~670 lines, one script), inference `dreaddevelopment/knee-mri-twelve-findings-from-a-single-model`,
 weights `dreaddevelopment/raptor-knee-widedense` / `raptor-knee-maxspan`. Their single model now
 reads **LB 0.928** (maxspan: 64 slices over 2–98%) — above our entire 3-family blend (0.914).
-Licence of the script and corpus: **not yet checked**.
+Licences (checked 09-23 via `kaggle datasets metadata`): corpus parts 1–2, `widedense`, `maxspan`
+and their soft labels `dreaddevelopment/rsna-knee-labels` are all **CC0-1.0**. The script's own
+licence is not in the API; Kaggle's default for public notebooks is Apache 2.0 — confirm on its page.
 
 | | ours (`train_port`, `runs_port_repro` 0.7597) | frontier (0.924 → 0.928 LB, one model) |
 |---|---|---|

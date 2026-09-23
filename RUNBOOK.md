@@ -61,6 +61,8 @@ Re-measure before citing. Last pulled **2026-09-23**:
   **0.942**. On 09-07 it was 0.917–0.922 and "leaders at 0.942+ publish nothing". **The free tier
   now sits +0.029 LB above our best submission.** Every member in §5.4 predates this.
 - Public-source survey re-run 09-23 (`kaggle datasets list -s "rsna knee" --sort-by updated`).
+  Never benched here at all, and the labels behind the 0.928 single model: **`dreaddevelopment/rsna-knee-labels`**
+  (CC0, soft LLM labels, `MODEL.md` §0) — leak-check first.
   New since 09-07 and not yet benched: label tables `riadmohamed42/jev-knee-labels`,
   `hosseini7798/rsna-knee-label-extraction-jev`; `tuyennguyenthicam/rsna-knee-expert-58` (the name
   suggests gold-58 — **leak-check it before any read**, §3 rule 10); weights
