@@ -56,7 +56,6 @@ class Slot:
     plane: str
     n_slices: int
     fluid: int | None      # 1 prefer fluid-sensitive, 0 prefer NOT, None don't care
-    rank: int              # 0 = best matching series for this plane, 1 = second
 
     @property
     def n_windows(self) -> int:
@@ -68,11 +67,11 @@ class Slot:
 # cartilage. The twelve findings split across both, so mixing the preference is deliberate --
 # do NOT make all five fluid-sensitive. `MODEL.md` §2.
 SLOTS: tuple[Slot, ...] = (
-    Slot("sag_1", "Sagittal", 18, 1,    0),
-    Slot("sag_2", "Sagittal", 14, 0,    0),
-    Slot("cor_1", "Coronal",  12, 1,    0),
-    Slot("cor_2", "Coronal",   8, None, 1),
-    Slot("ax",    "Axial",    12, None, 0),
+    Slot("sag_1", "Sagittal", 18, 1),
+    Slot("sag_2", "Sagittal", 14, 0),
+    Slot("cor_1", "Coronal",  12, 1),
+    Slot("cor_2", "Coronal",   8, None),     # the second coronal: `used` excludes cor_1's pick
+    Slot("ax",    "Axial",    12, None),
 )
 
 N_SLICES = sum(s.n_slices for s in SLOTS)      # 64
@@ -151,7 +150,11 @@ def assign_series(series: list[dict]) -> dict[str, dict | None]:
             miss = 0 if s.fluid is None else int(c.get("fluid", 0) != s.fluid)
             return (miss, -int(c.get("n_slices", 0)))
         cands.sort(key=key)
-        pick = cands[min(s.rank, len(cands) - 1)]
+        # The best REMAINING candidate. A slot never needs a rank of its own: `used` already
+        # removed every series an earlier slot took, so the head of this list IS "next best".
+        # A `rank` field used to index into it as well, which skipped one series twice -- with
+        # coronals of 30, 28 and 12 slices, cor_2 got the 12 (AUDIT.md, fixed 2026-09-23).
+        pick = cands[0]
         used.add(pick[0])
         out[s.name] = pick[1]
     return out
@@ -197,6 +200,12 @@ def _self_test() -> None:
     assert a["sag_2"]["fluid"] == 0, "sag_2 should take the non-fluid sagittal"
     assert a["cor_1"] is None and a["cor_2"] is None, "no coronal -> masked, never substituted"
     assert a["ax"] is not None
+    # Three coronals: cor_1 takes the fluid one, cor_2 the LONGER of the other two. The old
+    # `rank` indexing handed cor_2 the 12-slice stack here; two coronals could never show it.
+    a3 = assign_series([{"plane": "Coronal", "fluid": 1, "n_slices": 30, "id": "A"},
+                        {"plane": "Coronal", "fluid": 0, "n_slices": 28, "id": "B"},
+                        {"plane": "Coronal", "fluid": 0, "n_slices": 12, "id": "C"}])
+    assert (a3["cor_1"]["id"], a3["cor_2"]["id"]) == ("A", "B"), (a3["cor_1"], a3["cor_2"])
     # Only-non-fluid sagittals still fill sag_1 rather than leaving zeros.
     a2 = assign_series([{"plane": "Sagittal", "fluid": 0, "n_slices": 30}])
     assert a2["sag_1"] is not None and a2["sag_2"] is None

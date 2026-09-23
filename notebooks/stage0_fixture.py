@@ -23,9 +23,14 @@ import numpy as np, pandas as pd
 from pydicom.dataset import Dataset, FileMetaDataset
 from pydicom.uid import ExplicitVRLittleEndian, generate_uid
 
-ROOT = Path("/tmp/s0fix/input/rsna-knee-abnormality-detection")
-if ROOT.exists(): shutil.rmtree(ROOT.parent)
-IMG = ROOT / "train_images"; IMG.mkdir(parents=True)
+# The REAL layout, not a convenient one: Kaggle mounts the competition one level down, under
+# competitions/, and names the image tree train_series/. The first version of this fixture sat at
+# depth 1 with train_images/, so it passed a find_root that Kaggle would have failed (AUDIT.md).
+INPUT = Path("/tmp/s0fix/input")
+ROOT = INPUT / "competitions" / "rsna-knee-abnormality-detection"
+if INPUT.exists(): shutil.rmtree(INPUT)
+IMG = ROOT / "train_series"; IMG.mkdir(parents=True)
+(INPUT / "some-other-dataset").mkdir()          # a sibling mount, as a real kernel has
 random.seed(0)
 
 # plane, fluid, in_plane_mm, spacing_mm(true), n_slices  -> r = spacing/in_plane
@@ -67,4 +72,4 @@ pd.DataFrame(rows).to_csv(ROOT / "train_series.csv", index=False)
 pd.DataFrame({"StudyInstanceUID": [r["StudyInstanceUID"] for r in rows]}).to_csv(ROOT / "train.csv", index=False)
 print(f"fixture: {len(SPEC)} studies, {len(rows)} series")
 print("expected r: Sagittal 3.5/0.35=10.0 | Coronal 4.0/0.40=10.0 | Axial 4.0/0.50=8.0")
-print("expected slots64: 2+ sagittal in S1,S3 = 50% of 4 studies | 2+ coronal in S3 = 25%")
+print("expected slots64: 2+ sagittal in S1,S3 = 50% of 4 studies | 2+ coronal in S3 = 25% | 3+ of either = 0%")

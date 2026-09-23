@@ -74,19 +74,32 @@ def log(m):
     print(f"[{time.time()-t0:7.1f}s] {m}", flush=True)
 
 
-# --- locate the competition, without assuming the mount name -------------------------------
+# --- locate the competition, without assuming the mount name OR its depth -------------------
+# The competition mounts at /kaggle/input/competitions/rsna-knee-abnormality-detection, ONE LEVEL
+# DEEPER than a direct child (measured 2026-08-07, pipeline/preprocess.py:271; the submission
+# notebook's find_root checks that path first). The first version of this function scanned direct
+# children only, and its fixture sat at depth 1, so the local smoke passed and Kaggle would have
+# exited here. Two levels, a marker file, and the name as a tie-break -- preprocess.py's rule,
+# inlined because this kernel imports nothing from the repo.
 def find_root():
     base = IN_DIR
-    cands = [p for p in base.iterdir() if p.is_dir()] if base.exists() else []
-    for p in cands:
-        if (p / "train_series.csv").exists():
-            return p
-    # Fall back to any directory holding a train.csv, then report what was seen. A silent wrong
-    # root is the failure mode here: it would produce a clean-looking table about nothing.
-    for p in cands:
-        if (p / "train.csv").exists():
-            return p
-    sys.exit(f"no competition root under {IN_DIR}; saw {[p.name for p in cands]}")
+    cands = []
+    for p in (sorted(base.iterdir()) if base.exists() else []):
+        if not p.is_dir():
+            continue
+        cands.append(p)
+        try:
+            cands.extend(sorted(c for c in p.iterdir() if c.is_dir()))
+        except OSError:
+            pass
+    for marker in ("train_series.csv", "train.csv"):
+        hits = [p for p in cands if (p / marker).exists()]
+        if hits:
+            # A silent wrong root is the failure mode here -- a clean-looking table about nothing
+            # -- so prefer the one that is named for the knee when more than one qualifies.
+            return next((p for p in hits if "knee" in p.name.lower()), hits[0])
+    sys.exit(f"no competition root under {IN_DIR} (searched two levels); saw "
+             f"{[str(p.relative_to(base)) for p in cands[:12]]}")
 
 
 ROOT = find_root()
@@ -106,7 +119,9 @@ if PLANE_COL is None:
 
 # --- find the image tree ---------------------------------------------------------------------
 img_root = None
-for cand in ("train_images", "train", "images"):
+# The competition names its image tree `train_series/` (the fork's walk reads ROOT / "train_series"),
+# beside a train_series.csv FILE. Named first so the largest-directory fallback below is only a fallback.
+for cand in ("train_series", "train_images", "train", "images"):
     if (ROOT / cand).is_dir():
         img_root = ROOT / cand
         break
@@ -275,6 +290,7 @@ if PLANE_COL:
         comp[f"{col[0]}|fluid={col[1]}"] = {
             "studies_with_ge1": int((v >= 1).sum()),
             "studies_with_ge2": int((v >= 2).sum()),
+            "studies_with_ge3": int((v >= 3).sum()),
             "pct_ge1": round(100.0 * (v >= 1).mean(), 2)}
     summary["composition"] = comp
     # The specific claim slots64.py makes, stated so it can be read as pass/fail.
@@ -285,6 +301,10 @@ if PLANE_COL:
         "studies": ns,
         "pct_with_2plus_sagittal": round(100.0 * (sag >= 2).sum() / max(ns, 1), 2),
         "pct_with_2plus_coronal": round(100.0 * (cor >= 2).sum() / max(ns, 1), 2),
+        # >=3 is where slots64's second-slot choice actually has to CHOOSE (and where its old
+        # double-skip bug bit); recorded so the effect of that fix can be sized, AUDIT.md.
+        "pct_with_3plus_sagittal": round(100.0 * (sag >= 3).sum() / max(ns, 1), 2),
+        "pct_with_3plus_coronal": round(100.0 * (cor >= 3).sum() / max(ns, 1), 2),
         "pct_with_1plus_sagittal": round(100.0 * (sag >= 1).sum() / max(ns, 1), 2),
         "pct_with_1plus_coronal": round(100.0 * (cor >= 1).sum() / max(ns, 1), 2)}
 

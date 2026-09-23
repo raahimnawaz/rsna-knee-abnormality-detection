@@ -29,9 +29,9 @@ one after 24 hours.
 | file | status | verified how |
 |---|---|---|
 | `PLAN-C6.md` | current plan, Stages 0–D | — |
-| `notebooks/build_stage0_kernel.py` | **ready to push** | smoke-tested against a synthetic fixture |
+| `notebooks/build_stage0_kernel.py` | **ready to push** | smoke-tested against a synthetic fixture — at the real mount depth since 09-23 (the depth-1 fixture had hidden a `find_root` that Kaggle would fail) |
 | `notebooks/stage0_fixture.py` | reproducible smoke test | r recovered to 0.01 on all 3 planes |
-| `pipeline/slots64.py` | **provisional — Stage 0 may overturn it** | `python pipeline/slots64.py` self-test |
+| `pipeline/slots64.py` | **provisional — Stage 0 may overturn it** | `python pipeline/slots64.py` self-test (now includes the 3-coronal case; `cor_2` bug fixed 09-23) |
 | `fusion/perlabel_head.py` | ready, unused until Stage B | `python fusion/perlabel_head.py` self-test |
 | `fusion/train_port.py` | has `OrthoNet`, never run | ⚠️ carries the C-PRE bug, see §4 |
 | `notebooks/build_sampling_test_kernel.py` | **ready to push — §2b** | whole path smoke-tested off Kaggle on a synthetic DICOM fixture |
@@ -101,7 +101,8 @@ KAGGLE_INPUT=/tmp/s0fix/input KAGGLE_WORKING=/tmp/s0fix/out .venv/bin/python -u 
 
 **Expected:** `r_median` exactly **10.00** Sagittal, **10.00** Coronal, **8.00** Axial;
 `sample_n = 10` of 11 series (the 2-slice series is correctly excluded);
-`pct_with_2plus_sagittal = 50.0`, `pct_with_2plus_coronal = 25.0`.
+`pct_with_2plus_sagittal = 50.0`, `pct_with_2plus_coronal = 25.0`, both `pct_with_3plus_*` = `0.0`;
+`root:` ends in `competitions/rsna-knee-abnormality-detection` and `images:` in `train_series`.
 Anything else means the reader changed and the arithmetic is no longer trustworthy.
 
 ### 2.2 Smoke it on Kaggle — 20 studies, ALWAYS do this first
@@ -174,7 +175,7 @@ date. **No AUC is produced or quoted at this stage** (§3b, `never-select-on-a-t
 | symptom | cause | fix |
 |---|---|---|
 | kernel "Complete" but no output files | worker died; parent still exited 0 | check the log tail for `exited <rc>` |
-| `no competition root under /kaggle/input` | competition not attached | `competition_sources` in `kernel-metadata.json` |
+| `no competition root under /kaggle/input` | competition not attached — **or** a root search that only looks one level down (the mount is `/kaggle/input/competitions/<slug>`; fixed in Stage 0 on 09-23) | the log lists what it saw: if `competitions` is there, it is the search; otherwise `competition_sources` in `kernel-metadata.json` |
 | plausible table, wrong numbers | reader trusted filename order | the fixture catches this — filenames are shuffled UIDs |
 | queue wait then instant import error | stale code Dataset | not applicable to Stage 0 (`dataset_sources: []`) |
 

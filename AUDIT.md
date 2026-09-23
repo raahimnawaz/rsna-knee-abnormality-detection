@@ -9,10 +9,11 @@ internals beyond the leak check, and the EDA scripts were not audited.
 train/serve skew in the scored path. Gold is never trained on, nothing is selected on a
 validation fold, and the RadImageNet serving contract matches its measurement path field by field.
 **One recorded *conclusion* is wrong, though: D3** (first finding, added the same day). The problems
-otherwise are in what runs next. Stage 0 will not find the competition data on Kaggle.
-The fold partition every gate bar was measured on can no longer be rebuilt with certainty. And
-`slots64.py` has one assignment bug plus a gap between what the spec says and what the code does,
-both worth fixing before paying for the Stage A cache.
+otherwise are in what runs next. The fold partition every gate bar was measured on can no longer be
+rebuilt with certainty (still open; the sampling test checks fold 0). `slots64.py`'s windows don't
+match what its spec describes, which is worth settling before paying for the Stage A cache. Two
+findings are **fixed as of 09-23**: Stage 0's `find_root`, which would not have found the
+competition data on Kaggle, and `slots64`'s `cor_2` assignment.
 
 ---
 
@@ -83,7 +84,7 @@ own-arm verdict that says "the encoder is not the lever" was measured on the cen
 amended everywhere it recommends a route. `notebooks/build_sampling_test_kernel.py` isolates the
 input as the single variable, with the decision rule pre-registered (`RUNBOOK.md` §2b).
 
-### [HIGH] Stage 0 cannot find the competition data on Kaggle, and the local smoke test hides it
+### [HIGH] Stage 0 cannot find the competition data on Kaggle, and the local smoke test hides it — *fixed 09-23*
 **Where:** `notebooks/build_stage0_kernel.py:78-89`, `notebooks/stage0_fixture.py:26`, `RUNBOOK.md:169`
 **What:** `find_root()` scans only the **direct children** of `/kaggle/input`. This project already
 measured that the competition mounts one level deeper, at
@@ -99,6 +100,10 @@ wrong number. But RUNBOOK §2.5 maps that exact message to "competition not atta
 (inline it, since Stage 0 deliberately imports nothing). Move the fixture root to
 `input/competitions/rsna-knee-abnormality-detection` so the smoke test exercises the real depth,
 and correct the §2.5 row.
+**Done:** `find_root` searches two levels with a marker file and a name tie-break. `train_series/` is
+the first image-tree candidate, and the fixture now uses the real layout. The new worker reproduces
+every expected fixture number, and the old worker, run on the corrected fixture, exits with
+`no competition root … saw ['some-other-dataset', 'competitions']`. The RUNBOOK §2.5 row is corrected.
 
 ### [HIGH] The fold partition, training targets and reference labels are unpinned, unhashed, and now exist only upstream
 **Where:** `extractor/bench_public_labels.py:65-72`, `fusion/folds.py:73-76,145-153`, `README.md:102-122`
@@ -119,7 +124,7 @@ UIDs and fold integers, and `fusion/runs_*/oof_all.csv` already commit UIDs. Wri
 Kaggle CLI allows it. Fold 0 can be cross-checked now: in a single-fold run,
 `fusion/runs_port/oof_all.csv`'s study set is fold 0 minus unusable studies.
 
-### [MEDIUM] `assign_series` gives `cor_2` the *third*-best coronal, not the second
+### [MEDIUM] `assign_series` gives `cor_2` the *third*-best coronal, not the second — *fixed 09-23*
 **Where:** `pipeline/slots64.py:134-151` (`Slot("cor_2", …, rank=1)` at `:69`)
 **What:** the candidate list already excludes the series `cor_1` took (`i not in used`), and then
 `rank=1` skips one more. Reproduced:
@@ -135,6 +140,10 @@ unsure about. Stage 0's composition table gives the share of studies affected (`
 alone can't tell 2 from 3+; add a `≥3` column).
 **Fix:** delete `rank` (the `used` set already means "next best"), or index into a sort that
 doesn't exclude used series. Add a three-coronal case to `_self_test`.
+**Done:** `rank` is removed (`used` already means "next best"). The three-coronal case is in
+`_self_test`, which passes now and fails on the old code (it gave `cor_2` = the 12-slice series).
+Stage 0 now also reports `studies_with_ge3` and `pct_with_3plus_*`, which say how many studies the
+fix touches.
 
 ### [MEDIUM] C6 windows aren't "three neighbouring slices", and the storage argument assumes they are
 **Where:** `pipeline/slots64.py:23-27,78-113`; `MODEL.md` §3; `RUNBOOK.md:147`
