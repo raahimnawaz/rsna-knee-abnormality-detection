@@ -13,8 +13,8 @@ says *why*; this says *what to run, what to expect, and what to do with the answ
 > ⛔ **D3 was amended on 2026-09-23** (`DECISIONS.md`). The NIfTI files are not what cost 0.085:
 > the fork's own weights score the same on them as on their DICOMs (§3m). What differed is the
 > input: our port trained on **one 3-slice window per series, at the centre**, while the fork trains
-> on **12 slices across 20–80%**. **Before funding Stage A, run the sampling test (§2b).** It is the
-> one run that says whether our own training reaches public strength when fed public-style input.
+> on **12 slices across 20–80%**. ✅ **§2b measured it 09-23: +0.0441 ± 0.0058, 12/12 labels — the input
+> is the main cause, about half the gap.** Our own training on public-style input reads 0.8037.
 
 > ⛔ **The frontier's training recipe is public (read 2026-09-23) — `MODEL.md` §0.** A single
 > CoAtNet on our own `slots64` geometry reads **LB 0.928**, above our whole blend. C6 copied its
@@ -79,8 +79,8 @@ a backbone A/B** (§2c), which is cheaper and starts from a measured 0.928.
 | step | what | GPU | status |
 |---|---|--:|---|
 | 1 | Stage 0 — measure the data | 0 | ✅ `DATA.md` §9 |
-| 2 | §2b sampling test — why `train_port` lost | ~5 h | running |
-| 3 | §2c backbone A/B on the CC0 corpus, 9 epochs: `ortho` vs `coatnet` | ~16 h | ortho running; coatnet queued (2-GPU cap) |
+| 2 | §2b sampling test — why `train_port` lost | ~5 h | ✅ **input is the main cause: +0.0441 ± 0.0058, 12/12 up, ~52% of the gap** |
+| 3 | §2c backbone A/B on the CC0 corpus, 9 epochs: `ortho` vs `coatnet` | ~16 h | both running (coatnet from 16:38 09-23) |
 | 4 | Stage A — build the **64-slice, wide-span** cache from DICOMs (the 0.928 geometry) | 0 (CPU decode) | ✅ **built 09-23: 4,407 studies, 0 errors, 0 decode failures, slot fill = Stage 0 to 3 dp, GATE A passed** (`DATA.md` §10); attach `raahimnawaz/rsna-knee-stage-a-s{0..3}of4` |
 | 5 | Train the A/B winner on the Stage-A cache on **all** non-fold-0 studies, then all studies | ~10 h each | **ready**: path smoke-tested 09-23 on the real shards (4,407 studies, 691/691, train pool 3,502, 54 windows/study). `build_backbone_ab_kernel.py --arch <winner> --corpus stage_a --n-train 0 --epochs 9` |
 | 6 | Inference kernel for our own model; blend it into the public 0.943 stack, rank-mean by family | ~1–2 h/sub | after 5 |
@@ -255,6 +255,16 @@ builder's docstring has the full design and the known residue.
 # when Complete:
 .venv/bin/python -m kaggle kernels output raahimnawaz/rsna-knee-sampling-test -p fusion/runs_forksample_kaggle/
 ```
+
+**✅ RESULT, 2026-09-23** (`fusion/runs_forksample_kaggle/`): `runs_forksample` **0.8037** against
+`runs_port_repro` **0.7596** on the same 681 scorable studies, paired **+0.0441 ± 0.0058** (7.6σ,
+P 1.000), **12/12 labels up** — largest on MCL (+0.078), Baker's (+0.070), Fracture (+0.085).
+The pre-registered call is **"THE INPUT IS THE MAIN CAUSE"** (Δ ≥ +0.043). Read it with its margin:
++0.0441 clears the line by 0.2σ, so the input explains **~52% of the 0.0856 gap** — the largest
+single piece, not all of it. The remaining **~0.042** (0.8037 vs pilkwang 0.8453) is training and
+evaluation: one seed vs four, last epoch vs best-on-holdout, site-grouped folds, label table.
+Consequences as fixed below: C6's coverage direction is right (Stage A is built); **Gate B's control
+is this run's 0.8037, not `runs_port`**.
 
 **What to do with the answer. The rule was fixed in the builder's docstring before the run.** The
 verdict is in `sampling_test_verdict.json`:

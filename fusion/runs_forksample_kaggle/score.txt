@@ -1,0 +1,27 @@
+Score any run's `oof_all.csv` on the SAME scale as the 0.7229 baseline. One definition.
+reference: labels_llm_gpt56sol.csv (held out from training) · gold excluded (58)
+
+  arms cover 691 / 691 studies -> scoring all of them on the 691 they share
+
+  runs_port_repro        n=  681  macro 0.7596 +-0.0076   vs 0.7229 baseline: +0.0367 (4.1 sigma)
+  runs_forksample        n=  681  macro 0.8037 +-0.0069   vs 0.7229 baseline: +0.0808 (9.6 sigma)
+
+label              runs_port_r runs_forksa
+ACL                      0.784       0.810
+MCL                      0.643       0.721
+Medial Meniscus          0.790       0.815
+Lateral Meniscus         0.726       0.733
+Medial OA                0.777       0.821
+Lateral OA               0.698       0.733
+PF OA                    0.742       0.771
+Effusion                 0.808       0.847
+Synovitis                0.806       0.850
+Baker's                  0.776       0.846
+Contusion                0.789       0.836
+Fracture                 0.775       0.860
+------------------------------------------
+MACRO                   0.7596      0.8037
+
+  PAIRED delta (runs_forksample - runs_port_repro) = +0.0441 +-0.0058  ->  7.6 sigma,  P(delta>0) = 1.000
+  (unpaired hypot SE would be +-0.0102 = 4.3 sigma -- the WRONG test here)
+  per-label: 12/12 up. The macro rides on the largest few, so read the table, not the count.
