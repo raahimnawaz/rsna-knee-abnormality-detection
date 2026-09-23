@@ -70,6 +70,27 @@ Re-measure before citing. Last pulled **2026-09-23**:
   `mattiaangeli/rsna-knee-coatnet-d4-depthzone-swa3-b2` (1,895 downloads), `miguelbeta/rsna-knee-dinov2-weights`;
   caches `crtproduction/rsna-knee-cache-v3-*` (384×12, 320×9), `lvthanhxun/rsna-knee-v9-cache`.
 
+### 0.4 The plan as of 2026-09-23 — supersedes the stage order in `PLAN-C6.md`
+
+What changed it: the frontier's training recipe is public and puts a **single** model at LB 0.928
+(`MODEL.md` §0); C-PRE is resolved; Stage 0 kept `slots64`. So Stages B and C as written (a
+DINOv2-small encoder, then a 50–160 GPU-h ViT-L ablation) are replaced by **the frontier recipe with
+a backbone A/B** (§2c), which is cheaper and starts from a measured 0.928.
+
+| step | what | GPU | status |
+|---|---|--:|---|
+| 1 | Stage 0 — measure the data | 0 | ✅ `DATA.md` §9 |
+| 2 | §2b sampling test — why `train_port` lost | ~5 h | running |
+| 3 | §2c backbone A/B on the CC0 corpus, 9 epochs: `ortho` vs `coatnet` | ~16 h | ortho running; coatnet queued (2-GPU cap) |
+| 4 | Stage A — build the **64-slice, wide-span** cache from DICOMs (the 0.928 geometry) | 0 (CPU decode) | next |
+| 5 | Train the A/B winner on the Stage-A cache on **all** non-fold-0 studies, then all studies | ~10 h each | after 3–4 |
+| 6 | Inference kernel for our own model; blend it into the public 0.943 stack, rank-mean by family | ~1–2 h/sub | after 5 |
+| — | `dinov3l` arm — explains *why* ortho won or lost | ~10 h | next quota week |
+| — | Label tables (dreaddevelopment soft labels, JEV) — leak-check, bench; the only route past 0.8985 | 0 (CPU) | parallel, any time |
+
+**Constraints that shape the order:** 30 GPU-h/week; **at most 2 GPU batch sessions at once** (hit on
+09-23); 12 h per session; deadline **2026-10-22**.
+
 ---
 
 ## 1. Prerequisites — probably no blocker at all
