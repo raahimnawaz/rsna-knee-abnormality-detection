@@ -41,7 +41,9 @@ ours **0.914** at rank **1446**. The table below is the 09-06 pull, kept for com
    which is where the lateral meniscus and collateral ligaments are. Ours read 0.6422 and 0.6433;
    ACL, midline, reads 0.8689. → **`MODEL.md`**
 3. **Our NIfTI pixel path costs 0.085** against the same config on DICOMs, 14.1σ. **Abandoned.**
-   → **`PIPELINE.md`** Stage P
+   → **`PIPELINE.md`** Stage P. ⛔ **Amended 2026-09-23:** the files are not the cause (the fork's
+   weights score the same on them). The port saw one centre window per series. See `DECISIONS.md` D3
+   and `RUNBOOK.md` §2b.
 
 **And `§3p` was restored as D4:** our own `targets.csv` converts to LB **~0.938** against a 0.940
 prize line, while the model reproduces those same labels at only **0.8486**. We are further from

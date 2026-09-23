@@ -14,7 +14,7 @@ files are provenance — not maintained, not read in full.
 |---|---|---|
 | **D1** | ~~**Labels over-call gold 6.68 : 1**~~ **⛔ AMENDED 2026-09-06 — the ratio was a binarisation threshold.** Same file: 29.2:1 at cut 0.5, 6.63:1 at 0.60, 1.00:1 prevalence-matched, **macro-AUROC 0.8873 throughout**. The over-call gate was deleted. What survives is measured on the 30 gold∩hand studies: **graded output +0.086** (the incumbent already has it) and **reading skill +0.055, CI [+0.005, +0.111]**. → `DATA.md`, `extractor/audit_label_stage.py` | +0.055 over `targets.csv`, not a ratio |
 | **D2** | **We sample 18 slices, all at `depth 0.5`.** The frontier takes 64 across 6–94% of the stack. Lateral meniscus and collateral ligaments sit in the outer thirds. → `MODEL.md` | Lat. Meniscus 0.6422, MCL 0.6433, ACL (midline) 0.8689 |
-| **D3** | **Our pixels are a third-party NIfTI repackaging and it costs 0.085.** Same config, folds, labels. → `PIPELINE.md` Stage P | ours 0.7597, theirs 0.8453, 14.1σ |
+| **D3** | ~~**Our pixels are a third-party NIfTI repackaging and it costs 0.085.** Same config, folds, labels.~~ **⛔ AMENDED 2026-09-23 — the gap is real, its cause is unmeasured, and the NIfTI files are not it.** (1) The fork's own 20 members run on **our NIfTI files, read their way**, score **0.8457** report / **0.8516** gold-47 against **0.8453 / 0.8516** on their own pixels (§3m) — the files cost nothing measurable. (2) The port trained on `tiles336_pilk`, **one 3-slice window per series at depth 0.5** (`slot_cache.tile_from`); the fork trains on **12 slices over 20–80%**, a random group of 3 per step. `contract_audit.py` printed both fields PASS because it read them off `pilkwang_pixels`, which `train_port` never imports — fixed. (3) "Theirs" was never "same folds, labels". Per the fork's notebook (which already differs from the weights' config on other fields, see `contract_audit.py`) it uses a report-hash holdout (not site-grouped; §2j ~0.024), a 4-seed mean per study, the best epoch picked on that holdout, its own label table with gold at weight 3. **The test is `notebooks/build_sampling_test_kernel.py`, rule pre-registered in its docstring.** | ours 0.7597, theirs 0.8453 — **cause unattributed** |
 
 | **D4** | **The labels are not the binding constraint** — `§3p`, measured 08-13, **restored 09-06 after being dropped in that day's rewrite.** `steven_v2` (= our `targets.csv`) used as a predictor reads gold 0.8985 → LB ~0.938 at §3v's +0.039, against a prize line of 0.940. Our model reproduces **its own training labels** at 0.8486. **We are further from the labels we have than those labels are from truth.** → `DATA.md` §0 | teacher→gold 0.10, model→teacher 0.15 |
 
@@ -37,7 +37,8 @@ reassessed: **the efficiency track is the primary target.**
 ## CONFOUNDED-160 — verdicts measured on a 0.476 mm/px model
 
 The crop confound was worth **+0.0268 (4.1σ)**, so each of these was measured ~0.027 too low. It
-closes **23.8%** of the band gap; the rest is D3. **These are not `CLOSED` — re-measure before
+closes **23.8%** of the band gap; the rest is D3 — **unattributed since D3's amendment of 09-23**.
+**These are not `CLOSED` — re-measure before
 citing.** The stop rules were honoured and that discipline stands: a miscalibrated *instrument* is
 grounds to re-measure, a disappointing *result* is not.
 
@@ -113,5 +114,8 @@ grounds to re-measure, a disappointing *result* is not.
 - seven runs sharing one defect, read as evidence about encoders — §R
 - **lowest label *ceiling*, read as most model *headroom*** — corrected the same day, §T→§U
 - **a compartment-attention architecture designed for what was a slice-sampling bug** — §U→D2
+- **a config audit that read two fields off a module the trainer never imports**, printed PASS,
+  and let a 0.085 gap be pinned on the files when the input sampling differed — D3, amended 09-23.
+  The corpus was deleted on that attribution.
 
 **Before believing a number, name the question it can and cannot answer.**

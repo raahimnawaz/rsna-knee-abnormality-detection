@@ -162,7 +162,9 @@ longer claims it is.**
 
 ## S5 — pixels `Sep 12–20 · CHECK BEFORE BUILDING`
 
-D3 stands: our NIfTI path costs 0.085 and is abandoned. **The 458 GB local NIfTI corpus was
+D3 stands: our NIfTI path costs 0.085 and is abandoned. ⛔ **Amended 2026-09-23** (`DECISIONS.md`): the
+0.085 is real but the NIfTI files are not its cause. The fork's weights score the same on them, and the
+port saw one centre window per series. `RUNBOOK.md` §2b measures it. **The 458 GB local NIfTI corpus was
 deleted on 2026-09-07**, so "rebuild tiles" is no longer 8 GPU-hours — it is a ~178 GB
 re-download first. That raises the bar on the public-dataset check below, it does not lower it. But **before spending 8 h of Kaggle GPU
 rebuilding tiles**, check the two public preprocessed pixel datasets found on 09-06 —

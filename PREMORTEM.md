@@ -118,6 +118,10 @@ bare number.
 
 ## 5. D3's 0.085 may not be recoverable by rebuilding
 
+> **2026-09-23: worse than suspected.** The fork's weights score the same on our NIfTI files as on
+> their DICOMs (§3m), so the repackaging is not the cost. The port trained on one centre window per
+> series. `DECISIONS.md` D3 is amended, and `RUNBOOK.md` §2b is the test.
+
 Stage A's whole justification is D3. The ledger records: *"Same config, folds, labels. ours 0.7597,
 theirs 0.8453, 14.1σ."* The **model** side is controlled — but *theirs* is a different pixel
 pipeline end to end: different decode, different slice selection, different crop, different

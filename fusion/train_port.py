@@ -83,6 +83,14 @@ BACKBONE = "facebook/dinov2-small"    # manifest: NOT timm's reg4 variant
 IMAGENET_MEAN = torch.tensor([0.485, 0.456, 0.406]).view(1, 3, 1, 1)
 IMAGENET_STD = torch.tensor([0.229, 0.224, 0.225]).view(1, 3, 1, 1)
 
+# Slices per encoder input. A `slot_cache` tile holds exactly GROUP adjacent slices at depth 0.5,
+# so for every cache this file trained on before 2026-09-23 the multi-group branches below never
+# fire and the run is byte-identical. The fork's own pixel path holds 12 per slot, spread over
+# 20-80% of the stack: it trains on one random group of GROUP at a time and averages the logits
+# over all of them at inference (`predict` in its notebook). A cache shaped [N, K, 12, H, W]
+# gets exactly that. `notebooks/build_sampling_test_kernel.py` is the run that needs it.
+GROUP = 3
+
 
 # ----------------------------------------------------------------------------- data
 class TileStore:
@@ -126,10 +134,18 @@ class SlotDataset(torch.utils.data.Dataset):
     def __getitem__(self, i: int):
         uid = self.uids[i]
         r = self.store.row_of[uid]
+        row = self.store.arr[r]                                  # [K, S, H, W], S = GROUP * n
+        n_group = row.shape[1] // GROUP
+        if self.train and n_group > 1:
+            # The fork's stack augmentation: one group per draw, so the encoder sees every part
+            # of the 20-80% band across epochs. Only drawn for multi-group caches, so a tile
+            # cache consumes the RNG stream exactly as it always has.
+            g = int(self.rng.integers(n_group))
+            row = row[:, g * GROUP:(g + 1) * GROUP]
         # np.array not np.asarray: a memmap slice is read-only, and torch.from_numpy on a
         # read-only buffer hands back a tensor it warns is unsafe to write. The copy is the
         # 2 MB the loader was going to make anyway.
-        x = torch.from_numpy(np.array(self.store.arr[r], dtype=np.uint8)).float() / 255.0
+        x = torch.from_numpy(np.array(row, dtype=np.uint8)).float() / 255.0
         m = torch.from_numpy(self.store.have[r].copy())
 
         if self.train:
@@ -457,7 +473,15 @@ def run_fold(fold: int, folds: pd.DataFrame, store: TileStore, targets: pd.DataF
     uids, preds = [], []
     with torch.no_grad():
         for b in va_dl:
-            preds.append(torch.sigmoid(model(b["x"].to(dev), b["m"].to(dev))).float().cpu().numpy())
+            x, m = b["x"].to(dev), b["m"].to(dev)
+            n_group = x.shape[2] // GROUP
+            if n_group > 1:
+                # The fork's `predict`: mean LOGIT over every group, then the sigmoid.
+                z = torch.stack([model(x[:, :, g * GROUP:(g + 1) * GROUP], m)
+                                 for g in range(n_group)]).mean(0)
+            else:
+                z = model(x, m)
+            preds.append(torch.sigmoid(z).float().cpu().numpy())
             uids += b["uid"]
     return model, uids, np.concatenate(preds) if preds else np.zeros((0, 12)), len(tr)
 
@@ -492,7 +516,10 @@ def main() -> None:
 
     torch.manual_seed(a.seed)
     np.random.seed(a.seed)
-    dev = torch.device("mps" if torch.backends.mps.is_available() else "cpu")
+    # cuda first: the sampling test runs this file on a Kaggle T4, and before this line it would
+    # have trained there on the CPU without complaint. The Studio path is unchanged.
+    dev = torch.device("cuda" if torch.cuda.is_available()
+                       else "mps" if torch.backends.mps.is_available() else "cpu")
 
     store = TileStore(Path(a.cache), a.tag)
     folds = pd.read_csv(a.folds)

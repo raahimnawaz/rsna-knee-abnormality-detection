@@ -14,6 +14,11 @@ this spec is only ever built on Kaggle where the DICOMs mount directly. A cache 
 repackaging -- ours or a public one -- reintroduces it. That is not a throughput argument; 0.085
 is larger than every architecture delta in the record combined.
 
+⛔ AMENDED 2026-09-23 (`DECISIONS.md` D3). "A repackaging reintroduces it" is not supported: the fork's
+own weights score the same on our NIfTI files as on their DICOMs (§3m). What the port lacked is the
+row above this one, coverage: it trained on ONE window per series at depth 0.5. Building on Kaggle
+stands because the local corpus is gone. `RUNBOOK.md` §2b tests whether coverage is the 0.085.
+
 ⛔ THE SLICE AXIS IS THE POINT. On a sagittal stack the slice axis IS medial-lateral, so the outer
 20% that `tiles336*` never sampled is exactly where Lateral Meniscus and the collateral ligaments
 live. §3z pre-registered this before the first cache and it was never built. 6-94% rather than

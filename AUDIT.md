@@ -8,7 +8,8 @@ internals beyond the leak check, and the EDA scripts were not audited.
 **Verdict:** the recorded numbers look sound. I found no leakage, no split contamination and no
 train/serve skew in the scored path. Gold is never trained on, nothing is selected on a
 validation fold, and the RadImageNet serving contract matches its measurement path field by field.
-**The problems are all in what runs next.** Stage 0 will not find the competition data on Kaggle.
+**One recorded *conclusion* is wrong, though: D3** (first finding, added the same day). The problems
+otherwise are in what runs next. Stage 0 will not find the competition data on Kaggle.
 The fold partition every gate bar was measured on can no longer be rebuilt with certainty. And
 `slots64.py` has one assignment bug plus a gap between what the spec says and what the code does,
 both worth fixing before paying for the Stage A cache.
@@ -20,7 +21,7 @@ both worth fixing before paying for the Stage A cache.
 ```
 Kaggle DICOMs ──(kaggle_01* header audits)──────────────────────────────┐
    │                                                                     │
-   ├─ local NIfTI repackaging (deleted 09-07) → slot_cache / *_pixels    │  D3: -0.085
+   ├─ local NIfTI repackaging (deleted 09-07) → slot_cache / *_pixels    │  D3 (amended)
    └─ C6 plan: slots64.py on Kaggle DICOMs         [NOT BUILT]           │
                                                                          ▼
 public LLM label tables ── bench_public_labels.py --download ──► targets.csv (steven_v2)
@@ -51,13 +52,36 @@ per-series percentile (per-sample, so nothing crosses the split). Blend weights 
 Fold recovery (`fold_recover.py:58`) is label-free. `GOLD_TO_LB` is a constant estimated from
 (gold, LB) pairs and is used only to read results, never to train.
 
-**Standing hazard, already known (D3).** The pixel reader exists twice, as local transcriptions
+**Standing hazard, already known.** The pixel reader exists twice, as local transcriptions
 (`pilkwang_pixels`, `rad_pixels`) and inside the notebook, and the two must agree by hand.
 `build_f6_rad_kernel.py`'s save/restore-and-assert of the module globals is the right defence.
 
 ---
 
 ## Findings
+
+### [HIGH] D3's 0.085 is pinned on the wrong cause, through a false PASS in `contract_audit.py` — *amended 09-23*
+**Where:** `fusion/contract_audit.py:85,88` (before the fix); `DECISIONS.md` D3; `fusion/runs_port_repro.log:3`;
+`pipeline/slot_cache.py:130,291-293` vs `fusion/pilkwang_pixels.py:66-70`
+**What:** D3 says the 0.0856 between our reproduction (0.7597) and the fork (0.8453) is "our pixels are
+a third-party NIfTI repackaging". Two records contradict that:
+- The fork's own weights, run on our NIfTI files through their reader, score **0.8457 / 0.8516**
+  (report / gold-47) against **0.8453 / 0.8516** on their own pixels (`IMPROVEMENTS.md` §3m). The files
+  cost nothing measurable.
+- The reproduction trained on `tiles336_pilk`, shape `(3599, 6, 3, 336, 336)`: one 3-slice window per
+  series at depth 0.5. The fork trains on 12 slices over 20–80%, with a random group of 3 per step.
+
+`contract_audit.py` reported `slices` and `band` as PASS because it read them off `pilkwang_pixels`,
+which `train_port` never imports. That is the same false-PASS error its own comment describes for
+`crop_mm`. So Phase C said "what differs now is the pixels", and the difference in input was never
+on the table. "Theirs" also differs in ways D3 calls "same": a report-hash holdout (not
+site-grouped), a 4-seed mean, and the best epoch picked on that same holdout.
+**Impact:** the 458 GB corpus was deleted on this attribution, Stage A is justified by it, and every
+own-arm verdict that says "the encoder is not the lever" was measured on the centre-only input. The
+0.0856 itself is real. What causes it is unmeasured.
+**Fix (done in the same change):** `contract_audit.py` now reads both fields from `slot_cache`. D3 is
+amended everywhere it recommends a route. `notebooks/build_sampling_test_kernel.py` isolates the
+input as the single variable, with the decision rule pre-registered (`RUNBOOK.md` §2b).
 
 ### [HIGH] Stage 0 cannot find the competition data on Kaggle, and the local smoke test hides it
 **Where:** `notebooks/build_stage0_kernel.py:78-89`, `notebooks/stage0_fixture.py:26`, `RUNBOOK.md:169`

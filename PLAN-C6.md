@@ -6,7 +6,8 @@ parameters and T4 hours instead.
 
 Written 2026-09-07 after the local corpus was deleted. **Everything runs on Kaggle**, where the
 competition DICOMs mount directly. Nothing is downloaded, and nothing is built from a
-repackaging — D3 is why.
+repackaging — D3 is why. (⛔ D3's reason was amended on 09-23, see `DECISIONS.md`. The DICOM route stands
+because the corpus is gone, not because the NIfTI files cost 0.085.)
 
 ---
 
@@ -36,14 +37,15 @@ only grant is the authors' email of 2026-08-18. **Preserve that email**; it is t
 
 | # | defect | cost | fixed in |
 |---|---|--:|---|
-| **D3** | pixels are a third-party NIfTI repackaging | **0.085** @ 14.1σ | Stage A |
+| **D3** | ~~pixels are a third-party NIfTI repackaging~~ ⛔ amended 09-23: the files are fine; the port saw one centre window per series | **0.085** @ 14.1σ, cause unmeasured | `RUNBOOK.md` §2b, then Stage A |
 | **§2e** | frozen encoder cannot adapt; everything lands near 0.70 | caps the project | Stage C |
 | **D2** | 18 slices, every slot at `depth 0.5` | Lat.Men **0.6422**, MCL **0.6433** vs ACL **0.8689** | Stage A |
 | **§R** | 160 mm crop → 0.476 mm/px | **+0.0268** @ 4.1σ | Stage A |
 | **§5** | one shared pool across all 12 labels | never measured | Stage B |
 
 You said the data is the number-one thing. The record agrees numerically: **D3 alone (0.085) is
-larger than every architecture delta combined.** Stages 0 and A are therefore the only stages
+larger than every architecture delta combined.** (⛔ Its cause was amended 09-23. Whether the input
+explains it is `RUNBOOK.md` §2b's question.) Stages 0 and A are therefore the only stages
 that cannot be skipped or reordered.
 
 ⛔ **Coverage and per-label attention ship together** (`MODEL.md` §5). Outer slices fed to a shared

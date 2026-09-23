@@ -10,7 +10,13 @@ says *why*; this says *what to run, what to expect, and what to do with the answ
 > unreadable at one fold; and no stage closes the teacher→truth gap, which caps the whole plan at
 > ~0.8985. Stage 0 is unaffected — run it. Do not fund Stage A/B/C on the prices in `PLAN-C6.md`.
 
-Last updated **2026-09-07**. If today is much later than that, re-run §0.3 before trusting any
+> ⛔ **D3 was amended on 2026-09-23** (`DECISIONS.md`). The NIfTI files are not what cost 0.085:
+> the fork's own weights score the same on them as on their DICOMs (§3m). What differed is the
+> input: our port trained on **one 3-slice window per series, at the centre**, while the fork trains
+> on **12 slices across 20–80%**. **Before funding Stage A, run the sampling test (§2b).** It is the
+> one run that says whether our own training reaches public strength when fed public-style input.
+
+Last updated **2026-09-07**; D3 amended and §2b added **2026-09-23**. If today is much later than that, re-run §0.3 before trusting any
 claim here about the outside world — five beliefs about it have already expired in this project,
 one after 24 hours.
 
@@ -28,6 +34,8 @@ one after 24 hours.
 | `pipeline/slots64.py` | **provisional — Stage 0 may overturn it** | `python pipeline/slots64.py` self-test |
 | `fusion/perlabel_head.py` | ready, unused until Stage B | `python fusion/perlabel_head.py` self-test |
 | `fusion/train_port.py` | has `OrthoNet`, never run | ⚠️ carries the C-PRE bug, see §4 |
+| `notebooks/build_sampling_test_kernel.py` | **ready to push — §2b** | whole path smoke-tested off Kaggle on a synthetic DICOM fixture |
+| `fusion/contract_audit.py` | fixed 09-23: `slices`/`band` read off the path `train_port` trains on | — |
 
 ### 0.2 What is NOT done
 
@@ -172,6 +180,54 @@ date. **No AUC is produced or quoted at this stage** (§3b, `never-select-on-a-t
 
 ---
 
+## 2b. THE SAMPLING TEST — why our own models lose `one T4 kernel · ~4–6 GPU-h · smoke on CPU first`
+
+**The question.** Everything trained here scores 0.69–0.77 and everything downloaded 0.85. D3 put
+the last 0.0856 of that on the NIfTI files, and the record contradicts it (banner above). This run
+changes **one variable**: `train_port.py`, fold 0, every setting as in `runs_port_repro`, but fed
+the fork's own pixels (12 slices over 20–80%, built by the fork's own notebook cells from the
+competition DICOMs). It is scored **paired** against `runs_port_repro` on the same 691 studies. The
+builder's docstring has the full design and the known residue.
+
+```bash
+# 1. smoke -- CPU, no GPU quota, 64 + 16 studies, one epoch
+.venv/bin/python notebooks/build_sampling_test_kernel.py --out /tmp/st --smoke
+.venv/bin/python -m kaggle kernels push -p /tmp/st
+.venv/bin/python -m kaggle kernels status raahimnawaz/rsna-knee-sampling-test
+```
+
+**Check in the smoke log before going further:**
+1. `scratch candidate …: N GB free`. The full run's cache is **~29 GB** and it refuses below **~37 GB**
+   free (a 10% margin plus 5 GB). If no candidate has that, the full run refuses at its first cell. Nothing in this repo has measured a
+   Kaggle machine's disk, so this line is new information.
+2. `partition check: 691/691 control studies are in the rebuilt fold 0`. The smoke runs the real
+   check. Anything less means an upstream label table or header parquet changed since 09-06.
+   **Stop there**: the paired read would be contaminated.
+3. `pixel contract = the members' own: {… 'CACHE_SLICES': 12 …}` and `SMOKE: the whole path ran`.
+
+```bash
+# 2. the real run
+.venv/bin/python notebooks/build_sampling_test_kernel.py --out /tmp/st
+.venv/bin/python -m kaggle kernels push -p /tmp/st
+# when Complete:
+.venv/bin/python -m kaggle kernels output raahimnawaz/rsna-knee-sampling-test -p fusion/runs_forksample_kaggle/
+```
+
+**What to do with the answer. The rule was fixed in the builder's docstring before the run.** The
+verdict is in `sampling_test_verdict.json`:
+
+| paired Δ vs `runs_port_repro` | consequence |
+|---|---|
+| **≥ +0.043** (half the gap) | **The input is the main cause.** Our training reaches public strength on public-style input. C6's coverage direction is right for a reason D3 never gave. Fund Stage A, and build its Gate B control from this run rather than `runs_port` (PREMORTEM §3). |
+| **≤ +0.015** | **The input is not the main cause.** What remains is training and evaluation: site-grouped folds, one seed vs four, last epoch vs best-on-holdout, the label table. **Do not fund Stage A on coverage grounds.** |
+| between | Both contribute. Next, split the fork's reader from its sampling. |
+
+⚠️ **Do not compare the absolute number with pilkwang's 0.8453.** That figure is a 4-seed mean, and
+per the fork's notebook its holdout is not site-grouped and its best epoch is picked on that same
+holdout. The bar is our own run.
+
+---
+
 ## 3. Standing rules — violating any of these has already cost this project
 
 1. **Never select on gold-58.** n=58, per-label SE 0.04–0.09. Selecting on it claims +0.0137 and
@@ -289,8 +345,11 @@ every rejection was correct.
 
 The labels are not the constraint — used as a predictor they read gold **0.8985** (≈ LB 0.938)
 while the model reproduces its own training labels at **0.8486**. We are further from the labels we
-have than those labels are from truth. The gap is the image path, and its largest single defect is
-**D3 at 0.085** — larger than every architecture delta combined — which is why Stage A rebuilds
-from competition DICOMs and why Stage 0 measures before anything is designed on it. Beating the
+have than those labels are from truth. The gap is the image path. Its largest measured piece is
+**0.085** between our port and the fork on the same instrument, larger than every architecture
+delta combined. **But D3's reading of it, "the NIfTI files", was amended on 09-23**: the fork's
+weights score the same on those files, and what our port lacked was coverage, one centre window
+per series. §2b measures whether that is the 0.085. Stage A is worth its price only if §2b says the
+input is the cause, and Stage 0 still measures before anything is designed on it. Beating the
 teacher afterwards is possible for one specific reason: **the model sees pixels the report never
 described**, which is most of what synovitis is.

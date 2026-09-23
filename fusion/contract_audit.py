@@ -64,10 +64,13 @@ def theirs() -> tuple[dict, list[int]]:
     return json.loads(cfgs.pop()), [x["epochs_done"] for x in m]
 
 
-def ours() -> dict:
-    """Live constants, imported from the modules that actually run."""
+def ours(tag: str = "pilkwang") -> dict:
+    """Live constants, imported from the modules that actually run.
+
+    `tag` is the `slot_cache` slot set the port trained on. `pilkwang` is what `runs_port_repro`
+    (0.7597, the D3 number) used -- its log reads `cache tiles336_pilk/pilkwang`.
+    """
     import pilkwang_model as pk
-    import pilkwang_pixels as px
     import slot_cache as sc
     import train_port as tp
 
@@ -77,16 +80,26 @@ def ours() -> dict:
     # PROTOCOL slot `crop_box` has `box_mm is None` and returns the FULL grid, i.e. `pp.FOV_MM`.
     # Reading the constant from the faithful-but-unused module is how a false PASS gets printed
     # over a real divergence.
+    #
+    # ⛔ AND `slices` / `band` MADE THAT SAME ERROR UNTIL 2026-09-23. They were read off
+    # `pilkwang_pixels` (N_SLICE 12, SLICE_BAND 0.2-0.8) and printed PASS, while every tile the port
+    # trained on was ONE window of GROUP adjacent slices at the slot's `depth` (0.5 for all six;
+    # `slot_cache.tile_from`). That false PASS is how Phase C could say "what differs now is the
+    # pixels" and D3 could pin 0.085 on the NIfTI repackaging: the sampling difference was never
+    # on the table. `notebooks/build_sampling_test_kernel.py` is the run that measures it.
     import preprocess as pp
-    port_crop = pp.FOV_MM if all(s.box_mm is None for s in sc.PROTOCOL) else None
+    slots = sc.slot_set(tag)
+    boxes = {s.box_mm for s in slots}
+    port_crop = pp.FOV_MM if boxes == {None} else (boxes.pop() if len(boxes) == 1 else None)
+    depths = sorted({s.depth for s in slots})
 
     return {
         "img": sc.TILE,
-        "slices": px.N_SLICE,
+        "slices": sc.GROUP,                      # a tile IS one group: GROUP adjacent slices
         "group": sc.GROUP,
         "crop_mm": port_crop,
-        "band": list(px.SLICE_BAND),
-        "slots": [s.name for s in sc.PROTOCOL],
+        "band": [depths[0], depths[-1]],         # where the one window sits, as a fraction
+        "slots": [s.name for s in slots],
         "backbone": tp.BACKBONE,
         "unfreeze_last": tp.UNFREEZE_LAST,
         "pool": "cls_mean",                      # pilkwang_model.Model default; POOL_PARTS key
@@ -100,10 +113,12 @@ def main() -> None:
     ap = argparse.ArgumentParser(description=__doc__.splitlines()[0])
     ap.add_argument("--strict", action="store_true",
                     help="exit 1 if any divergence is not in DECLARED")
+    ap.add_argument("--tag", default="pilkwang",
+                    help="slot_cache slot set the port trained on (runs_port_repro: pilkwang)")
     a = ap.parse_args()
 
     cfg, epochs = theirs()
-    us = ours()
+    us = ours(a.tag)
 
     # `slots` is compared by NAME SET and the names are from two different vocabularies, so a
     # literal comparison would report a difference that is partly just spelling. What actually
@@ -119,7 +134,8 @@ def main() -> None:
     # Reported with the mm/px it implies, because that is the quantity that matters and the
     # ratio hides it. slot_cache.py's own docstring line 27: "At 160 mm across 336 px a tear
     # line is about one pixel."
-    rows.append((f"crop_mm  -> {cfg['crop_mm']/cfg['img']:.3f} vs {us['crop_mm']/cfg['img']:.3f} mm/px",
+    ours_px = f"{us['crop_mm']/cfg['img']:.3f}" if us["crop_mm"] else "mixed"
+    rows.append((f"crop_mm  -> {cfg['crop_mm']/cfg['img']:.3f} vs {ours_px} mm/px",
                  cfg["crop_mm"], us["crop_mm"], cfg["crop_mm"] == us["crop_mm"]))
 
     rows.append(("backbone", cfg["backbone"], us["backbone"], False if
@@ -134,7 +150,7 @@ def main() -> None:
     rows.append(("slots (fork's, recovered)", "6", "6 recovered EXACT" if same_slots else "MISMATCH",
                  same_slots))
     rows.append(("slots (what train_port feeds)", ",".join(cfg["slots"]), ",".join(us["slots"]),
-                 False))
+                 list(cfg["slots"]) == list(us["slots"])))
 
     # The four `rules` are an enum in the fork's source (`RULES_NATIVE` / `RULES_LEGACY`, line 589
     # of the archived kernel) and every member records the NATIVE value. `pilkwang_pixels.py` is
