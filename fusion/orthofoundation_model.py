@@ -68,11 +68,12 @@ def remap(sd: dict) -> tuple[dict, torch.Tensor]:
     return out, periods
 
 
-def build(ckpt: Path = CKPT, img: int = 336):
+def build(ckpt: Path = CKPT, img: int = 336, **timm_kw):
+    """`timm_kw` passes through to create_model (e.g. global_pool="token"); the load stays strict."""
     import timm
     raw = torch.load(ckpt, map_location="cpu", weights_only=True)   # untrusted pickle
     sd, periods = remap(raw)
-    m = timm.create_model(TIMM_NAME, pretrained=False, num_classes=0, img_size=img)
+    m = timm.create_model(TIMM_NAME, pretrained=False, num_classes=0, img_size=img, **timm_kw)
     missing, unexpected = m.load_state_dict(sd, strict=False)
     if missing or unexpected:
         raise SystemExit(f"⛔ non-strict load: missing={list(missing)[:5]} unexpected={list(unexpected)[:5]}")
