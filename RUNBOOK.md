@@ -34,7 +34,7 @@ one after 24 hours.
 | file | status | verified how |
 |---|---|---|
 | `PLAN-C6.md` | current plan, Stages 0–D | — |
-| `notebooks/build_stage0_kernel.py` | **ready to push** | smoke-tested against a synthetic fixture — at the real mount depth since 09-23 (the depth-1 fixture had hidden a `find_root` that Kaggle would fail) |
+| `notebooks/build_stage0_kernel.py` | ✅ **ran 09-23, all 4,407 studies — `DATA.md` §9** | smoke-tested against a synthetic fixture — at the real mount depth since 09-23 (the depth-1 fixture had hidden a `find_root` that Kaggle would fail) |
 | `notebooks/stage0_fixture.py` | reproducible smoke test | r recovered to 0.01 on all 3 planes |
 | `pipeline/slots64.py` | **provisional — Stage 0 may overturn it** | `python pipeline/slots64.py` self-test (now includes the 3-coronal case; `cor_2` bug fixed 09-23) |
 | `fusion/perlabel_head.py` | ready, unused until Stage B | `python fusion/perlabel_head.py` self-test |
@@ -251,6 +251,50 @@ gate is held to (AUDIT.md). The kernel refuses to run on inputs that differ from
 ⚠️ **Do not compare the absolute number with pilkwang's 0.8453.** That figure is a 4-seed mean, and
 per the fork's notebook its holdout is not site-grouped and its best epoch is picked on that same
 holdout. The bar is our own run.
+
+---
+
+## 2c. THE BACKBONE A/B — OrthoFoundation's first fair test `one T4 kernel per arm · bench first`
+
+**The question.** OrthoFoundation was only ever run frozen, at 160 mm, on the old 6-tile cache (C-5,
+0.7710 — still the best encoder number trained here). C-PRE is resolved (§4), so nothing blocks a
+fair test. This runs it **fully fine-tuned, in the frontier's own recipe (`MODEL.md` §0), on the
+frontier's public CC0 corpus**, with the encoder as the only variable. Harness:
+`fusion/train_windows.py`; kernel builder: `notebooks/build_backbone_ab_kernel.py` (the rule is in
+its docstring, written before any arm had a number).
+
+| arm | encoder | answers |
+|---|---|---|
+| `ortho` | OrthoFoundation-L | the arm |
+| `dinov3l` | stock `vit_large_patch16_dinov3.lvd1689m` | `ortho − dinov3l` = what knee pretraining is worth |
+| `coatnet` | `coatnet_rmlp_2_rw_384.sw_in12k_ft_in1k` | `ortho − coatnet` = whether Ortho is the encoder to use |
+
+Same 2,871 training studies (seed 20260923), `steven_v2` targets, and the **same 691 fold-0 studies**
+as `runs_port_repro` and the sampling test, scored by `score_oof.py`.
+
+```bash
+# 1. smoke -- CPU, 16 + 6 studies, one epoch (pushed 2026-09-23)
+.venv/bin/python notebooks/build_backbone_ab_kernel.py --arch ortho --out /tmp/ab --smoke
+.venv/bin/python -m kaggle kernels push -p /tmp/ab
+# 2. bench -- T4, ONE full epoch, scored: prices the full run from a measurement (PREMORTEM §1)
+.venv/bin/python notebooks/build_backbone_ab_kernel.py --arch ortho --out /tmp/ab --bench
+# 3. full -- epochs chosen from bench.json so the run fits the 12 h cap with eval
+.venv/bin/python notebooks/build_backbone_ab_kernel.py --arch ortho --out /tmp/ab --epochs N
+.venv/bin/python -m kaggle kernels output raahimnawaz/rsna-knee-backbone-ab-ortho -p fusion/runs_ab_ortho/
+```
+
+**Check in the smoke log:** `ortho: strict load, sha256 ok, RoPE periods = theirs`; `partition
+check: 691/691`; `corpus holds 4407 studies`; `val windows per study` median near 34; a finite loss.
+**Read from the bench:** `bench.json` → `train_epoch_min_measured`, `peak_cuda_gb`,
+`eval_sec_per_study`. Epochs for the full run = what fits in ~10 h with eval, same for every arm.
+
+**Rule (pre-registered):** knee pretraining pays if `ortho − dinov3l > 0` paired at P ≥ 0.95; Ortho
+is the encoder to use if `ortho − coatnet > 0` paired at P ≥ 0.95; neither is a null, recorded as
+one. Primary = last epoch; `avg3/` is secondary and not a second chance. One seed per arm.
+
+⚠️ This corpus is the frontier's **starting** geometry (44 slices over 15–85%), not its 0.928 one
+(64 over 2–98%). It is the same for every arm, which is what an encoder A/B needs; the absolute
+number is not the frontier's.
 
 ---
 
