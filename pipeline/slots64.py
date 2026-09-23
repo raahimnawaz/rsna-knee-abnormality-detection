@@ -82,8 +82,13 @@ N_WINDOWS = sum(s.n_windows for s in SLOTS)    # 54
 SLOT_INDEX = {s.name: i for i, s in enumerate(SLOTS)}
 
 
-def pick_depths(n_available: int, n_want: int) -> np.ndarray:
-    """Evenly across 6-94% of the stack. NOT the middle -- this is D2's fix.
+def pick_depths(n_available: int, n_want: int,
+                lo_frac: float = DEPTH_LO, hi_frac: float = DEPTH_HI) -> np.ndarray:
+    """Evenly across 6-94% of the stack (or `lo_frac`-`hi_frac`). NOT the middle -- D2's fix.
+
+    ⛔ 2026-09-23: the Stage A builder passes 2-98% -- the frontier's 0.928 corpus ("maxspan");
+    its 64-slice 6-94% model read 0.924 (`MODEL.md` §0). The default here stays the spec as
+    Stage 0 validated it; the span actually used is stamped into every cache manifest.
 
     Returns `n_want` indices, with repeats when the series is shorter than the slot asks for.
     Repeats are deliberate: the slot's shape is fixed so the batch is rectangular, and a repeated
@@ -94,12 +99,13 @@ def pick_depths(n_available: int, n_want: int) -> np.ndarray:
         return np.zeros(n_want, dtype=int)
     if n_available == 1:
         return np.zeros(n_want, dtype=int)
-    lo = DEPTH_LO * (n_available - 1)
-    hi = DEPTH_HI * (n_available - 1)
+    lo = lo_frac * (n_available - 1)
+    hi = hi_frac * (n_available - 1)
     return np.clip(np.round(np.linspace(lo, hi, n_want)), 0, n_available - 1).astype(int)
 
 
-def source_step(n_available: int, n_want: int) -> float:
+def source_step(n_available: int, n_want: int,
+                lo_frac: float = DEPTH_LO, hi_frac: float = DEPTH_HI) -> float:
     """Mean distance, in SOURCE slices, between consecutive sampled slices of one series.
 
     What a window's three channels span: ~1 on a stack about 1.1x the slot's slice count (true
@@ -107,7 +113,7 @@ def source_step(n_available: int, n_want: int) -> float:
     so the Stage A builder records it per (study, slot) beside `n_available` -- decided 2026-09-23,
     when the spec was found to describe neighbours while the code sampled (AUDIT.md).
     """
-    d = pick_depths(n_available, n_want)
+    d = pick_depths(n_available, n_want, lo_frac, hi_frac)
     return float(np.diff(d).mean()) if len(d) > 1 else 0.0
 
 
@@ -175,10 +181,10 @@ def assign_series(series: list[dict]) -> dict[str, dict | None]:
     return out
 
 
-def manifest() -> dict:
+def manifest(depth_range: tuple[float, float] = (DEPTH_LO, DEPTH_HI)) -> dict:
     """Stamped into every cache. `PREPROCESS_VERSION`'s purpose is to make drift loud."""
     return {"spec": "c6-64slice", "fov_mm": FOV_MM, "target_mm": TARGET_MM, "img": IMG,
-            "depth_range": [DEPTH_LO, DEPTH_HI], "group": GROUP,
+            "depth_range": list(depth_range), "group": GROUP,
             "n_slices": N_SLICES, "n_windows": N_WINDOWS,
             # MODEL.md §3: consecutive SAMPLED slices, the fork's convention, not stack neighbours.
             # The builder must add `n_available` and `source_step` per (study, slot).
