@@ -1,5 +1,20 @@
 {
   "files": {
+    "FINAL2_labels_scores.csv": {
+      "recorded": "2026-09-23",
+      "sha256": "6f70de34e75d89b153577b4e8f09aef9c7a51064a81a7b022d97840b7ffbb39f",
+      "source": "riadmohamed42/jev-knee-labels"
+    },
+    "HYBRID_labels_scores.csv": {
+      "recorded": "2026-09-23",
+      "sha256": "40f4d6c4669913a8aedf946ce4645ed16972d554536dcd1c7b1d1fde854dfed6",
+      "source": "riadmohamed42/jev-knee-labels"
+    },
+    "Label_Extraction_Jev_v2.csv": {
+      "recorded": "2026-09-23",
+      "sha256": "aaefa4b661bcb3ee055dcc7bf810b38e4ecfb2d17ff71ffcd569bdc8df0018e9",
+      "source": "hosseini7798/rsna-knee-label-extraction-jev"
+    },
     "dicom_headers_zhukovoleksiy.parquet": {
       "recorded": "2026-09-23",
       "sha256": "bb2b67e28987ea35fbbcb7eac2d334d3dd08c4aa901cd6c465af18e0bdd5ae78",
@@ -15,10 +30,35 @@
       "sha256": "a79b05e609336811d51c97f9a48f00ea8004244a1a80fe886504a62bb39867ae",
       "source": "lixin73/rsna-knee-llm-report-labels-sol56"
     },
+    "labels_llm_soft.csv": {
+      "recorded": "2026-09-23",
+      "sha256": "8cec477fb555e88bbb4196197fd3f806cbafed8cc2f6b2d48d26a8d49fbd86a1",
+      "source": "dreaddevelopment/rsna-knee-labels"
+    },
+    "llm_labels_full.csv": {
+      "recorded": "2026-09-23",
+      "sha256": "96444cd3c7d396bae4a71454317d9cbe0689759b5278b30939781e04d0774537",
+      "source": "stevenleehans/rsna-knee-llm-report-labels"
+    },
     "llm_labels_v2.csv": {
       "recorded": "2026-09-23",
       "sha256": "3c082a987939528a55202028f655bd6f9dc5c9e28eff5058bbae7ef088a9f144",
       "source": "stevenleehans/rsna-knee-llm-report-labels"
+    },
+    "llm_labels_v4_blend.csv": {
+      "recorded": "2026-09-23",
+      "sha256": "eb4c2b29e7e84adbb4b5ccee825ca20ade6a43dbe295f13be442d549e4f5dca4",
+      "source": "stevenleehans/rsna-knee-llm-report-labels"
+    },
+    "report_labels_v1.csv": {
+      "recorded": "2026-09-23",
+      "sha256": "b50808b429315ac0bafc65fbe1c41ac24e7e6b6abb91b1e9ba5ab5cc32f4f6e4",
+      "source": "pilkwang/rsna-knee-report-labels"
+    },
+    "report_labels_v2.csv": {
+      "recorded": "2026-09-23",
+      "sha256": "6f704a7bdb2f894cc49445b19ba7c4378c3f548d3449e00361e10044bee40920",
+      "source": "pilkwang/rsna-knee-llm-labels"
     }
   }
 }

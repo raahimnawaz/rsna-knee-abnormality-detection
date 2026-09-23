@@ -59,6 +59,21 @@ SOURCES = {
     "pilkwang_v2": ("pilkwang/rsna-knee-llm-labels", "report_labels_v2.csv"),
     "pilkwang_v1": ("pilkwang/rsna-knee-report-labels", "report_labels_v1.csv"),
     "lixin_gpt56": ("lixin73/rsna-knee-llm-report-labels-sol56", "labels_llm_gpt56sol.csv"),
+    # Added 2026-09-23 (RUNBOOK §0.3 survey). dread_soft is the table behind the frontier's 0.928
+    # single model (MODEL.md §0), CC0. jev_hybrid is, per its README, a per-target pick between
+    # steven_v4 and pilkwang_v2 made ON gold-58 plus a blend weight set on gold-74 -- its gold read
+    # is selected by construction. jev_text is the same author's text-only half. hosseini_jev ships
+    # class probabilities (0 / 1 / 9 = not said); `align` scores it P(1) + 0.5 P(9).
+    "dread_soft":   ("dreaddevelopment/rsna-knee-labels", "labels_llm_soft.csv"),
+    "jev_hybrid":   ("riadmohamed42/jev-knee-labels", "HYBRID_labels_scores.csv"),
+    "jev_text":     ("riadmohamed42/jev-knee-labels", "FINAL2_labels_scores.csv"),
+    "hosseini_jev": ("hosseini7798/rsna-knee-label-extraction-jev", "Label_Extraction_Jev_v2.csv"),
+}
+# What each author discloses about fitting to gold. A read on the rows it was fitted to is a
+# CEILING, and choosing between ceilings on 58 rows is RUNBOOK §3 rule 1.
+SELECTED_ON_GOLD = {
+    "steven_v4": "a blend; may have been selected on gold (author)",
+    "jev_hybrid": "per-target winner picked on gold-58, blend weight on gold-74 (README)",
 }
 
 
@@ -78,7 +93,7 @@ def download(accept_new: bool = False) -> None:
         dest.mkdir(exist_ok=True)
         spec = f"{ref}/versions/{PINNED_VERSIONS[ref]}" if ref in PINNED_VERSIONS else ref
         print(f"  {spec}")
-        subprocess.run(["kaggle", "datasets", "download", spec, "-p", str(dest), "--unzip"],
+        subprocess.run([sys.executable, "-m", "kaggle", "datasets", "download", spec, "-p", str(dest), "--unzip"],
                        check=True, stdout=subprocess.DEVNULL)
         # The targets (steven_v2) and the scoring reference (lixin_gpt56) come from here, so a
         # silently newer file would move both. Hash every file this script reads (AUDIT.md).
@@ -99,6 +114,18 @@ def hanley_se(a: float, n_pos: int, n_neg: int) -> float:
     return float(np.sqrt(max(v, 0.0) / (n_pos * n_neg)))
 
 
+def to_scores(d: pd.DataFrame) -> pd.DataFrame:
+    """Class-probability tables (`ACL_0`, `ACL_1`, `ACL_9` = not said) -> one score per label,
+    P(1) + 0.5 P(9): "the report does not say" sits between absent and present, as steven_v2's
+    0.5 does. Tables that already carry the twelve columns pass through untouched."""
+    if set(LABELS) <= set(d.columns) or not all(f"{lab}_1" in d.columns for lab in LABELS):
+        return d
+    out = d[["StudyInstanceUID"]].copy()
+    for lab in LABELS:
+        out[lab] = d[f"{lab}_1"] + 0.5 * d.get(f"{lab}_9", 0.0)
+    return out
+
+
 def load_gold() -> pd.DataFrame:
     g = pd.read_csv(D / "train.csv").dropna(subset=LABELS)
     return g.set_index("StudyInstanceUID")[LABELS].astype(float)
@@ -107,7 +134,7 @@ def load_gold() -> pd.DataFrame:
 def align(path: Path, idx: pd.Index) -> pd.DataFrame | None:
     if not path.exists():
         return None
-    d = pd.read_csv(path).drop_duplicates("StudyInstanceUID").set_index("StudyInstanceUID")
+    d = to_scores(pd.read_csv(path)).drop_duplicates("StudyInstanceUID").set_index("StudyInstanceUID")
     if not set(LABELS) <= set(d.columns):
         return None
     # 0.5 for a study the source never scored: neutral under a ranking metric, which is the
@@ -149,14 +176,20 @@ def main() -> None:
 
     P: dict[str, pd.DataFrame] = {}
     ours = align(D / "report_labels_ours.csv", idx)
-    if ours is None:
-        sys.exit("data/report_labels_ours.csv not found -- run extractor/run_extract.py first")
-    P["OURS (rules)"] = ours
+    if ours is not None:                  # the rule extractor; data/ was deleted 2026-09-07
+        P["OURS (rules)"] = ours
 
     for name, (ref, fname) in SOURCES.items():
         p = align(PUB / ref.replace("/", "_") / fname, idx)
         if p is None:
             print(f"  (missing {name} -- re-run with --download)")
+            continue
+        d = to_scores(pd.read_csv(PUB / ref.replace("/", "_") / fname)).drop_duplicates("StudyInstanceUID")
+        g_cov = float(idx.isin(d.StudyInstanceUID).mean())
+        if g_cov < 0.9:
+            # align() would fill the missing rows with 0.5 and print a fake 0.5000 macro
+            print(f"  ({name}: carries {g_cov:.0%} of the gold rows -- NOT SCORABLE on gold, "
+                  f"not a result of 0.5; its author held gold out)")
             continue
         P[name] = p
 
@@ -171,27 +204,103 @@ def main() -> None:
     print("  every public read is a CEILING: a prompt tuned on these 58 rows leaves no trace")
     print(t[["macro", "se"]].round(4).to_string())
 
-    # The two leak checks bench_external.py runs on the newer tables, applied to these six too:
+    # The two leak checks bench_external.py runs on the newer tables, applied to every source:
     # D4's "the teacher reads gold 0.8985" is a read of steven_v2 from this list, and nothing had
     # ever checked it. Warn, do not withhold -- withholding is for a proven copy (AUDIT.md).
-    from bench_external import align as raw, gold_rows_differ, leaks_gold
+    from bench_external import gold_rows_differ, leaks_gold
     tr = pd.read_csv(D / "train.csv")
     rest = pd.Index(tr.StudyInstanceUID[~tr.StudyInstanceUID.isin(idx)])
     G = gold.loc[idx, LABELS].to_numpy(float)
+
+    def raw(path: Path, ids) -> np.ndarray | None:
+        if not path.exists():
+            return None
+        d = to_scores(pd.read_csv(path)).drop_duplicates("StudyInstanceUID").set_index("StudyInstanceUID")
+        return d.reindex(ids)[LABELS].apply(pd.to_numeric, errors="coerce").to_numpy(float)
+
     for name, (ref, fname) in SOURCES.items():
         path = PUB / ref.replace("/", "_") / fname
-        vg, vn = raw(path, idx, fill=False), raw(path, rest, fill=False)
+        vg, vn = raw(path, idx), raw(path, rest)
         if vg is None:
             continue
         if leaks_gold(np.nan_to_num(vg, nan=0.5), G):
             print(f"  ⛔ {name}: GOLD IS IN THIS FILE -- its score above is not a result")
         elif why := gold_rows_differ(vg, vn):
             print(f"  ⚠ {name} SUSPECT: {why}")
+        if name in SELECTED_ON_GOLD:
+            print(f"  ⚠ {name} FITTED TO GOLD: {SELECTED_ON_GOLD[name]} -- its read is a ceiling")
     print("\n=== per label ===")
     print(t[LABELS].round(3).to_string())
 
+    # PAIRED against the training targets, on the same 58 studies: resample studies once and score
+    # both sources on the resample, so the shared difficulty cancels (score_oof.py's reasoning).
+    base = "steven_v2"
+    if base in P:
+        rng = np.random.default_rng(0)
+        draws = [rng.integers(0, len(idx), len(idx)) for _ in range(2000)]
+
+        def mac(p: pd.DataFrame, k) -> float:
+            v = [auc(gold[lab].values[k], p[lab].values[k]) for lab in LABELS]
+            return float(np.nanmean(v))
+
+        print(f"\n=== paired against {base} (the training targets), gold-58, 2,000 study resamples ===")
+        for name in t.index:
+            if name == base:
+                continue
+            d0 = mac(P[name], np.arange(len(idx))) - mac(P[base], np.arange(len(idx)))
+            ds = np.array([mac(P[name], k) - mac(P[base], k) for k in draws])
+            flag = "  (fitted to gold)" if name in SELECTED_ON_GOLD else ""
+            print(f"  {name:14s} {d0:+.4f} +-{ds.std():.4f}   P(better) {(ds > 0).mean():.3f}{flag}")
+
+    # JEV's trick -- each finding takes whichever table reads it best -- is selected ON gold, so its
+    # own read cannot say whether it transfers. Split-half: pick per label on a random 29, score
+    # the composite on the other 29, against the training targets on the same 29. 2,000 splits.
+    # This is RUNBOOK §3 rule 1 made into a measurement instead of a warning.
+    pool = [n for n in ("steven_v2", "steven_v4", "pilkwang_v2", "jev_text", "hosseini_jev") if n in P]
+    if base in P and len(pool) > 1:
+        rng = np.random.default_rng(1)
+        half = len(idx) // 2
+        deltas, picks = [], {lab: {} for lab in LABELS}
+        for _ in range(2000):
+            perm = rng.permutation(len(idx))
+            a_, b_ = perm[:half], perm[half:]
+            comp, ok = [], True
+            for lab in LABELS:
+                y = gold[lab].values
+                if y[a_].min() == y[a_].max() or y[b_].min() == y[b_].max():
+                    ok = False
+                    break
+                best = max(pool, key=lambda n: auc(y[a_], P[n][lab].values[a_]))
+                picks[lab][best] = picks[lab].get(best, 0) + 1
+                comp.append(auc(y[b_], P[best][lab].values[b_]) - auc(y[b_], P[base][lab].values[b_]))
+            if ok:
+                deltas.append(np.mean(comp))
+        deltas = np.asarray(deltas)
+        print(f"\n=== per-label pick chosen on half of gold, scored on the other half ({len(deltas)} splits) ===")
+        print(f"  pool {pool}")
+        print(f"  composite - {base}, held-out half: {deltas.mean():+.4f} +-{deltas.std():.4f}   "
+              f"P(better) {(deltas > 0).mean():.3f}")
+        for lab in LABELS:
+            tot = sum(picks[lab].values())
+            top = sorted(picks[lab].items(), key=lambda kv: -kv[1])[:2]
+            print(f"    {lab:18s} " + "  ".join(f"{n} {c / tot:.0%}" for n, c in top))
+
+    # What the SCORING reference can and cannot judge: score_oof.py reads lixin_gpt56, so a
+    # training table close to it wins there by construction (steven_v4 -> lixin AUC 0.9998).
+    ref_name = "lixin_gpt56"
+    tables = {n: raw(PUB / r.replace("/", "_") / f, rest) for n, (r, f) in SOURCES.items()}
+    tables = {n: v for n, v in tables.items() if v is not None}
+    if ref_name in tables:
+        print(f"\n=== agreement with {ref_name} (the OOF scoring reference) and coverage, non-gold rows ===")
+        from scipy.stats import spearmanr
+        R = tables[ref_name]
+        for n, V in tables.items():
+            rs = [spearmanr(V[:, j], R[:, j], nan_policy="omit").statistic for j in range(len(LABELS))]
+            cov = float(np.isfinite(V).all(axis=1).mean())
+            print(f"  {n:14s} mean Spearman vs {ref_name} {np.nanmean(rs):.3f}   coverage {cov:.1%}")
+
     pub = [k for k in P if k != "OURS (rules)"]
-    if len(pub) < 2:
+    if "OURS (rules)" not in P or len(pub) < 2:
         return
 
     print("\n=== rank-mean combinations: does ours add anything? ===")

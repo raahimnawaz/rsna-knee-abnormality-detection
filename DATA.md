@@ -423,3 +423,42 @@ under 140 mm on their short side (§9's table), where the frontier's clamp silen
 this cache pads. (2) A window's three channels span, in the source stack, a median of **1.6** slices
 (sag_1), 2.0 (sag_2), 2.5 (cor_1), 3.9 (cor_2) and 2.6 (ax) — consecutive *sampled* slices, the
 fork's and the frontier's convention (`MODEL.md` §3).
+
+---
+
+## 11. Public label tables against gold-58 `2026-09-23`
+
+`python extractor/bench_public_labels.py --download` (extended 09-23 with four new sources, a paired
+read against the training targets, a split-half test of per-label picking, and a gold-coverage guard).
+Gold-58 has 9–35 positives per label (MCL 9, Lateral OA 11, Baker's 12). Every third-party read is a
+**ceiling**: a prompt tuned on these rows leaves no trace.
+
+| source | gold-58 macro | paired vs `steven_v2` | P(better) | note |
+|---|--:|--:|--:|---|
+| `jev_hybrid` | 0.9025 | +0.0152 ± 0.0063 | 0.996 | **per-target pick made on gold-58**, blend weight on gold-74 (its README) |
+| `steven_v4` | 0.8927 | +0.0054 ± 0.0043 | 0.908 | a blend, possibly selected on gold (author) |
+| **`steven_v2`** | **0.8873** | — | — | **our training targets**; matches the author's published 0.8873 |
+| `steven_full` | 0.8780 | −0.0094 | 0.004 | |
+| `jev_text` | 0.8745 | −0.0129 ± 0.0110 | 0.128 | JEV's text-only half |
+| `pilkwang_v2` | 0.8658 | −0.0216 | 0.011 | |
+| `hosseini_jev` | 0.8554 | −0.0319 | 0.000 | class probabilities, scored P(1) + ½ P(not said) |
+| `lixin_gpt56` | 0.8352 | −0.0522 | 0.000 | the OOF scoring reference |
+| `pilkwang_v1` | 0.8125 | −0.0749 | 0.000 | |
+| `dread_soft` | — | — | — | **carries 0 of the 58 gold rows** — the frontier held gold out; not scorable here |
+
+**The per-label pick does not transfer.** Choosing, per finding, the best of `steven_v2`, `steven_v4`,
+`pilkwang_v2`, `jev_text`, `hosseini_jev` on a random 29 gold studies and scoring the composite on the
+other 29 against `steven_v2` on the same 29: **−0.0002 ± 0.0090, P(better) 0.527**, 1,996 splits.
+The picks are unstable (Fracture goes to `jev_text` 76% of the time, Lateral OA 60%; nothing else
+above 68%). `jev_hybrid`'s +0.015 is the selection, not the labels — `never-select-on-a-tiny-set`,
+measured rather than warned about.
+
+**No leak flags** on any source (`leaks_gold`, `gold_rows_differ`). **No table is a copy of the scoring
+reference**: mean per-label Spearman with `lixin_gpt56` on non-gold rows is 0.59–0.77 (`pilkwang_v2`
+highest at 0.774), so a training-label switch would not win on `score_oof.py` by construction —
+but none is worth switching to. **`tuyennguyenthicam/rsna-knee-expert-58` is not a label table**: it
+holds `test.csv`, `test_series.csv` and test DICOMs.
+
+**Decision:** `steven_v2` stays the training target. Labels were not the binding constraint
+(the model reproduces its own training labels at 0.8486, below the labels' own read), and no public
+table moves them. `DECISIONS.md` CLOSED.

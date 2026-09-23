@@ -62,11 +62,10 @@ Re-measure before citing. Last pulled **2026-09-23**:
   **0.942**. On 09-07 it was 0.917–0.922 and "leaders at 0.942+ publish nothing". **The free tier
   now sits +0.029 LB above our best submission.** Every member in §5.4 predates this.
 - Public-source survey re-run 09-23 (`kaggle datasets list -s "rsna knee" --sort-by updated`).
-  Never benched here at all, and the labels behind the 0.928 single model: **`dreaddevelopment/rsna-knee-labels`**
-  (CC0, soft LLM labels, `MODEL.md` §0) — leak-check first.
-  New since 09-07 and not yet benched: label tables `riadmohamed42/jev-knee-labels`,
-  `hosseini7798/rsna-knee-label-extraction-jev`; `tuyennguyenthicam/rsna-knee-expert-58` (the name
-  suggests gold-58 — **leak-check it before any read**, §3 rule 10); weights
+  ✅ **Label tables benched 09-23** (`DATA.md` §11): `dreaddevelopment/rsna-knee-labels` (holds gold
+  out, unscorable on it), `riadmohamed42/jev-knee-labels`, `hosseini7798/rsna-knee-label-extraction-jev`
+  — none beats `steven_v2` unfitted. `tuyennguyenthicam/rsna-knee-expert-58` is **not a label table**:
+  it holds `test.csv`, `test_series.csv` and test DICOMs. Not yet benched: weights
   `mattiaangeli/rsna-knee-coatnet-d4-depthzone-swa3-b2` (1,895 downloads), `miguelbeta/rsna-knee-dinov2-weights`;
   caches `crtproduction/rsna-knee-cache-v3-*` (384×12, 320×9), `lvthanhxun/rsna-knee-v9-cache`.
 
@@ -86,7 +85,7 @@ a backbone A/B** (§2c), which is cheaper and starts from a measured 0.928.
 | 5 | Train the A/B winner on the Stage-A cache on **all** non-fold-0 studies, then all studies | ~10 h each | after 3–4 |
 | 6 | Inference kernel for our own model; blend it into the public 0.943 stack, rank-mean by family | ~1–2 h/sub | after 5 |
 | — | `dinov3l` arm — explains *why* ortho won or lost | ~10 h | next quota week |
-| — | Label tables (dreaddevelopment soft labels, JEV) — leak-check, bench; the only route past 0.8985 | 0 (CPU) | parallel, any time |
+| — | Label tables (dreaddevelopment soft labels, JEV) — leak-check, bench | 0 (CPU) | ✅ **closed 09-23: none beats `steven_v2` without being fitted to gold; the per-label pick transfers at −0.0002 ± 0.0090** (`DATA.md` §11, `DECISIONS.md`). Keep `steven_v2` as targets |
 
 **Constraints that shape the order:** 30 GPU-h/week; **at most 2 GPU batch sessions at once** (hit on
 09-23); 12 h per session; deadline **2026-10-22**.

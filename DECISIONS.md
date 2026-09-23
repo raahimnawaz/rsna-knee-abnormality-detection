@@ -55,6 +55,7 @@ grounds to re-measure, a disappointing *result* is not.
 | route | verdict | § |
 |---|---|---|
 | crops as extra TTA windows | dead on both instruments, pre-registered | 3k, 3m |
+| switching training labels to a public table, or JEV's per-label pick between tables | **2026-09-23, `extractor/bench_public_labels.py`, gold-58:** no table not fitted to gold beats `steven_v2` (best: `jev_text` −0.013, then `pilkwang_v2` −0.022, `hosseini_jev` −0.032, `lixin` −0.052, paired). `jev_hybrid`'s +0.015 is selected on gold by its own README; a per-label pick made on half of gold and scored on the other half reads **−0.0002 ± 0.0090, P 0.53** over 2,000 splits. `dread_soft` holds gold out and cannot be read here. Re-opens only for a table that beats `steven_v2` WITHOUT touching gold, or for image-truth labels | `DATA.md` §11 |
 | blending the fork's `merge_gain` arm | +0.0007, 0/12 labels | 3h-2 |
 | K16 from DICOM header rules | 56.9–60.8% vs ~50% chance | 2n, 2m |
 | our rule extractor as a label source | last of six, 0.777 vs a free 0.893 | 2f |
