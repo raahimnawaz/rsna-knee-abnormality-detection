@@ -14,7 +14,8 @@ A slot with no series stays zeros with its mask cleared. This is the frontier's 
   * Span 2-98% by default: their 0.928 corpus ("maxspan"). Their 64-slice 6-94% model read 0.924.
   * The crop is PHYSICAL both ways. They clamp the box to the image when the field of view is
     under 140 mm, which silently changes mm-per-pixel for exactly those scans; here the box is
-    padded instead, so every slice is 140 mm across, and anisotropic PixelSpacing is honoured.
+    padded instead, so every slice is 140 mm across (6.2% of series are under 140 mm, `DATA.md`
+    §10), and anisotropic PixelSpacing is honoured (0 of 20,792 series have any, so that one is moot).
   * Upsampling uses bilinear, not INTER_AREA (which is nearest-neighbour when enlarging).
 
 Everything else follows their reader: IPP projected on IOP's normal for order (InstanceNumber only

@@ -82,7 +82,7 @@ a backbone A/B** (§2c), which is cheaper and starts from a measured 0.928.
 | 1 | Stage 0 — measure the data | 0 | ✅ `DATA.md` §9 |
 | 2 | §2b sampling test — why `train_port` lost | ~5 h | running |
 | 3 | §2c backbone A/B on the CC0 corpus, 9 epochs: `ortho` vs `coatnet` | ~16 h | ortho running; coatnet queued (2-GPU cap) |
-| 4 | Stage A — build the **64-slice, wide-span** cache from DICOMs (the 0.928 geometry) | 0 (CPU decode) | 4 CPU shards pushed 09-23 (`notebooks/build_stage_a_kernel.py`); 20-study smoke: 0 decode failures, 92/92 ordered by geometry, fill 1.0/1.0/1.0/0.6/1.0, ~0.9 s/study; edges thin but anatomy (§GATE A in the builder) |
+| 4 | Stage A — build the **64-slice, wide-span** cache from DICOMs (the 0.928 geometry) | 0 (CPU decode) | ✅ **built 09-23: 4,407 studies, 0 errors, 0 decode failures, slot fill = Stage 0 to 3 dp, GATE A passed** (`DATA.md` §10); attach `raahimnawaz/rsna-knee-stage-a-s{0..3}of4` |
 | 5 | Train the A/B winner on the Stage-A cache on **all** non-fold-0 studies, then all studies | ~10 h each | after 3–4 |
 | 6 | Inference kernel for our own model; blend it into the public 0.943 stack, rank-mean by family | ~1–2 h/sub | after 5 |
 | — | `dinov3l` arm — explains *why* ortho won or lost | ~10 h | next quota week |

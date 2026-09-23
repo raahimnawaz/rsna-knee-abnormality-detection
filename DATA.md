@@ -378,3 +378,48 @@ studies.
 **What it means.** All three of the `slots64` assumptions that were made without evidence hold.
 This is also the frontier's geometry (`MODEL.md` §0), so Stage 0 now supports it with our own
 measurement rather than theirs.
+
+---
+
+## 10. Stage A — the 64-slice cache, built `2026-09-23`
+
+`pipeline/build_slots64.py` via `notebooks/build_stage_a_kernel.py`: four CPU kernels
+`raahimnawaz/rsna-knee-stage-a-s{0..3}of4`, each writing `stage_a/{vols.npy, masks.npy, ids.npy,
+slots.csv, manifest.json}` (~8 GB of `vols.npy` per shard). Spec `c6-64slice`, span **2–98%**, 140 mm
+physical crop (padded, not clamped), 336 px, 2–98th percentile window per series. Built from commit
+`de29d23`. Manifests and `slots.csv` are in `data/stage_a/s*/` (gitignored); the numbers below are
+the record.
+
+| | shard 0 | shard 1 | shard 2 | shard 3 | all |
+|---|--:|--:|--:|--:|--:|
+| studies | 1,102 | 1,102 | 1,102 | 1,101 | **4,407** |
+| study errors | 0 | 0 | 0 | 0 | **0** |
+| decode failures | 0 | 0 | 0 | 0 | **0** |
+| series ordered by geometry | 5,220 | 5,183 | 5,197 | 5,192 | **20,792 (100%)** |
+| wall, 4 workers | 12.0 min | 11.1 | 10.8 | 14.6 | |
+
+**GATE A — passed.**
+- *Manifest records geometry:* `fov_mm` 140, `depth_range` [0.02, 0.98], per-series spacing,
+  `n_available` and `source_step` in `slots.csv`. ✅
+- *Slot fill ≥ Stage 0's prediction:* sag_1 1.000, sag_2 **0.973**, cor_1 1.000, cor_2 **0.745**, ax 1.000
+  — **equal to §9's independent header count to the third decimal** (97.3%, 74.5%). ✅
+- *Edges are anatomy, not wrap or air:* the 20-study render shows knee at both ends of every slot and
+  no wrap. Measured over 1,200 studies, the share of tissue pixels (>25/255) is thinner at the ends:
+
+  | slot | first | mid | last |
+  |---|--:|--:|--:|
+  | sag_1 / sag_2 | 0.50 / 0.49 | 0.83 / 0.81 | 0.52 / 0.51 |
+  | cor_1 / cor_2 | **0.22 / 0.19** | 0.81 / 0.81 | 0.75 / 0.73 |
+  | ax | 0.52 | 0.60 | 0.66 |
+
+  The anterior-most coronal slice is mostly air around the patella. Kept at 2–98% because the
+  frontier's 2–98% corpus beat its 6–94% one on LB (0.928 vs 0.924); the attention head can ignore
+  thin windows. ✅ with that caveat.
+
+**Two corrections, measured here.** (1) No series in the corpus has anisotropic pixels (0 of 20,792),
+so the frontier's single-spacing crop, which would stretch such a scan, never fires on this data.
+The difference that is live is padding: **6.2%** of series (8% of axial/coronal) have a field of view
+under 140 mm on their short side (§9's table), where the frontier's clamp silently zooms in and
+this cache pads. (2) A window's three channels span, in the source stack, a median of **1.6** slices
+(sag_1), 2.0 (sag_2), 2.5 (cor_1), 3.9 (cor_2) and 2.6 (ax) — consecutive *sampled* slices, the
+fork's and the frontier's convention (`MODEL.md` §3).
