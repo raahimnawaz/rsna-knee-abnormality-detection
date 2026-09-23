@@ -325,3 +325,56 @@ public arm was taught, because every public arm trains on the same mention-based
 worth about **+0.055** on the labels' own AUROC, with a lower bound near zero. That is smaller
 than this document claimed yesterday, it is still the only lever the rest of the board does not
 already have, and it is bounded — so run it to the bound and not past it.
+
+---
+
+## 9. C6 Stage 0 — the data, measured `2026-09-23`
+
+Kernel `raahimnawaz/rsna-knee-c6-stage0` v2, competition DICOMs, headers only. **4,407 studies,
+24,371 series, 0 errors**; true slice spacing from a 400-series sample (`sample_n` 400, image
+positions projected on the slice normal). Smoke-tested first against a fixture with known geometry
+(`RUNBOOK.md` §2.1) and on 20 studies on Kaggle (§2.2). Outputs are in `data/stage0/`, which is
+gitignored; the tables below are the record. The rules applied are `RUNBOOK.md` §2.4's, fixed
+before the run. **No AUC is produced or quoted here.**
+
+**A · Anisotropy — isotropic 3D is contraindicated.** `r_median_overall` **12.2** against a bar of 4.
+
+| plane | in-plane mm | true spacing mm | `SliceThickness` mm | gap mm | r median | r p10 | r p90 |
+|---|--:|--:|--:|--:|--:|--:|--:|
+| Sagittal | 0.3125 | **3.30** | 3.0 | 0.30 | 11.9 | 5.8 | 17.6 |
+| Coronal | 0.3125 | **3.60** | 3.0 | 0.60 | 11.8 | 7.2 | 19.5 |
+| Axial | 0.3125 | **3.90** | 3.0 | 0.90 | 12.8 | 5.4 | 20.8 |
+
+There is an **inter-slice gap** in every plane (10–30% of the slab). `SpacingBetweenSlices` agrees
+with the measured spacing (3.3 / 3.6 / 3.9); `SliceThickness` does not. No code on the training or
+scoring path uses `SliceThickness` as a sampling interval (checked 09-23; only the audit scripts
+read it). A 3D arm, if ever built, uses anisotropic `(1,3,3)` kernels — Stage E.
+
+**B · Stack depth — `slots64` survives.**
+
+| plane | series | p10 | median | p90 | max |
+|---|--:|--:|--:|--:|--:|
+| Sagittal | 9,864 | 21 | **30** | 36 | 320 |
+| Coronal | 8,609 | 18 | 30 | 36 | 80 |
+| Axial | 5,898 | 22 | 32 | 44 | 254 |
+
+Sagittal median 30 meets the ≥ 30 bar exactly, so 18 slices over 6–94% is a real sub-sample and the
+spec stands. At the p10 (21 slices) SAG-1 takes nearly every slice of the stack — dense, not padded.
+
+**C · Two series per plane — both second slots stay.**
+
+| | measured | bar | verdict |
+|---|--:|--:|---|
+| ≥ 2 sagittal series | **97.3%** | 60% | keep `sag_2` |
+| ≥ 2 coronal series | **74.5%** | 60% | keep `cor_2` |
+| ≥ 3 sagittal / coronal | 21.8% / 16.2% | — | the studies the 09-23 `cor_2` fix touches |
+| ≥ 1 sagittal / coronal | 100% / 100% | — | |
+
+Composition by plane × fluid-sensitivity (studies with ≥ 1 series): Sagittal fluid 94.2%, non-fluid
+96.8%; Coronal fluid 96.4%, non-fluid 77.3%; Axial fluid **100%**, non-fluid 19.5%. So the AX slot
+is almost always a fluid-sensitive series, and COR-2 falls back to a second fluid series in ~23% of
+studies.
+
+**What it means.** All three of the `slots64` assumptions that were made without evidence hold.
+This is also the frontier's geometry (`MODEL.md` §0), so Stage 0 now supports it with our own
+measurement rather than theirs.
