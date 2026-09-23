@@ -188,6 +188,17 @@ and protocol composition are.
 
 ## 9. C-PRE turned out to be unresolvable, and Stage C was uninterpretable anyway
 
+> ✅ **RESOLVED 2026-09-23 — and the premise below was wrong.** The authors' repo ships its
+> pretraining code, and it normalises with ImageNet's constants: `datasets/augmentation.py:51`
+> `Normalize((0.485, 0.456, 0.406), (0.229, 0.224, 0.225))` after `ToTensor()`, and
+> `datasets/knee_multidata.py:45-47` the same, on greyscale slices loaded `.convert("RGB")`
+> (R=G=B), global crops at 224 (<https://github.com/ytrsk/OrthoFoundation>, read 09-23).
+> **So `train_port.py`'s ImageNet buffers are correct for OrthoFoundation — C-PRE is not a bug.**
+> The repo also now carries an **MIT LICENSE**; the email is no longer the whole claim. One residue
+> worth recording: Ortho pretrained on R=G=B, and a 2.5D window puts three *different* slices in
+> the channels — the same shift every ImageNet encoder here already absorbs by fine-tuning.
+> The text below is kept as written.
+
 The fix requires reading `image_mean`/`image_std` from OrthoFoundation's checkpoint. **It ships no
 LICENSE at all** — the only grant is the authors' email of 2026-08-18 — so it may well ship no
 preprocessing config either. `RUNBOOK.md` §4 says to "measure them from the pretraining corpus"
@@ -217,7 +228,8 @@ before it is relied on for the plan's largest single number.
 
 ## What I would change, in order
 
-1. **Resolve C-PRE now** (§9) — free, and it gates whether Stage C exists.
+1. ~~**Resolve C-PRE now** (§9) — free, and it gates whether Stage C exists.~~ ✅ Resolved 09-23:
+   ImageNet constants are Ortho's own (§9).
 2. **Bench one epoch at the real window count** (§1) — their own standing rule; the 80 h figure is
    an extrapolation and extrapolation is what the rule forbids.
 3. **Measure the noise floor** (§4) — one extra run; every gate is unreadable without it.

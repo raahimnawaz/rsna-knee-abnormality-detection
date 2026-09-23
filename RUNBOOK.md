@@ -38,7 +38,7 @@ one after 24 hours.
 | `notebooks/stage0_fixture.py` | reproducible smoke test | r recovered to 0.01 on all 3 planes |
 | `pipeline/slots64.py` | **provisional — Stage 0 may overturn it** | `python pipeline/slots64.py` self-test (now includes the 3-coronal case; `cor_2` bug fixed 09-23) |
 | `fusion/perlabel_head.py` | ready, unused until Stage B | `python fusion/perlabel_head.py` self-test |
-| `fusion/train_port.py` | has `OrthoNet`, never run | ⚠️ carries the C-PRE bug, see §4 |
+| `fusion/train_port.py` | has `OrthoNet`, never run | ✅ C-PRE resolved 09-23: its ImageNet constants are Ortho's own, see §4 |
 | `notebooks/build_sampling_test_kernel.py` | **ready to push — §2b** | whole path smoke-tested off Kaggle on a synthetic DICOM fixture |
 | `fusion/contract_audit.py` | fixed 09-23: `slices`/`band` read off the path `train_port` trains on | — |
 
@@ -277,6 +277,11 @@ holdout. The bar is our own run.
 
 ## 4. ⛔ C-PRE — fix before Stage C, or Stage C answers the wrong question
 
+> ✅ **RESOLVED 2026-09-23 — no fix needed.** OrthoFoundation's own pretraining code normalises with
+> exactly these ImageNet constants (`ytrsk/OrthoFoundation` `datasets/augmentation.py:51`,
+> `datasets/knee_multidata.py:45-47`, greyscale loaded as RGB). The check below was right to demand
+> the source; the source agrees with the code. `PREMORTEM.md` §9.
+
 `fusion/train_port.py:274-275` registers ImageNet constants inside `OrthoNet`:
 
 ```python
@@ -339,7 +344,8 @@ could not give, where domain and architecture moved together.
 
 **GATE C:** `C1 − C0 > 0`, paired, fold 0, large-n. A null is a real result.
 
-⚠️ **OrthoFoundation has no LICENSE.** The only grant is the authors' email of **2026-08-18**.
+✅ **OrthoFoundation is now MIT-licensed** (a `LICENSE` file in `ytrsk/OrthoFoundation`, seen
+2026-09-23). Previously: ⚠️ no LICENSE; the only grant was the authors' email of **2026-08-18**.
 Preserve it — it is the entire claim. Competition §2.5.a carves out incompatibly-licensed
 pretrained models, so this is not a shipping blocker.
 

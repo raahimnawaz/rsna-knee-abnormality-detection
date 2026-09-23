@@ -30,6 +30,7 @@ single largest gain in the record, larger than any architecture delta. So the de
 **Licences are not a blocker** (DECISIONS.md): competition §2.5.a explicitly carves out
 incompatibly-licensed pretrained models. ⚠️ But **OrthoFoundation has no LICENSE at all** — the
 only grant is the authors' email of 2026-08-18. **Preserve that email**; it is the whole claim.
+✅ *Superseded 2026-09-23:* the repo now carries an **MIT LICENSE**.
 
 ---
 
@@ -183,6 +184,11 @@ External corroboration, not evidence: knee-MRI-specific pretraining significantl
 generic and general-medical pretrained weights on MRNet ([MedNet-FS, Sci Rep 2026](https://www.nature.com/articles/s41598-026-54489-x)).
 
 ### ⛔ C-PRE: resolve the normalisation from the checkpoint, or C1 is a false negative
+
+> ✅ **RESOLVED 2026-09-23: the ImageNet constants ARE OrthoFoundation's.** Its own pretraining
+> code (`ytrsk/OrthoFoundation`, `datasets/augmentation.py:51`, `datasets/knee_multidata.py:45-47`)
+> applies `Normalize((0.485,0.456,0.406),(0.229,0.224,0.225))` to greyscale slices loaded as RGB.
+> `train_port.py:274-275` is correct as it stands. `PREMORTEM.md` §9 has the detail.
 
 `train_port.py:274-275` hardcodes ImageNet constants as buffers inside `OrthoNet`:
 

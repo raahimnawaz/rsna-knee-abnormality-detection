@@ -94,6 +94,8 @@ grounds to re-measure, a disappointing *result* is not.
 - **Licences:** RadImageNet is `CC-BY-NC-SA-4.0`, and competition rules §5a explicitly carve out
   incompatibly licensed pretrained models — **not a blocker**. OrthoFoundation has **no LICENSE at
   all**; its only grant is the authors' email of 2026-08-18. **Preserve that email.**
+  ✅ *Superseded 2026-09-23:* the repo (`ytrsk/OrthoFoundation`) now carries an **MIT LICENSE**.
+  Keep the email anyway; it predates the file.
 - **Write geometry into the manifest.** §R happened because `box_mm` was never recorded anywhere.
 - **⛔ Two public label tables have GOLD BAKED IN** — `rayanbabur_soft` and `yunus_v5_merged`
   reproduce all 58 gold rows exactly, 0/1-valued there against 506 distinct values elsewhere.
