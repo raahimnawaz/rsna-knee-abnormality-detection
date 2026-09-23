@@ -36,15 +36,16 @@ one after 24 hours.
 | `PLAN-C6.md` | current plan, Stages 0–D | — |
 | `notebooks/build_stage0_kernel.py` | ✅ **ran 09-23, all 4,407 studies — `DATA.md` §9** | smoke-tested against a synthetic fixture — at the real mount depth since 09-23 (the depth-1 fixture had hidden a `find_root` that Kaggle would fail) |
 | `notebooks/stage0_fixture.py` | reproducible smoke test | r recovered to 0.01 on all 3 planes |
-| `pipeline/slots64.py` | **provisional — Stage 0 may overturn it** | `python pipeline/slots64.py` self-test (now includes the 3-coronal case; `cor_2` bug fixed 09-23) |
+| `pipeline/slots64.py` | ✅ **Stage 0 kept all three assumptions (09-23, `DATA.md` §9)** | `python pipeline/slots64.py` self-test (now includes the 3-coronal case; `cor_2` bug fixed 09-23) |
 | `fusion/perlabel_head.py` | ready, unused until Stage B | `python fusion/perlabel_head.py` self-test |
 | `fusion/train_port.py` | has `OrthoNet`, never run | ✅ C-PRE resolved 09-23: its ImageNet constants are Ortho's own, see §4 |
-| `notebooks/build_sampling_test_kernel.py` | **ready to push — §2b** | whole path smoke-tested off Kaggle on a synthetic DICOM fixture |
+| `notebooks/build_sampling_test_kernel.py` | **full run pushed 09-23 (T4) — §2b**; smoke passed all 3 checks | whole path smoke-tested off Kaggle on a synthetic DICOM fixture |
 | `fusion/contract_audit.py` | fixed 09-23: `slices`/`band` read off the path `train_port` trains on | — |
 
 ### 0.2 What is NOT done
 
-- **Nothing has touched a GPU.** No arm has been trained on a C6 cache. There is no C6 number.
+- **The first GPU runs were pushed 2026-09-23** (§2b sampling test; §2c backbone A/B smoke). No arm
+  has been trained on a C6 cache. There is no C6 number yet.
 - The local corpus was deleted 2026-09-07. **This repo is the only copy of the project.**
 - `data/` does not exist. Anything reading `data/*.csv` will fail until a stage recreates it.
 
