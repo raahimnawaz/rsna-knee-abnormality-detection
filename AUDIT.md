@@ -1,0 +1,227 @@
+# Pipeline Audit — rsna-knee-abnormality-detection
+
+Audited **2026-09-23** at `2cb9782`. Covers the scored path (folds → training → both local
+instruments → blend → submission kernel) and the C6 code the RUNBOOK says runs next (Stage 0,
+`slots64.py`, `perlabel_head.py`, the OrthoFoundation loader). `fusion/archive/`, `extractor/`
+internals beyond the leak check, and the EDA scripts were not audited.
+
+**Verdict:** the recorded numbers look sound. I found no leakage, no split contamination and no
+train/serve skew in the scored path. Gold is never trained on, nothing is selected on a
+validation fold, and the RadImageNet serving contract matches its measurement path field by field.
+**The problems are all in what runs next.** Stage 0 will not find the competition data on Kaggle.
+The fold partition every gate bar was measured on can no longer be rebuilt with certainty. And
+`slots64.py` has one assignment bug plus a gap between what the spec says and what the code does,
+both worth fixing before paying for the Stage A cache.
+
+---
+
+## Pipeline map
+
+```
+Kaggle DICOMs ──(kaggle_01* header audits)──────────────────────────────┐
+   │                                                                     │
+   ├─ local NIfTI repackaging (deleted 09-07) → slot_cache / *_pixels    │  D3: -0.085
+   └─ C6 plan: slots64.py on Kaggle DICOMs         [NOT BUILT]           │
+                                                                         ▼
+public LLM label tables ── bench_public_labels.py --download ──► targets.csv (steven_v2)
+                                                                     │
+dicom_headers parquet ── site_fingerprint.py ──► site_fingerprint.csv│
+                                                        │            │
+                                                        ▼            ▼
+                                     folds.py --group-by site  (stratified on targets+gold)
+                                                        │
+                                                        ▼  SPLIT: scanner-site groups, gold pinned
+                           train_port.py  fold k: train = other folds MINUS gold; fixed epochs;
+                                          last-epoch model → eval() + no_grad → oof_all.csv
+                                                        │
+                        ┌───────────────────────────────┴───────────────────────────┐
+                        ▼                                                           ▼
+     score_oof.py  vs lixin_gpt56, non-gold, n≈681/fold           score_gold.py  vs 58 image reads
+     (paired bootstrap on shared studies)                          + GOLD_TO_LB 0.039 → LB estimate
+                        │
+                        ▼
+     blend: equal-weight rank-mean over FAMILIES, nothing fitted   (build_f6_rad_kernel.py:309-339)
+                        │
+                        ▼  SERVE: notebooks/submissions/rsna-knee-f6-two-arm.ipynb (+ rad cell),
+                           DICOM decode in-notebook, re-run by Kaggle on hidden test
+```
+
+**Fitted objects.** Only model weights. No global scaler or imputer. Intensity windowing is
+per-series percentile (per-sample, so nothing crosses the split). Blend weights are not fitted.
+Fold recovery (`fold_recover.py:58`) is label-free. `GOLD_TO_LB` is a constant estimated from
+(gold, LB) pairs and is used only to read results, never to train.
+
+**Standing hazard, already known (D3).** The pixel reader exists twice, as local transcriptions
+(`pilkwang_pixels`, `rad_pixels`) and inside the notebook, and the two must agree by hand.
+`build_f6_rad_kernel.py`'s save/restore-and-assert of the module globals is the right defence.
+
+---
+
+## Findings
+
+### [HIGH] Stage 0 cannot find the competition data on Kaggle, and the local smoke test hides it
+**Where:** `notebooks/build_stage0_kernel.py:78-89`, `notebooks/stage0_fixture.py:26`, `RUNBOOK.md:169`
+**What:** `find_root()` scans only the **direct children** of `/kaggle/input`. This project already
+measured that the competition mounts one level deeper, at
+`/kaggle/input/competitions/rsna-knee-abnormality-detection` (`pipeline/preprocess.py:271`,
+2026-08-07). The shipped submission notebook's `find_root` checks that path first. The fixture
+builds its tree at `…/input/rsna-knee-abnormality-detection`, which is depth 1, so the RUNBOOK §2.1
+smoke test passes locally for exactly the layout Kaggle doesn't use.
+**Impact:** the next command in the RUNBOOK (`--limit 20` push) exits with
+`no competition root under /kaggle/input`. It fails loudly, so this costs a cycle rather than a
+wrong number. But RUNBOOK §2.5 maps that exact message to "competition not attached → fix
+`competition_sources`", which sends the fix to the wrong place.
+**Fix:** search two levels and require the marker file, as `preprocess.find_competition_root` does
+(inline it, since Stage 0 deliberately imports nothing). Move the fixture root to
+`input/competitions/rsna-knee-abnormality-detection` so the smoke test exercises the real depth,
+and correct the §2.5 row.
+
+### [HIGH] The fold partition, training targets and reference labels are unpinned, unhashed, and now exist only upstream
+**Where:** `extractor/bench_public_labels.py:65-72`, `fusion/folds.py:73-76,145-153`, `README.md:102-122`
+**What:** `download()` runs `kaggle datasets download <ref>` with **no version**. The site
+fingerprints come from `kaggle kernels output zhukovoleksiy/rsna-metadata-probe`, which is also
+the latest version. `folds.py` stratifies on `targets.csv` and groups on those fingerprints, so the
+partition depends on both upstream artefacts. No fold file, no input hash and no dataset version is
+committed. `git ls-files` has no `folds*.csv`, and the run manifests record neither the folds file
+nor the label version. `data/` was deleted on 09-07, so the next rebuild pulls whatever is current
+upstream.
+**Impact:** one new upstream version silently changes the training targets, the neutral reference
+(`lixin_gpt56`) and every fold assignment, with no error. Every bar in the RUNBOOK (0.7229 baseline,
+0.7323/0.7358 controls, Gate B's 0.7591) was measured on a partition you can't then check you have
+rebuilt. It is the "unseeded split" failure arriving through a download.
+**Fix:** after the next rebuild, commit `data/folds.csv` and `data/folds_site.csv`. They hold only
+UIDs and fold integers, and `fusion/runs_*/oof_all.csv` already commit UIDs. Write a small
+`data_manifest.json` with the SHA-256 of every downloaded input, and pass `-v <version>` where the
+Kaggle CLI allows it. Fold 0 can be cross-checked now: in a single-fold run,
+`fusion/runs_port/oof_all.csv`'s study set is fold 0 minus unusable studies.
+
+### [MEDIUM] `assign_series` gives `cor_2` the *third*-best coronal, not the second
+**Where:** `pipeline/slots64.py:134-151` (`Slot("cor_2", …, rank=1)` at `:69`)
+**What:** the candidate list already excludes the series `cor_1` took (`i not in used`), and then
+`rank=1` skips one more. Reproduced:
+```
+coronals: A (30 sl, fluid), B (28 sl, non-fluid), C (12 sl, non-fluid)
+→ cor_1 = A, cor_2 = C        # expected B
+```
+With exactly two coronals the `min(rank, len-1)` clamp hides the bug, which is why the self-test
+passes.
+**Impact:** every study with three or more coronal series fills `cor_2` with the shortest leftover
+stack. That could be a scout or a short sequence, and `cor_2` is the slot RUNBOOK §2.4-C is already
+unsure about. Stage 0's composition table gives the share of studies affected (`studies_with_ge2`
+alone can't tell 2 from 3+; add a `≥3` column).
+**Fix:** delete `rank` (the `used` set already means "next best"), or index into a sort that
+doesn't exclude used series. Add a three-coronal case to `_self_test`.
+
+### [MEDIUM] C6 windows aren't "three neighbouring slices", and the storage argument assumes they are
+**Where:** `pipeline/slots64.py:23-27,78-113`; `MODEL.md` §3; `RUNBOOK.md:147`
+**What:** windows are triples of consecutive **cache** slices, and cache slices are `pick_depths`
+samples spread over 6–94% of the stack. Gaps between samples (in source slices) for an 18-slice
+sagittal slot:
+
+| stack depth | 12 | 18 | 24 | 30 | 40 | 60 |
+|---|---|---|---|---|---|---|
+| gap between samples | 0–1 | 0–1 | 1–2 | 1–2 | 2–3 | 3 |
+
+So a window's three channels range from duplicated slices on short stacks (gap 0) to about 6
+slices apart on deep ones, and the spread varies per study. `MODEL.md` §3 describes neighbouring
+slices. The 32 GB vs 95 GB storage argument ("consecutive windows share two of their three
+slices") holds in the source stack only when stack depth ≈ n_slices / 0.88. RUNBOOK decision rule
+B ("sagittal median ≥ 30 → keep the spec") is exactly where windows stop being neighbours.
+**Impact:** unknown, and not known to be harmful. `pilkwang_pixels.band_indices` (`:84-85`) also
+groups linspace samples rather than true neighbours, and that arm is 0.8516. But the spec, the
+code and the cost argument disagree, and Stage A (~9 GPU-h) bakes one choice in.
+**Fix:** decide on purpose before Stage A. Either rewrite §3 and the docstring to say "evenly
+spaced triples", or cache true (c−1, c, c+1) neighbours around `n_windows` centres and re-price
+the storage. Either way, record the per-study gap in the manifest.
+
+### [MEDIUM] The gold leak check catches only verbatim copies, so gold-58 reads of public tables are upper bounds
+**Where:** `extractor/bench_external.py:123-125`
+**What:** `leaks_gold` fires only when a table matches gold in more than 99.9% of cells **and** is
+0/1-valued. A table that blends gold in, softens it (0.05/0.95), or whose author tuned prompts or
+thresholds against the 58 gold rows passes. The 58 gold rows are the only ground truth any
+competitor has, so tuning on them is the likely form of leakage, not the unusual one.
+**Impact:** D4 ("teacher reads gold 0.8985 → labels are not the binding constraint") and the closed
+rows that compare label tables on gold-58 read third-party sources that may have been fitted to
+those same 58 rows. That is §3b's selection effect (claims +0.0137, delivers −0.0034), done by
+someone else. The size is unknown. The direction is optimistic.
+**Fix:** add a distribution test to the leak check that compares gold rows with non-gold rows on
+share of exact 0/1 values, number of distinct values and mean |p − 0.5|. The two known leaks would
+have tripped it too ("0/1 there against 506 distinct values elsewhere"). Treat every
+third-party gold-58 read as a ceiling, and note that in D4.
+
+### [LOW] Both DataLoader workers draw identical augmentations
+**Where:** `fusion/train_port.py:121,359-366`
+**What:** `SlotDataset` creates `self.rng = np.random.default_rng(seed)` in `__init__`. With
+`num_workers=2`, each worker gets a pickled copy in the same state. PyTorch reseeds the *global*
+numpy RNG per worker, not Generator instances. The k-th sample on worker 0 and the k-th on worker 1
+get the same gamma, gain and slot-dropout mask.
+**Impact:** half the intended augmentation diversity. Probably small, but this file is the template
+the C6 harness will copy.
+**Fix:** create the generator lazily from `torch.utils.data.get_worker_info()` (seed + worker id),
+or in a `worker_init_fn`.
+
+### [LOW] `auc()` returns out-of-range values if a row with no label reaches it
+**Where:** `extractor/metrics.py:17-22`; the one open door is `fusion/score_gold.py:95`
+**What:** ranks are computed over **all** rows, including rows whose label is neither 0 nor 1.
+`auc([1, 0, nan], [.9, .1, .5])` returns **2.0**. A NaN *prediction* returns NaN, which
+`nanmean` then drops from the macro without warning. Every current caller filters incomplete rows
+first, except `score_gold.gold_frame`, which keeps partially labelled rows
+(`dropna(how="all")`). That is harmless only while all 58 gold rows are complete.
+**Fix:** inside `auc`, keep only rows where y ∈ {0,1} and s is finite, and raise if the NaN count
+isn't zero where the caller expects complete data.
+
+---
+
+## Operational (not pipeline bugs, but they gate the next step)
+
+- **The RUNBOOK's "only blocker" probably isn't one.** §1.1 says `kaggle.json` is "what the API
+  needs". The pinned client (`kaggle` 2.2.4, via `kagglesdk.get_access_token_from_env`) reads
+  `~/.kaggle/access_token` **first** and falls back to `kaggle.json` only after that. README:77 and
+  `requirements.txt:17` already say this. Run `python -m kaggle competitions list -s "rsna knee"`
+  with the existing token before minting a legacy key.
+- **The calendar.** The final submission is **2026-10-22, 29 days out**. The PREMORTEM (09-07) put
+  the plan at 6–8 weeks against 45 days, and nothing has been committed since. The RUNBOOK is 16
+  days old, past its own "re-run §0.3" threshold.
+
+---
+
+## Verified clean
+
+- **Gold never trains:** `train_port.py:353` removes `is_gold` from every training fold.
+- **No selection on the validation fold:** fixed epoch count with the last-epoch model
+  (`train_port.py:426-462`). No early stopping and no checkpoint picked by validation score.
+- **Eval mechanics:** `model.eval()` and `torch.no_grad()` before OOF inference
+  (`train_port.py:456-458`). The kernel's rad heads are `.eval()` under `@torch.no_grad()`
+  (`build_f6_rad_kernel.py:189,195,198`).
+- **Split:** scanner-site groups, integrity asserted (`folds.py:201-203`), deterministic (fixed
+  seed, `sort=True` groupby, seeded tie-break). Patient grouping is not available: PatientIDs are
+  unique per study (`folds.py:11-13`).
+- **Large-n instrument:** excludes gold, scores paired arms on the intersection, bootstrap
+  indices are deterministic (`score_oof.py:153`).
+- **No fitted preprocessing crosses the split.** Windowing is per-series and there are no global
+  statistics.
+- **Blend:** equal-weight rank-mean over families, nothing fitted, per-arm fallback to pilkwang's
+  rank for unreadable studies (`build_f6_rad_kernel.py:309-339`).
+- **RadImageNet train/serve contract:** normalisation `x/127.5 − 1`, grey→3ch, 224 px, 8 slices,
+  band 0.12–0.88, full frame and slot order are identical between the measurement path
+  (`rad_arm.py:98-99`, `rad_pixels.py:61-67`) and the kernel (`build_f6_rad_kernel.py:89-91,249-250`),
+  with SHA-256 and strict-load guards.
+- **OrthoFoundation RoPE fix works.** I checked this because timm can cache RoPE embeddings at
+  construction, which would make the post-hoc `periods.copy_` a no-op. In timm 1.0.28
+  `vit_large_patch16_dinov3` sets `dynamic_img_size=True`, so `feat_shape=None`, nothing is cached,
+  and `get_embed(shape=…)` recomputes from `periods` on every forward (`eva.py:690,879`;
+  `pos_embed_sincos.py:1290-1300`).
+- **`perlabel_head.py`:** masks in score space before the softmax, and all-masked rows stay
+  finite.
+- **No horizontal flip**, which would swap medial and lateral (`train_port.py:106-109`).
+- **Fold recovery** uses no labels (`fold_recover.py:58-65`). Its upward bias from
+  misassignment is documented where it is used.
+
+## Open questions
+
+1. Is `stevenleehans/…/llm_labels_v2.csv` still the version the recorded runs trained on? Nothing
+   in the repo can answer this now. It decides whether the recorded bars still apply.
+2. Did any public label table's author validate or tune against the 58 gold rows? That decides
+   whether D4's 0.8985 is a ceiling or an estimate.
+3. Stage 0's composition table: what share of studies have **three or more** coronal series? That
+   is how many studies the `cor_2` bug affects.
