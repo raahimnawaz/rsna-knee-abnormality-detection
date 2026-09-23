@@ -60,6 +60,7 @@ DATASETS = ["dreaddevelopment/knee-raptor-corpus",           # 3,200 studies, CC
             "stevenleehans/rsna-knee-llm-report-labels",     # llm_labels_v2.csv -> targets.csv
             "lixin73/rsna-knee-llm-report-labels-sol56"]     # the scoring reference
 KERNELS = ["zhukovoleksiy/rsna-metadata-probe"]              # headers.parquet -> site folds
+STAGE_A_SHARDS = [f"{OWNER}/rsna-knee-stage-a-s{i}of4" for i in range(4)]   # build_stage_a_kernel.py
 N_TRAIN, DRAW_SEED = 2871, 20260923
 
 
@@ -75,6 +76,7 @@ import pandas as pd
 
 ARCH = __ARCH__
 MODE = __MODE__
+LAYOUT = __LAYOUT__
 EPOCHS = __EPOCHS__
 BUILT_FROM = __BUILT_FROM__
 T0 = time.time()
@@ -135,8 +137,7 @@ def _sha(p):
     return hashlib.sha256(Path(p).read_bytes()).hexdigest()
 
 
-WANT = {"llm_labels_v2.csv", "labels_llm_gpt56sol.csv", "headers.parquet",
-        "all_ids.npy", "extra_ids.npy"}
+WANT = {"llm_labels_v2.csv", "labels_llm_gpt56sol.csv", "headers.parquet"}
 FOUND = {}
 for _root, _dirs, _files in os.walk("/kaggle/input"):
     _dirs[:] = [d for d in _dirs if d not in ("train_series", "test_series")]
@@ -180,13 +181,13 @@ log(f"partition check: {len(CTRL) - len(_drift)}/{len(CTRL)} control studies are
 if _drift:
     sys.exit(f"the rebuilt fold 0 lost {len(_drift)} control studies -- the paired read would be contaminated")
 
-CORPUS_IDS = set(np.concatenate([np.load(FOUND[f][0], allow_pickle=True).astype(str)
-                                 for f in ("all_ids.npy", "extra_ids.npy")]))
-log(f"corpus holds {len(CORPUS_IDS)} studies")
+from train_windows import Corpus as _Corpus        # the trainer's own loader and its checks
+CORPUS_IDS = set(_Corpus(Path("/kaggle/input"), LAYOUT).ids)
+log(f"corpus ({LAYOUT}) holds {len(CORPUS_IDS)} studies")
 VAL = [u for u in CTRL if u in CORPUS_IDS]
 _pool = sorted(u for u in FOLDS.loc[(FOLDS.fold != 0) & (~FOLDS.is_gold), "StudyInstanceUID"]
                if u in CORPUS_IDS and u in TARGETS_DF.index and TARGETS_DF.loc[u, L].notna().all())
-TRAIN = sorted(np.random.default_rng(__DRAW_SEED__).choice(
+TRAIN = _pool if not __N_TRAIN__ else sorted(np.random.default_rng(__DRAW_SEED__).choice(
     _pool, size=min(__N_TRAIN__, len(_pool)), replace=False).tolist())
 log(f"train {len(TRAIN)} (a seeded draw from a pool of {len(_pool)}) | val {len(VAL)} "
     f"({len(CTRL) - len(VAL)} control studies are not in the corpus)")
@@ -206,7 +207,7 @@ TRAIN = r'''
 # Train: fusion/train_windows.py, the only place an arm differs is --arch.
 # ============================================================================ #
 _cmd = [sys.executable, "-u", str(REPO / "fusion" / "train_windows.py"), "--arch", ARCH,
-        "--corpus", "/kaggle/input", "--train", str(RUN / "train_studies.csv"),
+        "--corpus", "/kaggle/input", "--layout", LAYOUT, "--train", str(RUN / "train_studies.csv"),
         "--val", str(RUN / "val_studies.csv"), "--labels", str(D / "targets.csv"),
         "--out", str(RUN), "--weights-dir", str(SCRATCH), "--epochs", str(EPOCHS)]
 if MODE == "smoke":
@@ -259,6 +260,10 @@ def main() -> None:
     g.add_argument("--smoke", action="store_true", help="CPU, 16 + 6 studies, one epoch. First.")
     g.add_argument("--bench", action="store_true", help="T4, ONE full epoch, scored. Prices the run.")
     ap.add_argument("--epochs", type=int, default=10, help="full run only")
+    ap.add_argument("--corpus", choices=["raptor44", "stage_a"], default="raptor44",
+                    help="raptor44: the CC0 44-slice corpus (the A/B); stage_a: our 64-slice shards")
+    ap.add_argument("--n-train", type=int, default=N_TRAIN,
+                    help=f"seeded draw from the pool ({N_TRAIN} = the A/B count); 0 = the whole pool")
     a = ap.parse_args()
     mode = "smoke" if a.smoke else "bench" if a.bench else "full"
     epochs = 1 if mode != "full" else a.epochs
@@ -270,14 +275,18 @@ def main() -> None:
     blob = base64.b64encode(json.dumps(files).encode()).decode()
     built_from = _git_head()
     setup = (SETUP.replace("__ARCH__", repr(a.arch)).replace("__MODE__", repr(mode))
+                  .replace("__LAYOUT__", repr(a.corpus))
                   .replace("__EPOCHS__", str(epochs)).replace("__BUILT_FROM__", repr(built_from))
                   .replace("__FILES_B64__", repr(blob)))
-    prep = PREP.replace("__DRAW_SEED__", str(DRAW_SEED)).replace("__N_TRAIN__", str(N_TRAIN))
+    prep = PREP.replace("__DRAW_SEED__", str(DRAW_SEED)).replace("__N_TRAIN__", str(a.n_train))
     cells = [setup, prep, TRAIN, SCORE]
     for k, c in enumerate(cells):
         compile(c, f"cell{k}", "exec")              # fail here, not after the queue wait
 
-    slug = f"rsna-knee-backbone-ab-{a.arch}"
+    # the A/B keeps its slugs; a Stage A run is a different experiment and gets its own
+    slug = f"rsna-knee-backbone-ab-{a.arch}" if a.corpus == "raptor44" else f"rsna-knee-c6-train-{a.arch}"
+    datasets = DATASETS if a.corpus == "raptor44" else DATASETS[2:]
+    kernels = KERNELS + ([] if a.corpus == "raptor44" else STAGE_A_SHARDS)
     nb = {"cells": [{"cell_type": "code", "execution_count": None, "metadata": {}, "outputs": [],
                      "source": c.strip("\n").splitlines(keepends=True)} for c in cells],
           "metadata": {"kernelspec": {"display_name": "Python 3", "language": "python", "name": "python3"},
@@ -291,12 +300,13 @@ def main() -> None:
             # internet: Ortho's checkpoint comes from the authors' GitHub (sha-checked), the other
             # encoders from the HF Hub. A training run, not a submission.
             "enable_internet": True, "keywords": [],
-            "dataset_sources": DATASETS, "kernel_sources": KERNELS,
+            "dataset_sources": datasets, "kernel_sources": kernels,
             "competition_sources": ["rsna-knee-abnormality-detection"], "model_sources": []}
     if mode != "smoke":
         meta["machine_shape"] = "NvidiaTeslaT4"
     (a.out / "kernel-metadata.json").write_text(json.dumps(meta, indent=2), encoding="utf-8")
-    print(f"built {a.out / (slug + '.ipynb')}  arch={a.arch} mode={mode} epochs={epochs}  from {built_from}")
+    print(f"built {a.out / (slug + '.ipynb')}  arch={a.arch} corpus={a.corpus} n_train={a.n_train or 'pool'} "
+          f"mode={mode} epochs={epochs}  from {built_from}")
     if "uncommitted" in built_from:
         print("  ⚠️ embedded files differ from HEAD -- commit first so the run is reproducible")
     print(f"push:  python -m kaggle kernels push -p {a.out}")
