@@ -16,6 +16,10 @@ says *why*; this says *what to run, what to expect, and what to do with the answ
 > on **12 slices across 20–80%**. **Before funding Stage A, run the sampling test (§2b).** It is the
 > one run that says whether our own training reaches public strength when fed public-style input.
 
+> ⛔ **The frontier's training recipe is public (read 2026-09-23) — `MODEL.md` §0.** A single
+> CoAtNet on our own `slots64` geometry reads **LB 0.928**, above our whole blend. C6 copied its
+> input and not its training. Read §0 before funding Stage B or C as written.
+
 Last updated **2026-09-07**; D3 amended and §2b added **2026-09-23**; §0.3 re-pulled and §1.1
 confirmed (auth works on `access_token`) **2026-09-23**. If today is much later than that, re-run §0.3 before trusting any
 claim here about the outside world — five beliefs about it have already expired in this project,

@@ -7,6 +7,43 @@ the three pieces of it are named below.
 
 ---
 
+## 0. ⛔ The frontier's TRAINING recipe is public too — read 2026-09-23, code not description
+
+This file copied the frontier's **input** (§2 is dreaddevelopment's slot table, verbatim). It never
+copied its **training**, and that is public: `dreaddevelopment/knee-mri-training-the-twelve-finding-model`
+(~670 lines, one script), inference `dreaddevelopment/knee-mri-twelve-findings-from-a-single-model`,
+weights `dreaddevelopment/raptor-knee-widedense` / `raptor-knee-maxspan`. Their single model now
+reads **LB 0.928** (maxspan: 64 slices over 2–98%) — above our entire 3-family blend (0.914).
+Licence of the script and corpus: **not yet checked**.
+
+| | ours (`train_port`, `runs_port_repro` 0.7597) | frontier (0.924 → 0.928 LB, one model) |
+|---|---|---|
+| input | 6 slots × **one** 3-slice window at depth 0.5 = 18 slices | 5 slots, **64 slices over 6–94%** (2–98% for 0.928) |
+| windows / study | 1 per slot | train: **12 random** windows per study per step; eval: **every** window (42–62) |
+| crop | 160 mm (runs_port) | 140 mm by `PixelSpacing`, stored 336, fed at 384 |
+| backbone | DINOv2-S, last 6 blocks, lr 8e-6 | `coatnet_rmlp_2_rw_384.sw_in12k_ft_in1k`, **fully fine-tuned**, lr 3e-5 / head 1e-3 |
+| head | `SlotHead`, one shared pool | **per-finding attention MIL**: 12 softmax attentions over windows, per-finding linear |
+| loss | BCE on `steven_v2` | BCE on LLM **soft** labels, `pos_weight = clip((1−p)/p, 1, 10)` |
+| schedule | 30 ep, last epoch, one seed | 16 ep, OneCycle 15% warm-up, bs 8, clip 3.0, bf16, grad-ckpt |
+| augmentation | rotation, scale, shift, intensity | **intensity ±10% only**; no flips (laterality is signal) |
+| selection | last epoch | best epoch on gold-58 **+ top-3 weight average** — ⚠️ violates our §3 rule 1, so their 0.9167 gold read is selected; the LB number is not |
+
+**Their own ablation trail** (inference-notebook comments + dataset cards, their numbers, LB):
+CoAtNet alone **0.914** on a 3,200-study corpus; 3-arm blends of it 0.914–0.915 ("ensembling is worth
+~+0.001 there"); retrained on all **4,349** studies → **0.924**; from a later 0.926, the same 44 slices spread
+over a wider span → **0.917** (worse); **64** slices over that span → **0.928**. *Widening the span pays only if density
+is kept.* Two levers moved their single model +0.014 LB: **more training studies** and **dense wide
+coverage**. Neither is an architecture.
+
+**What this means for C6.** Stage A's cache is their geometry already. Stage B's encoder
+(DINOv2-small, partial unfreeze) and Stage C's ViT-L are **not** their recipe; the shortest path to
+an arm of our own at public strength is their training script on our cache with our labels, and
+Stage B/C become ablations *off that*. Their script also takes `--ckpt <ssl checkpoint>` and any timm
+arch, which makes it the natural harness for a fair OrthoFoundation test (C-5 was frozen, 160 mm,
+ImageNet-normalised — `DECISIONS.md`).
+
+---
+
 ## 1. What is wrong with the current model, measured
 
 | | ours (`slot_cache` + `SlotHead`) | frontier | evidence |
