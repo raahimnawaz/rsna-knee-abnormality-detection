@@ -16,7 +16,8 @@ says *why*; this says *what to run, what to expect, and what to do with the answ
 > on **12 slices across 20–80%**. **Before funding Stage A, run the sampling test (§2b).** It is the
 > one run that says whether our own training reaches public strength when fed public-style input.
 
-Last updated **2026-09-07**; D3 amended and §2b added **2026-09-23**. If today is much later than that, re-run §0.3 before trusting any
+Last updated **2026-09-07**; D3 amended and §2b added **2026-09-23**; §0.3 re-pulled and §1.1
+confirmed (auth works on `access_token`) **2026-09-23**. If today is much later than that, re-run §0.3 before trusting any
 claim here about the outside world — five beliefs about it have already expired in this project,
 one after 24 hours.
 
@@ -45,12 +46,22 @@ one after 24 hours.
 
 ### 0.3 Facts with an expiry date
 
-Re-measure before citing. Last pulled **2026-09-07**:
+Re-measure before citing. Last pulled **2026-09-23**:
 
-- Leaderboard: **3,289 teams**, top **0.954**, 10th (prize line) **0.950**, ours **0.914** @ rank 1446.
-- Public notebook tier sits **0.917–0.922**; leaders at 0.942+ publish nothing.
-- Public-source survey: last full survey **2026-08-10** and it was already 27 days stale by 09-06,
-  having missed four label tables. **Re-run `kaggle datasets list -s "rsna knee"`.**
+- Leaderboard: **4,244 teams**, top **0.958**, 10th (prize line) **0.955**, ours **0.914** @ rank
+  2184. (09-07: 3,289 / 0.954 / 0.950 / rank 1446.)
+- ⛔ **The public notebook tier is now 0.942–0.943** — read off the Kaggle pages, not the titles:
+  `mattiaangeli/bend-the-knee-to-speedy-raptors-the-original` **0.943** (Apache 2.0, 6 min
+  inference on 2×T4, DINOv2 + two CoAtNet readers, training notebooks public as "RSNA Knee E11/E13
+  train"), `romantamrazov/rsna-knee-dinosaur-v5` **0.943**, `andreluizpedroso/rsna-knee-tony-rank-ensemble`
+  **0.942**. On 09-07 it was 0.917–0.922 and "leaders at 0.942+ publish nothing". **The free tier
+  now sits +0.029 LB above our best submission.** Every member in §5.4 predates this.
+- Public-source survey re-run 09-23 (`kaggle datasets list -s "rsna knee" --sort-by updated`).
+  New since 09-07 and not yet benched: label tables `riadmohamed42/jev-knee-labels`,
+  `hosseini7798/rsna-knee-label-extraction-jev`; `tuyennguyenthicam/rsna-knee-expert-58` (the name
+  suggests gold-58 — **leak-check it before any read**, §3 rule 10); weights
+  `mattiaangeli/rsna-knee-coatnet-d4-depthzone-swa3-b2` (1,895 downloads), `miguelbeta/rsna-knee-dinov2-weights`;
+  caches `crtproduction/rsna-knee-cache-v3-*` (384×12, 320×9), `lvthanhxun/rsna-knee-v9-cache`.
 
 ---
 
