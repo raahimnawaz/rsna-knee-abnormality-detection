@@ -289,6 +289,16 @@ check: 691/691`; `corpus holds 4407 studies`; `val windows per study` median nea
 **Read from the bench:** `bench.json` → `train_epoch_min_measured`, `peak_cuda_gb`,
 `eval_sec_per_study`. Epochs for the full run = what fits in ~10 h with eval, same for every arm.
 
+**Bench, measured 2026-09-23** (`fusion/runs_ab_ortho_bench/`, T4, 2,871 studies, k 12, bs 8 as 2×4):
+**61.8 min per epoch** (358 steps, 2.56 s per 2-study step, 0.107 s per window), peak **6.9 GB**,
+eval **0.87 s/study** (691 val ≈ 10 min; `avg3` another 10), 73 min wall in total. After ONE epoch
+Ortho reads **0.7508** against `runs_port_repro`'s 30-epoch 0.7596, paired **−0.0088 ± 0.0071**
+(1.2σ, P 0.10) — level after 1/30th of the training, but a single compressed schedule, **not the A/B**.
+Per label it is up on MCL (+0.050), Effusion, Synovitis, Fracture and down on Baker's (−0.095), PF OA,
+Medial Meniscus, ACL. Gold-58 0.762, reported only.
+**Epochs for the full runs: 9, every arm** — 9 × 62 min + ~25 min eval + setup ≈ 10 h inside the 12 h
+cap; 10 epochs leaves under an hour of margin. `dinov3l` has Ortho's architecture, so the same cost.
+
 **Rule (pre-registered):** knee pretraining pays if `ortho − dinov3l > 0` paired at P ≥ 0.95; Ortho
 is the encoder to use if `ortho − coatnet > 0` paired at P ≥ 0.95; neither is a null, recorded as
 one. Primary = last epoch; `avg3/` is secondary and not a second chance. One seed per arm.
