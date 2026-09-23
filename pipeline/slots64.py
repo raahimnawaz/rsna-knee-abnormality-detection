@@ -25,10 +25,13 @@ live. §3z pre-registered this before the first cache and it was never built. 6-
 0-100% because the end slices of an MR stack are routinely partial-volume or wrap, and the
 frontier's own published range is 6-94%.
 
-WHY 64 SLICES AND NOT 64 WINDOWS ARE CACHED. Windows are adjacent triples (§3), so consecutive
-windows share two of their three slices. Caching windows would store every slice three times --
-21.6 MB/study instead of 7.2 MB, 95 GB instead of 32 GB, for zero extra information. Windows are
-assembled in the Dataset. This is the only reason the cache fits inside Kaggle's 20 GB per-kernel
+WHY 64 SLICES AND NOT 64 WINDOWS ARE CACHED. A window is three CONSECUTIVE SAMPLED slices (§3):
+neighbours in this cache, but 0-3 slices apart in the source stack depending on its depth (see
+`source_step`). So consecutive windows share two of their three cache slices, and caching windows
+would store every slice three times -- 21.6 MB/study instead of 7.2 MB, 95 GB instead of 32 GB --
+for no extra information. (Triples of TRUE stack neighbours around each centre would be extra
+information and would cost exactly that 3x; `MODEL.md` §3 records why they were not chosen.)
+Windows are assembled in the Dataset. This is the only reason the cache fits inside Kaggle's 20 GB per-kernel
 output cap when sharded eight ways.
 """
 from __future__ import annotations
@@ -94,6 +97,18 @@ def pick_depths(n_available: int, n_want: int) -> np.ndarray:
     lo = DEPTH_LO * (n_available - 1)
     hi = DEPTH_HI * (n_available - 1)
     return np.clip(np.round(np.linspace(lo, hi, n_want)), 0, n_available - 1).astype(int)
+
+
+def source_step(n_available: int, n_want: int) -> float:
+    """Mean distance, in SOURCE slices, between consecutive sampled slices of one series.
+
+    What a window's three channels span: ~1 on a stack about 1.1x the slot's slice count (true
+    neighbours), 2-3 on a deep one, below 1 on a short one (channels repeat). It varies per series,
+    so the Stage A builder records it per (study, slot) beside `n_available` -- decided 2026-09-23,
+    when the spec was found to describe neighbours while the code sampled (AUDIT.md).
+    """
+    d = pick_depths(n_available, n_want)
+    return float(np.diff(d).mean()) if len(d) > 1 else 0.0
 
 
 def window_ids() -> tuple[np.ndarray, np.ndarray, np.ndarray]:
@@ -165,6 +180,10 @@ def manifest() -> dict:
     return {"spec": "c6-64slice", "fov_mm": FOV_MM, "target_mm": TARGET_MM, "img": IMG,
             "depth_range": [DEPTH_LO, DEPTH_HI], "group": GROUP,
             "n_slices": N_SLICES, "n_windows": N_WINDOWS,
+            # MODEL.md §3: consecutive SAMPLED slices, the fork's convention, not stack neighbours.
+            # The builder must add `n_available` and `source_step` per (study, slot).
+            "window": "consecutive sampled slices",
+            "per_series": ["n_available", "source_step"],
             "slots": [asdict(s) for s in SLOTS]}
 
 
@@ -186,6 +205,9 @@ def _self_test() -> None:
     d = pick_depths(100, 18)
     assert d.min() <= 6 and d.max() >= 93, f"depths do not span 6-94%: {d.min()}..{d.max()}"
     assert len(d) == 18 and (np.diff(d) >= 0).all()
+    # What a window spans in the source stack: neighbours only when the stack is ~1.1x the slot.
+    assert abs(source_step(20, 18) - 1.0) < 0.1, source_step(20, 18)
+    assert 2.5 < source_step(60, 18) < 3.5 and source_step(12, 18) < 1.0
     # Short and degenerate series must not raise.
     for n, want in ((1, 18), (2, 18), (5, 12), (0, 8)):
         got = pick_depths(n, want)

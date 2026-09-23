@@ -10,10 +10,9 @@ train/serve skew in the scored path. Gold is never trained on, nothing is select
 validation fold, and the RadImageNet serving contract matches its measurement path field by field.
 **One recorded *conclusion* is wrong, though: D3** (first finding, added the same day). The problems
 otherwise are in what runs next. The fold partition every gate bar was measured on can no longer be
-rebuilt with certainty (still open; the sampling test checks fold 0). `slots64.py`'s windows don't
-match what its spec describes, which is worth settling before paying for the Stage A cache. Two
-findings are **fixed as of 09-23**: Stage 0's `find_root`, which would not have found the
-competition data on Kaggle, and `slots64`'s `cor_2` assignment.
+rebuilt with certainty. It is now guarded by a hash record, and the sampling test checks fold 0.
+**Every finding below is fixed, guarded or decided as of 09-23.** Each one says what was done and
+how it was tested.
 
 ---
 
@@ -105,7 +104,7 @@ the first image-tree candidate, and the fixture now uses the real layout. The ne
 every expected fixture number, and the old worker, run on the corrected fixture, exits with
 `no competition root … saw ['some-other-dataset', 'competitions']`. The RUNBOOK §2.5 row is corrected.
 
-### [HIGH] The fold partition, training targets and reference labels are unpinned, unhashed, and now exist only upstream
+### [HIGH] The fold partition, training targets and reference labels are unpinned, unhashed, and now exist only upstream — *guarded 09-23*
 **Where:** `extractor/bench_public_labels.py:65-72`, `fusion/folds.py:73-76,145-153`, `README.md:102-122`
 **What:** `download()` runs `kaggle datasets download <ref>` with **no version**. The site
 fingerprints come from `kaggle kernels output zhukovoleksiy/rsna-metadata-probe`, which is also
@@ -123,6 +122,7 @@ UIDs and fold integers, and `fusion/runs_*/oof_all.csv` already commit UIDs. Wri
 `data_manifest.json` with the SHA-256 of every downloaded input, and pass `-v <version>` where the
 Kaggle CLI allows it. Fold 0 can be cross-checked now: in a single-fold run,
 `fusion/runs_port/oof_all.csv`'s study set is fold 0 minus unusable studies.
+**Done:** `pipeline/provenance.py` holds every third-party input, and each fold file, to `provenance/inputs.json` by SHA-256. On first sight it records the hash; on a mismatch it exits and names both hashes; `--accept-new` moves the record. It is wired into `bench_public_labels --download`, `site_fingerprint.py` and `folds.py` (which also commits a copy of the partition under `provenance/`). `bench_public_labels.PINNED_VERSIONS` can fetch `owner/dataset/versions/N` when an old file has to be recovered. The sampling kernel checks its inputs against the same record before it decodes anything, and exports `provenance/` for you to commit. Tested: the first run records, a rerun matches, a changed parquet is refused, and the kernel stops before the decode on a planted mismatch. **Still open:** the record is empty until the first real rebuild, because the files that produced the 09-06 numbers were deleted with `data/`. The sampling test's fold-0 check is the only link back to them.
 
 ### [MEDIUM] `assign_series` gives `cor_2` the *third*-best coronal, not the second — *fixed 09-23*
 **Where:** `pipeline/slots64.py:134-151` (`Slot("cor_2", …, rank=1)` at `:69`)
@@ -145,7 +145,7 @@ doesn't exclude used series. Add a three-coronal case to `_self_test`.
 Stage 0 now also reports `studies_with_ge3` and `pct_with_3plus_*`, which say how many studies the
 fix touches.
 
-### [MEDIUM] C6 windows aren't "three neighbouring slices", and the storage argument assumes they are
+### [MEDIUM] C6 windows aren't "three neighbouring slices", and the storage argument assumes they are — *decided 09-23*
 **Where:** `pipeline/slots64.py:23-27,78-113`; `MODEL.md` §3; `RUNBOOK.md:147`
 **What:** windows are triples of consecutive **cache** slices, and cache slices are `pick_depths`
 samples spread over 6–94% of the stack. Gaps between samples (in source slices) for an 18-slice
@@ -166,8 +166,9 @@ code and the cost argument disagree, and Stage A (~9 GPU-h) bakes one choice in.
 **Fix:** decide on purpose before Stage A. Either rewrite §3 and the docstring to say "evenly
 spaced triples", or cache true (c−1, c, c+1) neighbours around `n_windows` centres and re-price
 the storage. Either way, record the per-study gap in the manifest.
+**Done:** I chose the sampled form, the fork's convention, which is proven at 0.8516. `MODEL.md` §3 and the `slots64` docstring now describe what the code does. `slots64.source_step` gives the source-slice spacing, the manifest names it as a required per-series field for the Stage A builder, and it is in the self-test. True-neighbour windows remain the untested alternative, at 3× the cache.
 
-### [MEDIUM] The gold leak check catches only verbatim copies, so gold-58 reads of public tables are upper bounds
+### [MEDIUM] The gold leak check catches only verbatim copies, so gold-58 reads of public tables are upper bounds — *fixed 09-23*
 **Where:** `extractor/bench_external.py:123-125`
 **What:** `leaks_gold` fires only when a table matches gold in more than 99.9% of cells **and** is
 0/1-valued. A table that blends gold in, softens it (0.05/0.95), or whose author tuned prompts or
@@ -181,8 +182,9 @@ someone else. The size is unknown. The direction is optimistic.
 share of exact 0/1 values, number of distinct values and mean |p − 0.5|. The two known leaks would
 have tripped it too ("0/1 there against 506 distinct values elsewhere"). Treat every
 third-party gold-58 read as a ceiling, and note that in D4.
+**Done:** `bench_external.gold_rows_differ` flags a table whose gold rows differ from its other rows (0/1 share +30 points, or mean |p−0.5| +0.15). Both benchmarks now print SUSPECT beside such a score and label every gold-58 read a ceiling. `bench_public_labels.py`, which scores `steven_v2` (D4's 0.8985) and had no leak check at all, now runs both checks. On synthetic data a 0.05/0.95-softened copy is flagged, while honest soft and honest all-binary tables are not. A tuned prompt remains undetectable by construction.
 
-### [LOW] Both DataLoader workers draw identical augmentations
+### [LOW] Both DataLoader workers draw identical augmentations — *fixed 09-23*
 **Where:** `fusion/train_port.py:121,359-366`
 **What:** `SlotDataset` creates `self.rng = np.random.default_rng(seed)` in `__init__`. With
 `num_workers=2`, each worker gets a pickled copy in the same state. PyTorch reseeds the *global*
@@ -192,8 +194,9 @@ get the same gamma, gain and slot-dropout mask.
 the C6 harness will copy.
 **Fix:** create the generator lazily from `torch.utils.data.get_worker_info()` (seed + worker id),
 or in a `worker_init_fn`.
+**Done:** `train_port.seed_worker` seeds each worker from (seed, worker id), deterministically. `--legacy-worker-rng` reproduces the old shared stream, and the sampling kernel uses it so the input stays its only variable. Tested: legacy mode is byte-identical to the old code with 2 workers; the fix is deterministic across reruns; the workers now draw distinct streams.
 
-### [LOW] `auc()` returns out-of-range values if a row with no label reaches it
+### [LOW] `auc()` returns out-of-range values if a row with no label reaches it — *fixed 09-23*
 **Where:** `extractor/metrics.py:17-22`; the one open door is `fusion/score_gold.py:95`
 **What:** ranks are computed over **all** rows, including rows whose label is neither 0 nor 1.
 `auc([1, 0, nan], [.9, .1, .5])` returns **2.0**. A NaN *prediction* returns NaN, which
@@ -202,12 +205,13 @@ first, except `score_gold.gold_frame`, which keeps partially labelled rows
 (`dropna(how="all")`). That is harmless only while all 58 gold rows are complete.
 **Fix:** inside `auc`, keep only rows where y ∈ {0,1} and s is finite, and raise if the NaN count
 isn't zero where the caller expects complete data.
+**Done:** only rows labelled 0 or 1 are ranked, and a non-finite score warns. It is identical to the old function on complete labels (max diff 0 over 2,000 random draws with ties). All 23 callers pass complete 0/1 labels, so no recorded number moves.
 
 ---
 
 ## Operational (not pipeline bugs, but they gate the next step)
 
-- **The RUNBOOK's "only blocker" probably isn't one.** §1.1 says `kaggle.json` is "what the API
+- ***Fixed 09-23:*** **The RUNBOOK's "only blocker" probably isn't one.** §1.1 says `kaggle.json` is "what the API
   needs". The pinned client (`kaggle` 2.2.4, via `kagglesdk.get_access_token_from_env`) reads
   `~/.kaggle/access_token` **first** and falls back to `kaggle.json` only after that. README:77 and
   `requirements.txt:17` already say this. Run `python -m kaggle competitions list -s "rsna knee"`

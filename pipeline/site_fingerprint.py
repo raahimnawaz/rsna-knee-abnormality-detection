@@ -78,6 +78,13 @@ def build(headers: Path = HEADERS) -> pd.DataFrame:
 
 
 def main() -> None:
+    # The site folds are a function of this file, and it is a third-party kernel's output fetched at
+    # whatever version is current. Hold it to the record (pipeline/provenance.py, AUDIT.md).
+    if HEADERS.exists():
+        sys.path.insert(0, str(PROJ / "pipeline"))
+        from provenance import check
+        check(HEADERS, "kaggle kernels output zhukovoleksiy/rsna-metadata-probe",
+              accept_new="--accept-new" in sys.argv)
     out = build()
     vc = out.fingerprint.value_counts()
     print(f"{len(out):,} studies  ->  {len(vc)} distinct scanner fingerprints")

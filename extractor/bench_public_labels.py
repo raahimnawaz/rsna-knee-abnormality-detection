@@ -62,14 +62,29 @@ SOURCES = {
 }
 
 
-def download() -> None:
+# ref -> dataset version to download instead of the latest. Empty means "latest", which is what
+# every download before 2026-09-23 took. When `provenance.check` refuses a file because upstream
+# moved, find the version whose file matches the record on the dataset's Versions tab and pin it
+# here; the Kaggle CLI takes `owner/dataset/versions/N`.
+PINNED_VERSIONS: dict[str, int] = {}
+
+
+def download(accept_new: bool = False) -> None:
+    sys.path.insert(0, str(PROJ / "pipeline"))
+    from provenance import check
     PUB.mkdir(parents=True, exist_ok=True)
     for ref in sorted({r for r, _ in SOURCES.values()}):
         dest = PUB / ref.replace("/", "_")
         dest.mkdir(exist_ok=True)
-        print(f"  {ref}")
-        subprocess.run(["kaggle", "datasets", "download", ref, "-p", str(dest), "--unzip"],
+        spec = f"{ref}/versions/{PINNED_VERSIONS[ref]}" if ref in PINNED_VERSIONS else ref
+        print(f"  {spec}")
+        subprocess.run(["kaggle", "datasets", "download", spec, "-p", str(dest), "--unzip"],
                        check=True, stdout=subprocess.DEVNULL)
+        # The targets (steven_v2) and the scoring reference (lixin_gpt56) come from here, so a
+        # silently newer file would move both. Hash every file this script reads (AUDIT.md).
+        for r, fname in SOURCES.values():
+            if r == ref and (dest / fname).exists():
+                check(dest / fname, spec, accept_new=accept_new)
 
 
 def hanley_se(a: float, n_pos: int, n_neg: int) -> float:
@@ -121,10 +136,12 @@ def rank_mean(sources: list[pd.DataFrame], idx: pd.Index) -> pd.DataFrame:
 def main() -> None:
     ap = argparse.ArgumentParser(description=__doc__.splitlines()[0])
     ap.add_argument("--download", action="store_true", help="pull the public Datasets first")
+    ap.add_argument("--accept-new", action="store_true",
+                    help="let a download that differs from provenance/inputs.json replace the record")
     args = ap.parse_args()
 
     if args.download:
-        download()
+        download(accept_new=args.accept_new)
 
     gold = load_gold()
     idx = gold.index
@@ -151,7 +168,25 @@ def main() -> None:
 
     pd.set_option("display.width", 250, "display.max_columns", 30)
     print("=== single sources, macro AUROC on gold-58 ===")
+    print("  every public read is a CEILING: a prompt tuned on these 58 rows leaves no trace")
     print(t[["macro", "se"]].round(4).to_string())
+
+    # The two leak checks bench_external.py runs on the newer tables, applied to these six too:
+    # D4's "the teacher reads gold 0.8985" is a read of steven_v2 from this list, and nothing had
+    # ever checked it. Warn, do not withhold -- withholding is for a proven copy (AUDIT.md).
+    from bench_external import align as raw, gold_rows_differ, leaks_gold
+    tr = pd.read_csv(D / "train.csv")
+    rest = pd.Index(tr.StudyInstanceUID[~tr.StudyInstanceUID.isin(idx)])
+    G = gold.loc[idx, LABELS].to_numpy(float)
+    for name, (ref, fname) in SOURCES.items():
+        path = PUB / ref.replace("/", "_") / fname
+        vg, vn = raw(path, idx, fill=False), raw(path, rest, fill=False)
+        if vg is None:
+            continue
+        if leaks_gold(np.nan_to_num(vg, nan=0.5), G):
+            print(f"  ⛔ {name}: GOLD IS IN THIS FILE -- its score above is not a result")
+        elif why := gold_rows_differ(vg, vn):
+            print(f"  ⚠ {name} SUSPECT: {why}")
     print("\n=== per label ===")
     print(t[LABELS].round(3).to_string())
 

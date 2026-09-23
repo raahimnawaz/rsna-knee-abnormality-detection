@@ -54,17 +54,21 @@ Re-measure before citing. Last pulled **2026-09-07**:
 
 ---
 
-## 1. Prerequisites — one blocker, and it is not code
+## 1. Prerequisites — probably no blocker at all
 
-### 1.1 Kaggle credentials `THE ONLY THING BLOCKING STAGE 0`
+### 1.1 Kaggle credentials — probably already there
 
-`~/.kaggle/` currently holds an `access_token` (38 bytes) but **no `kaggle.json`**, which is what
-the API needs.
+`~/.kaggle/` holds an `access_token` (38 bytes) and no `kaggle.json`. **That is the file the current
+client wants.** This section used to say a `kaggle.json` was required, which was wrong. `kaggle`
+2.2.x authenticates with `~/.kaggle/access_token` (or `$KAGGLE_API_TOKEN`) **first** and only falls
+back to `kaggle.json` after that (`kagglesdk.get_access_token_from_env`, checked 2026-09-23 against
+2.2.4). README and `requirements.txt` already said so.
+
+Test it with §1.2's last line. Only if that fails (an expired token, most likely) make a new one:
 
 ```bash
-# kaggle.com -> your avatar -> Settings -> API -> "Create New Token" -> downloads kaggle.json
-mkdir -p ~/.kaggle && mv ~/Downloads/kaggle.json ~/.kaggle/kaggle.json
-chmod 600 ~/.kaggle/kaggle.json
+# kaggle.com -> avatar -> Settings -> API -> "Generate New Token"; paste the token string into:
+printf %s 'KGAT_...' > ~/.kaggle/access_token && chmod 600 ~/.kaggle/access_token
 ```
 
 ### 1.2 A Python env with the `kaggle` package
@@ -153,7 +157,7 @@ wrong. Record the delta in `DATA.md`.
 
 | result | consequence |
 |---|---|
-| sagittal median **≥ 30** | 18 slices over 6–94% is a real sub-sample. Keep the spec. |
+| sagittal median **≥ 30** | 18 slices over 6–94% is a real sub-sample. Keep the spec. Its windows then span ~3+ source slices (2 × `slots64.source_step`), not neighbours (`MODEL.md` §3, deliberate). |
 | sagittal median **20–30** | 18 slices is most of the stack; `pick_depths` repeat-padding becomes load-bearing. Keep, but check the p10. |
 | sagittal median **< 20** | ⚠️ the spec asks for more slices than exist. **Reduce the slot counts** to the p10, or a large share of studies gets padded repeats that teach the encoder nothing. |
 
@@ -222,6 +226,10 @@ verdict is in `sampling_test_verdict.json`:
 | **≥ +0.043** (half the gap) | **The input is the main cause.** Our training reaches public strength on public-style input. C6's coverage direction is right for a reason D3 never gave. Fund Stage A, and build its Gate B control from this run rather than `runs_port` (PREMORTEM §3). |
 | **≤ +0.015** | **The input is not the main cause.** What remains is training and evaluation: site-grouped folds, one seed vs four, last epoch vs best-on-holdout, the label table. **Do not fund Stage A on coverage grounds.** |
 | between | Both contribute. Next, split the fork's reader from its sampling. |
+
+**Also commit what the run exports under `provenance/`** (`inputs.json` and `folds_site.csv`) into the
+repo's `provenance/`. That is the first hash record of the inputs, and the fold partition every later
+gate is held to (AUDIT.md). The kernel refuses to run on inputs that differ from a committed record.
 
 ⚠️ **Do not compare the absolute number with pilkwang's 0.8453.** That figure is a 4-seed mean, and
 per the fork's notebook its holdout is not site-grouped and its best epoch is picked on that same

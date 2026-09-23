@@ -87,6 +87,8 @@ EMBED = [
     "fusion/folds.py",
     "pipeline/site_fingerprint.py",
     "extractor/metrics.py",
+    "pipeline/provenance.py",
+    "provenance/inputs.json",                  # what the inputs must hash to, once recorded
     "fusion/runs_port_repro/oof_all.csv",      # the control: 691 fold-0 studies, 0.7597
 ]
 
@@ -203,6 +205,11 @@ for _f in sorted(WANT):
         log(f"!! {_f} found {len(FOUND[_f])} times; using {FOUND[_f][0]}")
     log(f"input {_f}: {FOUND[_f][0]}  sha256 {_sha(FOUND[_f][0])[:16]}")
 
+# Hold every third-party input to provenance/inputs.json: a file that differs from the one the
+# project measured on stops the run HERE, before the decode. An empty record just records.
+from provenance import check as _check, DIR as _PROV
+_check(FOUND["llm_labels_v2.csv"][0], "stevenleehans/rsna-knee-llm-report-labels")
+
 # targets.csv, exactly as README step 1 builds it
 shutil.copy(ROOT / "train.csv", D / "train.csv")
 _tr = pd.read_csv(D / "train.csv")
@@ -217,9 +224,12 @@ log(f"targets.csv: {len(TARGETS_DF)} studies, "
 _ref = D / "public_llm_labels" / "lixin73_rsna-knee-llm-report-labels-sol56"
 _ref.mkdir(parents=True, exist_ok=True)
 shutil.copy(FOUND["labels_llm_gpt56sol.csv"][0], _ref / "labels_llm_gpt56sol.csv")
+_check(_ref / "labels_llm_gpt56sol.csv", "lixin73/rsna-knee-llm-report-labels-sol56")
 
 # site fingerprints, then site-grouped folds -- the repo's own code, README step 2-3
 shutil.copy(FOUND["headers.parquet"][0], D / "external" / "dicom_headers_zhukovoleksiy.parquet")
+_check(D / "external" / "dicom_headers_zhukovoleksiy.parquet",
+       "kaggle kernels output zhukovoleksiy/rsna-metadata-probe")
 import site_fingerprint as _sfp
 _fp = _sfp.build()
 _fp.to_csv(_sfp.OUT, index=False)
@@ -248,6 +258,10 @@ if _drift:
     sys.exit(f"⛔ the rebuilt folds_site.csv does not reproduce the control's fold 0: {len(_drift)} "
              f"of its studies moved. An upstream input changed (targets or headers). Stop -- the "
              f"paired delta would be contaminated. First moved: {_drift[:3]}")
+# The partition passed: keep it, so the next rebuild can be held to it (AUDIT.md). The record and
+# the fold file land in /kaggle/working/provenance/ -- commit both to the repo's provenance/.
+_check(D / "folds_site.csv", "fusion/folds.py --group-by site", keep_copy=True)
+shutil.copytree(_PROV, OUT / "provenance", dirs_exist_ok=True)
 PROVENANCE = {"built_from": BUILT_FROM,
               "inputs": {k: {"path": str(v[0]), "sha256": _sha(v[0])} for k, v in FOUND.items()},
               "folds_site_sha256": _sha(D / "folds_site.csv"),
@@ -348,7 +362,10 @@ TRAIN = r'''
 _cmd = [sys.executable, "-u", str(REPO / "fusion" / "train_port.py"),
         "--cache", str(CACHE_DIR), "--tag", TAG,
         "--folds", str(D / "folds_site.csv"), "--labels", str(D / "targets.csv"),
-        "--run-folds", "0", "--out", str(RUN), "--verbose"]
+        "--run-folds", "0", "--out", str(RUN), "--verbose",
+        # runs_port_repro trained with both workers drawing identical augmentation streams (fixed
+        # in train_port 09-23). Keep that here so the input stays the ONE variable.
+        "--legacy-worker-rng"]
 if SMOKE:
     _cmd += ["--epochs", "1"]
 log("train: " + " ".join(_cmd))

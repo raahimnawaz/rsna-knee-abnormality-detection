@@ -124,6 +124,13 @@ python fusion/folds.py --out data/folds.csv
 python fusion/folds.py --group-by site --out data/folds_site.csv
 ```
 
+**These steps now hold their inputs to `provenance/inputs.json`** (`pipeline/provenance.py`, added
+2026-09-23). The first rebuild records the SHA-256 of the label tables, the header parquet and each
+fold file, and `folds.py` keeps a copy of the partition in `provenance/`. **Commit `provenance/`
+after that run.** From then on, a download that differs from the record exits and names both hashes
+instead of silently moving the targets and folds. `--accept-new` moves the record deliberately, and
+`bench_public_labels.PINNED_VERSIONS` recovers an old version.
+
 `site_fingerprint.py` warns if the count leaves 200–340. **Take it seriously** — §2j records a
 version that silently put 24% of the corpus in one group while reporting a healthy count.
 

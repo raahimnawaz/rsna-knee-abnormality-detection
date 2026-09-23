@@ -59,8 +59,18 @@ information.
 
 ## 3. Windowing — 2.5D
 
-Three **neighbouring** slices stack into the three channels of one image. The backbone sees a
+Three **consecutive sampled** slices stack into the three channels of one image. The backbone sees a
 little above and below the centre slice: most of the benefit of 3D at the cost of 2D.
+
+⚠️ **Sampled, not neighbouring. Decided 2026-09-23.** A slot's slices are spread evenly over 6–94% of
+the stack (`slots64.pick_depths`), so a window's channels are adjacent in the cache but **0–3 slices
+apart in the stack**. They are true neighbours only when the stack is about 1.1× the slot's slice
+count, 2–3 apart on a deep one, and repeated on a short one (`slots64.source_step`). This section
+used to say "neighbouring", and that was never what the code did. The sampled form is kept on
+purpose: it is the fork's convention (`pilkwang_pixels.band_indices`, 12 samples grouped in threes),
+and that arm reads 0.8516. True (c−1, c, c+1) neighbours around each centre are the untested
+alternative, at 3× the cache (~95 GB vs ~32 GB). Stage A records `source_step` per series so the
+choice can be audited afterwards (AUDIT.md).
 
 Stride 1 within a slot, dropping the two edge positions, gives
 `(18−2)+(14−2)+(12−2)+(8−2)+(12−2) = 54` windows. The frontier scores 42, so it drops some; **start

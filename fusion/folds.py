@@ -192,6 +192,8 @@ def main() -> None:
                          "the grouped one is what the reproduction gate must use")
     ap.add_argument("--labels", default=None,
                     help="soft-target CSV for stratification; default data/targets.csv")
+    ap.add_argument("--accept-new", action="store_true",
+                    help="let a partition that differs from provenance/ replace the record")
     args = ap.parse_args()
 
     folds = build(group_by=args.group_by, labels_csv=args.labels)
@@ -202,6 +204,13 @@ def main() -> None:
     if bad > 1:
         sys.exit(f"FAIL: a group landed in {bad} folds -- grouping is broken")
     print(f"\nwrote {args.out}")
+
+    # Every gate bar in RUNBOOK.md was measured on ONE partition, and it depends on two unpinned
+    # downloads. Record it, keep a committed copy, and refuse a different one (AUDIT.md).
+    sys.path.insert(0, str(PROJ / "pipeline"))
+    from provenance import check
+    check(Path(args.out), f"fusion/folds.py --group-by {args.group_by}",
+          accept_new=args.accept_new, keep_copy=True)
 
 
 if __name__ == "__main__":

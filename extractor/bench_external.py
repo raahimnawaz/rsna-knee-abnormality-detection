@@ -111,18 +111,49 @@ def paired(Y, A, B, n_boot=N_BOOT):
     return b.mean(), np.percentile(b, 2.5), np.percentile(b, 97.5), (b > 0).mean()
 
 
-def align(path: Path, idx) -> np.ndarray | None:
+def align(path: Path, idx, fill: bool = True) -> np.ndarray | None:
     if not path.exists():
         return None
     d = pd.read_csv(path).drop_duplicates("StudyInstanceUID").set_index("StudyInstanceUID")
     if not set(LABELS) <= set(d.columns):
         return None
-    return d.reindex(idx)[LABELS].apply(pd.to_numeric, errors="coerce").fillna(0.5).values
+    v = d.reindex(idx)[LABELS].apply(pd.to_numeric, errors="coerce")
+    return v.fillna(0.5).values if fill else v.values
 
 
 def leaks_gold(V: np.ndarray, G: np.ndarray) -> bool:
     """A table that reproduces gold exactly, in 0/1, has gold written into it."""
     return bool((V == G).mean() > 0.999 and np.isin(V, [0.0, 1.0]).mean() > 0.999)
+
+
+# How far gold rows may sit from the rest of a table before it is called SUSPECT. The two tables
+# that copied gold read ~1.0 binary on gold rows against a soft table elsewhere (506 distinct
+# values); an honest reader of 58 reports has no reason to write them any differently from 4,349.
+SUSPECT_BINARY_GAP = 0.30        # share of cells exactly 0 or 1, gold rows minus the rest
+SUSPECT_CONFIDENCE_GAP = 0.15    # mean |p - 0.5|, gold rows minus the rest
+
+
+def gold_rows_differ(Vg: np.ndarray, Vn: np.ndarray) -> str:
+    """'' if gold rows look like the rest of the table, else a one-line reason.
+
+    `leaks_gold` only catches a table that COPIED gold. A table that blended it in, softened it to
+    0.05/0.95, or was otherwise written differently on exactly these 58 rows passes that check and
+    reads optimistic -- and gold-58 is the only truth any competitor has, so fitting to it is the
+    likely leak, not the exotic one. This catches the ones that leave a trace in the values.
+    What it cannot catch is a prompt or threshold TUNED on gold-58: that leaves no trace, so every
+    third-party gold-58 read is a ceiling, never an estimate (AUDIT.md).
+    """
+    g, n = Vg[np.isfinite(Vg)], Vn[np.isfinite(Vn)]
+    if not len(g) or not len(n):
+        return ""
+    bin_g, bin_n = np.isin(g, [0.0, 1.0]).mean(), np.isin(n, [0.0, 1.0]).mean()
+    conf_g, conf_n = np.abs(g - 0.5).mean(), np.abs(n - 0.5).mean()
+    why = []
+    if bin_g - bin_n > SUSPECT_BINARY_GAP:
+        why.append(f"0/1 cells {bin_g:.0%} on gold rows vs {bin_n:.0%} elsewhere")
+    if conf_g - conf_n > SUSPECT_CONFIDENCE_GAP:
+        why.append(f"mean |p-0.5| {conf_g:.2f} on gold rows vs {conf_n:.2f} elsewhere")
+    return "; ".join(why)
 
 
 def main() -> None:
@@ -141,8 +172,11 @@ def main() -> None:
     leaked: set[str] = set()
 
     print(f"=== gold-58, leak-checked  (n={len(gold)}) ===")
+    print("  every read below is a CEILING: a prompt tuned on these 58 rows leaves no trace")
+    nongold = pd.Index(tr.StudyInstanceUID[~tr.StudyInstanceUID.isin(gold.index)])
     for name, (ref, fname) in sources.items():
-        a = align(PUB / ref.replace("/", "_") / fname, gold.index)
+        path = PUB / ref.replace("/", "_") / fname
+        a = align(path, gold.index)
         if a is None:
             print(f"  {name:22s} -- not present or wrong schema (try --download)")
             continue
@@ -150,8 +184,10 @@ def main() -> None:
         if leaks_gold(a, G):
             leaked.add(name)
             print(f"  {name:22s}   ⛔ GOLD IS IN THIS FILE — score withheld")
-        else:
-            print(f"  {name:22s}   {macro(G, a):.4f}")
+            continue
+        why = gold_rows_differ(align(path, gold.index, fill=False),
+                               align(path, nongold, fill=False))
+        print(f"  {name:22s}   {macro(G, a):.4f}" + (f"   ⚠ SUSPECT: {why}" if why else ""))
 
     ext = load_frontier()
     if ext is not None:

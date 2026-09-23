@@ -126,6 +126,7 @@ class SlotDataset(torch.utils.data.Dataset):
         self.store, self.uids, self.train = store, uids, train
         self.slot_dropout = slot_dropout
         self.y = targets.loc[uids, LABELS].to_numpy(np.float32)
+        self.seed = seed
         self.rng = np.random.default_rng(seed)
 
     def __len__(self) -> int:
@@ -174,6 +175,19 @@ class SlotDataset(torch.utils.data.Dataset):
         # contributes at 0.25 instead of teaching the model that the finding is absent.
         w = 0.25 + 0.75 * (2 * y - 1).abs()
         return {"x": x, "m": m, "y": y, "w": w, "uid": uid}
+
+
+def seed_worker(_worker_id: int) -> None:
+    """Give each DataLoader worker its OWN augmentation stream.
+
+    `SlotDataset.rng` is a Generator made in `__init__`, and every worker receives a pickled copy
+    of it in the same state -- PyTorch reseeds numpy's GLOBAL generator per worker, not instances.
+    So until 2026-09-23 the k-th sample on worker 0 and the k-th on worker 1 drew the same gamma,
+    gain and slot-dropout mask: half the augmentation diversity the code describes (AUDIT.md).
+    Deterministic per (seed, worker), so a rerun reproduces.
+    """
+    info = torch.utils.data.get_worker_info()
+    info.dataset.rng = np.random.default_rng([info.dataset.seed, info.id])
 
 
 # ----------------------------------------------------------------------------- model
@@ -358,7 +372,7 @@ def _fold_cfg(a, store: TileStore, fold: int, n_train: int) -> dict:
             "img": a.img, "epochs": a.epochs, "batch": a.batch,
             "unfreeze_last": a.unfreeze_last, "lr_backbone": LR_BACKBONE, "lr_head": LR_HEAD,
             "wd": a.wd, "dropout": a.dropout, "slot_dropout": a.slot_dropout,
-            "seed": a.seed, "limit": a.limit,
+            "seed": a.seed, "limit": a.limit, "legacy_worker_rng": bool(a.legacy_worker_rng),
             "preprocess_version": store.manifest.get("preprocess_version")}
 
 
@@ -376,8 +390,11 @@ def run_fold(fold: int, folds: pd.DataFrame, store: TileStore, targets: pd.DataF
                         seed=a.seed + fold)
     va_ds = SlotDataset(store, va, targets, train=False)
     nw = a.workers
+    # --legacy-worker-rng keeps the duplicated streams every run before 2026-09-23 trained with, so
+    # a comparison against one of those runs changes only what it means to change.
     tr_dl = torch.utils.data.DataLoader(tr_ds, batch_size=a.batch, shuffle=True, drop_last=True,
-                                        num_workers=nw, persistent_workers=nw > 0)
+                                        num_workers=nw, persistent_workers=nw > 0,
+                                        worker_init_fn=None if a.legacy_worker_rng else seed_worker)
     va_dl = torch.utils.data.DataLoader(va_ds, batch_size=a.batch, num_workers=nw,
                                         persistent_workers=nw > 0)
 
@@ -510,6 +527,9 @@ def main() -> None:
     ap.add_argument("--limit", type=int, default=0, help="studies per fold, for a smoke test")
     ap.add_argument("--out", default=str(PROJ / "fusion" / "runs_port"))
     ap.add_argument("--verbose", action="store_true")
+    ap.add_argument("--legacy-worker-rng", action="store_true",
+                    help="reproduce the pre-2026-09-23 duplicated per-worker augmentation streams; "
+                         "only for a paired comparison against a run made before then")
     ap.add_argument("--resume", action="store_true",
                     help="continue from fold{N}_last.pt if it matches this run's config")
     a = ap.parse_args()
