@@ -407,7 +407,7 @@ def main() -> None:
                 torch.cuda.synchronize()
             step_times.append(time.time() - t0)
             if it % 50 == 0:
-                log(f"  ep{ep} it{it} loss {float(loss):.4f} "
+                log(f"  ep{ep} it{it} loss {float(loss.detach()):.4f} "
                     f"({np.mean(step_times[-50:]):.2f} s per {a.micro}-study forward+backward)")
             if time.time() - t_start > a.time_budget_h * 3600:
                 stopped_early = f"time budget at epoch {ep} iter {it}"
