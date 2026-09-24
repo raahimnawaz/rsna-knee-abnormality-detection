@@ -40,8 +40,41 @@ input is the main cause, +0.0441, ~half the gap (§2b) · Stage A cache ✅ buil
 §10) · backbone A/B ✅ **ortho 0.8148 beats coatnet 0.8047, +0.0102 ± 0.0041, P 0.996** (§2c) · public
 label tables ✅ closed, keep `steven_v2` (`DATA.md` §11) · C-PRE ✅ resolved (§4).
 
-**The next piece of work: the inference kernel** (`notebooks/build_submit_kernel.py`, not yet written).
-What it must do, and the traps already found:
+**⏸ 2026-09-24 15:00 — Submission B is BUILT and TESTED, and NOT RUN: the push hit "Maximum weekly GPU
+quota of 30.00 hours reached."** Nothing was submitted. When the quota resets, in this order:
+```bash
+S=/tmp/subb   # any scratch dir
+.venv/bin/python -m kaggle kernels pull mattiaangeli/bend-the-knee-to-speedy-raptors-the-original -p $S/pub -m
+.venv/bin/python notebooks/build_submit_kernel.py --public-dir $S/pub --out $S/subb   # refuses if upstream moved its seams
+.venv/bin/python -m kaggle kernels push -p $S/subb                  # commit run: 3 visible studies, ~10-15 min
+.venv/bin/python notebooks/build_window_curve_kernel.py --out $S/curve && .venv/bin/python -m kaggle kernels push -p $S/curve
+# commit log must show "GATE PASSED" (8 fold-0 studies rebuilt from DICOMs reproduce oof_all.csv)
+# and "[blend] ARMS: ... = 3 families". Only then:
+.venv/bin/python -m kaggle competitions submit rsna-knee-abnormality-detection \
+    -k raahimnawaz/rsna-knee-sub-b-ortho-blend -v <n> -f submission.csv -m "Sub B: ortho stage A 1/3 + public 0.943 stack"
+```
+What it is: `fusion/infer_windows.py` (built from `build_study`, `window_centres`, `WindowMIL` -- the
+trainer's own parts) runs first in subprocesses, one per T4; then the public stack's 24 cells unmodified;
+then our model joins as a **third family at 1/3** (the public stack is two families by its own
+`family_mix`; §5.4's rule is an equal rank-mean over families, nothing fitted); then the public publish
+cell. The weight is fixed by the rule, not tuned: nothing here can score the public stack out of fold.
+Tested off Kaggle on the synthetic DICOM fixture (the gate passes on a match, exits 1 on a +0.05 offset;
+the notebook's own cells run against a fake `/kaggle/input`). **The one untested risk is time:** the public
+stack calls itself "comfortably in less than 9 hrs" on the hidden set and guards 8 h from its own start;
+ours adds ~20-35 min in front. The commit run cannot price the hidden run.
+
+⛔ **The "6 min inference on 2×T4" quoted for the public notebook in §0.3 was its COMMIT run on the 3
+visible studies** (its log: 370 s). It is not an efficiency-track entry: at several hours on the hidden
+set its runtime term alone is ~0.5-0.9. The efficiency track is a race between FAST models, and our
+curve (`fusion/window_curve.py`, pushed with the submission above) is the first measurement for it.
+
+⛔ **Every GPU kernel here has had two T4s and used one.** The public notebook asserts
+`torch.cuda.device_count() == 2` on `machine_shape: NvidiaTeslaT4`, the shape every builder here requests;
+`train_windows.py` runs on `cuda:0`. The submission and curve kernels use both. For training, the cheapest
+use is a second seed on `cuda:1` in the same session (tuning plan item 3) -- CPU and shard I/O are the
+unmeasured limits, so bench it first.
+
+The traps found while writing it, kept because they apply to every inference kernel:
 - Competition code notebook, **internet OFF**, T4, 9 h limit. Output `submission.csv` =
   `StudyInstanceUID` + the 12 label columns, probabilities (`data/sample_submission.csv`). The visible
   `test.csv` has 3 studies; the hidden test replaces it at scoring.
@@ -55,7 +88,9 @@ What it must do, and the traps already found:
   `m.rope.periods.copy_(m.rope.periods.bfloat16().float())` — Ortho's periods are exactly timm's rounded
   to bf16 (checked 09-24 on the checkpoint; 16 values `1.0, 1.335938, … 75.0`). Forgetting this runs
   cleanly and scores wrongly (§9h). Runs from `train_windows.py` after 09-24 also write `last_meta.json`
-  with the periods, so later kernels read them instead.
+  with the periods, so later kernels read them instead. **Size, measured 09-24 on this checkpoint:** the
+  RoPE embedding moves by up to 0.0079 and the output probabilities by at most **8.5e-5** (one window of
+  noise input) -- real, and small for this model. `infer_windows.py` applies it and asserts it anyway.
 - Normalisation: ImageNet mean/std, applied in `WindowMIL.prep` (not in last.pt; non-persistent).
 - Then Submission A = our model alone (first LB number for a model trained here); Submission B = our
   model rank-meaned into the public 0.943 stack by family, nothing fitted (§5.4, §2z).
@@ -80,7 +115,9 @@ a full ~9–10 h T4 run and ~100 T4-h remain to Oct 22, so **few, high-prior cha
 paired on the 691** — and the seed floor is unmeasured, so a +0.005 cannot yet be told from luck.
 
 **In order:**
-1. **FREE, no retraining — the efficiency curve.** With step 5's (or `ab_ortho`'s) saved weights, score
+1. **FREE, no retraining — the efficiency curve.** ⏸ *Built 09-24 (`fusion/window_curve.py`,
+   `notebooks/build_window_curve_kernel.py`, n = 54/36/27/18/12, both T4s, ~0.5 GPU-h), waiting on the
+   quota with Submission B; score it locally with `score_oof.py curve/n54 curve/n<k>`.* With step 5's (or `ab_ortho`'s) saved weights, score
    the 691 at **fewer windows per study** (54 → 36 / 27 / 18, evenly spaced within slots) and log runtime
    per study. That picks the efficiency entry's operating point (0.001 AUC ≈ 70 s, banner above) at zero
    GPU training. Also try `torch.compile` + fused SDPA attention for free speed at identical output.
@@ -121,8 +158,8 @@ holds `train.csv`, the test CSVs, public label tables, `stage0/`, `stage_a/*/man
 > CoAtNet on our own `slots64` geometry reads **LB 0.928**, above our whole blend. C6 copied its
 > input and not its training. Read §0 before funding Stage B or C as written.
 
-Last updated **2026-09-07**; D3 amended and §2b added **2026-09-23**; §0.3 re-pulled and §1.1
-confirmed (auth works on `access_token`) **2026-09-23**. If today is much later than that, re-run §0.3 before trusting any
+Last updated **2026-09-24** (handoff, Submission B, the public stack's runtime, two T4s); D3 amended and
+§2b added **2026-09-23**; §0.3 re-pulled and §1.1 confirmed (auth works on `access_token`) **2026-09-23**. If today is much later than that, re-run §0.3 before trusting any
 claim here about the outside world — five beliefs about it have already expired in this project,
 one after 24 hours.
 
@@ -145,6 +182,10 @@ one after 24 hours.
 
 ### 0.2 What is NOT done
 
+> ⛔ *Stale since 09-24 — §0.1 and §0.2 describe 09-23 morning. There is a C6 number (0.8298, step 5),
+> `data/` exists locally again (CSVs, label tables, Stage 0/A manifests), and the handoff at the top is
+> the current state.*
+
 - **The first GPU runs were pushed 2026-09-23** (§2b sampling test; §2c backbone A/B smoke). No arm
   has been trained on a C6 cache. There is no C6 number yet.
 - The local corpus was deleted 2026-09-07. **This repo is the only copy of the project.**
@@ -157,8 +198,9 @@ Re-measure before citing. Last pulled **2026-09-23**:
 - Leaderboard: **4,244 teams**, top **0.958**, 10th (prize line) **0.955**, ours **0.914** @ rank
   2184. (09-07: 3,289 / 0.954 / 0.950 / rank 1446.)
 - ⛔ **The public notebook tier is now 0.942–0.943** — read off the Kaggle pages, not the titles:
-  `mattiaangeli/bend-the-knee-to-speedy-raptors-the-original` **0.943** (Apache 2.0, 6 min
-  inference on 2×T4, DINOv2 + two CoAtNet readers, training notebooks public as "RSNA Knee E11/E13
+  `mattiaangeli/bend-the-knee-to-speedy-raptors-the-original` **0.943** (Apache 2.0; ~~6 min
+  inference on 2×T4~~ **6 min was its commit run on 3 studies; the hidden run is "under 9 hrs",
+  guarded at 8 h** — corrected 09-24 from its code and log; DINOv2 + two CoAtNet readers, training notebooks public as "RSNA Knee E11/E13
   train"), `romantamrazov/rsna-knee-dinosaur-v5` **0.943**, `andreluizpedroso/rsna-knee-tony-rank-ensemble`
   **0.942**. On 09-07 it was 0.917–0.922 and "leaders at 0.942+ publish nothing". **The free tier
   now sits +0.029 LB above our best submission.** Every member in §5.4 predates this.
