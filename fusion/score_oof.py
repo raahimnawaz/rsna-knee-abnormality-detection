@@ -111,22 +111,28 @@ def main() -> None:
         print("  arms cover " + " / ".join(f"{len(s):,}" for s in sets) +
               f" studies -> scoring all of them on the {len(restrict):,} they share\n")
 
+    # One key per arm. Two arms can share a directory name (every `avg3/`), and keying on it made
+    # the second overwrite the first: the per-label table and the up-count then compared an arm
+    # with itself ("0/12 up", 2026-09-24). The paired delta reads the files and was never affected.
+    names = [Path(r).name for r in a.runs]
+    if len(set(names)) < len(names):
+        names = [f"{Path(r).parent.name}/{Path(r).name}" for r in a.runs]
     res = {}
-    for r in a.runs:
+    for r, nm in zip(a.runs, names):
         run = Path(r)
         m, sd, n, per = score(run, ref, gold_ids, restrict)
-        res[run.name] = (m, sd, n, per)
+        res[nm] = (m, sd, n, per)
         delta = m - BASELINE
         sig = abs(delta) / np.hypot(sd, BASELINE_SD)
-        print(f"  {run.name:<22} n={n:>5}  macro {m:.4f} +-{sd:.4f}   "
+        print(f"  {nm:<22} n={n:>5}  macro {m:.4f} +-{sd:.4f}   "
               f"vs 0.7229 baseline: {delta:+.4f} ({sig:.1f} sigma)")
 
-    first = res[Path(a.runs[0]).name][3]
-    print(f"\n{'label':<18}" + "".join(f"{Path(r).name[:11]:>12}" for r in a.runs))
+    first = res[names[0]][3]
+    print(f"\n{'label':<18}" + "".join(f"{nm[-11:]:>12}" for nm in names))
     for lab in L:
-        print(f"{lab:<18}" + "".join(f"{res[Path(r).name][3][lab]:>12.3f}" for r in a.runs))
+        print(f"{lab:<18}" + "".join(f"{res[nm][3][lab]:>12.3f}" for nm in names))
     print("-" * (18 + 12 * len(a.runs)))
-    print(f"{'MACRO':<18}" + "".join(f"{res[Path(r).name][0]:>12.4f}" for r in a.runs))
+    print(f"{'MACRO':<18}" + "".join(f"{res[nm][0]:>12.4f}" for nm in names))
 
     if len(a.runs) == 2:
         # PAIRED bootstrap: resample studies once and score BOTH arms on that resample, so the
@@ -139,7 +145,7 @@ def main() -> None:
         # A/B, the unpaired SE was +-0.0138 against a paired +-0.0088 -- the same +0.0171 delta
         # reading 1.2 sigma instead of 1.9. Discarding the pairing throws away most of what
         # pairing was for.
-        rA, rB = Path(a.runs[0]).name, Path(a.runs[1]).name
+        rA, rB = names
         oA, oB = load_oof(Path(a.runs[0])), load_oof(Path(a.runs[1]))
         # sorted(), not set order: `restrict` is a set of UID strings, and str hashing is
         # randomised per process, so iterating it laid `yy`/`pA`/`pB` out in a different order

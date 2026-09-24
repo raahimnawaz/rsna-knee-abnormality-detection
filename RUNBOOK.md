@@ -18,11 +18,14 @@ Deadlines: **entry and team merger Oct 15**, final submission **Oct 22** (23:59 
 
 ## ▶ NEXT SESSION STARTS HERE `handoff written 2026-09-24 00:15`
 
-**Running when this was written:** `raahimnawaz/rsna-knee-c6-train-ortho` — step 5 of §0.4: OrthoFoundation
-fine-tuned on our 64-slice Stage A cache (2–98%), all 3,502 non-fold-0 studies, 8 epochs, T4, pushed
-~00:05 09-24, expected done **~09:30**. Its rule is pre-registered in §2c: **Stage A pays if
-`c6_ortho − ab_ortho` > 0 paired on the 691 studies, P ≥ 0.95** (bar: `fusion/runs_ab_ortho`, 0.8148).
+**✅ Step 5 DONE 2026-09-24 11:20 — Stage A pays.** `rsna-knee-c6-train-ortho` (Ortho on our 64-slice
+2–98% cache, 3,502 studies, 8 epochs, stopped at 99.5% of its schedule): **0.8298** on the 691 against
+`ab_ortho`'s 0.8148, paired **+0.0149 ± 0.0031 (4.8σ, P 1.000), 11/12 labels up**; `avg3` 0.8304, +0.0154.
+The pre-registered rule passes. **This is the model to ship**: its `runs_ortho/last.pt` sits in that
+kernel's output (not downloaded). Record: `fusion/runs_c6_ortho/`. Gold-58, reported only: 0.878.
+Eval cost at 54 windows: **1.53 s/study** on a T4 (the efficiency track's starting point).
 
+The commands used to score it, for the next run of this kind:
 ```bash
 .venv/bin/python -m kaggle kernels status raahimnawaz/rsna-knee-c6-train-ortho
 .venv/bin/python -m kaggle kernels output raahimnawaz/rsna-knee-c6-train-ortho -p /tmp/c6o_out \
@@ -180,7 +183,7 @@ a backbone A/B** (§2c), which is cheaper and starts from a measured 0.928.
 | 2 | §2b sampling test — why `train_port` lost | ~5 h | ✅ **input is the main cause: +0.0441 ± 0.0058, 12/12 up, ~52% of the gap** |
 | 3 | §2c backbone A/B on the CC0 corpus, 9 epochs: `ortho` vs `coatnet` | ~15 h | ✅ **ortho wins: 0.8148 vs 0.8047, paired +0.0102 ± 0.0041, P 0.996** — the rule passes |
 | 4 | Stage A — build the **64-slice, wide-span** cache from DICOMs (the 0.928 geometry) | 0 (CPU decode) | ✅ **built 09-23: 4,407 studies, 0 errors, 0 decode failures, slot fill = Stage 0 to 3 dp, GATE A passed** (`DATA.md` §10); attach `raahimnawaz/rsna-knee-stage-a-s{0..3}of4` |
-| 5 | Train the A/B winner (**ortho**) on the Stage-A cache on **all** non-fold-0 studies, then all studies | ~9.4 h | **running since 2026-09-24 ~00:05**: `rsna-knee-c6-train-ortho`, 64 slices 2–98%, 3,502 train, 8 epochs (~67 min each), scored on the same 691. Bar to beat: 0.8148 (the A/B arm) |
+| 5 | Train the A/B winner (**ortho**) on the Stage-A cache on **all** non-fold-0 studies | ~11 h | ✅ **0.8298, +0.0149 ± 0.0031 over ab_ortho, 11/12 up — Stage A pays** (`fusion/runs_c6_ortho/`). The all-studies retrain moves to Phase 2 |
 | 6 | Inference kernel for our own model; blend it into the public 0.943 stack, rank-mean by family | ~1–2 h/sub | after 5 |
 | — | `dinov3l` arm — explains *why* ortho won or lost | ~10 h | next quota week |
 | — | Label tables (dreaddevelopment soft labels, JEV) — leak-check, bench | 0 (CPU) | ✅ **closed 09-23: none beats `steven_v2` without being fitted to gold; the per-label pick transfers at −0.0002 ± 0.0090** (`DATA.md` §11, `DECISIONS.md`). Keep `steven_v2` as targets |
