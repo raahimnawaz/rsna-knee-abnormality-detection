@@ -1,0 +1,89 @@
+{
+  "arch": "ortho",
+  "epochs": 9,
+  "epochs_done": 9,
+  "stopped_early": null,
+  "n_train": 2871,
+  "n_val": 691,
+  "n_gold": 58,
+  "k": 12,
+  "bs": 8,
+  "bb_lr": 3e-05,
+  "head_lr": 0.001,
+  "wd": 0.02,
+  "seed": 42,
+  "primary": "last epoch",
+  "secondary": "mean of last-3 epoch weights (fixed, not selected)",
+  "gold_macro_report_only": 0.8574618464629049,
+  "hist": [
+    {
+      "epoch": 0,
+      "loss": 0.5854873169325319,
+      "sec": 3293.8338525295258,
+      "opt_steps": 358
+    },
+    {
+      "epoch": 1,
+      "loss": 0.5359380183649163,
+      "sec": 3299.027208328247,
+      "opt_steps": 358
+    },
+    {
+      "epoch": 2,
+      "loss": 0.4984109387352844,
+      "sec": 3298.1949303150177,
+      "opt_steps": 358
+    },
+    {
+      "epoch": 3,
+      "loss": 0.46424374572896326,
+      "sec": 3298.7664115428925,
+      "opt_steps": 358
+    },
+    {
+      "epoch": 4,
+      "loss": 0.4300692771501002,
+      "sec": 3298.8960025310516,
+      "opt_steps": 358
+    },
+    {
+      "epoch": 5,
+      "loss": 0.3974491539050546,
+      "sec": 3299.8893597126007,
+      "opt_steps": 358
+    },
+    {
+      "epoch": 6,
+      "loss": 0.3689177095037362,
+      "sec": 3300.485625267029,
+      "opt_steps": 358
+    },
+    {
+      "epoch": 7,
+      "loss": 0.3522606676097359,
+      "sec": 3301.131021976471,
+      "opt_steps": 358
+    },
+    {
+      "epoch": 8,
+      "loss": 0.3463219853127161,
+      "sec": 3299.537173986435,
+      "opt_steps": 358
+    }
+  ],
+  "bench": {
+    "arch": "ortho",
+    "device": "Tesla T4",
+    "micro_studies": 2,
+    "k": 12,
+    "res": 336,
+    "sec_per_micro_step_median": 2.2684412002563477,
+    "sec_per_window_train": 0.09451838334401448,
+    "train_epoch_min_measured": 54.8972308754921,
+    "steps_in_measured_epoch": 358,
+    "full_epoch_min_projected": 54.25355203946432,
+    "peak_cuda_gb": 6.863947776,
+    "eval_sec_per_study": 0.7756121827966053
+  },
+  "wall_min": 514.2427004694939
+}

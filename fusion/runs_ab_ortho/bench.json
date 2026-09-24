@@ -1,0 +1,14 @@
+{
+  "arch": "ortho",
+  "device": "Tesla T4",
+  "micro_studies": 2,
+  "k": 12,
+  "res": 336,
+  "sec_per_micro_step_median": 2.2684412002563477,
+  "sec_per_window_train": 0.09451838334401448,
+  "train_epoch_min_measured": 54.8972308754921,
+  "steps_in_measured_epoch": 358,
+  "full_epoch_min_projected": 54.25355203946432,
+  "peak_cuda_gb": 6.863947776,
+  "eval_sec_per_study": 0.7756121827966053
+}

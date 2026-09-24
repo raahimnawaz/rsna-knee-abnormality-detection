@@ -44,7 +44,7 @@ grounds to re-measure, a disappointing *result* is not.
 
 | § | claim as written | why it does not stand |
 |---|---|---|
-| C-5 | OrthoFoundation-L fails its gate at 0.7710 | frozen features, 160 mm cache. **The one arm the field lacks — re-measure** |
+| C-5 | OrthoFoundation-L fails its gate at 0.7710 | frozen features, 160 mm cache. **The one arm the field lacks — re-measure** **✅ RE-MEASURED 2026-09-24, fine-tuned in the frontier recipe (`RUNBOOK.md` §2c): 0.8148, beats the frontier's own CoAtNet paired +0.0102 ± 0.0041, P 0.996 (pre-registered rule passes; one seed). C-5's verdict is overturned.** |
 | 2y / 2w-4 | our port earns no ensemble slot, −0.111 | the port was 160 mm |
 | 3w-2 | Workstream C refuted; *our training* is refuted | both arms 160 mm — the CNN-vs-ViT paired delta survives, the absolute verdict does not |
 | 3y-3 | Stage 1's bar is 0.7428 | bar set from a 160 mm control |
