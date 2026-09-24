@@ -481,6 +481,18 @@ def main() -> None:
     if a.save_weights:
         torch.save({k: v.half() if v.is_floating_point() else v for k, v in model.state_dict().items()},
                    a.out / "last.pt")
+        # ⛔ What the state dict does NOT carry. timm holds `rope.periods` as a NON-PERSISTENT buffer,
+        # so an inference kernel that rebuilds the encoder and loads last.pt gets timm's periods, not
+        # the ones this model trained with -- it runs and scores wrongly (§9h). For ortho they are
+        # timm's rounded to bf16 (checked 2026-09-24 on the checkpoint); written here so nothing
+        # downstream has to know that.
+        rope = getattr(model.encoder, "rope", None)
+        (a.out / "last_meta.json").write_text(json.dumps({
+            "arch": a.arch, "res": ARCHS[a.arch]["res"], "pool": ARCHS[a.arch]["pool"],
+            "timm": ARCHS[a.arch].get("timm", "vit_large_patch16_dinov3"),
+            "layout": corpus.layout, "slot_sizes": list(corpus.slot_sizes),
+            "rope_periods": rope.periods.float().tolist() if rope is not None and hasattr(rope, "periods") else None,
+            "mean": MEAN, "std": STD}, indent=1))
     if len(last3) >= 2:
         avg = {k: (sum(sd[k].double() for sd in last3) / len(last3)).to(last3[0][k].dtype)
                if last3[0][k].is_floating_point() else last3[0][k] for k in last3[0]}

@@ -3,6 +3,54 @@
 **Purpose: any session can pick this up cold and know the next command to type.** `PLAN-C6.md`
 says *why*; this says *what to run, what to expect, and what to do with the answer.*
 
+## ▶ NEXT SESSION STARTS HERE `handoff written 2026-09-24 00:15`
+
+**Running when this was written:** `raahimnawaz/rsna-knee-c6-train-ortho` — step 5 of §0.4: OrthoFoundation
+fine-tuned on our 64-slice Stage A cache (2–98%), all 3,502 non-fold-0 studies, 8 epochs, T4, pushed
+~00:05 09-24, expected done **~09:30**. Its rule is pre-registered in §2c: **Stage A pays if
+`c6_ortho − ab_ortho` > 0 paired on the 691 studies, P ≥ 0.95** (bar: `fusion/runs_ab_ortho`, 0.8148).
+
+```bash
+.venv/bin/python -m kaggle kernels status raahimnawaz/rsna-knee-c6-train-ortho
+.venv/bin/python -m kaggle kernels output raahimnawaz/rsna-knee-c6-train-ortho -p /tmp/c6o_out \
+    --file-pattern '.*\.(csv|json|txt)$'                     # skip last.pt (~0.6 GB) until the submission needs it
+.venv/bin/python fusion/score_oof.py fusion/runs_ab_ortho /tmp/c6o_out/runs_ortho          # THE RULE
+.venv/bin/python fusion/score_oof.py fusion/runs_ab_ortho/avg3 /tmp/c6o_out/runs_ortho/avg3  # secondary
+# then: copy the csv/json into fusion/runs_c6_ortho/ and `git add -f` it, like runs_ab_ortho
+```
+
+**Where things stand (all measured 09-23, all committed):** Stage 0 ✅ (`DATA.md` §9) · sampling test ✅
+input is the main cause, +0.0441, ~half the gap (§2b) · Stage A cache ✅ built, GATE A passed (`DATA.md`
+§10) · backbone A/B ✅ **ortho 0.8148 beats coatnet 0.8047, +0.0102 ± 0.0041, P 0.996** (§2c) · public
+label tables ✅ closed, keep `steven_v2` (`DATA.md` §11) · C-PRE ✅ resolved (§4).
+
+**The next piece of work: the inference kernel** (`notebooks/build_submit_kernel.py`, not yet written).
+What it must do, and the traps already found:
+- Competition code notebook, **internet OFF**, T4, 9 h limit. Output `submission.csv` =
+  `StudyInstanceUID` + the 12 label columns, probabilities (`data/sample_submission.csv`). The visible
+  `test.csv` has 3 studies; the hidden test replaces it at scoring.
+- Build each test stack with **`pipeline/build_slots64.build_study`** — the exact training code — over
+  `test_series/<study>/<series>/` with `test_series.csv` (`Anatomical_Plane`, `Fluid_Sensitive`), span
+  from the cache manifest (2–98%). Score **every** within-slot window (54 on a full study).
+- Weights: attach `raahimnawaz/rsna-knee-c6-train-ortho` as a `kernel_source`; `runs_ortho/last.pt` is an
+  fp16 state dict of `WindowMIL`. Rebuild with `timm.create_model("vit_large_patch16_dinov3",
+  pretrained=False, num_classes=0, img_size=336, global_pool="token")` — no download needed.
+- ⛔ **RoPE periods are NOT in last.pt** (a non-persistent buffer). After loading, set
+  `m.rope.periods.copy_(m.rope.periods.bfloat16().float())` — Ortho's periods are exactly timm's rounded
+  to bf16 (checked 09-24 on the checkpoint; 16 values `1.0, 1.335938, … 75.0`). Forgetting this runs
+  cleanly and scores wrongly (§9h). Runs from `train_windows.py` after 09-24 also write `last_meta.json`
+  with the periods, so later kernels read them instead.
+- Normalisation: ImageNet mean/std, applied in `WindowMIL.prep` (not in last.pt; non-persistent).
+- Then Submission A = our model alone (first LB number for a model trained here); Submission B = our
+  model rank-meaned into the public 0.943 stack by family, nothing fitted (§5.4, §2z).
+
+**Budget:** ~20.5 GPU-h used this week before step 5's ~9.4 h — the week is about spent. At most **2 GPU
+sessions at once**. After the submissions, §0.4's Phase 2 order: retrain on all studies · second seed ·
+coatnet on Stage A · dinov3l · 384 px.
+
+**Local env:** `.venv` (Python 3.12) has kaggle, torch, timm, pydicom, opencv. `data/` is gitignored and
+holds `train.csv`, the test CSVs, public label tables, `stage0/`, `stage_a/*/manifest.json` + `slots.csv`.
+
 > ⛔ **Read [`PREMORTEM.md`](PREMORTEM.md) before Stage A.** Four defects in the plan are already
 > known: Stage C is priced off a 6-tile benchmark and written for 54 windows (**5–10× over, and
 > over the 12 h session cap**); Gate B's bar is built on `runs_port` 0.7323, which §3y states is
