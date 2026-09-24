@@ -82,7 +82,7 @@ a backbone A/B** (§2c), which is cheaper and starts from a measured 0.928.
 | 2 | §2b sampling test — why `train_port` lost | ~5 h | ✅ **input is the main cause: +0.0441 ± 0.0058, 12/12 up, ~52% of the gap** |
 | 3 | §2c backbone A/B on the CC0 corpus, 9 epochs: `ortho` vs `coatnet` | ~15 h | ✅ **ortho wins: 0.8148 vs 0.8047, paired +0.0102 ± 0.0041, P 0.996** — the rule passes |
 | 4 | Stage A — build the **64-slice, wide-span** cache from DICOMs (the 0.928 geometry) | 0 (CPU decode) | ✅ **built 09-23: 4,407 studies, 0 errors, 0 decode failures, slot fill = Stage 0 to 3 dp, GATE A passed** (`DATA.md` §10); attach `raahimnawaz/rsna-knee-stage-a-s{0..3}of4` |
-| 5 | Train the A/B winner on the Stage-A cache on **all** non-fold-0 studies, then all studies | ~10 h each | **ready**: path smoke-tested 09-23 on the real shards (4,407 studies, 691/691, train pool 3,502, 54 windows/study). `build_backbone_ab_kernel.py --arch <winner> --corpus stage_a --n-train 0 --epochs 9` |
+| 5 | Train the A/B winner (**ortho**) on the Stage-A cache on **all** non-fold-0 studies, then all studies | ~9.4 h | **running since 2026-09-24 ~00:05**: `rsna-knee-c6-train-ortho`, 64 slices 2–98%, 3,502 train, 8 epochs (~67 min each), scored on the same 691. Bar to beat: 0.8148 (the A/B arm) |
 | 6 | Inference kernel for our own model; blend it into the public 0.943 stack, rank-mean by family | ~1–2 h/sub | after 5 |
 | — | `dinov3l` arm — explains *why* ortho won or lost | ~10 h | next quota week |
 | — | Label tables (dreaddevelopment soft labels, JEV) — leak-check, bench | 0 (CPU) | ✅ **closed 09-23: none beats `steven_v2` without being fitted to gold; the per-label pick transfers at −0.0002 ± 0.0090** (`DATA.md` §11, `DECISIONS.md`). Keep `steven_v2` as targets |
