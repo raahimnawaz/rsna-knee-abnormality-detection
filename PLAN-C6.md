@@ -1,6 +1,6 @@
 # C6 — best single model, then the blend that actually wins
 
-**Goal: the best model this project can build.** Not a prize, not an efficiency entry. That
+⛔ **SUPERSEDED 2026-09-24: the goal is to WIN** — `RUNBOOK.md`'s banner. Written as: **Goal: the best model this project can build.** Not a prize, not an efficiency entry. That
 changes what gets spent: the efficiency track rewarded a small fast encoder, and this plan spends
 parameters and T4 hours instead.
 

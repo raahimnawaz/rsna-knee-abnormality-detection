@@ -56,6 +56,10 @@ The two tracks share everything up to the final submission: a strong single mode
 efficiency entry, and the same model inside a public blend is the accuracy entry. Rules §2.2.a
 allows **two final submissions**, so both can be selected.
 
+✅ **VERIFIED 2026-09-24 on the live Evaluation page:** the formula stands (Benchmark = the all-0.5
+sample submission = 0.5); GPU notebooks are allowed; only the two SELECTED finals are eligible, and they
+must beat the benchmark on the private leaderboard. The note below is kept as written.
+
 ⚠️ **Verify before committing to this.** The formula above is an 08-10 read of the competition
 page, and this project has retracted five beliefs about the outside world. **S0 includes
 re-reading it**, plus confirming how the efficiency track selects among the two finals. A stale

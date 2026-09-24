@@ -3,6 +3,19 @@
 **Purpose: any session can pick this up cold and know the next command to type.** `PLAN-C6.md`
 says *why*; this says *what to run, what to expect, and what to do with the answer.*
 
+## ⛔ GOAL CHANGED 2026-09-24: THE GOAL IS TO WIN
+
+Set by the owner on 09-24, superseding `PLAN-C6.md`'s "the best model, explicitly not a placing" (09-07).
+Two ways to win, both verified on the live competition page 09-24:
+- **Main leaderboard:** 10 prizes ($9,000 down to $5,000), ranked on the PRIVATE leaderboard. 09-23: top 0.958,
+  10th 0.955, public notebooks 0.943, ours 0.914.
+- **Efficiency track:** 3 prizes ($7,000 / $6,000 / $5,000). Score = (maxAUC − AUC)/(maxAUC − 0.5) +
+  runtime_seconds/32400, lower wins; maxAUC is the best private score. GPU notebooks allowed. Only the
+  **two selected finals** count, and they must beat the sample submission. At maxAUC ~0.96, **0.001 AUC ≈
+  70 s of runtime**, so a fast ~0.93 single model beats a slow 0.958 ensemble. Ranks, not scores, show in
+  the host's daily Efficiency Leaderboard notebook.
+Deadlines: **entry and team merger Oct 15**, final submission **Oct 22** (23:59 UTC).
+
 ## ▶ NEXT SESSION STARTS HERE `handoff written 2026-09-24 00:15`
 
 **Running when this was written:** `raahimnawaz/rsna-knee-c6-train-ortho` — step 5 of §0.4: OrthoFoundation
