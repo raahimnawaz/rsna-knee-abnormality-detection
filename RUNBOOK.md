@@ -352,6 +352,13 @@ time). `ortho − dinov3l` (why it won: knee pretraining, or ViT-L) is still ope
 is the encoder to use if `ortho − coatnet > 0` paired at P ≥ 0.95; neither is a null, recorded as
 one. Primary = last epoch; `avg3/` is secondary and not a second chance. One seed per arm.
 
+**Step 5's rule, PRE-REGISTERED 2026-09-24 before its result** (`rsna-knee-c6-train-ortho`: our 64-slice
+2–98% cache, 3,502 studies, 8 epochs): **Stage A pays if `c6_ortho − ab_ortho` > 0 paired on the same 691
+studies, P ≥ 0.95**, primary = last epoch. It changes TWO things at once — geometry and +22% training
+studies — so a pass says the package works, not which half did it. Either way, the next step is the
+inference kernel: a pass ships the Stage A model; a null or a loss ships `ab_ortho` (the CC0 44-slice
+geometry, whose test-time preprocessing the frontier's inference notebook already publishes).
+
 ⚠️ This corpus is the frontier's **starting** geometry (44 slices over 15–85%), not its 0.928 one
 (64 over 2–98%). It is the same for every arm, which is what an encoder A/B needs; the absolute
 number is not the frontier's.
