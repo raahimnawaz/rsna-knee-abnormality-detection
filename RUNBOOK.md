@@ -61,6 +61,43 @@ What it must do, and the traps already found:
 sessions at once**. After the submissions, §0.4's Phase 2 order: retrain on all studies · second seed ·
 coatnet on Stage A · dinov3l · 384 px.
 
+**Step 5 ran long, and it does not void the read** (owner's live log, 09-24): **2.72 s per 2-study step on
+Stage A vs 2.27 in the A/B**, so **76 min/epoch, not 67** — likely I/O across the four shard mounts. The
+10.5 h budget stopped it at **epoch 7 iter 1,676 of ~1,751 = 99.5% of the OneCycle schedule** (~3,485 of
+3,504 optimiser steps), where the LR is ~1e-4 of peak; `avg3` includes that epoch. Record it as "stopped at
+99.5%", not 8/8. **Price Stage A runs at 76 min/epoch**: 3,502 studies → ≤ 7 epochs per session; all
+~4,360 studies → ~95 min/epoch → ≤ 6. Speeding up the shard reads is worth doing before the next long run.
+
+### ORTHO HAS NOT BEEN TUNED — the tuning plan `added 2026-09-24`
+
+The A/B ran Ortho on the frontier's CoAtNet recipe **unchanged** (flat lr 3e-5 on all 24 blocks, no
+layer-wise decay, no drop-path, intensity-only augmentation, 2.5D three-slice windows) — correct for a
+fair A/B, not tuned for a 303 M ViT-L. Now that it won, tuning is the lever. Every accuracy experiment is
+a full ~9–10 h T4 run and ~100 T4-h remain to Oct 22, so **few, high-prior changes, each pre-registered and
+paired on the 691** — and the seed floor is unmeasured, so a +0.005 cannot yet be told from luck.
+
+**In order:**
+1. **FREE, no retraining — the efficiency curve.** With step 5's (or `ab_ortho`'s) saved weights, score
+   the 691 at **fewer windows per study** (54 → 36 / 27 / 18, evenly spaced within slots) and log runtime
+   per study. That picks the efficiency entry's operating point (0.001 AUC ≈ 70 s, banner above) at zero
+   GPU training. Also try `torch.compile` + fused SDPA attention for free speed at identical output.
+2. **Next GPU run — layer-wise LR decay + drop-path.** LLRD (e.g. decay 0.75–0.85 per block from the
+   head down, so early knee features are kept) and `drop_path_rate` 0.1–0.2 — the standard ViT-L
+   fine-tuning pair, strongest prior of any accuracy change. Needs a `--llrd` / `--drop-path` flag in
+   `fusion/train_windows.py`. One run; rule: beats its baseline paired, P ≥ 0.95.
+3. **Alongside it — a second seed of the current recipe.** Measures the seed-to-seed floor (PREMORTEM §4)
+   so every later delta is readable, and gives a 2-member ensemble for free.
+4. **If more compute is added** (cloud GPUs — an open question for the owner): **single-slice input**
+   (each window = one slice as R=G=B, which is what Ortho was pretrained on, vs our three different slices
+   in the channels); **light spatial augmentation** (small rotation/scale, NO flips — laterality is
+   signal); **lower resolution 336 → 224** (441 → 196 tokens, ~2.3× faster, efficiency); **distil Ortho
+   into a small fast student** (ViT-S/B or CoAtNet-0) trained on Ortho's predictions — the standard
+   efficiency-track route.
+
+**Open questions for the owner, asked 09-24, still unanswered:** rent cloud GPUs (~100 A100-h ≈ $150–250;
+training anywhere is allowed, only inference must run on Kaggle)? What Mac (chip, memory) — could it take
+evaluation or small runs? Open to a team merger before the **Oct 15** deadline?
+
 **Local env:** `.venv` (Python 3.12) has kaggle, torch, timm, pydicom, opencv. `data/` is gitignored and
 holds `train.csv`, the test CSVs, public label tables, `stage0/`, `stage_a/*/manifest.json` + `slots.csv`.
 
