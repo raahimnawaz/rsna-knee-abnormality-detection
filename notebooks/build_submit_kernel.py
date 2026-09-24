@@ -6,8 +6,14 @@
     # then, only if the commit log shows CHECK PASSED and the ARMS line:
     python -m kaggle competitions submit rsna-knee-abnormality-detection -k raahimnawaz/<slug> -v <n> \
         -f submission.csv -m "..."
+    python notebooks/build_submit_kernel.py --ours-only --n-windows 18 --out /tmp/suba   # Submission A
 
-WHAT IT RUNS, IN ORDER.
+SUBMISSION A (`--ours-only`) is step 1 alone plus a cell that writes our predictions as submission.csv:
+the model's own leaderboard number, and an efficiency-track entry. There the gate runs only in the
+commit run (test.csv under 100 studies) -- the scored rerun is the same code in the same image, and
+the gate's minute is runtime the efficiency score charges for.
+
+WHAT IT RUNS, IN ORDER (Submission B).
   1. OURS. `fusion/infer_windows.py` in subprocesses, so the notebook process never imports torch
      before the public cells set their thread environment, and the GPUs are empty when they start.
      First the GATE: 8 of the 691 fold-0 studies are rebuilt from their train DICOMs and must
@@ -43,8 +49,10 @@ SLUG = "rsna-knee-sub-b-ortho-blend"
 PUBLIC = "mattiaangeli/bend-the-knee-to-speedy-raptors-the-original"
 WEIGHTS_KERNEL = f"{OWNER}/rsna-knee-c6-train-ortho"
 WEIGHTS_SHA256 = "1fe51be2ff4deaae4dfd5fafd2354f3b9bbeb0c26cda3fd918a00699fd481b98"   # runs_ortho/last.pt
-EMBED = ["fusion/infer_windows.py", "fusion/train_windows.py", "pipeline/build_slots64.py",
-         "pipeline/slots64.py"]
+# the public stack's pinned image (torch 2.10.0+cu128); Submission A uses it too, so A and B run one environment
+DOCKER_IMAGE = "gcr.io/kaggle-private-byod/python@sha256:37c64f7dd9c54116ecd1bcc88817c5469b88387388fade02bfa8bf3fc647d461"
+EMBED = ["fusion/infer_windows.py", "fusion/train_windows.py", "fusion/window_curve.py",
+         "pipeline/build_slots64.py", "pipeline/slots64.py"]
 LABELS = ["ACL", "MCL", "Medial Meniscus", "Lateral Meniscus", "Medial OA", "Lateral OA",
           "PF OA", "Effusion", "Synovitis", "Baker's", "Contusion", "Fracture"]
 
@@ -74,6 +82,8 @@ _O = _OPath("/tmp/ortho_sub")
 _O_REPO = _O / "repo"
 _O_W = __W_OURS__
 _O_N_CHECK = __N_CHECK__
+_O_N_WINDOWS = __N_WINDOWS__          # 0 = every window, as the OOF was scored
+_O_CHECK_ALWAYS = __CHECK_ALWAYS__    # False: gate in the commit run only (efficiency entries)
 
 
 def _olog(m):
@@ -139,24 +149,28 @@ _O.mkdir(parents=True, exist_ok=True)
 _oof = _O_CKPT.parent / "oof_all.csv"
 with open(_oof) as _f:
     _val = sorted({r["StudyInstanceUID"] for r in _ocsv.DictReader(_f)})
-if (_O_ROOT / "train_series").is_dir():
+with open(_O_ROOT / "test.csv") as _f:
+    _test_ids = [r["StudyInstanceUID"] for r in _ocsv.DictReader(_f)]
+if (_O_ROOT / "train_series").is_dir() and (_O_CHECK_ALWAYS or len(_test_ids) < 100):
     with open(_O / "check_uids.csv", "w") as _f:
         _f.write("StudyInstanceUID\n" + "\n".join(_val[::max(len(_val) // _O_N_CHECK, 1)][:_O_N_CHECK]) + "\n")
     _owait({"check": _orun(["--split", "train", "--uids", str(_O / "check_uids.csv"), "--out",
                             str(_O / "check" / "check.csv"), "--check-against", str(_oof),
                             "--workers", "4"], 0, "check")}, "the OOF reproduction check")
     _olog("GATE PASSED: " + (_O / "check" / "check.check.json").read_text().split('"per_study_max"')[0])
-else:
+elif not (_O_ROOT / "train_series").is_dir():
     _olog("train DICOMs are not mounted in this run; the gate ran in the commit run on this code")
+else:
+    _olog(f"{len(_test_ids)} test studies: the scored rerun -- the commit run carried the gate on this code")
 
 # ---- 2. every test study, one process per GPU
 _procs = {f"test{i}": _orun(["--split", "test", "--shard", str(i), "--n-shards", str(_O_NGPU),
                              "--workers", "2" if _O_NGPU > 1 else "4",
-                             "--out", str(_O / f"preds_{i}.csv")], i, f"test{i}") for i in range(_O_NGPU)}
+                             "--out", str(_O / f"preds_{i}.csv")]
+                            + (["--n-windows", str(_O_N_WINDOWS)] if _O_N_WINDOWS else []), i, f"test{i}")
+          for i in range(_O_NGPU)}
 _owait(_procs, "test inference")
 
-with open(_O_ROOT / "test.csv") as _f:
-    _test_ids = [r["StudyInstanceUID"] for r in _ocsv.DictReader(_f)]
 _rows = {}
 for _i in range(_O_NGPU):
     with open(_O / f"preds_{_i}.csv") as _f:
@@ -174,7 +188,8 @@ with open(_O / "ortho_preds.csv", "w", newline="") as _f:
     for _u in _test_ids:
         _w.writerow(_rows[_u])
 _O_MIN = (_otime.time() - _O_T0) / 60
-_olog(f"OURS DONE: {len(_rows)} test studies in {_O_MIN:.1f} min on {_O_NGPU} GPU(s) -> {_O / 'ortho_preds.csv'}")
+_olog(f"OURS DONE: {len(_rows)} test studies in {_O_MIN:.1f} min on {_O_NGPU} GPU(s), "
+      f"windows {_O_N_WINDOWS or 'all'} -> {_O / 'ortho_preds.csv'}")
 '''
 
 
@@ -225,6 +240,28 @@ print(f"[blend] ARMS: public stack (2 families, as published) + ortho_stage_a = 
 '''
 
 
+SUB_A = r'''
+# ============================================================================ #
+# Submission A -- our model alone. Its predictions ARE the submission.
+# ============================================================================ #
+from pathlib import Path as _APath
+_a_src = _APath("/tmp/ortho_sub/ortho_preds.csv")
+_a_hdr = _a_src.read_text().splitlines()[0].split(",")
+if _a_hdr[0] != "StudyInstanceUID" or len(_a_hdr) != 13:
+    raise RuntimeError(f"ortho predictions header {_a_hdr}")
+_APath("/kaggle/working/submission.csv").write_text(_a_src.read_text())
+print(f"[sub A] ARMS: ortho_stage_a only, windows {_O_N_WINDOWS or 'all'}; {len(_test_ids)} studies; "
+      f"ours {_O_MIN:.1f} min of the run", flush=True)
+'''
+
+INTRO_A = """# RSNA Knee -- Submission A: OrthoFoundation-L (Stage A), alone
+
+Our model alone -- OrthoFoundation-L fine-tuned on a 64-slice, 2-98% stack built from the DICOMs
+(0.8298 on 691 held-out studies) -- at __WINDOWS__ windows per study, on both T4s. Its first
+leaderboard number, and an efficiency-track entry. Built by `notebooks/build_submit_kernel.py
+--ours-only` (__BUILT_FROM__)."""
+
+
 def _git_head() -> str:
     try:
         sha = subprocess.run(["git", "-C", str(PROJ), "rev-parse", "--short", "HEAD"],
@@ -239,62 +276,85 @@ def _git_head() -> str:
 
 def main() -> None:
     ap = argparse.ArgumentParser(description=__doc__.splitlines()[0])
-    ap.add_argument("--public-dir", type=Path, required=True, help=f"`kaggle kernels pull {PUBLIC} -m`")
+    ap.add_argument("--public-dir", type=Path, help=f"`kaggle kernels pull {PUBLIC} -m` (Submission B)")
     ap.add_argument("--out", type=Path, required=True)
+    ap.add_argument("--ours-only", action="store_true", help="Submission A: our model alone")
+    ap.add_argument("--n-windows", type=int, default=0, help="thin to ~n windows per study; 0 = all (as scored)")
     ap.add_argument("--w-ours", type=float, default=1 / 3, help="the rule gives 1/3; see docstring")
     ap.add_argument("--n-check", type=int, default=8)
     a = ap.parse_args()
-
-    pmeta = json.loads((a.public_dir / "kernel-metadata.json").read_text())
-    if pmeta["id"] != PUBLIC:
-        raise SystemExit(f"{a.public_dir} holds {pmeta['id']}, not {PUBLIC}")
-    nb_path = a.public_dir / pmeta["code_file"]
-    pub_sha = hashlib.sha256(nb_path.read_bytes()).hexdigest()
-    pub = json.loads(nb_path.read_text())
-    cells = pub["cells"]
-    last = "".join(cells[-1]["source"])
-    before = "".join(cells[-2]["source"])
-    # the two seams this build relies on -- refuse an upstream version that moved them
-    if not last.startswith("# Publish submission.csv only after"):
-        raise SystemExit("public notebook's last cell is not its publish cell -- re-read it before building")
-    if "_blend_output.to_csv(_ke_primary" not in before or "_pipeline_stage.csv" not in before:
-        raise SystemExit("public notebook's cell -2 no longer writes the final stage -- re-read it")
+    if not a.ours_only and not a.public_dir:
+        raise SystemExit("Submission B needs --public-dir (or pass --ours-only for Submission A)")
 
     files = {}
     for rel in EMBED:
         b = (PROJ / rel).read_bytes()
         files[rel] = [base64.b64encode(b).decode(), hashlib.sha256(b).hexdigest()]
     blob = base64.b64encode(json.dumps(files).encode()).decode()
-    built_from = f"{_git_head()}, public notebook sha256 {pub_sha[:16]}"
-    ours = (OURS.replace("__FILES_B64__", repr(blob)).replace("__BUILT_FROM__", built_from)
-                .replace("__W_OURS__", repr(a.w_ours)).replace("__N_CHECK__", str(a.n_check))
-                .replace("__WEIGHTS_SHA256__", WEIGHTS_SHA256).replace("__WEIGHTS_KERNEL__", WEIGHTS_KERNEL))
-    blend = BLEND.replace("__LABELS__", repr(LABELS)).replace("__BUILT_FROM__", built_from)
-    for k, c in enumerate([ours, blend]):
-        compile(c, f"ours{k}", "exec")                  # fail here, not after the queue wait
 
     def code(src):
         return {"cell_type": "code", "execution_count": None, "metadata": {}, "outputs": [],
                 "source": src.strip("\n").splitlines(keepends=True)}
 
-    intro = {"cell_type": "markdown", "metadata": {},
-             "source": INTRO.replace("__BUILT_FROM__", built_from).splitlines(keepends=True)}
-    body = [dict(c, outputs=[], execution_count=None) if c["cell_type"] == "code" else c for c in cells]
-    new = [intro, code(ours)] + body[:-1] + [code(blend), body[-1]]
+    def md(src):
+        return {"cell_type": "markdown", "metadata": {}, "source": src.splitlines(keepends=True)}
+
+    if a.ours_only:
+        built_from = _git_head()
+        pub = {"metadata": {"kernelspec": {"display_name": "Python 3", "language": "python", "name": "python3"},
+                            "language_info": {"name": "python"}}, "nbformat": 4, "nbformat_minor": 5}
+        pmeta = None
+    else:
+        pmeta = json.loads((a.public_dir / "kernel-metadata.json").read_text())
+        if pmeta["id"] != PUBLIC:
+            raise SystemExit(f"{a.public_dir} holds {pmeta['id']}, not {PUBLIC}")
+        nb_path = a.public_dir / pmeta["code_file"]
+        pub_sha = hashlib.sha256(nb_path.read_bytes()).hexdigest()
+        pub = json.loads(nb_path.read_text())
+        cells = pub["cells"]
+        last = "".join(cells[-1]["source"])
+        before = "".join(cells[-2]["source"])
+        # the two seams this build relies on -- refuse an upstream version that moved them
+        if not last.startswith("# Publish submission.csv only after"):
+            raise SystemExit("public notebook's last cell is not its publish cell -- re-read it before building")
+        if "_blend_output.to_csv(_ke_primary" not in before or "_pipeline_stage.csv" not in before:
+            raise SystemExit("public notebook's cell -2 no longer writes the final stage -- re-read it")
+        built_from = f"{_git_head()}, public notebook sha256 {pub_sha[:16]}"
+
+    ours = (OURS.replace("__FILES_B64__", repr(blob)).replace("__BUILT_FROM__", built_from)
+                .replace("__W_OURS__", repr(a.w_ours)).replace("__N_CHECK__", str(a.n_check))
+                .replace("__N_WINDOWS__", str(a.n_windows)).replace("__CHECK_ALWAYS__", str(not a.ours_only))
+                .replace("__WEIGHTS_SHA256__", WEIGHTS_SHA256).replace("__WEIGHTS_KERNEL__", WEIGHTS_KERNEL))
+    blend = BLEND.replace("__LABELS__", repr(LABELS)).replace("__BUILT_FROM__", built_from)
+    for k, c in enumerate([ours, blend, SUB_A]):
+        compile(c, f"ours{k}", "exec")                  # fail here, not after the queue wait
+
+    if a.ours_only:
+        slug = f"rsna-knee-sub-a-ortho-n{a.n_windows or 'all'}"
+        new = [md(INTRO_A.replace("__WINDOWS__", str(a.n_windows or "all")).replace("__BUILT_FROM__", built_from)),
+               code(ours), code(SUB_A)]
+        sources = {"dataset_sources": [], "kernel_sources": [WEIGHTS_KERNEL], "model_sources": [],
+                   "docker_image": DOCKER_IMAGE}
+    else:
+        slug = SLUG
+        body = [dict(c, outputs=[], execution_count=None) if c["cell_type"] == "code" else c for c in cells]
+        new = [md(INTRO.replace("__BUILT_FROM__", built_from)), code(ours)] + body[:-1] + [code(blend), body[-1]]
+        sources = {"dataset_sources": pmeta["dataset_sources"],
+                   "kernel_sources": pmeta["kernel_sources"] + [WEIGHTS_KERNEL],
+                   "model_sources": pmeta["model_sources"], "docker_image": pmeta["docker_image"]}
     nb = dict(pub, cells=new)
     a.out.mkdir(parents=True, exist_ok=True)
-    (a.out / f"{SLUG}.ipynb").write_text(json.dumps(nb, indent=1), encoding="utf-8")
-    meta = {"id": f"{OWNER}/{SLUG}", "title": SLUG, "code_file": f"{SLUG}.ipynb",
+    (a.out / f"{slug}.ipynb").write_text(json.dumps(nb, indent=1), encoding="utf-8")
+    meta = {"id": f"{OWNER}/{slug}", "title": slug, "code_file": f"{slug}.ipynb",
             "language": "python", "kernel_type": "notebook", "is_private": True,
             "enable_gpu": True, "enable_tpu": False, "enable_internet": False, "keywords": [],
-            "dataset_sources": pmeta["dataset_sources"],
-            "kernel_sources": pmeta["kernel_sources"] + [WEIGHTS_KERNEL],
-            "competition_sources": ["rsna-knee-abnormality-detection"],
-            "model_sources": pmeta["model_sources"],
-            "docker_image": pmeta["docker_image"], "machine_shape": "NvidiaTeslaT4"}
+            "competition_sources": ["rsna-knee-abnormality-detection"], **sources,
+            "machine_shape": "NvidiaTeslaT4"}
     (a.out / "kernel-metadata.json").write_text(json.dumps(meta, indent=2), encoding="utf-8")
-    print(f"built {a.out / (SLUG + '.ipynb')}: {len(new)} cells ({len(cells)} public + intro, ours, blend)")
-    print(f"  w_ours {a.w_ours:.4f} | check studies {a.n_check} | from {built_from}")
+    print(f"built {a.out / (slug + '.ipynb')}: {len(new)} cells ("
+          + ("Submission A: ours alone" if a.ours_only else f"{len(cells)} public + intro, ours, blend") + ")")
+    print(f"  windows {a.n_windows or 'all'} | " + ("" if a.ours_only else f"w_ours {a.w_ours:.4f} | ")
+          + f"check studies {a.n_check} | from {built_from}")
     if "uncommitted" in built_from:
         print("  ⚠️ embedded files differ from HEAD -- commit first so the run is reproducible")
     print(f"push:  python -m kaggle kernels push -p {a.out}")

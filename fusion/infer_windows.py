@@ -60,8 +60,8 @@ def series_by_study(root: Path, split: str) -> dict[str, list[dict]]:
 class DicomStudies(torch.utils.data.Dataset):
     """One study -> (uid, uint8 windows [K,3,336,336], build error or '', build seconds)."""
 
-    def __init__(self, img_dir: Path, uids: list[str], by_study: dict[str, list[dict]]):
-        self.img_dir, self.uids, self.by_study = img_dir, uids, by_study
+    def __init__(self, img_dir: Path, uids: list[str], by_study: dict[str, list[dict]], n_windows: int = 0):
+        self.img_dir, self.uids, self.by_study, self.n_windows = img_dir, uids, by_study, n_windows
 
     def __len__(self) -> int:
         return len(self.uids)
@@ -75,7 +75,11 @@ class DicomStudies(torch.utils.data.Dataset):
             vol = np.zeros((S.N_SLICES, S.IMG, S.IMG), np.uint8)
             mask = np.zeros(S.N_SLICES, np.uint8)
             err = f"{type(e).__name__}: {e}"
-        cs = window_centres(mask, SLOT_SIZES) or [len(mask) // 2]     # Windows.__getitem__'s rule
+        if self.n_windows:                                  # window_curve.py's thinning, one definition
+            from window_curve import thin
+            cs = thin(mask, SLOT_SIZES, self.n_windows)
+        else:
+            cs = window_centres(mask, SLOT_SIZES) or [len(mask) // 2]     # Windows.__getitem__'s rule
         w = np.stack([vol[c - 1:c + 2] for c in cs])
         return uid, torch.from_numpy(np.ascontiguousarray(w)), err, time.time() - t
 
@@ -104,6 +108,8 @@ def main() -> None:
     ap.add_argument("--weights", type=Path, required=True)
     ap.add_argument("--out", type=Path, required=True)
     ap.add_argument("--workers", type=int, default=2, help="DICOM decode processes feeding the GPU")
+    ap.add_argument("--n-windows", type=int, default=0,
+                    help="thin to ~n windows per study (window_curve.thin); 0 = every window, as scored")
     ap.add_argument("--max-error-frac", type=float, default=0.02)
     ap.add_argument("--check-against", type=Path, help="oof_all.csv: the gate (see docstring)")
     ap.add_argument("--max-abs-diff", type=float, default=0.03)
@@ -125,7 +131,9 @@ def main() -> None:
 
     model = build_model(a.weights, dev)
     log(f"model loaded strict from {a.weights} ({time.time() - t0:.0f} s), RoPE periods = Ortho's")
-    ds = DicomStudies(a.root / f"{a.split}_series", uids, series_by_study(a.root, a.split))
+    if a.n_windows and a.check_against:
+        raise SystemExit("--check-against compares with the OOF, which read every window: drop --n-windows")
+    ds = DicomStudies(a.root / f"{a.split}_series", uids, series_by_study(a.root, a.split), a.n_windows)
     dl = torch.utils.data.DataLoader(ds, batch_size=None, shuffle=False, num_workers=a.workers,
                                      prefetch_factor=4 if a.workers else None)
     rows, errs, build_s, infer_s, nwin = [], {}, [], [], []
@@ -157,7 +165,8 @@ def main() -> None:
     timing = {"n": len(uids), "errors": errs, "wall_min": (time.time() - t0) / 60,
               "build_sec_per_study_per_worker": float(np.mean(build_s)) if build_s else None,
               "infer_sec_per_study": float(np.mean(infer_s)) if infer_s else None,
-              "windows_median": float(np.median(nwin)) if nwin else None, "workers": a.workers}
+              "windows_median": float(np.median(nwin)) if nwin else None, "workers": a.workers,
+              "n_windows": a.n_windows or "all"}
     a.out.with_suffix(".timing.json").write_text(json.dumps(timing, indent=1))
     log(f"wrote {a.out}: {len(out)} studies in {timing['wall_min']:.1f} min")
 

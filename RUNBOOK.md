@@ -63,6 +63,22 @@ the notebook's own cells run against a fake `/kaggle/input`). **The one untested
 stack calls itself "comfortably in less than 9 hrs" on the hidden set and guards 8 h from its own start;
 ours adds ~20-35 min in front. The commit run cannot price the hidden run.
 
+**Submission A -- our model alone, at the window count the curve picks** (`build_submit_kernel.py
+--ours-only --n-windows N`; the gate runs in its commit run only, since the scored rerun pays for every
+second). **The rule for N, PRE-REGISTERED 2026-09-24 before the curve has a number:**
+
+    est(n) = (AUC_54 - AUC_n) / 0.46  +  T(n) / 32400        pick argmin; within 0.001 of the min -> the larger n
+    AUC_54 - AUC_n   paired point estimate on the 691, `score_oof.py curve/n54 curve/n<k>`
+    T(n)             max(T_decode, T_gpu(n)); T_gpu(n) = 661 x forward_sec_per_study(n) (1,322 over two T4s)
+    T_decode         1,322 x b / 4 decode workers; b = build s/study/worker from Sub B's commit log, else 2.54
+
+**What the rule already implies, from numbers measured before the curve:** T_decode ≈ 1,322 × 2.54 / 4 ≈
+**14 min**, and T_gpu(54) ≈ 661 × 1.53 s ≈ **17 min** (1.53 is the eval loop's per-study time, an upper
+bound on the forward). So below ~40 windows the run is **decode-bound**, and the whole curve can buy at most
+~3-4 min ≈ 0.003 AUC-equivalent. If that holds, **the next efficiency lever is the decode, not the model**:
+`order_series` reads the header of every file in every series before `build_study` decodes the 64 it
+keeps. Projected, not measured -- the curve's timings and Sub B's commit log will say.
+
 ⛔ **The "6 min inference on 2×T4" quoted for the public notebook in §0.3 was its COMMIT run on the 3
 visible studies** (its log: 370 s). It is not an efficiency-track entry: at several hours on the hidden
 set its runtime term alone is ~0.5-0.9. The efficiency track is a race between FAST models, and our
