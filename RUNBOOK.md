@@ -16,7 +16,37 @@ Two ways to win, both verified on the live competition page 09-24:
   the host's daily Efficiency Leaderboard notebook.
 Deadlines: **entry and team merger Oct 15**, final submission **Oct 22** (23:59 UTC).
 
-## ▶ NEXT SESSION STARTS HERE `handoff written 2026-09-24 00:15`
+## ▶ NEXT SESSION STARTS HERE `handoff written 2026-09-25 ~02:30 PDT`
+
+**What fires on its own, Fri 2026-09-25 17:20 PDT** (20 min after the weekly GPU quota resets, Sat 00:00 UTC):
+the Claude desktop app's one-time scheduled task **`rsna-submit-b-curve-a`** (runs only while the app is open;
+if closed, on next launch). In order, each step gated exactly as the blocks below say:
+1. push **Submission B** (`rsna-knee-sub-b-ortho-blend`) and the **Stage B training run** (`rsna-knee-c7-train-ortho`,
+   only if the Stage B block below says TRAINING SMOKE PASSED) — the two GPU sessions;
+2. submit B if its commit log shows GATE PASSED and the 3-family ARMS line;
+3. push the window curve, score it locally, pick A's window count by the pre-registered rule;
+4. push and submit **Submission A** if its gate passes; 5. record everything here and in memory, commit, push.
+**If it has not reported, read its run in the app's Scheduled sidebar, then do the remaining steps by hand
+with the commands in the blocks below.** Everything it builds was re-tested end to end from `38459d1` on
+09-25 (the submission, A and the curve kernels all pass their local fixture runs; an import-closure check now
+refuses a kernel that would miss a module — that is how `slots96` was caught).
+
+**Reading the results, next session:**
+- **Leaderboard:** `.venv/bin/python -m kaggle competitions submissions rsna-knee-abnormality-detection`
+  (hidden-test reruns take hours). B = our model at 1/3 in the public 0.943 stack; A = ours alone.
+- **Stage B** (~11 h after its push, so ~Sat 05:00 PDT): `.venv/bin/python -m kaggle kernels output
+  raahimnawaz/rsna-knee-c7-train-ortho -p /tmp/c7 --file-pattern '.*\.(csv|json|txt)$'`, then THE RULE:
+  `.venv/bin/python fusion/score_oof.py fusion/runs_c6_ortho /tmp/c7/runs_ortho` (and `.../avg3`, secondary).
+  Copy csv/json into `fusion/runs_c7_ortho/`, `git add -f`, record the verdict at the Stage B block. Also read
+  its gold-58 line (reported only) and the per-rank checksum line. If it wins, submitting it needs
+  `infer_windows.py` taught Stage B (spec c7 + `--canon` in `build_study`, 384 px, the slot/depth embedding
+  from `last_meta.json`) — not built yet.
+- **Next priority after Stage B: teacher → student pseudo-labels** (`DATA.md` §10b, RUNBOOK §0.3): the model
+  reached label parity on gold-58 on 09-25, the board's best single models (0.950) got there through labels.
+  ⚠️ judge it on gold-58 + the leaderboard, NOT the 691 (another LLM reading of the reports; it reads a move
+  toward the images as a loss). Behind it: zoom windows for MCL/OA (`DATA.md` §10b), CoAtNet on Stage B as a
+  second model, combined per label by the pre-registered winner-if-clear rule (`fusion/perlabel_select.py`).
+- **Still the owner's calls:** cloud GPUs (compute is the constraint); a team merger before **Oct 15**.
 
 **✅ Step 5 DONE 2026-09-24 11:20 — Stage A pays.** `rsna-knee-c6-train-ortho` (Ortho on our 64-slice
 2–98% cache, 3,502 studies, 8 epochs, stopped at 99.5% of its schedule): **0.8298** on the 691 against
