@@ -424,6 +424,20 @@ this cache pads. (2) A window's three channels span, in the source stack, a medi
 (sag_1), 2.0 (sag_2), 2.5 (cor_1), 3.9 (cor_2) and 2.6 (ax) — consecutive *sampled* slices, the
 fork's and the frontier's convention (`MODEL.md` §3).
 
+### 10c. Stage B — the 96-slice, 384 px, canonical cache, built `2026-09-25`
+
+`build_slots64.py --spec c7 --canon` via `build_stage_a_kernel.py --stage b`: eight CPU kernels
+`raahimnawaz/rsna-knee-stage-b-s{0..7}of8` (~7.8 GB of `vols.npy` each), built from commit `62fa3fe`,
+6.8–8.3 min per shard, 3.21 s/study/worker. **GATE B passed** (all 8 manifests): one spec (`c7-96slice-384`),
+every canonical, one span (2–98%); **all 4,407 train studies exactly once; 0 study errors, 0 decode
+failures**; fill sag_1 1.000, sag_2 **0.973**, cor_1 1.000, cor_2 **0.745**, ax_1 1.000 — Stage 0's count to
+the third decimal — and the new slots sag_3 **0.218**, ax_2 **0.248**. Side for every study: R 2,295 / L 2,112,
+from the tag on **2,203** (FINDINGS §6.2's tagged count, exactly) and from the −62 mm rule on 2,204. Operations
+applied: only the left-knee mirror (coronal `yH` 3,627, axial `zH` 2,587, and the sagittal slice order);
+**no scanner in the corpus stores reversed or transposed rows/columns**, so canonicalisation here is laterality
+alone. Real-knee check on the 20-study smoke: corrected right and left knees agree better as built than
+mirrored in all three planes (§10b).
+
 ### 10b. What Stage A throws away — measured `2026-09-24`, from `slots.csv`, Stage 0 and the header probe
 
 | | measured | what it means |
