@@ -32,6 +32,16 @@ fixed in advance, and is not a second chance to pass.
 
 --bench runs ONE full epoch on the T4 and scores it. That prices the full run from a measurement
 (PREMORTEM §1's rule) and gives a first, weak number. It is not the A/B.
+
+STAGE B (`--corpus stage_b`, 2026-09-25). One package run against step 5's model (`c6_ortho`, 0.8298):
+the Stage B cache (96 slices, 384 px, canonical orientation, two extra series slots -- `DATA.md` §10b)
+AND the model changes (layer-wise LR decay 0.8, drop-path 0.1, a slot + depth embedding per window,
+both T4s under DDP, epochs fitted to the session). Same 3,502 training studies, same `steven_v2`
+targets, same 691 validation studies. It launches under torchrun on every visible GPU (two gloo
+processes on CPU for --smoke, so the DDP path is exercised before any GPU hour is spent).
+THE RULE, PRE-REGISTERED 2026-09-25 BEFORE THE RUN: the package pays if `c7_ortho - c6_ortho > 0`
+paired on the same 691, P(delta>0) >= 0.95, primary = last epoch; `avg3/` is secondary and not a
+second chance. A pass says the PACKAGE works, not which part of it; a loss ships nothing from it.
 """
 from __future__ import annotations
 
@@ -54,6 +64,7 @@ EMBED = [
     "extractor/metrics.py",
     "provenance/inputs.json",
     "fusion/runs_port_repro/oof_all.csv",      # the control: 691 fold-0 studies, 0.7597
+    "fusion/runs_c6_ortho/oof_all.csv",        # Stage B's rule is scored against step 5's model, 0.8298
 ]
 DATASETS = ["dreaddevelopment/knee-raptor-corpus",           # 3,200 studies, CC0
             "dreaddevelopment/knee-raptor-corpus-ext",       # 1,207 studies, CC0
@@ -61,6 +72,9 @@ DATASETS = ["dreaddevelopment/knee-raptor-corpus",           # 3,200 studies, CC
             "lixin73/rsna-knee-llm-report-labels-sol56"]     # the scoring reference
 KERNELS = ["zhukovoleksiy/rsna-metadata-probe"]              # headers.parquet -> site folds
 STAGE_A_SHARDS = [f"{OWNER}/rsna-knee-stage-a-s{i}of4" for i in range(4)]   # build_stage_a_kernel.py
+STAGE_B_SHARDS = [f"{OWNER}/rsna-knee-stage-b-s{i}of8" for i in range(8)]   # ... --stage b
+# Stage B's package: the model half of the run. The data half is the cache itself.
+PACKAGE = ["--res", "384", "--drop-path", "0.1", "--llrd", "0.8", "--pos-emb", "--fit-budget"]
 N_TRAIN, DRAW_SEED = 2871, 20260923
 
 
@@ -77,6 +91,7 @@ import pandas as pd
 ARCH = __ARCH__
 MODE = __MODE__
 LAYOUT = __LAYOUT__
+EXTRA = __EXTRA__
 EPOCHS = __EPOCHS__
 BUILT_FROM = __BUILT_FROM__
 T0 = time.time()
@@ -206,12 +221,20 @@ TRAIN = r'''
 # ============================================================================ #
 # Train: fusion/train_windows.py, the only place an arm differs is --arch.
 # ============================================================================ #
-_cmd = [sys.executable, "-u", str(REPO / "fusion" / "train_windows.py"), "--arch", ARCH,
+NPROC = (torch.cuda.device_count() if torch.cuda.is_available() else 2) if LAYOUT == "stage_b" else 1
+_launch = ([sys.executable, "-m", "torch.distributed.run", "--nnodes", "1", "--node_rank", "0",
+            "--master_addr", "127.0.0.1", "--master_port", "29511", "--nproc_per_node", str(NPROC)]
+           if NPROC > 1 else [sys.executable, "-u"])
+if NPROC > 1:
+    os.environ["TW_WORKERS"] = str(max(1, (os.cpu_count() or 4) // NPROC))
+log(f"launch: {NPROC} process(es), {os.environ.get('TW_WORKERS', '4')} loader workers each")
+_cmd = _launch + [str(REPO / "fusion" / "train_windows.py"), "--arch", ARCH,
         "--corpus", "/kaggle/input", "--layout", LAYOUT, "--train", str(RUN / "train_studies.csv"),
         "--val", str(RUN / "val_studies.csv"), "--labels", str(D / "targets.csv"),
         "--out", str(RUN), "--weights-dir", str(SCRATCH), "--epochs", str(EPOCHS)]
+_cmd += EXTRA
 if MODE == "smoke":
-    _cmd += ["--limit-train", "16", "--limit-val", "6", "--k", "4", "--bs", "2", "--micro", "2",
+    _cmd += ["--limit-train", "16", "--limit-val", "6", "--k", "4", "--bs", str(2 * NPROC), "--micro", "1",
              "--eval-bs", "1"]
 else:
     _cmd += ["--gold", str(D / "train.csv")]
@@ -232,8 +255,9 @@ if MODE == "smoke":
     log("SMOKE: the whole path ran. No score -- 6 studies cannot carry one.")
 else:
     for _arm in [RUN] + ([RUN / "avg3"] if (RUN / "avg3" / "oof_all.csv").exists() else []):
+        _ctrl = "runs_c6_ortho" if LAYOUT == "stage_b" else "runs_port_repro"
         _res = subprocess.run([sys.executable, str(REPO / "fusion" / "score_oof.py"),
-                               str(REPO / "fusion" / "runs_port_repro"), str(_arm)],
+                               str(REPO / "fusion" / _ctrl), str(_arm)],
                               capture_output=True, text=True, cwd=str(REPO))
         print(_res.stdout, _res.stderr)
         (OUT / f"score_{_arm.name}.txt").write_text(_res.stdout + _res.stderr)
@@ -260,7 +284,8 @@ def main() -> None:
     g.add_argument("--smoke", action="store_true", help="CPU, 16 + 6 studies, one epoch. First.")
     g.add_argument("--bench", action="store_true", help="T4, ONE full epoch, scored. Prices the run.")
     ap.add_argument("--epochs", type=int, default=10, help="full run only")
-    ap.add_argument("--corpus", choices=["raptor44", "stage_a"], default="raptor44",
+    ap.add_argument("--time-budget-h", type=float, default=10.3, help="stage_b: training hours inside the 12 h session")
+    ap.add_argument("--corpus", choices=["raptor44", "stage_a", "stage_b"], default="raptor44",
                     help="raptor44: the CC0 44-slice corpus (the A/B); stage_a: our 64-slice shards")
     ap.add_argument("--n-train", type=int, default=N_TRAIN,
                     help=f"seeded draw from the pool ({N_TRAIN} = the A/B count); 0 = the whole pool")
@@ -276,6 +301,8 @@ def main() -> None:
     built_from = _git_head()
     setup = (SETUP.replace("__ARCH__", repr(a.arch)).replace("__MODE__", repr(mode))
                   .replace("__LAYOUT__", repr(a.corpus))
+                  .replace("__EXTRA__", repr(PACKAGE + ["--time-budget-h", str(a.time_budget_h if mode == "full" else 0.3)]
+                                               if a.corpus == "stage_b" else []))
                   .replace("__EPOCHS__", str(epochs)).replace("__BUILT_FROM__", repr(built_from))
                   .replace("__FILES_B64__", repr(blob)))
     prep = PREP.replace("__DRAW_SEED__", str(DRAW_SEED)).replace("__N_TRAIN__", str(a.n_train))
@@ -284,9 +311,10 @@ def main() -> None:
         compile(c, f"cell{k}", "exec")              # fail here, not after the queue wait
 
     # the A/B keeps its slugs; a Stage A run is a different experiment and gets its own
-    slug = f"rsna-knee-backbone-ab-{a.arch}" if a.corpus == "raptor44" else f"rsna-knee-c6-train-{a.arch}"
+    slug = {"raptor44": f"rsna-knee-backbone-ab-{a.arch}", "stage_a": f"rsna-knee-c6-train-{a.arch}",
+            "stage_b": f"rsna-knee-c7-train-{a.arch}"}[a.corpus]
     datasets = DATASETS if a.corpus == "raptor44" else DATASETS[2:]
-    kernels = KERNELS + ([] if a.corpus == "raptor44" else STAGE_A_SHARDS)
+    kernels = KERNELS + {"raptor44": [], "stage_a": STAGE_A_SHARDS, "stage_b": STAGE_B_SHARDS}[a.corpus]
     nb = {"cells": [{"cell_type": "code", "execution_count": None, "metadata": {}, "outputs": [],
                      "source": c.strip("\n").splitlines(keepends=True)} for c in cells],
           "metadata": {"kernelspec": {"display_name": "Python 3", "language": "python", "name": "python3"},

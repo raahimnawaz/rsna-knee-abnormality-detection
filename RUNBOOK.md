@@ -67,6 +67,27 @@ the notebook's own cells run against a fake `/kaggle/input`). **The one untested
 stack calls itself "comfortably in less than 9 hrs" on the hidden set and guards 8 h from its own start;
 ours adds ~20-35 min in front. The commit run cannot price the hidden run.
 
+**⏩ STAGE B — every gap in one training run `pre-registered 2026-09-25 01:40 PDT, before any result`.**
+The owner asked to test all of `DATA.md` §10b's gaps and the model-side changes in the run that goes in
+beside Submission B. One arm, `rsna-knee-c7-train-ortho`, against step 5's model:
+
+| half | change | where |
+|---|---|---|
+| data | 96 slices (was 64), 384 px (was 336), left/right + scanner orientation canonical, a third sagittal and a second axial slot | `pipeline/slots96.py`, `build_slots64.py --spec c7 --canon`, 8 CPU shards `rsna-knee-stage-b-s{0..7}of8` |
+| model | layer-wise LR decay 0.8, drop-path 0.1, a slot + depth embedding per window, both T4s (DDP), epochs fitted to a 10.3 h training budget (cap 14) | `train_windows.py` flags, `build_backbone_ab_kernel.py --corpus stage_b` |
+
+Held fixed: Ortho, the 3,502 training studies, `steven_v2` targets, the 691 validation studies, k = 12,
+8 studies per step, lr 3e-5 / 1e-3. **THE RULE: the package pays if `c7_ortho − c6_ortho > 0` paired on the
+same 691, P(Δ>0) ≥ 0.95, primary = last epoch; `avg3/` secondary, not a second chance.** A pass says the
+package works, not which half; a null or a loss ships nothing from it and says only that the package as a
+whole did not help. Scored in-kernel (`score_oof.py runs_c6_ortho runs_ortho`) and again locally.
+**Checked before any GPU hour:** Stage A bytes reproduced with the new builder; `canon_fixture.py` 17/17; on
+the 20-study Kaggle smoke, the corrected right and left knees agree better as built than mirrored in all three
+planes (coronal 0.966 vs 0.938, axial 0.953 vs 0.942, sagittal 0.997 vs 0.975); DDP on two CPU processes ends
+with identical weights on both ranks. A Kaggle CPU smoke of the training kernel runs before the GPU push.
+Cost: one ~11 h T4×2 session. Inference for this model needs `infer_windows.py` to learn Stage B's spec and
+the embeddings — only if it wins.
+
 **Submission A -- our model alone, at the window count the curve picks** (`build_submit_kernel.py
 --ours-only --n-windows N`; the gate runs in its commit run only, since the scored rerun pays for every
 second). **The rule for N, PRE-REGISTERED 2026-09-24 before the curve has a number:**
