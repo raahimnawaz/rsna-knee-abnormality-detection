@@ -424,6 +424,25 @@ this cache pads. (2) A window's three channels span, in the source stack, a medi
 (sag_1), 2.0 (sag_2), 2.5 (cor_1), 3.9 (cor_2) and 2.6 (ax) — consecutive *sampled* slices, the
 fork's and the frontier's convention (`MODEL.md` §3).
 
+### 10b. What Stage A throws away — measured `2026-09-24`, from `slots.csv`, Stage 0 and the header probe
+
+| | measured | what it means |
+|---|---|---|
+| **slices** | a series holds a median **30** (axial 32, p90 48; 3D series up to ~186); we keep 18 / 14 / 12 / 8 / 12, i.e. a median **60% / 47% / 40% / 27% / 38%** of each series. **Every** series loses slices. | a 3 mm-slice lesion can sit between kept slices; a window's channels are 1.6–3.9 source slices apart, not adjacent |
+| **resolution** | pixel spacing median **0.321 mm** → **437 px** natively across 140 mm; stored at 336. **76%** of series are downsampled, **50%** by more than 1.3× | small, localised findings (menisci, MCL, fracture) lose the most; §3x on the old path: 224→518 = +0.013 |
+| **series** | a study has a median 5 series; the 5 slots take ≤2 sagittal, ≤2 coronal, 1 axial. **44%** of studies have at least one series never used — **3,579 of 24,371 (15%)** | unknown value: some are 3D reconstructions of a kept series, some are other contrasts |
+| **laterality** | `build_slots64.py` does **not** canonicalise left/right (the retired `preprocess.py` did; the public stack's `normalise_laterality` does). Side is recoverable: tag on 50%, the IPP-x rule at 97.3% (FINDINGS §6.2) | sagittal slices run patient-left → patient-right, so a slot's first slices are the LATERAL compartment on a left knee and the MEDIAL one on a right knee; coronal/axial are mirrored. `WindowMIL` has no slot or depth input, so today the model must tell compartments apart from content alone |
+
+**The laterality diagnostic is inconclusive.** On the 484 of the 691 with a known side (tag or
+SeriesDescription token; R 240 / L 244), `c6_ortho` differs by side a lot on some labels (MCL 0.720 R vs
+0.844 L, Fracture 0.766 vs 0.927, per-label SE 0.03–0.09), but the mean R−L gap is no larger on the
+side-specific labels (−0.027) than on the others (−0.038). That is the signature of site/case mix (side
+availability is itself site-dependent, FINDINGS §7), not of orientation. Only an A/B can answer it.
+
+None of the four is measured as a loss yet; each is a gap between what the scanner recorded and what
+the model sees. The public stack's newest members move the same way (`raptor-knee-native384dense`,
+a 96-slice "Global96" CoAtNet, D4's depth zones inside each slot).
+
 ---
 
 ## 11. Public label tables against gold-58 `2026-09-23`
