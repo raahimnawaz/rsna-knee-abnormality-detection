@@ -42,9 +42,16 @@ import pandas as pd
 
 sys.path.insert(0, str(Path(__file__).resolve().parent))
 import slots64 as S  # noqa: E402
+import slots96  # noqa: E402
 
+SPECS = {"c6": S, "c7": slots96}        # --spec: Stage A (64 x 336) or Stage B (96 x 384)
 SPAN = (0.02, 0.98)
 PCT = (2.0, 98.0)
+# Right knees sit near x = -150 in the scanner frame and left ones near +14, so the two modes
+# straddle -62, not 0: 97.3% +- 0.7% against the Laterality tag, cross-validated (FINDINGS §6.2,
+# the rule `pipeline/preprocess.py` carried). The statistic is the median IPP x over the first
+# three files of every series, which is what that threshold was calibrated on.
+LATERALITY_X_THRESHOLD = -62.0
 
 
 def log(msg: str) -> None:
@@ -52,6 +59,102 @@ def log(msg: str) -> None:
 
 
 # ----------------------------------------------------------------------------- reading
+def study_side(study_dir: Path, series_uids: list[str]) -> tuple[str | None, str]:
+    """-> ('L' | 'R' | None, 'tag' | 'geometry' | 'none'). Tag first, then the -62 mm rule."""
+    import pydicom
+    from collections import Counter
+    votes, xs = Counter(), []
+    for uid in series_uids:
+        d = study_dir / uid
+        if not d.is_dir():
+            continue
+        for f in sorted(d.glob("*.dcm"))[:3]:
+            try:
+                h = pydicom.dcmread(f, stop_before_pixels=True, force=True)
+            except Exception:                               # noqa: BLE001
+                continue
+            v = getattr(h, "Laterality", None) or getattr(h, "ImageLaterality", None)
+            if not v:
+                bp = str(getattr(h, "BodyPartExamined", "") or "").upper()
+                v = "L" if (bp.endswith("L") and "KNEE" in bp) else ("R" if (bp.endswith("R") and "KNEE" in bp) else None)
+            v = str(v).strip().upper()[:1] if v else None
+            if v in ("L", "R"):
+                votes[v] += 1
+            try:
+                xs.append(float(np.asarray(h.ImagePositionPatient, float)[0]))
+            except Exception:                               # noqa: BLE001
+                pass
+    if votes:
+        return votes.most_common(1)[0][0], "tag"
+    if xs:
+        return ("R" if float(np.median(xs)) < LATERALITY_X_THRESHOLD else "L"), "geometry"
+    return None, "none"
+
+
+def canon_ops(iop, side: str | None) -> dict:
+    """How to bring one series into the canonical frame, from its orientation and the knee's side.
+
+    LPS patient frame: +x patient-left, +y posterior, +z superior. m is the MEDIAL direction: +x on a
+    right knee, -x on a left one (an unknown side is treated as right and counted). Canonical, for
+    every knee and every scanner convention:
+      sagittal  slices lateral -> medial; columns anterior -> posterior; rows superior -> inferior
+      coronal   slices anterior -> posterior; columns lateral -> medial; rows superior -> inferior
+      axial     slices superior -> inferior; columns lateral -> medial; rows anterior -> posterior
+    So a left knee comes out as its mirror image -- a right knee -- and a scanner that stores rows or
+    columns the other way round is undone by the same rule. Applied BEFORE the centre crop, so an
+    odd margin cannot shift the mirror by a pixel.
+    """
+    r, c = np.asarray(iop[:3], float), np.asarray(iop[3:], float)
+    n = np.cross(r, c)
+    m = np.array([-1.0, 0, 0]) if side == "L" else np.array([1.0, 0, 0])
+    Y, Z = np.array([0, 1.0, 0]), np.array([0, 0, 1.0])
+    a = int(np.argmax(np.abs(n)))
+    slice_dir, col_t, row_t = {0: (m, Y, -Z), 1: (Y, m, -Z), 2: (-Z, m, Y)}[a]
+    transpose = int(np.argmax(np.abs(r))) != int(np.argmax(np.abs(col_t)))
+    rr, cc = (c, r) if transpose else (r, c)
+    return {"axis": "xyz"[a], "slice_dir": slice_dir, "transpose": bool(transpose),
+            "flip_lr": bool(np.dot(rr, col_t) < 0), "flip_ud": bool(np.dot(cc, row_t) < 0)}
+
+
+def apply_ops(a: np.ndarray, ops: dict | None) -> np.ndarray:
+    if not ops:
+        return a
+    if ops["transpose"]:
+        a = a.T
+    if ops["flip_lr"]:
+        a = a[:, ::-1]
+    if ops["flip_ud"]:
+        a = a[::-1, :]
+    return np.ascontiguousarray(a)
+
+
+def order_series_canon(series_dir: Path, side: str | None) -> tuple[list[tuple[Path, float, float]], str, dict | None]:
+    """`order_series`, but sorted along the CANONICAL slice direction and returning the in-plane ops.
+    row_mm / col_mm are returned already swapped when the image is transposed."""
+    import pydicom
+    recs, iop0 = [], None
+    for f in sorted(series_dir.iterdir()):
+        if f.name.startswith("."):
+            continue
+        try:
+            h = pydicom.dcmread(f, stop_before_pixels=True)
+        except Exception:                                   # noqa: BLE001
+            continue
+        iop, ipp = getattr(h, "ImageOrientationPatient", None), getattr(h, "ImagePositionPatient", None)
+        ps = getattr(h, "PixelSpacing", None)
+        row_mm, col_mm = (float(ps[0]), float(ps[1])) if ps is not None and len(ps) == 2 else (np.nan, np.nan)
+        if iop0 is None and iop is not None and len(iop) == 6:
+            iop0 = [float(v) for v in iop]
+        recs.append((f, ipp, row_mm, col_mm, float(getattr(h, "InstanceNumber", 0) or 0)))
+    if iop0 is None or any(r[1] is None for r in recs):
+        recs.sort(key=lambda r: r[4])
+        return [(f, rm, cm) for f, _, rm, cm, _ in recs], "instance_number", None
+    ops = canon_ops(iop0, side)
+    recs.sort(key=lambda r: float(np.dot(np.asarray(r[1], float), ops["slice_dir"])))
+    sw = ops["transpose"]
+    return [(f, (cm if sw else rm), (rm if sw else cm)) for f, _, rm, cm, _ in recs], "canonical", ops
+
+
 def order_series(series_dir: Path) -> tuple[list[tuple[Path, float, float]], str]:
     """-> ([(file, row_mm, col_mm)] sorted along the slice normal, how it was ordered)."""
     import pydicom
@@ -93,7 +196,7 @@ def decode(path: Path) -> np.ndarray:
 
 
 def crop_mm(a: np.ndarray, row_mm: float, col_mm: float, fov_mm: float = S.FOV_MM,
-            img: int = S.IMG) -> np.ndarray:
+            img: int = S.IMG) -> np.ndarray:        # Stage B passes img=384 explicitly
     """Centre box of `fov_mm` x `fov_mm` in PHYSICAL units, padded with 0 where the scan is smaller."""
     import cv2
     h, w = a.shape
@@ -107,27 +210,41 @@ def crop_mm(a: np.ndarray, row_mm: float, col_mm: float, fov_mm: float = S.FOV_M
     return cv2.resize(out, (img, img), interpolation=interp)
 
 
-def build_study(study_dir: Path, series: list[dict], span=SPAN) -> tuple[np.ndarray, np.ndarray, list[dict]]:
-    """One study -> (vol (64,336,336) uint8, mask (64,) uint8, one meta dict per slot).
+def build_study(study_dir: Path, series: list[dict], span=SPAN, spec: str = "c6",
+                canon: bool = False) -> tuple[np.ndarray, np.ndarray, list[dict]]:
+    """One study -> (vol (N,img,img) uint8, mask (N,) uint8, one meta dict per slot).
 
     `series`: dicts with SeriesInstanceUID, plane, fluid. n_slices is counted here from disk.
+    spec "c6" is Stage A (64 x 336, `slots64`), "c7" Stage B (96 x 384, `slots96`). `canon` puts every
+    series in the canonical frame (`canon_ops`); off, a series is read as stored -- Stage A's bytes.
     """
+    Sp = SPECS[spec]
     for s in series:
         d = study_dir / s["SeriesInstanceUID"]
         s["n_slices"] = sum(1 for f in d.iterdir() if not f.name.startswith(".")) if d.is_dir() else 0
     usable = [s for s in series if s["n_slices"] > 0]
-    pick = S.assign_series(usable)
-    vol = np.zeros((S.N_SLICES, S.IMG, S.IMG), np.uint8)
-    mask = np.zeros(S.N_SLICES, np.uint8)
+    pick = Sp.assign_series(usable)
+    side, side_src = study_side(study_dir, [s["SeriesInstanceUID"] for s in usable]) if canon else (None, "")
+    vol = np.zeros((Sp.N_SLICES, Sp.IMG, Sp.IMG), np.uint8)
+    mask = np.zeros(Sp.N_SLICES, np.uint8)
     meta = []
-    for (a, b), slot in zip(S.slot_offsets(), S.SLOTS):
+    for (a, b), slot in zip(Sp.slot_offsets(), Sp.SLOTS):
         ser = pick.get(slot.name)
         row = {"slot": slot.name, "series": None, "n_available": 0, "source_step": 0.0,
                "ordered_by": None, "row_mm": np.nan, "col_mm": np.nan, "picks": "", "decode_fail": 0}
+        if canon:
+            row.update(side=side, side_src=side_src, ops="")
         if ser is None:
             meta.append(row)
             continue
-        files, how = order_series(study_dir / ser["SeriesInstanceUID"])
+        ops = None
+        if canon:
+            files, how, ops = order_series_canon(study_dir / ser["SeriesInstanceUID"], side)
+            if ops:
+                row["ops"] = ops["axis"] + ("T" if ops["transpose"] else "") + ("H" if ops["flip_lr"] else "") \
+                    + ("V" if ops["flip_ud"] else "")
+        else:
+            files, how = order_series(study_dir / ser["SeriesInstanceUID"])
         n = len(files)
         picks = S.pick_depths(n, slot.n_slices, *span)
         row.update(series=ser["SeriesInstanceUID"], fluid=ser.get("fluid"), n_available=n,
@@ -136,7 +253,7 @@ def build_study(study_dir: Path, series: list[dict], span=SPAN) -> tuple[np.ndar
         arrs = {}
         for p in sorted(set(picks.tolist())):
             try:
-                arrs[p] = decode(files[p][0])
+                arrs[p] = apply_ops(decode(files[p][0]), ops)
             except Exception:                               # noqa: BLE001 -- counted, slot survives
                 row["decode_fail"] += 1
         if arrs:
@@ -154,7 +271,7 @@ def build_study(study_dir: Path, series: list[dict], span=SPAN) -> tuple[np.ndar
                     row["decode_fail"] += 1
                     continue
                 w = np.clip((arrs[p] - lo) / (hi - lo + 1e-6), 0, 1)
-                vol[a + j] = np.round(crop_mm(w, r, c) * 255).astype(np.uint8)
+                vol[a + j] = np.round(crop_mm(w, r, c, img=Sp.IMG) * 255).astype(np.uint8)
                 mask[a + j] = 1
         meta.append(row)
     return vol, mask, meta
@@ -162,21 +279,23 @@ def build_study(study_dir: Path, series: list[dict], span=SPAN) -> tuple[np.ndar
 
 # ----------------------------------------------------------------------------- driver
 def _one(args):
-    uid, study_dir, series, span = args
+    uid, study_dir, series, span, spec, canon = args
+    Sp = SPECS[spec]
     t = time.time()
     try:
-        vol, mask, meta = build_study(Path(study_dir), series, span)
+        vol, mask, meta = build_study(Path(study_dir), series, span, spec, canon)
         err = None
     except Exception as e:                                  # noqa: BLE001 -- a study never kills the shard
-        vol, mask, meta, err = (np.zeros((S.N_SLICES, S.IMG, S.IMG), np.uint8),
-                                np.zeros(S.N_SLICES, np.uint8), [], f"{type(e).__name__}: {e}")
+        vol, mask, meta, err = (np.zeros((Sp.N_SLICES, Sp.IMG, Sp.IMG), np.uint8),
+                                np.zeros(Sp.N_SLICES, np.uint8), [], f"{type(e).__name__}: {e}")
     return uid, vol, mask, meta, err, time.time() - t
 
 
-def render_edges(vols: np.ndarray, masks: np.ndarray, ids, out: Path, n: int = 20, tile: int = 112) -> None:
+def render_edges(vols: np.ndarray, masks: np.ndarray, ids, out: Path, n: int = 20, tile: int = 112,
+                 Sp=S) -> None:
     """GATE A: first and last slice of each slot, for `n` studies -- anatomy, not wrap or air."""
     import cv2
-    offs = S.slot_offsets()
+    offs = Sp.slot_offsets()
     rows = []
     for i in range(min(n, len(vols))):
         tiles = []
@@ -201,7 +320,10 @@ def main() -> None:
     ap.add_argument("--span", type=float, nargs=2, default=SPAN)
     ap.add_argument("--workers", type=int, default=os.cpu_count() or 4)
     ap.add_argument("--check", action="store_true", help="assert the fixture's known answers")
+    ap.add_argument("--spec", choices=sorted(SPECS), default="c6", help="c6 = Stage A, c7 = Stage B")
+    ap.add_argument("--canon", action="store_true", help="canonical orientation (left knees mirrored)")
     a = ap.parse_args()
+    Sp = SPECS[a.spec]
     t0 = time.time()
     a.out.mkdir(parents=True, exist_ok=True)
 
@@ -215,14 +337,15 @@ def main() -> None:
                      "fluid": int(r.Fluid_Sensitive) if pd.notna(r.Fluid_Sensitive) else 0}
                     for r in g.itertuples()] for u, g in ser.groupby(ser.StudyInstanceUID.astype(str))}
     log(f"{a.split}: {len(studies)} studies, shard {a.shard}/{a.n_shards} -> {len(mine)} | "
-        f"span {a.span[0]:.0%}-{a.span[1]:.0%} | {a.workers} workers | out {a.out}")
+        f"span {a.span[0]:.0%}-{a.span[1]:.0%} | {a.workers} workers | spec {a.spec} "
+        f"({Sp.N_SLICES} x {Sp.IMG}) | canon {a.canon} | out {a.out}")
 
     vols = np.lib.format.open_memmap(a.out / "vols.npy", mode="w+", dtype=np.uint8,
-                                     shape=(len(mine), S.N_SLICES, S.IMG, S.IMG))
-    masks = np.zeros((len(mine), S.N_SLICES), np.uint8)
+                                     shape=(len(mine), Sp.N_SLICES, Sp.IMG, Sp.IMG))
+    masks = np.zeros((len(mine), Sp.N_SLICES), np.uint8)
     rows, errs, secs = [], {}, []
     row_of = {u: i for i, u in enumerate(mine)}
-    jobs = [(u, str(img_dir / u), by_study.get(u, []), tuple(a.span)) for u in mine]
+    jobs = [(u, str(img_dir / u), by_study.get(u, []), tuple(a.span), a.spec, a.canon) for u in mine]
     # --workers 1 runs in-process: debuggable, and the only way a monkeypatched function is seen
     # (macOS spawns workers, which re-import this module fresh).
     ex = ProcessPoolExecutor(max_workers=a.workers) if a.workers > 1 else None
@@ -248,20 +371,28 @@ def main() -> None:
     meta = pd.DataFrame(rows)
     meta.to_csv(a.out / "slots.csv", index=False)
     if a.shard == 0:
-        render_edges(vols, masks, mine, a.out)
+        render_edges(vols, masks, mine, a.out, Sp=Sp)
 
-    fill = {s.name: float(masks[:, x:y].any(1).mean()) for (x, y), s in zip(S.slot_offsets(), S.SLOTS)}
+    fill = {s.name: float(masks[:, x:y].any(1).mean()) for (x, y), s in zip(Sp.slot_offsets(), Sp.SLOTS)}
     # GATE A, measured over the whole shard rather than eyeballed: the share of pixels that are
     # tissue (> 25/255) on each slot's first, middle and last slice. The 09-23 smoke read the
     # sagittal edges at ~0.43 of pixels against ~0.82 mid-stack, and the anterior coronal at ~0.21.
     edge = {}
-    for (x, y), s in zip(S.slot_offsets(), S.SLOTS):
+    for (x, y), s in zip(Sp.slot_offsets(), Sp.SLOTS):
         ok = np.flatnonzero(masks[:, x])[:300]
         if len(ok):
             t = lambda k: float((np.asarray(vols[ok, k]) > 25).mean())   # noqa: E731
             edge[s.name] = {"first": t(x), "mid": t((x + y) // 2), "last": t(y - 1), "n": int(len(ok))}
     ordered = meta.ordered_by.value_counts(dropna=True).to_dict() if len(meta) else {}
-    man = {**S.manifest(tuple(a.span)), "split": a.split, "shard": a.shard, "n_shards": a.n_shards,
+    canon_stats = {}
+    if a.canon and len(meta):
+        per_study = meta.drop_duplicates("StudyInstanceUID")
+        canon_stats = {"side": per_study.side.fillna("none").value_counts().to_dict(),
+                       "side_src": per_study.side_src.fillna("none").value_counts().to_dict(),
+                       "ops": meta[meta.series.notna()].ops.fillna("none").value_counts().to_dict()}
+        log(f"canonical: side {canon_stats['side']} | from {canon_stats['side_src']} | ops {canon_stats['ops']}")
+    man = {**Sp.manifest(tuple(a.span)), "canon": bool(a.canon), "canon_stats": canon_stats,
+           "split": a.split, "shard": a.shard, "n_shards": a.n_shards,
            "n_studies": len(mine), "errors": errs, "slot_fill": fill, "edge_tissue": edge,
            "ordered_by": ordered,
            "decode_fail": int(meta.decode_fail.sum()) if len(meta) else 0,

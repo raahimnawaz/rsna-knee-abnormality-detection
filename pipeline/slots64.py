@@ -117,7 +117,7 @@ def source_step(n_available: int, n_want: int,
     return float(np.diff(d).mean()) if len(d) > 1 else 0.0
 
 
-def window_ids() -> tuple[np.ndarray, np.ndarray, np.ndarray]:
+def window_ids(slots: tuple[Slot, ...] | None = None) -> tuple[np.ndarray, np.ndarray, np.ndarray]:
     """Fixed (slot_id, position_id, centre-slice index) for all 54 windows, same for every study.
 
     `centre` indexes the 64-slice cache row. The head's `(slot, position)` embedding is looked up
@@ -127,7 +127,7 @@ def window_ids() -> tuple[np.ndarray, np.ndarray, np.ndarray]:
     """
     slot_id, pos_id, centre = [], [], []
     base = 0
-    for si, s in enumerate(SLOTS):
+    for si, s in enumerate(slots or SLOTS):
         for p in range(s.n_windows):
             slot_id.append(si)
             pos_id.append(p)
@@ -138,16 +138,16 @@ def window_ids() -> tuple[np.ndarray, np.ndarray, np.ndarray]:
             np.asarray(centre, dtype=np.int64))
 
 
-def slot_offsets() -> list[tuple[int, int]]:
+def slot_offsets(slots: tuple[Slot, ...] | None = None) -> list[tuple[int, int]]:
     """(start, stop) of each slot inside the 64-slice cache row."""
     out, base = [], 0
-    for s in SLOTS:
+    for s in slots or SLOTS:
         out.append((base, base + s.n_slices))
         base += s.n_slices
     return out
 
 
-def assign_series(series: list[dict]) -> dict[str, dict | None]:
+def assign_series(series: list[dict], slots: tuple[Slot, ...] | None = None) -> dict[str, dict | None]:
     """Map each slot to a series, or None when the study has nothing suitable.
 
     `series` entries need `plane` ('Axial'|'Coronal'|'Sagittal'), `fluid` (0/1) and `n_slices`.
@@ -157,7 +157,7 @@ def assign_series(series: list[dict]) -> dict[str, dict | None]:
     """
     out: dict[str, dict | None] = {}
     used: set[int] = set()
-    for s in SLOTS:
+    for s in slots or SLOTS:
         cands = [(i, c) for i, c in enumerate(series)
                  if c.get("plane") == s.plane and i not in used]
         if not cands:
