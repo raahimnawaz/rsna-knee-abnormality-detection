@@ -1,4 +1,11 @@
-"""Stage A on Kaggle: one CPU kernel per shard of the 64-slice cache. `pipeline/build_slots64.py`.
+"""Stage A / Stage B on Kaggle: one CPU kernel per shard of a slot cache. `pipeline/build_slots64.py`.
+
+    python notebooks/build_stage_a_kernel.py --stage b --out /tmp/sb --shard 0 --limit 20       # Stage B smoke
+    python notebooks/build_stage_a_kernel.py --stage b --out /tmp/sb0 --shard 0                 # a Stage B shard
+
+Stage B (`DATA.md` §10b) is `--spec c7 --canon`: 96 slices x 384 px, orientation-canonical, 14.2 MB a
+study, so EIGHT shards (~7.8 GB each) by default. Its smoke also has to show the `canonical:` line --
+side from tag vs geometry near 50/50, and which flips the real scanners needed.
 
     python notebooks/build_stage_a_kernel.py --out /tmp/sa --shard 0 --n-shards 4 --limit 20   # smoke
     python notebooks/build_stage_a_kernel.py --out /tmp/sa0 --shard 0 --n-shards 4             # a shard
@@ -30,7 +37,9 @@ from pathlib import Path
 
 PROJ = Path(__file__).resolve().parents[1]
 OWNER = "raahimnawaz"
-EMBED = ["pipeline/slots64.py", "pipeline/build_slots64.py"]
+EMBED = ["pipeline/slots64.py", "pipeline/slots96.py", "pipeline/build_slots64.py"]
+STAGES = {"a": {"out": "stage_a", "args": [], "shards": 4},
+          "b": {"out": "stage_b", "args": ["--spec", "c7", "--canon"], "shards": 8}}
 
 CELL = r'''
 # ============================================================================ #
@@ -40,6 +49,7 @@ CELL = r'''
 import base64, hashlib, json, os, shutil, subprocess, sys, time
 from pathlib import Path
 SHARD, N_SHARDS, LIMIT, BUILT_FROM = __SHARD__, __N_SHARDS__, __LIMIT__, __BUILT_FROM__
+OUT_DIR, EXTRA = __OUT_DIR__, __EXTRA__
 T0 = time.time()
 REPO = Path("/tmp/sa_repo")
 for rel, (b64, sha) in json.loads(base64.b64decode(__FILES_B64__).decode()).items():
@@ -66,8 +76,8 @@ for d, dirs, fs in os.walk("/kaggle/input"):
 if ROOT is None:
     sys.exit("no competition root with train_series/ under /kaggle/input")
 cmd = [sys.executable, "-u", str(REPO / "pipeline" / "build_slots64.py"), "--root", ROOT,
-       "--out", "/kaggle/working/stage_a", "--shard", str(SHARD), "--n-shards", str(N_SHARDS),
-       "--workers", str(os.cpu_count() or 4)]
+       "--out", f"/kaggle/working/{OUT_DIR}", "--shard", str(SHARD), "--n-shards", str(N_SHARDS),
+       "--workers", str(os.cpu_count() or 4)] + EXTRA
 if LIMIT:
     cmd += ["--limit", str(LIMIT)]
 print(" ".join(cmd), flush=True)
@@ -93,17 +103,21 @@ def main() -> None:
     ap = argparse.ArgumentParser(description=__doc__.splitlines()[0])
     ap.add_argument("--out", type=Path, required=True)
     ap.add_argument("--shard", type=int, required=True)
-    ap.add_argument("--n-shards", type=int, default=4)
+    ap.add_argument("--stage", choices=sorted(STAGES), default="a")
+    ap.add_argument("--n-shards", type=int, default=0, help="default: 4 for Stage A, 8 for Stage B")
     ap.add_argument("--limit", type=int, default=0, help="smoke: this many studies of the shard")
     a = ap.parse_args()
+    st = STAGES[a.stage]
+    a.n_shards = a.n_shards or st["shards"]
     files = {rel: [base64.b64encode((PROJ / rel).read_bytes()).decode(),
                    hashlib.sha256((PROJ / rel).read_bytes()).hexdigest()] for rel in EMBED}
     built_from = _git_head()
     cell = (CELL.replace("__SHARD__", str(a.shard)).replace("__N_SHARDS__", str(a.n_shards))
                 .replace("__LIMIT__", str(a.limit)).replace("__BUILT_FROM__", repr(built_from))
+                .replace("__OUT_DIR__", repr(st["out"])).replace("__EXTRA__", repr(st["args"]))
                 .replace("__FILES_B64__", repr(base64.b64encode(json.dumps(files).encode()).decode())))
     compile(cell, "cell", "exec")
-    slug = f"rsna-knee-stage-a-s{a.shard}of{a.n_shards}"
+    slug = f"rsna-knee-stage-{a.stage}-s{a.shard}of{a.n_shards}"
     nb = {"cells": [{"cell_type": "code", "execution_count": None, "metadata": {}, "outputs": [],
                      "source": cell.strip("\n").splitlines(keepends=True)}],
           "metadata": {"kernelspec": {"display_name": "Python 3", "language": "python", "name": "python3"},
