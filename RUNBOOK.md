@@ -41,11 +41,15 @@ input is the main cause, +0.0441, ~half the gap (§2b) · Stage A cache ✅ buil
 label tables ✅ closed, keep `steven_v2` (`DATA.md` §11) · C-PRE ✅ resolved (§4).
 
 **⏸ 2026-09-24 15:00 — Submission B is BUILT and TESTED, and NOT RUN: the push hit "Maximum weekly GPU
-quota of 30.00 hours reached."** Nothing was submitted. When the quota resets, in this order:
+quota of 30.00 hours reached."** Nothing was submitted. The quota resets **Saturday 00:00 UTC** (Fri 17:00
+PDT). A one-time scheduled task in the Claude desktop app, `rsna-submit-b-curve-a`, fires Fri 2026-09-25
+17:20 PDT and runs everything below, including A, submitting only on the gates named here. It runs only
+while the app is open; if it has not reported, run this by hand, in this order:
 ```bash
 S=/tmp/subb   # any scratch dir
-.venv/bin/python -m kaggle kernels pull mattiaangeli/bend-the-knee-to-speedy-raptors-the-original -p $S/pub -m
-.venv/bin/python notebooks/build_submit_kernel.py --public-dir $S/pub --out $S/subb   # refuses if upstream moved its seams
+# the public notebook is PINNED at the version built and tested against (sha256 2fc5a4206d76c13a), in
+# gitignored data/; a fresh `kaggle kernels pull` would take whatever its author uploaded since
+.venv/bin/python notebooks/build_submit_kernel.py --public-dir data/public_notebooks/bend-the-knee-2fc5a420 --out $S/subb
 .venv/bin/python -m kaggle kernels push -p $S/subb                  # commit run: 3 visible studies, ~10-15 min
 .venv/bin/python notebooks/build_window_curve_kernel.py --out $S/curve && .venv/bin/python -m kaggle kernels push -p $S/curve
 # commit log must show "GATE PASSED" (8 fold-0 studies rebuilt from DICOMs reproduce oof_all.csv)
