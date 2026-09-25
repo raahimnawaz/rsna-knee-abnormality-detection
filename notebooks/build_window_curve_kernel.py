@@ -26,7 +26,8 @@ WEIGHTS_KERNEL = f"{OWNER}/rsna-knee-c6-train-ortho"
 WEIGHTS_SHA256 = "1fe51be2ff4deaae4dfd5fafd2354f3b9bbeb0c26cda3fd918a00699fd481b98"
 STAGE_A_SHARDS = [f"{OWNER}/rsna-knee-stage-a-s{i}of4" for i in range(4)]
 EMBED = ["fusion/window_curve.py", "fusion/infer_windows.py", "fusion/train_windows.py",
-         "pipeline/build_slots64.py", "pipeline/slots64.py"]
+         "pipeline/build_slots64.py", "pipeline/slots64.py", "pipeline/slots96.py",
+         "fusion/orthofoundation_model.py", "extractor/metrics.py"]
 SPLIT = {0: [54, 27, 12], 1: [36, 18]}
 
 CELL = r'''
@@ -76,6 +77,20 @@ log("window curve complete -- score locally with fusion/score_oof.py, paired aga
 '''
 
 
+
+def _check_import_closure(embed: list[str]) -> None:
+    """Refuse to build if an embedded file imports a repo module that is not embedded. 2026-09-25:
+    build_slots64 grew an import of slots96 and this kernel would have died at its gate on Kaggle."""
+    import re
+    have = {Path(r).stem for r in embed if r.endswith(".py")}
+    local = {p.stem for d in ("fusion", "pipeline", "extractor") for p in (PROJ / d).glob("*.py")}
+    for rel in embed:
+        if not rel.endswith(".py"):
+            continue
+        for m in re.finditer(r"^\s*(?:from|import)\s+([A-Za-z_]\w*)", (PROJ / rel).read_text(), re.M):
+            if m.group(1) in local and m.group(1) not in have:
+                raise SystemExit(f"{rel} imports {m.group(1)}, which is not embedded -- add it to EMBED")
+
 def _git_head() -> str:
     try:
         sha = subprocess.run(["git", "-C", str(PROJ), "rev-parse", "--short", "HEAD"],
@@ -91,6 +106,7 @@ def main() -> None:
     ap = argparse.ArgumentParser(description=__doc__.splitlines()[0])
     ap.add_argument("--out", type=Path, required=True)
     a = ap.parse_args()
+    _check_import_closure(EMBED)
     files = {}
     for rel in EMBED:
         b = (PROJ / rel).read_bytes()

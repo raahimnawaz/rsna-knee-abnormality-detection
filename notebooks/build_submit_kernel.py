@@ -52,7 +52,8 @@ WEIGHTS_SHA256 = "1fe51be2ff4deaae4dfd5fafd2354f3b9bbeb0c26cda3fd918a00699fd481b
 # the public stack's pinned image (torch 2.10.0+cu128); Submission A uses it too, so A and B run one environment
 DOCKER_IMAGE = "gcr.io/kaggle-private-byod/python@sha256:37c64f7dd9c54116ecd1bcc88817c5469b88387388fade02bfa8bf3fc647d461"
 EMBED = ["fusion/infer_windows.py", "fusion/train_windows.py", "fusion/window_curve.py",
-         "pipeline/build_slots64.py", "pipeline/slots64.py"]
+         "pipeline/build_slots64.py", "pipeline/slots64.py", "pipeline/slots96.py",
+         "fusion/orthofoundation_model.py", "extractor/metrics.py"]   # build_slots64 imports slots96
 LABELS = ["ACL", "MCL", "Medial Meniscus", "Lateral Meniscus", "Medial OA", "Lateral OA",
           "PF OA", "Effusion", "Synovitis", "Baker's", "Contusion", "Fracture"]
 
@@ -262,6 +263,20 @@ leaderboard number, and an efficiency-track entry. Built by `notebooks/build_sub
 --ours-only` (__BUILT_FROM__)."""
 
 
+
+def _check_import_closure(embed: list[str]) -> None:
+    """Refuse to build if an embedded file imports a repo module that is not embedded. 2026-09-25:
+    build_slots64 grew an import of slots96 and this kernel would have died at its gate on Kaggle."""
+    import re
+    have = {Path(r).stem for r in embed if r.endswith(".py")}
+    local = {p.stem for d in ("fusion", "pipeline", "extractor") for p in (PROJ / d).glob("*.py")}
+    for rel in embed:
+        if not rel.endswith(".py"):
+            continue
+        for m in re.finditer(r"^\s*(?:from|import)\s+([A-Za-z_]\w*)", (PROJ / rel).read_text(), re.M):
+            if m.group(1) in local and m.group(1) not in have:
+                raise SystemExit(f"{rel} imports {m.group(1)}, which is not embedded -- add it to EMBED")
+
 def _git_head() -> str:
     try:
         sha = subprocess.run(["git", "-C", str(PROJ), "rev-parse", "--short", "HEAD"],
@@ -286,6 +301,7 @@ def main() -> None:
     if not a.ours_only and not a.public_dir:
         raise SystemExit("Submission B needs --public-dir (or pass --ours-only for Submission A)")
 
+    _check_import_closure(EMBED)
     files = {}
     for rel in EMBED:
         b = (PROJ / rel).read_bytes()
