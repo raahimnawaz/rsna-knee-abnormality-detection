@@ -154,6 +154,19 @@ paired on the 691** — and the seed floor is unmeasured, so a +0.005 cannot yet
    into a small fast student** (ViT-S/B or CoAtNet-0) trained on Ortho's predictions — the standard
    efficiency-track route.
 
+**Combining our OWN models per label — measured 2026-09-24** (`fusion/perlabel_select.py`, c6_ortho +
+ab_coatnet on the 681 scorable fold-0 studies; each choice made on a random half, scored on the other, 1,000
+splits). Plain average **0.8268 < Ortho alone 0.8298**: averaging in a clearly weaker model costs. "Use each
+model only where it is strongest" **0.8289, no better than Ortho alone** — twelve picks on ~340 studies are
+noisy and it drops the averaging gain on close labels. "Verification" (Ortho, averaged only where the two
+disagree) **0.8279, also below Ortho alone** — for AUROC there is no decision to verify, only another blend.
+**The one rule that helped: take the winner where it is clearly ahead (|Δ| > 0.03 on the choosing half,
+threshold fixed before the run), average where they are close: +0.0022 ± 0.0019 over Ortho alone, better in
+88% of splits (~1.2σ) — suggestive, not established.** It ends up as Ortho alone on ACL, Lateral Meniscus,
+Effusion, Synovitis and an average on MCL, the three OA labels, Contusion and Fracture. Pre-registered for
+when a Stage A CoAtNet exists: same rule, same threshold, re-measured before it is used. It cannot be
+applied between our model and the public stack: their members trained on these 691 studies.
+
 **Open questions for the owner, asked 09-24, still unanswered:** rent cloud GPUs (~100 A100-h ≈ $150–250;
 training anywhere is allowed, only inference must run on Kaggle)? What Mac (chip, memory) — could it take
 evaluation or small runs? Open to a team merger before the **Oct 15** deadline?
