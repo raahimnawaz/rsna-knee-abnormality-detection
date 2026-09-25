@@ -266,6 +266,18 @@ Re-measure before citing. Last pulled **2026-09-23**:
   `mattiaangeli/rsna-knee-coatnet-d4-depthzone-swa3-b2` (1,895 downloads), `miguelbeta/rsna-knee-dinov2-weights`;
   caches `crtproduction/rsna-knee-cache-v3-*` (384×12, 320×9), `lvthanhxun/rsna-knee-v9-cache`.
 
+- **Board intelligence, "best single model" discussion, read 2026-09-25 (self-reported public LB, single
+  fold unless stated):** CoAtNet 2.5D at **224 px → 0.950** (36th: "my OOF predictions were already closer to
+  the radiologists than the extracted labels... bigger models weren't helping... the labels were the
+  bottleneck"); **Qwen 3.5 2B VLM**, LoRA on the language model + vision encoder fine-tuned, 384 px → **0.950** in
+  ~3.5 h (54th); CoAtNet 288 full-train 0.938 → **0.949 from label work alone** — several weak-label sources
+  (public, API, local) train teacher models, the teachers' predictions become pseudo-labels, a final model
+  trains on those, "different teachers help different targets", API cost under $5 (71st); 7th place: 0.942 at
+  288 px, "not sure resolution is such a big driver", OOF pseudo-labels correlate with LB; CoAtNet 384 0.937,
+  "fusion is ineffective" (85th); small ResNet 224 → 0.936, +0.015 from combining labels (64th). **Read: the
+  0.928 → 0.950 single-model gap is labels (teacher → student), not resolution or backbone size.** Our model
+  reached label parity on gold-58 on 09-25 (`DATA.md` §10b), the stated precondition.
+
 ### 0.4 The plan as of 2026-09-23 — supersedes the stage order in `PLAN-C6.md`
 
 What changed it: the frontier's training recipe is public and puts a **single** model at LB 0.928

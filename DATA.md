@@ -453,6 +453,20 @@ it: the CNN-stage CoAtNet beat Ortho on Lateral OA and PF OA in the A/B (`RUNBOO
 58 gold studies (reported only, SE 0.04–0.09) the REPORTS are weakest on Lateral OA (0.830), which caps
 what any report-trained model can show on the leaderboard for that label.
 
+**The model has reached its labels — measured 2026-09-25 on gold-58 (reported only, never selected on).**
+Against the radiologist's 58, `steven_v2` (the training labels) reads **0.8873**; `c6_ortho` reads **0.8777**,
+**−0.0096 ± 0.0158** — level within noise, where `ab_ortho` / `ab_coatnet` were −0.030 / −0.029 on 09-23.
+It already beats the labels on **Effusion 0.942 vs 0.853, Contusion 0.907 vs 0.831, Medial OA 0.944 vs
+0.931** (findings reports under-describe) and trails on ACL, MCL, PF OA, Lateral Meniscus (per-label SE
+0.04–0.09). This is the condition the 36th-place competitor names (Kaggle discussion, 09-25) for switching
+effort to labels: a model whose predictions sit closer to the radiologist than the labels it learned from
+carries information the labels lack, which is what teacher→student pseudo-labelling recovers. `D4`'s
+"labels are not the binding constraint" was measured at 0.76; it predicted the ceiling would bind later,
+and this is later. ⚠️ **The 691 instrument cannot see that gain:** it is scored against `gpt56sol`, another
+LLM reading of the same reports (0.98–1.00 agreement with `steven_v2`), so a model that moves from the
+reports toward the images reads as a LOSS there. A pseudo-label run needs gold-58 as its diagnostic and
+the leaderboard as its judge ([[measure-in-the-target-currency]]).
+
 None of the four is measured as a loss yet; each is a gap between what the scanner recorded and what
 the model sees. The public stack's newest members move the same way (`raptor-knee-native384dense`,
 a 96-slice "Global96" CoAtNet, D4's depth zones inside each slot).
