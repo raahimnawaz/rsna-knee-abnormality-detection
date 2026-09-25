@@ -439,6 +439,20 @@ SeriesDescription token; R 240 / L 244), `c6_ortho` differs by side a lot on som
 side-specific labels (−0.027) than on the others (−0.038). That is the signature of site/case mix (side
 availability is itself site-dependent, FINDINGS §7), not of orientation. Only an A/B can answer it.
 
+**Why MCL and the OA labels are the weakest — measured 2026-09-25, not argued.** On the 681 scorable
+fold-0 studies, `c6_ortho` reads MCL 0.761, Lateral OA 0.748, PF OA 0.785 against 0.835–0.898 elsewhere.
+Two popular explanations do NOT hold here: (1) *label noise on the instrument* — `steven_v2` (the training
+labels) predicts the `gpt56sol` reference at **0.979 (MCL), 0.988 (Lat OA), 0.998 (PF OA)**, as clean as
+any label (0.93–1.00; corr with model AUC across labels **+0.00**); (2) *class scarcity* — reference
+prevalence is MCL 14.6%, Lat OA **25.7%**, PF OA 45.1%, against Fracture 6.4% (which reads 0.874); corr of
+prevalence with model AUC **+0.09**. What is left is vision: the model recovers the smallest share of the
+report signal on exactly these three (model ÷ label agreement **0.78 / 0.76 / 0.79**, others 0.85–0.91).
+All three are thin or fine-textured — a 2–3 mm ligament at the image edge, 2–3 mm cartilage and marginal
+osteophytes — i.e. smaller than one ViT token (16 px = 6.7 mm at 336 px, 5.8 mm at 384). Consistent with
+it: the CNN-stage CoAtNet beat Ortho on Lateral OA and PF OA in the A/B (`RUNBOOK.md` §2c). Against the
+58 gold studies (reported only, SE 0.04–0.09) the REPORTS are weakest on Lateral OA (0.830), which caps
+what any report-trained model can show on the leaderboard for that label.
+
 None of the four is measured as a loss yet; each is a gap between what the scanner recorded and what
 the model sees. The public stack's newest members move the same way (`raptor-knee-native384dense`,
 a 96-slice "Global96" CoAtNet, D4's depth zones inside each slot).
