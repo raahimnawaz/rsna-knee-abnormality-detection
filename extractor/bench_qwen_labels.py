@@ -82,6 +82,8 @@ def paired(Y, A, B, cols=None):
 def main() -> None:
     ap = argparse.ArgumentParser(description=__doc__.splitlines()[0])
     ap.add_argument("--tag", default="qwen35_9b_v1")
+    ap.add_argument("--write", action="store_true",
+                    help="also write both candidates as training tables: <tag>/targets_c1.csv, targets_c2.csv")
     a = ap.parse_args()
 
     tr = pd.read_csv(D / "train.csv")
@@ -97,6 +99,15 @@ def main() -> None:
     blend = rank_blend(base, q)
     cands = {"C1 qwen alone": q, "C2 rank-mean -> steven_v2 marginal": blend}
 
+    if a.write:
+        tr_ids = tr.StudyInstanceUID.astype(str)
+        for fn, T in (("targets_c1.csv", q), ("targets_c2.csv", blend)):
+            out = T.reindex(tr_ids)
+            if out[LABELS].isna().any().any():
+                raise SystemExit(f"{fn}: {int(out[LABELS].isna().any(axis=1).sum())} studies without a score")
+            out.reset_index().rename(columns={"index": "StudyInstanceUID"}).to_csv(
+                D / "qwen_labels" / a.tag / fn, index=False)
+        print(f"wrote targets_c1.csv, targets_c2.csv under data/qwen_labels/{a.tag}/ ({len(tr_ids)} studies)")
     B = base.reindex(gidx).to_numpy(float)
     print(f"gold-58: steven_v2 {macro(Y, B):.4f}  (the incumbent; DATA.md §11 reads 0.8873)\n")
     for name, T in cands.items():
