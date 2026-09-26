@@ -125,15 +125,19 @@ def log(msg):
 import torch, timm
 if ARCH.startswith("qwen"):
     # Qwen3.5 needs a transformers that knows `qwen3_5`; the image may predate it. Internet is on here.
-    try:
-        from transformers import Qwen3_5Model  # noqa: F401
-    except ImportError:
+    # Checked in a FRESH interpreter: training runs in a subprocess, and a package upgraded under this
+    # notebook's own process cannot be re-imported here (the 09-26 smoke: pip succeeded, reload did not).
+    _probe = [sys.executable, "-c", "import transformers as t; from transformers import Qwen3_5Model; print(t.__version__)"]
+    _r = subprocess.run(_probe, capture_output=True, text=True)
+    if _r.returncode:
+        _old = subprocess.run([sys.executable, "-c", "import transformers as t; print(t.__version__)"],
+                              capture_output=True, text=True).stdout.strip()
+        log(f"transformers {_old or '(none)'} has no qwen3_5 -> installing transformers==__QWEN_TF__")
         subprocess.check_call([sys.executable, "-m", "pip", "install", "-q", "transformers==__QWEN_TF__"])
-        import importlib, transformers
-        importlib.reload(transformers)
-        from transformers import Qwen3_5Model  # noqa: F401
-    import transformers
-    log(f"transformers {transformers.__version__} (qwen3_5 available)")
+        _r = subprocess.run(_probe, capture_output=True, text=True)
+        if _r.returncode:
+            sys.exit("qwen3_5 still unavailable after the install:\n" + _r.stderr[-2000:])
+    log(f"transformers {_r.stdout.strip()} (qwen3_5 available to the training subprocess)")
 log(f"arch {ARCH}  mode {MODE}  epochs {EPOCHS}  built from {BUILT_FROM}")
 log(f"torch {torch.__version__}  timm {timm.__version__}  cuda {torch.cuda.is_available()}"
     + (f" {torch.cuda.get_device_name(0)}" if torch.cuda.is_available() else ""))
