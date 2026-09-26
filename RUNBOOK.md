@@ -21,8 +21,8 @@ Deadlines: **entry and team merger Oct 15**, final submission **Oct 22** (23:59 
 **▶ STATE AT 12:55 PDT 09-26 — three things in flight, each with its rule already written below:**
 | what | where | when | read it with | its rule |
 |---|---|---|---|---|
-| **Sub A-c7** — Stage B alone on the LB (ref **56587668**) | submitted 12:52, gate max \|Δp\| 0.00050 | hidden rerun, hours | `kaggle competitions submissions` | vs Sub A's 0.901: same labels, so a model gain |
-| **dread_soft retrain** — step 5 with only the labels changed | `rsna-knee-c6-train-ortho-dread` (queued 12:14) | ~11 h after it starts | Qwen block below | LB ≥ 0.911 = labels are a lever |
+| **Sub A-c7** — Stage B alone on the LB (ref **56587668**) | ✅ **LB 0.915** (13:34) — Sub A 0.901, **+0.014**; 691 said +0.011, gold +0.012 | — | — | a same-labels model gain, confirmed on the board: the 691 ranks fixed-target arms correctly |
+| **dread_soft retrain** — step 5 with only the labels changed | `rsna-knee-c6-train-ortho-dread` v2 (v1 stopped by provenance: the folds moved — fixed, `AUDIT.md`) | ~11 h after it starts | Qwen block below | LB ≥ 0.911 = labels are a lever |
 | **VLM one-epoch learning check** | `rsna-knee-c6-train-qwen35vl-e1` (queued 12:54) | ~3 h after it starts | `score_oof.py fusion/runs_c6_ortho <out>/runs_qwen35vl` | ≥ 0.75 on the 691 → a full run next week |
 Settled today: Qwen labels FAIL their gold gate (`steven_v2` stays); Stage B PASSES its 691 rule (+0.0112); the 09-26
 audit (`AUDIT.md`) found no leakage and fixed three HIGHs in the Qwen path. dread_soft's LB result decides what the VLM's

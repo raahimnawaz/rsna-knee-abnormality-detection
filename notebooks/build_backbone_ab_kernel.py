@@ -213,19 +213,27 @@ if __TARGETS_SHA__:
     # computed locally and recorded in provenance.json: the run's ONLY change when judged against step 5.
     if __TARGETS_B64__:
         import gzip as _gz
-        (D / "targets.csv").write_bytes(_gz.decompress(base64.b64decode(__TARGETS_B64__)))
+        (D / "targets_run.csv").write_bytes(_gz.decompress(base64.b64decode(__TARGETS_B64__)))
         _how = "embedded"
     else:
-        _hits = [Path(r) / __TARGETS_NAME__ for r, _d, fs in os.walk("/kaggle/input") if __TARGETS_NAME__ in fs]
+        _hits = []
+        for _r, _dd, _fs in os.walk("/kaggle/input"):   # not the image trees: 6 min walking DICOMs, 09-26
+            _dd[:] = [x for x in _dd if x not in ("train_series", "test_series", "train_images", "test_images")]
+            if __TARGETS_NAME__ in _fs:
+                _hits.append(Path(_r) / __TARGETS_NAME__)
         _hits = [h for h in _hits if _sha(h) == __TARGETS_SHA__]
         if not _hits:
             sys.exit(f"no attached {__TARGETS_NAME__} with sha256 {__TARGETS_SHA__[:16]} -- is its dataset attached?")
-        shutil.copy(_hits[0], D / "targets.csv")
+        shutil.copy(_hits[0], D / "targets_run.csv")
         _how = f"from {_hits[0]}"
-    if _sha(D / "targets.csv") != __TARGETS_SHA__:
+    if _sha(D / "targets_run.csv") != __TARGETS_SHA__:
         sys.exit("targets do not match their hash")
     log(f"targets: {__TARGETS_NAME__} ({_how}, sha256 {__TARGETS_SHA__[:16]}) -- NOT steven_v2")
-TARGETS_DF = pd.read_csv(D / "targets.csv").set_index("StudyInstanceUID")
+# ⛔ targets.csv stays steven_v2: folds.py STRATIFIES on it, so it defines the partition every 691 read shares.
+# The 09-26 dread run overwrote it, the rebuilt fold file hashed differently, and provenance stopped the run.
+# The run's own labels go to targets_run.csv and reach nothing but the trainer and the pool filter.
+LABELS_CSV = D / ("targets_run.csv" if __TARGETS_SHA__ else "targets.csv")
+TARGETS_DF = pd.read_csv(LABELS_CSV).set_index("StudyInstanceUID")
 if TARGETS_DF.index.duplicated().any() or not set(L) <= set(TARGETS_DF.columns):
     sys.exit("targets.csv: duplicate studies or missing label columns")
 
@@ -268,7 +276,7 @@ pd.Series(VAL, name="StudyInstanceUID").to_csv(RUN / "val_studies.csv", index=Fa
 (OUT / "provenance.json").write_text(json.dumps({
     "built_from": BUILT_FROM, "arch": ARCH, "mode": MODE,
     "inputs": {k: {"path": str(v[0]), "sha256": _sha(v[0])} for k, v in FOUND.items()},
-    "folds_site_sha256": _sha(D / "folds_site.csv"), "targets_sha256": _sha(D / "targets.csv"),
+    "folds_site_sha256": _sha(D / "folds_site.csv"), "targets_sha256": _sha(LABELS_CSV), "fold_targets_sha256": _sha(D / "targets.csv"),
     "n_train": len(TRAIN), "n_val": len(VAL), "draw_seed": __DRAW_SEED__}, indent=2))
 '''
 
@@ -297,7 +305,7 @@ if ARCH.startswith("qwen") and not torch.cuda.is_available():
 log(f"launch: {NPROC} process(es), {os.environ.get('TW_WORKERS', '4')} loader workers each")
 _cmd = _launch + [str(REPO / "fusion" / "train_windows.py"), "--arch", ARCH,
         "--corpus", "/kaggle/input", "--layout", LAYOUT, "--train", str(RUN / "train_studies.csv"),
-        "--val", str(RUN / "val_studies.csv"), "--labels", str(D / "targets.csv"),
+        "--val", str(RUN / "val_studies.csv"), "--labels", str(LABELS_CSV),
         "--out", str(RUN), "--weights-dir", str(SCRATCH), "--epochs", str(EPOCHS)]
 _cmd += EXTRA
 if MODE == "smoke":

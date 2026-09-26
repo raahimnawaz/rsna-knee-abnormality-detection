@@ -62,6 +62,20 @@ out-of-range cells and duplicate studies, and gets its own slug. `summary.json` 
 `labels_sha256`. Tested: `steven_v2` through this path hashes to `3c082a98`, which is step 5's
 recorded `targets_sha256`, so a retrain differs from step 5 in the targets and nothing else.
 
+#### [HIGH] `--targets` changed the fold partition — *caught by provenance on Kaggle, fixed 09-26 13:40*
+**Where:** `notebooks/build_backbone_ab_kernel.py` PREP. The alternative table overwrote `data/targets.csv` before
+`folds.build()` ran, and `folds.py` **stratifies on that file**.
+**What:** the dread_soft retrain rebuilt a different site-grouped partition. That is a different fold 0, so the
+"691" it would have been scored on was a different set of studies, and the one change the run was meant to test
+(labels) came bundled with a second one (the split).
+**Caught:** `provenance.check` refused `folds_site.csv` (recorded `780f939c`, got `f430236f`) 6 minutes in, before
+any training. My 09-26 test had executed the targets block in isolation, so it could not see its interaction
+with `folds.py`. That was a narrow test aimed at a cross-file question.
+**Fix:** `targets.csv` stays `steven_v2` (the partition's definition). The run's labels go to `targets_run.csv`
+and reach only the trainer and the pool filter. `provenance.json` records both hashes. Tested: the stratifier is
+byte-identical to step 5's (`3c082a98`) and the trainer gets `dread_soft` (`8cec477f`). The same run also spent
+those 6 minutes walking every DICOM for the label file; the walk now skips the image trees.
+
 #### [MEDIUM] Qwen versions were unpinned — *fixed*
 **Where:** the kernel's `pip install -U transformers`; `snapshot_download("Qwen/Qwen3.5-2B")`
 **Fix:** `transformers==5.17.0` (the version the arch was tested against, installed only if the image
