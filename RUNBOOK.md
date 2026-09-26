@@ -225,6 +225,19 @@ epoch, **identical per-rank weight checksums**, sharded eval gathered into `oof_
 **⏳ The full run was pushed 2026-09-26 01:01 PDT** (v3, built from `be9d9be`, T4×2, 10.3 h training budget, cap 14
 epochs): expect it ~12:00 PDT. Read it with the commands at the top of this handoff; THE RULE is above.
 
+**✅ STAGE B PASSES ITS RULE — read 2026-09-26 12:20 PDT** (`fusion/runs_c7_ortho/`, in-kernel and again locally):
+`c7_ortho` **0.8410** vs `c6_ortho` 0.8298 on the same 681 scorable of the 691, paired **+0.0112 ± 0.0029 (3.8σ, P 1.000)**,
+8/12 up (ACL +0.029, Baker's +0.034, Lateral OA +0.029, Lateral Meniscus +0.022; Fracture −0.020, Medial Meniscus −0.003).
+`avg3` +0.0107 ± 0.0030 (secondary, agrees). Gold-58, reported only: **0.8897 vs 0.8777, +0.012 ± 0.009, P 0.92** — same
+labels, so it is a model gain, and gold agrees in direction. DDP checksums identical on both ranks. Cost: 3.52 s per
+2-study micro-step per T4, 55 min/epoch on two T4s, eval 2.9 s/study, peak 8.5 GB. ⚠️ **The schedule did not finish:**
+fit-budget planned 13 epochs from a 2.79 s probe; the run measured 3.52 s (+26%) and the time budget stopped it at epoch
+11 iter 185 (~86% of OneCycle). Fixed for later runs: the probe's margin is ×1.35, not +10% (`train_windows.py`).
+**What it buys, per the 09-26 correction above:** a better model on the SAME labels. Before building on it, check the LB:
+that needs `infer_windows.py` to learn Stage B (spec c7 + `--canon` in `build_study`, 384 px, the slot/depth embedding and
+`pos` from `last_meta.json`) and its `--check-against` gate against `runs_c7_ortho/oof_all.csv`. **Not built yet — the next
+build.** Its `last.pt` sits in the kernel output (not downloaded).
+
 **Submission A -- our model alone, at the window count the curve picks** (`build_submit_kernel.py
 --ours-only --n-windows N`; the gate runs in its commit run only, since the scored rerun pays for every
 second). **The rule for N, PRE-REGISTERED 2026-09-24 before the curve has a number:**

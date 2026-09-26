@@ -1,0 +1,117 @@
+{
+  "arch": "ortho",
+  "layout": "stage_b span [0.02, 0.98] img 384 canon True",
+  "epochs": 13,
+  "epochs_cap": 14,
+  "epochs_done": 12,
+  "stopped_early": "time budget at epoch 11 iter 185",
+  "world": 2,
+  "n_train": 3502,
+  "n_val": 691,
+  "n_gold": 58,
+  "k": 12,
+  "bs": 8,
+  "bb_lr": 9e-05,
+  "head_lr": 0.001,
+  "wd": 0.02,
+  "seed": 42,
+  "res": 384,
+  "drop_path": 0.1,
+  "llrd": 0.9,
+  "pos_emb": true,
+  "primary": "last epoch",
+  "secondary": "mean of last-3 epoch weights (fixed, not selected)",
+  "gold_macro_report_only": 0.8897242655339029,
+  "hist": [
+    {
+      "epoch": 0,
+      "loss": 0.5923942252227238,
+      "sec": 3290.2822048664093,
+      "opt_steps": 437
+    },
+    {
+      "epoch": 1,
+      "loss": 0.5480474245548248,
+      "sec": 3293.2074551582336,
+      "opt_steps": 437
+    },
+    {
+      "epoch": 2,
+      "loss": 0.5136069993972778,
+      "sec": 3291.29293012619,
+      "opt_steps": 437
+    },
+    {
+      "epoch": 3,
+      "loss": 0.4927546522957938,
+      "sec": 3303.357927799225,
+      "opt_steps": 437
+    },
+    {
+      "epoch": 4,
+      "loss": 0.4761761563505445,
+      "sec": 3304.434298992157,
+      "opt_steps": 437
+    },
+    {
+      "epoch": 5,
+      "loss": 0.4655116840771266,
+      "sec": 3300.0051436424255,
+      "opt_steps": 437
+    },
+    {
+      "epoch": 6,
+      "loss": 0.4543844380549022,
+      "sec": 3300.866158246994,
+      "opt_steps": 437
+    },
+    {
+      "epoch": 7,
+      "loss": 0.4359286000388009,
+      "sec": 3307.8989391326904,
+      "opt_steps": 437
+    },
+    {
+      "epoch": 8,
+      "loss": 0.4294984680925097,
+      "sec": 3300.9726626873016,
+      "opt_steps": 437
+    },
+    {
+      "epoch": 9,
+      "loss": 0.4202075448376792,
+      "sec": 3302.1193623542786,
+      "opt_steps": 437
+    },
+    {
+      "epoch": 10,
+      "loss": 0.41296454327447074,
+      "sec": 3297.990678548813,
+      "opt_steps": 437
+    },
+    {
+      "epoch": 11,
+      "loss": 0.411524500417453,
+      "sec": 704.2851161956787,
+      "opt_steps": 93
+    }
+  ],
+  "bench": {
+    "arch": "ortho",
+    "device": "Tesla T4",
+    "world": 2,
+    "micro_studies": 2,
+    "k": 12,
+    "res": 384,
+    "sec_per_micro_step_median": 3.5184885263442993,
+    "sec_per_window_train": 0.14660368859767914,
+    "train_epoch_min_measured": 54.83803674777349,
+    "steps_in_measured_epoch": 437,
+    "full_epoch_min_projected": 51.3112910091877,
+    "fit_budget_probe_sec": 2.7921998500823975,
+    "epochs_run": 12,
+    "peak_cuda_gb": 8.478117376,
+    "eval_sec_per_study": 2.9052068769673016
+  },
+  "wall_min": 653.2277004798253
+}

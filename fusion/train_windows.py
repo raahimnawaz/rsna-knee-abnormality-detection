@@ -644,7 +644,10 @@ def main() -> None:
         opt.zero_grad(set_to_none=True)
         del it
         probe = float(np.median(ts[2:]))
-        epoch_s = probe * steps_per_epoch * accum * 1.10       # +10% for the all-reduce and the optimiser
+        # x1.35, not the +10% first written: Stage B's probe read 2.79 s per micro-step and the run measured 3.52
+        # (+26%: the probe's 8 steps miss the optimiser, the all-reduce and loader contention). It planned 13
+        # epochs and stopped at 11.2 -- the schedule cut at ~86% (RUNBOOK, Stage B, 09-26).
+        epoch_s = probe * steps_per_epoch * accum * 1.35
         avail = a.time_budget_h * 3600 - (time.time() - t_start) - a.eval_reserve_h * 3600
         fit = int(max(1, min(a.epochs, avail // epoch_s)))
         if world > 1:
