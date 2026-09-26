@@ -278,6 +278,11 @@ if NPROC > 1:
     if not torch.cuda.is_available():          # CPU smoke: checkpoint like the GPU run, and use every core
         os.environ["TW_FORCE_CKPT"] = "1"
         os.environ["OMP_NUM_THREADS"] = str(max(1, (os.cpu_count() or 4) // NPROC))
+if ARCH.startswith("qwen") and not torch.cuda.is_available():
+    # The VLM's CPU smoke: checkpoint as the GPU run does (without it, activations of a 2B model on one
+    # CPU process were SIGKILLed after the first step, smoke v3), with one loader worker.
+    os.environ["TW_FORCE_CKPT"] = "1"
+    os.environ["TW_WORKERS"] = "1"
 log(f"launch: {NPROC} process(es), {os.environ.get('TW_WORKERS', '4')} loader workers each")
 _cmd = _launch + [str(REPO / "fusion" / "train_windows.py"), "--arch", ARCH,
         "--corpus", "/kaggle/input", "--layout", LAYOUT, "--train", str(RUN / "train_studies.csv"),
@@ -351,7 +356,9 @@ def main() -> None:
     mode = "smoke" if a.smoke else "bench" if a.bench else "full"
     epochs = 1 if mode != "full" else a.epochs
     if a.arch.startswith("qwen"):
-        extra = QWEN_EXTRA + (QWEN_BENCH if mode == "bench" else []) + \
+        # the smoke skips the fit-budget probe (8 steps at ~90 s each on a CPU) and stops after 2 steps
+        extra = ([x for x in QWEN_EXTRA if x != "--fit-budget"] + ["--max-steps", "2", "--eval-windows", "4"]
+                 if mode == "smoke" else QWEN_EXTRA + (QWEN_BENCH if mode == "bench" else [])) + \
             ["--time-budget-h", str(a.time_budget_h if mode == "full" else 0.6)]
         epochs = a.epochs if mode == "full" else 1
     elif a.corpus == "stage_b":
