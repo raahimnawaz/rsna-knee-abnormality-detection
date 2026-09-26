@@ -21,15 +21,20 @@ Deadlines: **entry and team merger Oct 15**, final submission **Oct 22** (23:59 
 **⛔ 2026-09-26 — THE LEADERBOARD ANSWERED, AND IT OVERRULES THE 691.** Public LB: **Submission A (our Ortho alone) 0.901**;
 **Submission B (ours at 1/3 in the public 0.943 stack) 0.936 — 0.007 BELOW the stack alone.** Both were verified to be the
 scored model (gate: max |Δp| 0.00072), so this is the model, not the pipeline. What it means:
-1. **The 691 instrument does not rank models the way the leaderboard does.** On the 691, `c6_ortho` beat the frontier's
-   CoAtNet recipe by +0.025 (0.8298 vs 0.8047); on the leaderboard that recipe reads 0.914–0.928 and ours 0.901. The 691 is
-   scored against `gpt56sol`, another LLM reading of the reports, which agrees with our `steven_v2` targets at 0.98–1.00 —
-   it rewards fitting the reports. The hidden labels are radiologist reads. **Gold-58 pointed the right way** (ours 0.878
-   vs the frontier's 0.917) where the 691 pointed the wrong way. `[[measure-in-the-target-currency]]`, paid for this time.
+1. **The gap is the LABELS, and the 691 cannot see label effects.** ⚠️ *Corrected the same day:* the first version of this
+   note said the 691 "ranks models wrongly" because `c6_ortho` beat "the frontier's CoAtNet recipe" by +0.025 there. That
+   comparison was against OUR run of their recipe on OUR `steven_v2` targets (never submitted); the frontier's 0.914–0.928
+   is THEIR model — gold-weighted soft labels (`dreaddevelopment/rsna-knee-labels`, gold ×3), all ~4,350 studies, epochs
+   picked on gold. Architecture and cache comparisons at fixed targets remain valid on the 691 (`score_oof.py`'s own
+   docstring: it "cannot arbitrate label SOURCES; an arm trained on a near-copy wins by construction" — `gpt56sol` and
+   `steven_v2` agree at 0.98–1.00). What the 691 cannot do is tell us how far our TARGETS sit from the radiologist, and
+   that is where the leaderboard says we lose: gold-58 reads ours 0.878 against the frontier's 0.917 (theirs gold-selected,
+   so inflated) and the board's 0.950 single models credit labels. `[[measure-in-the-target-currency]]`.
 2. **Blending a weaker member costs.** The equal-family rule gave a 0.901 model a third of the vote against families at
    ~0.94; `[[diversity-is-not-the-constraint]]` — screen on strength, and strength means the LB or gold, not the 691.
-3. **Consequences for what is running:** Stage B is still scored by its pre-registered rule on the 691, but a pass there
-   no longer implies an LB gain — report its gold-58 beside it and test it on the LB before building on it. Do NOT select B
+3. **Consequences for what is running:** Stage B keeps its pre-registered rule on the 691 — a fixed-target comparison,
+   which the 691 can make — but a pass there buys at most a better model on the same labels: report its gold-58 beside
+   it and check the LB before building on it. Do NOT select B
    as a final. The next lever is the LABELS (teacher → student, gold-weighted targets as the frontier used), judged on
    gold-58 and the LB. Efficiency: A at 0.901 in ~25 min is not a contender.
 
