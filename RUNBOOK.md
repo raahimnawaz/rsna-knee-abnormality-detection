@@ -27,6 +27,11 @@ arm ran on both T4s in 1.2 min for 3 studies; real DICOM decode there read **2.6
 permission prompt; it was stopped and the steps run by hand. The curve (`rsna-knee-window-curve` v1) and the Stage
 B smoke v2 (`0bbd2d8`) were pushed at 00:30.
 
+**✅ 2026-09-26 01:10 PDT — SUBMISSION A SUBMITTED** (ref **56573973**, `rsna-knee-sub-a-ortho-nall` v1, all 54 windows —
+the curve's rule, below; built from `f9e7d9e`). Gate: 8 fold-0 studies reproduced to max |Δp| 0.00072; ARMS `ortho_stage_a
+only`; 3 rows; no traceback. **Both B and A are pending** on the hidden-test rerun. **Stage B training** (v3) is running
+since 01:01, expected ~12:00 PDT. Nothing else is queued; 3 submissions remained that day.
+
 **What fires on its own, Fri 2026-09-25 17:20 PDT** (20 min after the weekly GPU quota resets, Sat 00:00 UTC):
 the Claude desktop app's one-time scheduled task **`rsna-submit-b-curve-a`** (runs only while the app is open;
 if closed, on next launch). In order, each step gated exactly as the blocks below say:
