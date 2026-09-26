@@ -266,7 +266,9 @@ TRAIN = r'''
 # ============================================================================ #
 # Train: fusion/train_windows.py, the only place an arm differs is --arch.
 # ============================================================================ #
-NPROC = ((torch.cuda.device_count() if torch.cuda.is_available() else 2)
+# The VLM's CPU smoke is ONE process: two fp32 copies of a 2B model do not fit a CPU session's RAM, and
+# its DDP path is exercised by the GPU bench's first steps instead.
+NPROC = ((torch.cuda.device_count() if torch.cuda.is_available() else (1 if ARCH.startswith("qwen") else 2))
          if LAYOUT == "stage_b" or ARCH.startswith("qwen") else 1)
 _launch = ([sys.executable, "-m", "torch.distributed.run", "--nnodes", "1", "--node_rank", "0",
             "--master_addr", "127.0.0.1", "--master_port", "29511", "--nproc_per_node", str(NPROC)]

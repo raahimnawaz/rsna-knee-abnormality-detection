@@ -554,11 +554,12 @@ def main() -> None:
                                   len(corpus.slot_sizes), lora_r=a.lora_r, fp16_frozen=amp,
                                   grad_ckpt=bool(amp or os.environ.get("TW_FORCE_CKPT")),
                                   tokenizer_dir=os.environ.get("TW_QWEN_TOKENIZER"))
-        model = make() if rank == 0 else None
+        # Each rank moves its copy to its device BEFORE the next rank loads: two host copies at once is how
+        # the 09-26 CPU smoke was killed.
+        model = make().to(dev) if rank == 0 else None
         barrier(world)
         if rank != 0:
-            model = make()
-        model = model.to(dev)
+            model = make().to(dev)
         log(f"qwen: {model.n_lora} LoRA linears r {a.lora_r}, lr {a.lora_lr} | {model.tokens_per_image} tokens "
             f"per window | slot headers {model.slot_names} | frozen LM fp16 {amp}")
     else:

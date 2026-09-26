@@ -242,20 +242,25 @@ def build(arch: str, weights_dir, res: int, slot_meta: list[dict] | None, n_slot
     cfg._attn_implementation = "sdpa"
     cfg.vision_config._attn_implementation = "sdpa"
     cfg.text_config._attn_implementation = "sdpa"
+    # On a GPU the frozen language model is held in fp16 anyway, so load everything in fp16 (4.6 GB, not
+    # 9.2 GB of host RAM per rank -- the 09-26 CPU smoke was SIGKILLed holding two fp32 copies) and lift
+    # only what trains back to fp32: the vision tower here, LoRA and the head as they are created.
+    load_dtype = torch.float16 if fp16_frozen else torch.float32
     if src is not None:
-        qwen = Qwen3_5Model.from_pretrained(src, config=cfg, dtype=torch.float32)
+        qwen = Qwen3_5Model.from_pretrained(src, config=cfg, dtype=load_dtype)
     else:
-        qwen = Qwen3_5Model(cfg).float()
+        qwen = Qwen3_5Model(cfg).to(load_dtype)
+    qwen.visual.float()
+    for name, prm in qwen.named_parameters():      # the delta rule's decay: tiny, and exp() of it in fp16 is lossy
+        if name.endswith(("A_log", "dt_bias")):
+            prm.data = prm.data.float()
     tok_src = tokenizer_dir or src or HF_ID.get(arch, "Qwen/Qwen3.5-2B")
     tok = AutoTokenizer.from_pretrained(tok_src)
     for p in qwen.language_model.parameters():
         p.requires_grad_(False)
     n_lora = add_lora(qwen.language_model.layers, lora_r, lora_alpha)
-    if fp16_frozen:
-        for m in qwen.language_model.modules():                    # frozen weights only; LoRA stays fp32
-            for name, p in list(m.named_parameters(recurse=False)):
-                if not p.requires_grad:
-                    p.data = p.data.half()
+    if not fp16_frozen:
+        qwen.float()
     if grad_ckpt:
         qwen.gradient_checkpointing_enable(gradient_checkpointing_kwargs={"use_reentrant": False})
     headers = slot_headers(slot_meta, n_slots)
