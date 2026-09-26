@@ -23,7 +23,7 @@ Deadlines: **entry and team merger Oct 15**, final submission **Oct 22** (23:59 
 |---|---|---|---|---|
 | **Sub A-c7** — Stage B alone on the LB (ref **56587668**) | ✅ **LB 0.915** (13:34) — Sub A 0.901, **+0.014**; 691 said +0.011, gold +0.012 | — | — | a same-labels model gain, confirmed on the board: the 691 ranks fixed-target arms correctly |
 | **dread_soft retrain** — step 5 with only the labels changed | `rsna-knee-c6-train-ortho-dread` v2 (v1 stopped by provenance: the folds moved — fixed, `AUDIT.md`) | ~11 h after it starts | Qwen block below | LB ≥ 0.911 = labels are a lever |
-| **VLM one-epoch learning check** | `rsna-knee-c6-train-qwen35vl-e1` (queued 12:54) | ~3 h after it starts | `score_oof.py fusion/runs_c6_ortho <out>/runs_qwen35vl` | ≥ 0.75 on the 691 → a full run next week |
+| **VLM one-epoch learning check** | ⛔ **0.504 — FAIL, shelved** (15:20); constant predictions, a training defect (Qwen block) | — | — | ≥ 0.75 on the 691 → a full run next week |
 Settled today: Qwen labels FAIL their gold gate (`steven_v2` stays); Stage B PASSES its 691 rule (+0.0112); the 09-26
 audit (`AUDIT.md`) found no leakage and fixed three HIGHs in the Qwen path. dread_soft's LB result decides what the VLM's
 full run trains on. To submit the dread retrain: `build_submit_kernel.py --ours-only --weights-kernel
@@ -114,6 +114,18 @@ lines are diagnostics, not second chances.
   check (~2.8 GPU-h), rule written now: **continue to a full run only if the 691 macro after one epoch ≥ 0.75**
   (Ortho's one-epoch bench on the older corpus read 0.7508); below it, the arm does not learn fast enough for T4
   budgets and is shelved, not tuned on the 691.
+- **⛔ VLM LEARNING CHECK FAILS — read 2026-09-26 15:20** (`rsna-knee-c6-train-qwen35vl-e1`, `fusion/runs_qwen35vl_e1/`):
+  one full epoch (437 steps, 131 min on T4×2, DDP checksums identical) reads **0.5041** on the 691 (bar 0.75), gold
+  0.495. **Shelved, per the rule.** It is not a slow learner, it is a DEFECT: its predictions are constant across studies
+  (per-label std ~0.0003 in probability, against Ortho's ~0.26; Spearman with Ortho −0.14..+0.14) — it learned each
+  finding's prevalence and nothing from the pixels. Diagnosed locally on real Qwen3.5-2B weights (fixture inputs): the
+  PRETRAINED model does pass images to the answer positions — very different inputs move the label-token states 7–19%
+  and the logits up to 0.26 — identically in fp32 on CPU and fp16 on MPS, so the fp16 forward is not it. The training
+  log is where it goes wrong: the GradScaler fell 65,536 → 256 in the first 150 steps (grad-norm spikes to 15) and stayed
+  there — consistent with fp16 gradients overflowing through the frozen fp16 language model, after which the small
+  gradients bound for LoRA and the vision tower underflow and only the head learns. **Being confirmed** against the
+  trained `last.pt` (did vision/LoRA move at all?). A retry is a redesign — read the answer from the image tokens, not
+  only the label tokens, and keep gradients out of fp16 underflow — and needs its own rule.
 
 *The blend member — a Qwen3.5-2B VLM (Apache-2.0), `fusion/qwen_vlm.py`.* The board's 54th place reports 0.950 from a
 Qwen 3.5 2B VLM (vision encoder fine-tuned + LoRA on the language model, 384 px) — self-reported, a description not code,
