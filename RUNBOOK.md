@@ -63,6 +63,18 @@ lines are diagnostics, not second chances.
   the reports); its gold-58 is reported only.
 - **FAIL →** `steven_v2` stays. The next label candidate is the frontier's own (`dread_soft` + gold ×3, MODEL.md §0), which
   tests "labels are the gap" without our reader.
+- **⛔ READ 2026-09-26 10:16 PDT — BOTH FAIL; `steven_v2` STAYS.** Labeler finished 10:15 (4,407 reports, letter mass
+  median 0.9995, min 0.907; manifest: MLX weights `938d8919`, mlx-lm 0.31.3). `bench_qwen_labels.py --write`, once:
+  **C1** Qwen alone 0.8765, **−0.0108** [−0.030, +0.009], P 0.14, frozen-six −0.039 (breached) → FAIL.
+  **C2** rank-mean 0.8928, **+0.0054** [−0.006, +0.018], P 0.82, frozen-six −0.008 (ok) → FAIL (bar +0.010, CI > 0).
+  Diagnostic only, not a second chance: the two Qwen reads, ours and the public Qwen3-8B, both lift **Fracture
+  (+0.108 / +0.091)** and Contusion — two readers, but ONE set of 58 studies (18 fracture positives), and per-label
+  picking is closed (`DECISIONS.md`). If fracture is ever revisited, it needs an instrument other than gold-58.
+  C2's +0.005 is inside the noise this gate was built to refuse; it is not "almost a pass". Budget: 2 of 3 gold reads
+  on Qwen-family candidates are spent. **Next per the FAIL branch: `dread_soft`** — covers all 3,502 training studies,
+  holds out every gold study (so gold-58 stays clean for the report-only read), judged on the LB against Sub A's 0.901:
+  `build_backbone_ab_kernel.py --arch ortho --corpus stage_a --n-train 0 --epochs 8 --targets <dread_soft csv> --tag dread`.
+  Not pushed: it is ~11 GPU-h and not a Qwen run, so it waits for the owner's word.
 
 *The blend member — a Qwen3.5-2B VLM (Apache-2.0), `fusion/qwen_vlm.py`.* The board's 54th place reports 0.950 from a
 Qwen 3.5 2B VLM (vision encoder fine-tuned + LoRA on the language model, 384 px) — self-reported, a description not code,

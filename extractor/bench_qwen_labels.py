@@ -136,7 +136,8 @@ def main() -> None:
     if probs.exists():
         import json
         P = np.array([json.loads(s)["probs"] for s in probs.read_text().splitlines()])
-        print("P(not mentioned), corpus mean (DATA.md §2: Synovitis mention 0.124, Fracture 0.205, Effusion 0.832):")
+        print("P(mentioned) = 1 - P(F), corpus mean. Qwen counts an explicit denial as a mention, so this runs above\n"
+              "  DATA.md §2's regex mention rates (Synovitis 0.124, Fracture 0.205, Effusion 0.832):")
         print("  " + "  ".join(f"{l[:9]} {1 - P[:, k, 5].mean():.3f}" for k, l in enumerate(LABELS)))
     hand = pd.read_csv(PROJ / "labeling/model_labels.csv").drop_duplicates("StudyInstanceUID").set_index("StudyInstanceUID")
     hidx = hand.index.intersection(q.index)

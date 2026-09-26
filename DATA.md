@@ -520,6 +520,22 @@ highest at 0.774), so a training-label switch would not win on `score_oof.py` by
 but none is worth switching to. **`tuyennguyenthicam/rsna-knee-expert-58` is not a label table**: it
 holds `test.csv`, `test_series.csv` and test DICOMs.
 
+**Added 2026-09-26 — the Qwen family, including our own read** (`extractor/bench_qwen_labels.py`, pre-registered in
+`RUNBOOK.md`'s Qwen block; public tables from the 09-26 scratch bench):
+
+| source | gold-58 | paired vs `steven_v2` | note |
+|---|--:|--:|---|
+| `qwen35_9b_v1` rank-mean with `steven_v2` (C2) | 0.8928 | +0.0054 [−0.006, +0.018] | **FAIL** (bar +0.010, CI > 0) |
+| `xhaitanya/qwen38b-labels-rsnaknee` | 0.8797 | −0.0076 | public Qwen3-8B |
+| **`qwen35_9b_v1`** (ours: Qwen3.5-9B, graded letters, local) | 0.8765 | −0.0108 [−0.030, +0.009] | **FAIL**, frozen-six −0.039 |
+| `laymond` Qwen3-8B v2 filled / raw / v1 | 0.8686 / 0.8521 / 0.8295 | −0.019 / −0.035 / −0.058 | |
+| `lvthanhxun` Qwen teacher v9 (fused) | 0.7541 | −0.133 | |
+| ⛔ `dhiyaneshbabu/rsna-knee-labelled-train`, `yehezkielhaganta/psuedo-labeling-knee` | 1.0000 | — | **GOLD IS IN THE FILE** |
+
+Every Qwen read is a different reader (Spearman with `steven_v2` 0.72 on non-gold rows) and reads Fracture far better
+(ours +0.108) while losing the frozen labels (ACL, MCL, Medial OA, Baker's −0.03 to −0.05). The rank-mean keeps the
+fracture gain and gives back most of the losses — and still does not clear the gate.
+
 **Decision:** `steven_v2` stays the training target. Labels were not the binding constraint
 (the model reproduces its own training labels at 0.8486, below the labels' own read), and no public
 table moves them. `DECISIONS.md` CLOSED.
