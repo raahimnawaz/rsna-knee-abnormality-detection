@@ -74,7 +74,12 @@ KERNELS = ["zhukovoleksiy/rsna-metadata-probe"]              # headers.parquet -
 STAGE_A_SHARDS = [f"{OWNER}/rsna-knee-stage-a-s{i}of4" for i in range(4)]   # build_stage_a_kernel.py
 STAGE_B_SHARDS = [f"{OWNER}/rsna-knee-stage-b-s{i}of8" for i in range(8)]   # ... --stage b
 # Stage B's package: the model half of the run. The data half is the cache itself.
-PACKAGE = ["--res", "384", "--drop-path", "0.1", "--llrd", "0.8", "--pos-emb", "--fit-budget"]
+# Layer-wise decay REDISTRIBUTES the learning rate toward the top blocks; it must not cut it. Step 5 ran a
+# flat 3e-5 on all 24 blocks (sum 7.2e-4). With decay 0.9, block i of 24 gets top * 0.9^(25 - i), which sums
+# to top * 8.28, so top = 9e-5 keeps the same total (7.5e-4): upper blocks ~8e-5, the middle ~2.3e-5, the
+# patch embedding ~6e-6. (0.8 on a 3e-5 top, as first written, cut the total 6x and left the embedding at
+# 1.1e-7 -- read off the 09-25 smoke log, before any result.)
+PACKAGE = ["--res", "384", "--drop-path", "0.1", "--llrd", "0.9", "--bb-lr", "9e-5", "--pos-emb", "--fit-budget"]
 N_TRAIN, DRAW_SEED = 2871, 20260923
 
 
@@ -227,6 +232,9 @@ _launch = ([sys.executable, "-m", "torch.distributed.run", "--nnodes", "1", "--n
            if NPROC > 1 else [sys.executable, "-u"])
 if NPROC > 1:
     os.environ["TW_WORKERS"] = str(max(1, (os.cpu_count() or 4) // NPROC))
+    if not torch.cuda.is_available():          # CPU smoke: checkpoint like the GPU run, and use every core
+        os.environ["TW_FORCE_CKPT"] = "1"
+        os.environ["OMP_NUM_THREADS"] = str(max(1, (os.cpu_count() or 4) // NPROC))
 log(f"launch: {NPROC} process(es), {os.environ.get('TW_WORKERS', '4')} loader workers each")
 _cmd = _launch + [str(REPO / "fusion" / "train_windows.py"), "--arch", ARCH,
         "--corpus", "/kaggle/input", "--layout", LAYOUT, "--train", str(RUN / "train_studies.csv"),
@@ -234,7 +242,8 @@ _cmd = _launch + [str(REPO / "fusion" / "train_windows.py"), "--arch", ARCH,
         "--out", str(RUN), "--weights-dir", str(SCRATCH), "--epochs", str(EPOCHS)]
 _cmd += EXTRA
 if MODE == "smoke":
-    _cmd += ["--limit-train", "16", "--limit-val", "6", "--k", "4", "--bs", str(2 * NPROC), "--micro", "1",
+    _cmd += ["--limit-train", "16", "--limit-val", "2" if NPROC > 1 else "6", "--k", "2" if NPROC > 1 else "4",
+             "--bs", str(2 * NPROC), "--micro", "1",
              "--eval-bs", "1"]
 else:
     _cmd += ["--gold", str(D / "train.csv")]

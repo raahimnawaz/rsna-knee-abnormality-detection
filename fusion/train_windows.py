@@ -547,7 +547,10 @@ def main() -> None:
                                         drop_last=True, num_workers=ds_workers(), worker_init_fn=seed_worker,
                                         persistent_workers=ds_workers() > 0)
     if world > 1:
-        net = torch.nn.parallel.DistributedDataParallel(model, device_ids=[local] if amp else None)
+        # gradient_as_bucket_view: the gradients live inside DDP's all-reduce buckets instead of beside them,
+        # one fewer full copy per rank (~1.2 GB for ViT-L). The 09-25 CPU smoke was OOM-killed at step 2.
+        net = torch.nn.parallel.DistributedDataParallel(model, device_ids=[local] if amp else None,
+                                                        gradient_as_bucket_view=True)
     else:
         net = model
     accum = a.bs // (a.micro * world)

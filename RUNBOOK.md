@@ -104,10 +104,16 @@ beside Submission B. One arm, `rsna-knee-c7-train-ortho`, against step 5's model
 | half | change | where |
 |---|---|---|
 | data | 96 slices (was 64), 384 px (was 336), left/right + scanner orientation canonical, a third sagittal and a second axial slot | `pipeline/slots96.py`, `build_slots64.py --spec c7 --canon`, 8 CPU shards `rsna-knee-stage-b-s{0..7}of8` |
-| model | layer-wise LR decay 0.8, drop-path 0.1, a slot + depth embedding per window, both T4s (DDP), epochs fitted to a 10.3 h training budget (cap 14) | `train_windows.py` flags, `build_backbone_ab_kernel.py --corpus stage_b` |
+| model | layer-wise LR decay **0.9 with a 9e-5 top** (amended 09-26, below), drop-path 0.1, a slot + depth embedding per window, both T4s (DDP), epochs fitted to a 10.3 h training budget (cap 14) | `train_windows.py` flags, `build_backbone_ab_kernel.py --corpus stage_b` |
 
 Held fixed: Ortho, the 3,502 training studies, `steven_v2` targets, the 691 validation studies, k = 12,
-8 studies per step, lr 3e-5 / 1e-3. **THE RULE: the package pays if `c7_ortho − c6_ortho > 0` paired on the
+8 studies per step, head lr 1e-3, and the encoder's TOTAL learning rate. **Amended 2026-09-26 00:30, before any
+result:** decay 0.8 on step 5's flat 3e-5, as first written, cut the summed per-block LR 6× (7.2e-4 → 1.2e-4) and
+left the patch embedding at 1.1e-7 (read off the smoke log) — that would test *less training*, not *layer-wise
+decay*. Decay 0.9 with a 9e-5 top sums to 7.5e-4, step 5's budget, tilted toward the upper blocks. **The CPU smoke
+of 09-25 was OOM-killed at its second step** (rank 1 SIGKILL; everything before it — the 4,407-study corpus, the
+weights, the LR groups, the time probe, step 1 — ran): the smoke now checkpoints like the GPU run, DDP keeps
+gradients in its buckets (`gradient_as_bucket_view`), and it scores 2 studies at k 2 to finish in minutes. **THE RULE: the package pays if `c7_ortho − c6_ortho > 0` paired on the
 same 691, P(Δ>0) ≥ 0.95, primary = last epoch; `avg3/` secondary, not a second chance.** A pass says the
 package works, not which half; a null or a loss ships nothing from it and says only that the package as a
 whole did not help. Scored in-kernel (`score_oof.py runs_c6_ortho runs_ortho`) and again locally.
