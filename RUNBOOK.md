@@ -16,7 +16,16 @@ Two ways to win, both verified on the live competition page 09-24:
   the host's daily Efficiency Leaderboard notebook.
 Deadlines: **entry and team merger Oct 15**, final submission **Oct 22** (23:59 UTC).
 
-## ▶ NEXT SESSION STARTS HERE `handoff written 2026-09-25 ~02:30 PDT`
+## ▶ NEXT SESSION STARTS HERE `handoff written 2026-09-25 ~02:30 PDT; updated 2026-09-26 00:40`
+
+**✅ 2026-09-26 00:36 PDT — SUBMISSION B SUBMITTED** (ref **56573153**, kernel `rsna-knee-sub-b-ortho-blend` v1,
+built from `c197d80`; hidden-test rerun pending — read it with `kaggle competitions submissions`). Its commit log
+passed every gate: 8 fold-0 studies rebuilt from DICOMs on Kaggle reproduced `oof_all.csv` to **max |Δp| 0.00072**
+(mean 0.00012); `[blend] ARMS: ... = 3 families`; the public publish cell's `COMPLETE`; no traceback; 3 rows. Our
+arm ran on both T4s in 1.2 min for 3 studies; real DICOM decode there read **2.6–5.5 s/study/worker** (b ≈ 4, not
+2.54, for A's rule). **The scheduled task did NOT do this:** it fired at 17:33 PDT and sat 7 h on its first Bash
+permission prompt; it was stopped and the steps run by hand. The curve (`rsna-knee-window-curve` v1) and the Stage
+B smoke v2 (`0bbd2d8`) were pushed at 00:30.
 
 **What fires on its own, Fri 2026-09-25 17:20 PDT** (20 min after the weekly GPU quota resets, Sat 00:00 UTC):
 the Claude desktop app's one-time scheduled task **`rsna-submit-b-curve-a`** (runs only while the app is open;
