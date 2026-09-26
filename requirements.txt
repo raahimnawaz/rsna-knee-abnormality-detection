@@ -75,3 +75,4 @@ pyarrow>=15
 # extractor/llm_extract.py (method B). Only needed if the LLM extractor runs against the API;
 # the local-GPU path does not require it.
 anthropic>=0.116
+mlx-lm>=0.31      # macOS / Apple silicon only: extractor/qwen_label.py (Qwen3.5-9B, 4-bit, local)

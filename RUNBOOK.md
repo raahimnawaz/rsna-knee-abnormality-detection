@@ -38,6 +38,38 @@ scored model (gate: max |Δp| 0.00072), so this is the model, not the pipeline. 
    as a final. The next lever is the LABELS (teacher → student, gold-weighted targets as the frontier used), judged on
    gold-58 and the LB. Efficiency: A at 0.901 in ~25 min is not a contender.
 
+**⏩ QWEN — for the labels, and as a blend member `pre-registered 2026-09-26 09:40 PDT, before any result`.** The
+owner's direction 09-26: use Qwen to help with the labels and as part of the blend, and make the data and pipeline strong.
+*What it rests on, measured 09-26 on gold-58 (scratch bench, now `extractor/bench_qwen_labels.py`):* the public Qwen3-8B
+tables are a DIFFERENT reader — Spearman with `steven_v2` **0.72** on non-gold rows (LLM-to-LLM 0.82, `DECISIONS.md`) —
+and best alone at **0.8797** (`xhaitanya/qwen38b-labels-rsnaknee`, −0.0076 ± 0.011 vs `steven_v2`), far ahead on
+**Fracture (0.884 vs 0.793) and Lateral OA (0.881 vs 0.830)**, behind on PF OA; its rank-mean with `steven_v2` reads
++0.0047 [−0.009, +0.019] — suggestive, and the best of 8 tables looked at, so partly selection. ⛔ **Two new public tables
+carry gold** (`dhiyaneshbabu/rsna-knee-labelled-train`, `yehezkielhaganta/psuedo-labeling-knee`, 1.0000 on gold-58) —
+never train on or bench them. `nartaa/rsna-knee-hpo-assets` holds gold out (not scorable); `lvthanhxun` v9 reads 0.754.
+
+*Labels — `extractor/qwen_label.py`, tag `qwen35_9b_v1`, prompt hash `a37d356862e1d20a`.* Qwen3.5-9B (4-bit MLX) on this
+Mac, the official criteria verbatim, one graded answer per finding read from the next-token distribution over six letters
+(meets / probably / on the fence / present-but-below / absent / not mentioned) — no generation, 0.8 s per report, letter
+mass 0.999 on the smoke. **THE RULE** (DATA.md §3's gate; the ONE change, made now: its per-label guard becomes a guard on
+the frozen-six macro, because at n = 58 a true improvement breaches "no label below −0.02" by noise more often than not):
+`python extractor/bench_qwen_labels.py`, exactly two candidates, once each — **C1** the Qwen table alone, **C2** its equal
+rank-mean with `steven_v2` mapped onto `steven_v2`'s own values (trainable: keeps its marginal, changes only the order).
+PASS = paired ≥ +0.010 with the 95% CI above 0, frozen-six ≥ −0.02; C2 preferred if both pass. The hand set and per-label
+lines are diagnostics, not second chances.
+- **PASS →** the next GPU run is step 5's model exactly (Ortho, Stage A, the same 3,502 studies, seed, epochs, recipe)
+  with only `--labels` changed, submitted ALONE: judged against Sub A's **0.901** on the LB — same model, same pipeline,
+  so the difference is the targets. Its 691 read is NOT evidence here (the 691 is scored against another LLM reading of
+  the reports); its gold-58 is reported only.
+- **FAIL →** `steven_v2` stays. The next label candidate is the frontier's own (`dread_soft` + gold ×3, MODEL.md §0), which
+  tests "labels are the gap" without our reader.
+
+*The blend member — a Qwen3.5-2B VLM (Apache-2.0), `fusion/qwen_vlm.py`.* The board's 54th place reports 0.950 from a
+Qwen 3.5 2B VLM (vision encoder fine-tuned + LoRA on the language model, 384 px) — self-reported, a description not code,
+so it is the least-evidenced piece of this plan. Built into `train_windows.py` so it inherits the corpus, the splits, the
+eval and the scoring. Order: CPU wiring smoke → a ≤ 1 GPU-h bench on Kaggle (fp16 finiteness on a T4, s/study) → **ask
+the owner** before the ~10 h run. Its rule is written here before that run, not after.
+
 **✅ 2026-09-26 00:36 PDT — SUBMISSION B SUBMITTED** (ref **56573153**, kernel `rsna-knee-sub-b-ortho-blend` v1,
 built from `c197d80`; hidden-test rerun pending — read it with `kaggle competitions submissions`). Its commit log
 passed every gate: 8 fold-0 studies rebuilt from DICOMs on Kaggle reproduced `oof_all.csv` to **max |Δp| 0.00072**
