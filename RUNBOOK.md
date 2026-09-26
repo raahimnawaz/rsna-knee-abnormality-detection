@@ -122,10 +122,16 @@ lines are diagnostics, not second chances.
   PRETRAINED model does pass images to the answer positions — very different inputs move the label-token states 7–19%
   and the logits up to 0.26 — identically in fp32 on CPU and fp16 on MPS, so the fp16 forward is not it. The training
   log is where it goes wrong: the GradScaler fell 65,536 → 256 in the first 150 steps (grad-norm spikes to 15) and stayed
-  there — consistent with fp16 gradients overflowing through the frozen fp16 language model, after which the small
-  gradients bound for LoRA and the vision tower underflow and only the head learns. **Being confirmed** against the
-  trained `last.pt` (did vision/LoRA move at all?). A retry is a redesign — read the answer from the image tokens, not
-  only the label tokens, and keep gradients out of fp16 underflow — and needs its own rule.
+  there. **Checked against the trained `last.pt` (5.2 GB, 15:56):** the frozen LM is untouched (2.9e-8, as it should
+  be); **the 24 vision blocks did not move** (median relative change 4.4e-4 — fp16 save rounding) while the vision
+  MERGER moved 2.9% and the LoRA factors grew (B from 0 to norm ~0.18); the head sits at its init. **The fp16-underflow
+  explanation first written here is REFUTED by measurement:** on the real 2B model in fp32 the vision-block gradients
+  per weight are median 1.6e-4–5.7e-4 (merger 2.4e-4, LoRA B 4.8e-4) — ~1,000× above where fp16 at scale 256 loses
+  precision (2.4e-7) — and gradient checkpointing passes them (24/24 blocks, locally, on or off). Yet on Kaggle the
+  blocks never updated, and the logged total grad-norm (~2) is smaller than the vision blocks alone should give (~10).
+  So on the GPU path (CUDA + autocast + DDP + checkpointing) the vision blocks most likely received NO gradient — cause
+  **not identified**; nothing on CPU reproduces it. The cheap next diagnostic is a ~15-min GPU run printing per-group
+  gradient norms each step. Not scheduled: the arm is shelved by its rule, and this week's GPU is committed to dread.
 
 *The blend member — a Qwen3.5-2B VLM (Apache-2.0), `fusion/qwen_vlm.py`.* The board's 54th place reports 0.950 from a
 Qwen 3.5 2B VLM (vision encoder fine-tuned + LoRA on the language model, 384 px) — self-reported, a description not code,
