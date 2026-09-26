@@ -42,6 +42,8 @@ NAMES = ["ACL", "MCL", "medial meniscus", "lateral meniscus", "medial osteoarthr
          "lateral osteoarthritis", "patellofemoral osteoarthritis", "effusion", "synovitis",
          "Baker's cyst", "bone contusion", "fracture"]
 HF_ID = {"qwen35vl": "Qwen/Qwen3.5-2B"}
+# Pinned: the checkpoint this arch was checked against (fp16 finiteness, patchify, tokenizer), 2026-09-26.
+HF_REVISION = {"qwen35vl": "15852e8c16360a2fea060d615a32b45270f8a8fc"}
 QWEN_MEAN, QWEN_STD = (0.5, 0.5, 0.5), (0.5, 0.5, 0.5)
 PATCH, MERGE, TEMPORAL = 16, 2, 2
 
@@ -234,7 +236,7 @@ def build(arch: str, weights_dir, res: int, slot_meta: list[dict] | None, n_slot
         cfg, src = Qwen3_5Config.from_dict(config), None
     else:
         from huggingface_hub import snapshot_download
-        src = snapshot_download(HF_ID[arch], cache_dir=str(Path(weights_dir) / "hf"),
+        src = snapshot_download(HF_ID[arch], revision=HF_REVISION[arch], cache_dir=str(Path(weights_dir) / "hf"),
                                 allow_patterns=["*.json", "*.safetensors", "*.txt", "*.jinja"])
         cfg = Qwen3_5Config.from_pretrained(src)
     cfg._attn_implementation = "sdpa"

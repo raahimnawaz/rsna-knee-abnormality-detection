@@ -208,6 +208,23 @@ def window_centres(mask: np.ndarray, slot_sizes=SLOT_SIZES) -> list[int]:
     return out
 
 
+def thin_windows(cs: list[int], slot_sizes, n: int) -> list[int]:
+    """Evenly spaced within each slot, each slot keeping its share of `n` -- `window_curve.thin`'s rule,
+    with the full count taken from the slot sizes instead of Stage A's 54 (identical on Stage A)."""
+    full = sum(max(s - 2, 0) for s in slot_sizes)
+    if not cs or n <= 0 or n >= full:
+        return cs
+    out, o = [], 0
+    for size in slot_sizes:
+        mine = [c for c in cs if o <= c < o + size]
+        if mine:
+            k = max(1, int(round(len(mine) * n / full)))
+            idx = np.unique(np.round(np.linspace(0, len(mine) - 1, k)).astype(int))
+            out += [mine[i] for i in idx]
+        o += size
+    return out
+
+
 def window_meta(centres, slot_sizes) -> tuple[np.ndarray, np.ndarray]:
     """Each window's slot index and its relative depth inside that slot, 0 (first) .. 1 (last).
     Depth only means the same anatomy across studies on a CANONICAL cache (Stage B): on Stage A a
@@ -223,8 +240,8 @@ def window_meta(centres, slot_sizes) -> tuple[np.ndarray, np.ndarray]:
 class Windows(torch.utils.data.Dataset):
     """One study -> (uint8 windows [K,3,H,W], slot [K], depth [K], targets [12]). Normalisation on device."""
 
-    def __init__(self, corpus, uids: list[str], y: np.ndarray, k: int | None, seed: int = 0):
-        self.c, self.uids, self.y, self.k, self.seed = corpus, uids, y, k, seed
+    def __init__(self, corpus, uids: list[str], y: np.ndarray, k: int | None, seed: int = 0, thin: int = 0):
+        self.c, self.uids, self.y, self.k, self.seed, self.thin = corpus, uids, y, k, seed, thin
         self.rng = random.Random(seed)
 
     def __len__(self) -> int:
@@ -235,6 +252,8 @@ class Windows(torch.utils.data.Dataset):
         cs = window_centres(mask, self.c.slot_sizes)
         if not cs:                                          # nothing valid: the stack's middle
             cs = [len(mask) // 2]
+        elif self.k is None and self.thin:                  # eval, a fixed evenly spaced subset
+            cs = thin_windows(cs, self.c.slot_sizes, self.thin)
         if self.k is not None:                              # train: k draws, no repeats if possible
             cs = self.rng.sample(cs, self.k) if len(cs) >= self.k else \
                 [self.rng.choice(cs) for _ in range(self.k)]
@@ -397,10 +416,11 @@ def all_any(flag: bool, world: int, dev) -> bool:
     return bool(t.item() > 0)
 
 
-def predict_sharded(model, corpus, uids, dev, amp, bs, world, rank) -> np.ndarray:
+def predict_sharded(model, corpus, uids, dev, amp, bs, world, rank, thin: int = 0) -> np.ndarray:
     """Rank r scores uids[r::world]; every rank gets all of them back, in `uids` order."""
     mine = uids[rank::world]
-    p = predict(model, Windows(corpus, mine, np.zeros((len(mine), 12), np.float32), k=None), dev, amp, bs)
+    p = predict(model, Windows(corpus, mine, np.zeros((len(mine), 12), np.float32), k=None, thin=thin),
+                dev, amp, bs)
     if world == 1:
         return p
     import torch.distributed as dist
@@ -468,6 +488,8 @@ def main() -> None:
     ap.add_argument("--eval-reserve-h", type=float, default=0.0, help="with --fit-budget: hours kept for eval")
     ap.add_argument("--lora-r", type=int, default=16, help="qwen archs: LoRA rank on the language model")
     ap.add_argument("--lora-lr", type=float, default=1e-4, help="qwen archs: LoRA learning rate")
+    ap.add_argument("--eval-windows", type=int, default=0,
+                    help="score an evenly spaced ~N windows per study (thin_windows); 0 = every window")
     a = ap.parse_args()
 
     world, rank, local = dist_setup()
@@ -514,8 +536,10 @@ def main() -> None:
     log(f"train {len(tr)} (missing from corpus {len(miss_tr)}) | val {len(va)} "
         f"(missing {len(miss_va)}) | gold {len(gold_ids)}")
     ytr = tgt.loc[tr, LABELS].to_numpy(np.float32, copy=True)   # pandas CoW hands back read-only
-    nwin = [len(window_centres(corpus.study(u)[1], corpus.slot_sizes)) for u in va]
-    log(f"val windows per study: median {int(np.median(nwin))}, min {min(nwin)}, max {max(nwin)}")
+    nwin = [len(thin_windows(window_centres(corpus.study(u)[1], corpus.slot_sizes), corpus.slot_sizes,
+                             a.eval_windows)) for u in va]
+    log(f"val windows per study: median {int(np.median(nwin))}, min {min(nwin)}, max {max(nwin)}"
+        + (f" (thinned to ~{a.eval_windows})" if a.eval_windows else ""))
     if a.pos_emb and not str(getattr(corpus, "layout", "")).startswith("stage_b"):
         log("⚠️ --pos-emb on a non-canonical corpus: a slot's depth means lateral on one knee, medial on another")
 
@@ -688,8 +712,10 @@ def main() -> None:
         # DDP's invariant, checked rather than assumed: every rank must end with the SAME weights. A
         # mis-synchronised accumulation step would let them drift, and only rank 0's copy is saved.
         import torch.distributed as dist
-        chk = torch.tensor([sum(float(p.detach().double().sum()) for p in model.parameters())], device=dev,
-                           dtype=torch.float64)
+        # Only trainable weights can drift between ranks. Summing the VLM's frozen 2B in fp64 would allocate
+        # ~4 GB for the embedding alone, after a full session of training (AUDIT.md, 09-26).
+        chk = torch.tensor([sum(float(p.detach().double().sum()) for p in model.parameters() if p.requires_grad)],
+                           device=dev, dtype=torch.float64)
         both = [torch.zeros_like(chk) for _ in range(world)]
         dist.all_gather(both, chk)
         vals = [float(t.item()) for t in both]
@@ -699,7 +725,7 @@ def main() -> None:
     peak = torch.cuda.max_memory_allocated(dev) / 1e9 if amp else None
     per_fwd = float(np.median(step_times)) if step_times else None
     bench = {"arch": a.arch, "device": torch.cuda.get_device_name(local) if amp else "cpu", "world": world,
-             "micro_studies": a.micro, "k": a.k, "res": res,
+             "micro_studies": a.micro, "k": a.k, "res": res, "eval_windows": a.eval_windows,
              "sec_per_micro_step_median": per_fwd,
              "sec_per_window_train": per_fwd / (a.micro * a.k) if per_fwd else None,
              "train_epoch_min_measured": hist[0]["sec"] / 60 if hist else None,
@@ -709,13 +735,13 @@ def main() -> None:
 
     # ---- evaluate: last epoch (primary), then the fixed last-3 average (secondary). Sharded over GPUs.
     t_ev = time.time()
-    p_last = predict_sharded(model, corpus, va, dev, amp, a.eval_bs, world, rank)
+    p_last = predict_sharded(model, corpus, va, dev, amp, a.eval_bs, world, rank, a.eval_windows)
     bench["eval_sec_per_study"] = (time.time() - t_ev) * world / max(len(va), 1)     # per study, per GPU
     if rank == 0:
         pd.DataFrame(p_last, columns=LABELS).assign(StudyInstanceUID=va).to_csv(a.out / "oof_all.csv", index=False)
     pg = None
     if gold_ids:
-        pg = predict_sharded(model, corpus, gold_ids, dev, amp, a.eval_bs, world, rank)
+        pg = predict_sharded(model, corpus, gold_ids, dev, amp, a.eval_bs, world, rank, a.eval_windows)
         if rank == 0:
             pd.DataFrame(pg, columns=LABELS).assign(StudyInstanceUID=gold_ids).to_csv(a.out / "oof_gold.csv", index=False)
     if a.save_weights and rank == 0:
@@ -742,7 +768,7 @@ def main() -> None:
         missing = model.load_state_dict(avg, strict=not is_qwen)
         if is_qwen and missing.unexpected_keys:
             raise SystemExit(f"avg3: unexpected keys {missing.unexpected_keys[:3]}")
-        pa = predict_sharded(model, corpus, va, dev, amp, a.eval_bs, world, rank)
+        pa = predict_sharded(model, corpus, va, dev, amp, a.eval_bs, world, rank, a.eval_windows)
         if rank == 0:
             d3 = a.out / "avg3"
             d3.mkdir(exist_ok=True)
@@ -758,7 +784,9 @@ def main() -> None:
                    "epochs_done": len(hist), "stopped_early": stopped_early, "world": world,
                    "n_train": len(tr), "n_val": len(va), "n_gold": len(gold_ids), "k": a.k, "bs": a.bs,
                    "bb_lr": a.bb_lr, "head_lr": a.head_lr, "wd": a.wd, "seed": a.seed, "res": res,
-                   "drop_path": a.drop_path, "llrd": a.llrd, "pos_emb": a.pos_emb,
+                   "drop_path": a.drop_path, "llrd": a.llrd, "pos_emb": a.pos_emb, "eval_windows": a.eval_windows,
+                   "labels_sha256": __import__("hashlib").sha256(Path(a.labels).read_bytes()).hexdigest()
+                   if a.labels else None,
                    "primary": "last epoch", "secondary": "mean of last-3 epoch weights (fixed, not selected)",
                    "gold_macro_report_only": gold_auc, "hist": hist, "bench": bench,
                    "wall_min": (time.time() - t_start) / 60}

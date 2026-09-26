@@ -91,7 +91,11 @@ STAGE_B_SHARDS = [f"{OWNER}/rsna-knee-stage-b-s{i}of8" for i in range(8)]   # ..
 PACKAGE = ["--res", "384", "--drop-path", "0.1", "--llrd", "0.9", "--bb-lr", "9e-5", "--pos-emb", "--fit-budget"]
 N_TRAIN, DRAW_SEED = 2871, 20260923
 # The VLM: every visible GPU, the epoch count fitted to the session, and the short bench.
-QWEN_EXTRA = ["--fit-budget", "--k", "12"]
+# It trains on 12-image sequences, so it is read on 12 evenly spaced windows, not every window: a
+# language model's length generalisation from 12 images to ~50 is a train/eval skew (AUDIT.md, 09-26).
+QWEN_EXTRA = ["--fit-budget", "--k", "12", "--eval-windows", "12"]
+# The versions this arch was built and tested against locally; the image may carry neither.
+QWEN_TRANSFORMERS = "5.17.0"
 QWEN_BENCH = ["--max-steps", "40", "--limit-val", "60", "--eval-bs", "1"]
 
 
@@ -124,7 +128,7 @@ if ARCH.startswith("qwen"):
     try:
         from transformers import Qwen3_5Model  # noqa: F401
     except ImportError:
-        subprocess.check_call([sys.executable, "-m", "pip", "install", "-q", "-U", "transformers"])
+        subprocess.check_call([sys.executable, "-m", "pip", "install", "-q", "transformers==__QWEN_TF__"])
         import importlib, transformers
         importlib.reload(transformers)
         from transformers import Qwen3_5Model  # noqa: F401
@@ -199,7 +203,16 @@ _tr = pd.read_csv(D / "train.csv")
 _v2 = (pd.read_csv(FOUND["llm_labels_v2.csv"][0])
        .drop_duplicates("StudyInstanceUID").set_index("StudyInstanceUID"))
 _v2.reindex(_tr.StudyInstanceUID)[L].reset_index().to_csv(D / "targets.csv", index=False)
+if __TARGETS_B64__:
+    # A different label table than steven_v2 (built with --targets): embedded, hash-checked, and recorded
+    # in provenance.json -- the run's ONLY change when it is judged against step 5.
+    (D / "targets.csv").write_bytes(base64.b64decode(__TARGETS_B64__))
+    if _sha(D / "targets.csv") != __TARGETS_SHA__:
+        sys.exit("embedded targets do not match their hash")
+    log(f"targets: {__TARGETS_NAME__} (embedded, sha256 {__TARGETS_SHA__[:16]}) -- NOT steven_v2")
 TARGETS_DF = pd.read_csv(D / "targets.csv").set_index("StudyInstanceUID")
+if TARGETS_DF.index.duplicated().any() or not set(L) <= set(TARGETS_DF.columns):
+    sys.exit("targets.csv: duplicate studies or missing label columns")
 
 _ref = D / "public_llm_labels" / "lixin73_rsna-knee-llm-report-labels-sol56"
 _ref.mkdir(parents=True, exist_ok=True)
@@ -320,6 +333,9 @@ def main() -> None:
     ap.add_argument("--time-budget-h", type=float, default=10.3, help="stage_b: training hours inside the 12 h session")
     ap.add_argument("--corpus", choices=["raptor44", "stage_a", "stage_b"], default="raptor44",
                     help="raptor44: the CC0 44-slice corpus (the A/B); stage_a: our 64-slice shards")
+    ap.add_argument("--targets", type=Path, help="train on this table (StudyInstanceUID + 12 labels) instead of "
+                                                 "steven_v2; embedded and hashed. Needs --tag.")
+    ap.add_argument("--tag", default="", help="suffix for the kernel slug, so a variant does not overwrite a run")
     ap.add_argument("--n-train", type=int, default=None,
                     help=f"seeded draw from the pool ({N_TRAIN} = the A/B count, the default; qwen35vl: 0); "
                          "0 = the whole pool")
@@ -347,15 +363,31 @@ def main() -> None:
                   .replace("__LAYOUT__", repr(a.corpus))
                   .replace("__EXTRA__", repr(extra))
                   .replace("__EPOCHS__", str(epochs)).replace("__BUILT_FROM__", repr(built_from))
-                  .replace("__FILES_B64__", repr(blob)))
-    prep = PREP.replace("__DRAW_SEED__", str(DRAW_SEED)).replace("__N_TRAIN__", str(a.n_train))
+                  .replace("__FILES_B64__", repr(blob)).replace("__QWEN_TF__", QWEN_TRANSFORMERS))
+    if a.targets and not a.tag:
+        raise SystemExit("--targets needs --tag: a run on other labels must not overwrite the steven_v2 run's slug")
+    t_b64, t_sha, t_name = "", "", ""
+    if a.targets:
+        import pandas as pd
+        L = ["ACL", "MCL", "Medial Meniscus", "Lateral Meniscus", "Medial OA", "Lateral OA",
+             "PF OA", "Effusion", "Synovitis", "Baker's", "Contusion", "Fracture"]
+        t = pd.read_csv(a.targets)
+        bad = t[L].isna().any(axis=1).sum() + (~t[L].stack().between(0, 1)).sum()
+        if t.StudyInstanceUID.duplicated().any() or bad:
+            raise SystemExit(f"{a.targets}: duplicate studies or {bad} missing/out-of-range cells")
+        raw = a.targets.read_bytes()
+        t_b64, t_sha, t_name = base64.b64encode(raw).decode(), hashlib.sha256(raw).hexdigest(), a.targets.name
+        print(f"targets {a.targets} ({len(t)} studies, sha256 {t_sha[:16]}) replace steven_v2")
+    prep = (PREP.replace("__DRAW_SEED__", str(DRAW_SEED)).replace("__N_TRAIN__", str(a.n_train))
+                .replace("__TARGETS_B64__", repr(t_b64)).replace("__TARGETS_SHA__", repr(t_sha))
+                .replace("__TARGETS_NAME__", repr(t_name)))
     cells = [setup, prep, TRAIN, SCORE]
     for k, c in enumerate(cells):
         compile(c, f"cell{k}", "exec")              # fail here, not after the queue wait
 
     # the A/B keeps its slugs; a Stage A run is a different experiment and gets its own
     slug = {"raptor44": f"rsna-knee-backbone-ab-{a.arch}", "stage_a": f"rsna-knee-c6-train-{a.arch}",
-            "stage_b": f"rsna-knee-c7-train-{a.arch}"}[a.corpus]
+            "stage_b": f"rsna-knee-c7-train-{a.arch}"}[a.corpus] + (f"-{a.tag}" if a.tag else "")
     datasets = DATASETS if a.corpus == "raptor44" else DATASETS[2:]
     kernels = KERNELS + {"raptor44": [], "stage_a": STAGE_A_SHARDS, "stage_b": STAGE_B_SHARDS}[a.corpus]
     nb = {"cells": [{"cell_type": "code", "execution_count": None, "metadata": {}, "outputs": [],
