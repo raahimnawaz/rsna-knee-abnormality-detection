@@ -42,6 +42,14 @@ processes on CPU for --smoke, so the DDP path is exercised before any GPU hour i
 THE RULE, PRE-REGISTERED 2026-09-25 BEFORE THE RUN: the package pays if `c7_ortho - c6_ortho > 0`
 paired on the same 691, P(delta>0) >= 0.95, primary = last epoch; `avg3/` is secondary and not a
 second chance. A pass says the PACKAGE works, not which part of it; a loss ships nothing from it.
+
+QWEN (`--arch qwen35vl --corpus stage_a`, 2026-09-26). Qwen3.5-2B as a VLM study reader
+(`fusion/qwen_vlm.py`): the vision encoder fine-tuned, LoRA on the language model, every window of a
+study one image in one sequence. Same Stage A cache, the same 3,502 training studies as step 5
+(`--n-train 0` is the default for this arch), `steven_v2` targets, the same 691, both T4s under DDP.
+`--bench` here is SHORT -- 40 optimiser steps and 60 validation studies at every window -- because it
+answers cost and fp16 finiteness on a real T4, not accuracy. Its full run's rule is in the RUNBOOK,
+written before that run.
 """
 from __future__ import annotations
 
@@ -57,6 +65,7 @@ OWNER = "raahimnawaz"
 EMBED = [
     "fusion/train_windows.py",
     "fusion/orthofoundation_model.py",
+    "fusion/qwen_vlm.py",
     "fusion/score_oof.py",
     "fusion/folds.py",
     "pipeline/site_fingerprint.py",
@@ -81,6 +90,9 @@ STAGE_B_SHARDS = [f"{OWNER}/rsna-knee-stage-b-s{i}of8" for i in range(8)]   # ..
 # 1.1e-7 -- read off the 09-25 smoke log, before any result.)
 PACKAGE = ["--res", "384", "--drop-path", "0.1", "--llrd", "0.9", "--bb-lr", "9e-5", "--pos-emb", "--fit-budget"]
 N_TRAIN, DRAW_SEED = 2871, 20260923
+# The VLM: every visible GPU, the epoch count fitted to the session, and the short bench.
+QWEN_EXTRA = ["--fit-budget", "--k", "12"]
+QWEN_BENCH = ["--max-steps", "40", "--limit-val", "60", "--eval-bs", "1"]
 
 
 SETUP = r'''
@@ -107,6 +119,17 @@ def log(msg):
 
 
 import torch, timm
+if ARCH.startswith("qwen"):
+    # Qwen3.5 needs a transformers that knows `qwen3_5`; the image may predate it. Internet is on here.
+    try:
+        from transformers import Qwen3_5Model  # noqa: F401
+    except ImportError:
+        subprocess.check_call([sys.executable, "-m", "pip", "install", "-q", "-U", "transformers"])
+        import importlib, transformers
+        importlib.reload(transformers)
+        from transformers import Qwen3_5Model  # noqa: F401
+    import transformers
+    log(f"transformers {transformers.__version__} (qwen3_5 available)")
 log(f"arch {ARCH}  mode {MODE}  epochs {EPOCHS}  built from {BUILT_FROM}")
 log(f"torch {torch.__version__}  timm {timm.__version__}  cuda {torch.cuda.is_available()}"
     + (f" {torch.cuda.get_device_name(0)}" if torch.cuda.is_available() else ""))
@@ -226,7 +249,8 @@ TRAIN = r'''
 # ============================================================================ #
 # Train: fusion/train_windows.py, the only place an arm differs is --arch.
 # ============================================================================ #
-NPROC = (torch.cuda.device_count() if torch.cuda.is_available() else 2) if LAYOUT == "stage_b" else 1
+NPROC = ((torch.cuda.device_count() if torch.cuda.is_available() else 2)
+         if LAYOUT == "stage_b" or ARCH.startswith("qwen") else 1)
 _launch = ([sys.executable, "-m", "torch.distributed.run", "--nnodes", "1", "--node_rank", "0",
             "--master_addr", "127.0.0.1", "--master_port", "29511", "--nproc_per_node", str(NPROC)]
            if NPROC > 1 else [sys.executable, "-u"])
@@ -264,7 +288,7 @@ if MODE == "smoke":
     log("SMOKE: the whole path ran. No score -- 6 studies cannot carry one.")
 else:
     for _arm in [RUN] + ([RUN / "avg3"] if (RUN / "avg3" / "oof_all.csv").exists() else []):
-        _ctrl = "runs_c6_ortho" if LAYOUT == "stage_b" else "runs_port_repro"
+        _ctrl = "runs_c6_ortho" if LAYOUT == "stage_b" or ARCH.startswith("qwen") else "runs_port_repro"
         _res = subprocess.run([sys.executable, str(REPO / "fusion" / "score_oof.py"),
                                str(REPO / "fusion" / _ctrl), str(_arm)],
                               capture_output=True, text=True, cwd=str(REPO))
@@ -287,7 +311,7 @@ def _git_head() -> str:
 
 def main() -> None:
     ap = argparse.ArgumentParser(description=__doc__.splitlines()[0])
-    ap.add_argument("--arch", choices=["ortho", "dinov3l", "coatnet"], required=True)
+    ap.add_argument("--arch", choices=["ortho", "dinov3l", "coatnet", "qwen35vl"], required=True)
     ap.add_argument("--out", type=Path, required=True)
     g = ap.add_mutually_exclusive_group()
     g.add_argument("--smoke", action="store_true", help="CPU, 16 + 6 studies, one epoch. First.")
@@ -296,11 +320,22 @@ def main() -> None:
     ap.add_argument("--time-budget-h", type=float, default=10.3, help="stage_b: training hours inside the 12 h session")
     ap.add_argument("--corpus", choices=["raptor44", "stage_a", "stage_b"], default="raptor44",
                     help="raptor44: the CC0 44-slice corpus (the A/B); stage_a: our 64-slice shards")
-    ap.add_argument("--n-train", type=int, default=N_TRAIN,
-                    help=f"seeded draw from the pool ({N_TRAIN} = the A/B count); 0 = the whole pool")
+    ap.add_argument("--n-train", type=int, default=None,
+                    help=f"seeded draw from the pool ({N_TRAIN} = the A/B count, the default; qwen35vl: 0); "
+                         "0 = the whole pool")
     a = ap.parse_args()
+    if a.n_train is None:
+        a.n_train = 0 if a.arch.startswith("qwen") else N_TRAIN
     mode = "smoke" if a.smoke else "bench" if a.bench else "full"
     epochs = 1 if mode != "full" else a.epochs
+    if a.arch.startswith("qwen"):
+        extra = QWEN_EXTRA + (QWEN_BENCH if mode == "bench" else []) + \
+            ["--time-budget-h", str(a.time_budget_h if mode == "full" else 0.6)]
+        epochs = a.epochs if mode == "full" else 1
+    elif a.corpus == "stage_b":
+        extra = PACKAGE + ["--time-budget-h", str(a.time_budget_h if mode == "full" else 0.3)]
+    else:
+        extra = []
 
     files = {}
     for rel in EMBED:
@@ -310,8 +345,7 @@ def main() -> None:
     built_from = _git_head()
     setup = (SETUP.replace("__ARCH__", repr(a.arch)).replace("__MODE__", repr(mode))
                   .replace("__LAYOUT__", repr(a.corpus))
-                  .replace("__EXTRA__", repr(PACKAGE + ["--time-budget-h", str(a.time_budget_h if mode == "full" else 0.3)]
-                                               if a.corpus == "stage_b" else []))
+                  .replace("__EXTRA__", repr(extra))
                   .replace("__EPOCHS__", str(epochs)).replace("__BUILT_FROM__", repr(built_from))
                   .replace("__FILES_B64__", repr(blob)))
     prep = PREP.replace("__DRAW_SEED__", str(DRAW_SEED)).replace("__N_TRAIN__", str(a.n_train))

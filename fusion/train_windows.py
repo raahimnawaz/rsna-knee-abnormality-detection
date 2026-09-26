@@ -75,8 +75,12 @@ ARCHS = {
     # wiring only, random weights: Ortho's own architecture family (Eva, RoPE, registers) at 22M params,
     # so gradient checkpointing and DDP are exercised on the code path Ortho takes, on a CPU
     "smalleva": dict(res=224, pool="token", timm="vit_small_patch16_dinov3"),
+    # A VLM reading the whole study as one sequence (fusion/qwen_vlm.py): same forward signature as
+    # WindowMIL, so everything below is shared. qwentiny is its wiring check at a toy size.
+    "qwen35vl": dict(res=384, pool="qwen", hf="Qwen/Qwen3.5-2B"),
+    "qwentiny": dict(res=64, pool="qwen"),
 }
-UNTRAINED = {"tiny", "smalleva"}
+UNTRAINED = {"tiny", "smalleva", "qwentiny"}
 ORTHO_URL = "https://media.githubusercontent.com/media/ytrsk/OrthoFoundation/main/OrthoFoudation-L.pth"
 ORTHO_BYTES = 1213056638
 
@@ -136,6 +140,7 @@ class Corpus:
             if len({bool(j.get("canon")) for _, _, j in c6}) != 1:
                 raise SystemExit(f"{layout} shards mix canonical and stored orientation")
             self.slot_sizes = tuple(s["n_slices"] for s in c6[0][2]["slots"])
+            self.slot_meta = [dict(s) for s in c6[0][2]["slots"]]         # plane, fluid: the VLM's slot headers
             self.img = int(c6[0][2].get("img", 336))
             self.layout = f"{layout} span {c6[0][2]['depth_range']} img {self.img} canon {bool(c6[0][2].get('canon'))}"
             parts = [(d / "vols.npy", d / "masks.npy", d / "ids.npy") for _, d, _ in c6]
@@ -461,6 +466,8 @@ def main() -> None:
     ap.add_argument("--fit-budget", action="store_true",
                     help="time real training steps first, then cut --epochs to what fits the budget")
     ap.add_argument("--eval-reserve-h", type=float, default=0.0, help="with --fit-budget: hours kept for eval")
+    ap.add_argument("--lora-r", type=int, default=16, help="qwen archs: LoRA rank on the language model")
+    ap.add_argument("--lora-lr", type=float, default=1e-4, help="qwen archs: LoRA learning rate")
     a = ap.parse_args()
 
     world, rank, local = dist_setup()
@@ -514,12 +521,29 @@ def main() -> None:
 
     # ---- model. Rank 0 fetches the encoder weights first; the others read the same file after it.
     res = a.res or ARCHS[a.arch]["res"]
-    enc = build_encoder(a.arch, a.weights_dir, res, a.drop_path) if rank == 0 else None
-    barrier(world)
-    if rank != 0:
-        enc = build_encoder(a.arch, a.weights_dir, res, a.drop_path)
-    model = WindowMIL(enc, res, n_slots=len(corpus.slot_sizes) if a.pos_emb else 0).to(dev)
-    if hasattr(model.encoder, "set_grad_checkpointing") and (amp or os.environ.get("TW_FORCE_CKPT")):
+    is_qwen = ARCHS[a.arch]["pool"] == "qwen"
+    if is_qwen:
+        import qwen_vlm
+
+        def make():
+            return qwen_vlm.build(a.arch, a.weights_dir, res, getattr(corpus, "slot_meta", None),
+                                  len(corpus.slot_sizes), lora_r=a.lora_r, fp16_frozen=amp,
+                                  grad_ckpt=bool(amp or os.environ.get("TW_FORCE_CKPT")),
+                                  tokenizer_dir=os.environ.get("TW_QWEN_TOKENIZER"))
+        model = make() if rank == 0 else None
+        barrier(world)
+        if rank != 0:
+            model = make()
+        model = model.to(dev)
+        log(f"qwen: {model.n_lora} LoRA linears r {a.lora_r}, lr {a.lora_lr} | {model.tokens_per_image} tokens "
+            f"per window | slot headers {model.slot_names} | frozen LM fp16 {amp}")
+    else:
+        enc = build_encoder(a.arch, a.weights_dir, res, a.drop_path) if rank == 0 else None
+        barrier(world)
+        if rank != 0:
+            enc = build_encoder(a.arch, a.weights_dir, res, a.drop_path)
+        model = WindowMIL(enc, res, n_slots=len(corpus.slot_sizes) if a.pos_emb else 0).to(dev)
+    if not is_qwen and hasattr(model.encoder, "set_grad_checkpointing") and (amp or os.environ.get("TW_FORCE_CKPT")):
         # NON-reentrant checkpointing: re-entrant checkpoints and DDP's gradient hooks do not mix
         # (DDP then needs static_graph, which cannot start under no_sync -- measured locally 09-25).
         import timm.layers as _tl
@@ -529,12 +553,15 @@ def main() -> None:
             raise SystemExit("this timm cannot switch off re-entrant checkpointing; DDP would break")
         model.encoder.set_grad_checkpointing(True)
     n_enc = sum(p.numel() for p in model.encoder.parameters())
+    n_trn = sum(p.numel() for p in model.parameters() if p.requires_grad)
+    log(f"trainable {n_trn / 1e6:.1f}M of {sum(p.numel() for p in model.parameters()) / 1e6:.1f}M params")
     log(f"encoder {n_enc / 1e6:.1f}M params, num_features {model.encoder.num_features} | res {res} | "
         f"drop_path {a.drop_path} | llrd {a.llrd} | pos_emb {a.pos_emb}")
 
     prev = np.clip(ytr.mean(0), 0.03, 0.7)
     pos_w = torch.tensor(np.clip((1 - prev) / prev, 1, 10), dtype=torch.float32, device=dev)
-    groups = param_groups(model, a.bb_lr, a.head_lr, a.llrd)
+    groups = (model.param_groups(a.bb_lr, a.head_lr, a.lora_lr) if is_qwen
+              else param_groups(model, a.bb_lr, a.head_lr, a.llrd))
     opt = torch.optim.AdamW(groups, weight_decay=a.wd)
     if a.llrd < 1.0:
         log(f"layer-wise LR: {len(groups) - 1} encoder groups, {groups[0]['lr']:.2e} (embeddings) .. "
@@ -650,7 +677,9 @@ def main() -> None:
                      "opt_steps": n_opt})
         log(f"epoch {ep}: loss {hist[-1]['loss']:.4f}  {hist[-1]['sec'] / 60:.1f} min")
         if ep >= epochs - 3:
-            last3.append({k: v.detach().to("cpu", copy=True) for k, v in model.state_dict().items()})
+            keep = ({n_ for n_, p in model.named_parameters() if p.requires_grad} if is_qwen else None)
+            last3.append({k: v.detach().to("cpu", copy=True) for k, v in model.state_dict().items()
+                          if keep is None or k in keep})
         if stopped_early:
             log(f"⛔ stopped early: {stopped_early} -- the schedule did not finish")
             break
@@ -703,11 +732,16 @@ def main() -> None:
             "layout": corpus.layout, "slot_sizes": list(corpus.slot_sizes), "img": getattr(corpus, "img", 336),
             "pos_emb": bool(a.pos_emb), "n_slots": model.n_slots, "llrd": a.llrd, "drop_path": a.drop_path,
             "rope_periods": rope.periods.float().tolist() if rope is not None and hasattr(rope, "periods") else None,
-            "mean": MEAN, "std": STD}, indent=1))
+            "mean": MEAN, "std": STD,
+            **({"hf": ARCHS[a.arch].get("hf"), "qwen_config": model.qwen.config.to_dict(), "qwen_ids": model.ids,
+                "lora_r": a.lora_r, "slot_headers": model.slot_names, "mean": list(qwen_vlm.QWEN_MEAN),
+                "std": list(qwen_vlm.QWEN_STD)} if is_qwen else {})}, indent=1, default=str))
     if len(last3) >= 2:
         avg = {k: (sum(sd[k].double() for sd in last3) / len(last3)).to(last3[0][k].dtype)
                if last3[0][k].is_floating_point() else last3[0][k] for k in last3[0]}
-        model.load_state_dict(avg)
+        missing = model.load_state_dict(avg, strict=not is_qwen)
+        if is_qwen and missing.unexpected_keys:
+            raise SystemExit(f"avg3: unexpected keys {missing.unexpected_keys[:3]}")
         pa = predict_sharded(model, corpus, va, dev, amp, a.eval_bs, world, rank)
         if rank == 0:
             d3 = a.out / "avg3"
