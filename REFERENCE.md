@@ -76,6 +76,8 @@ and no host has confirmed it. **Downgraded from "very likely admissible" to "unr
 It gates a Phase 2 lever, so ask directly rather than assume — that is one forum post and it
 costs nothing.
 
+**STATUS 2026-09-26: STILL UNASKED BY US — seven weeks.** Re-raised by the owner ("could we just use MRNet"). The same question now also covers Google's MedGemma (gated, Health AI Developer Foundations terms). It is a public forum post from the owner's Kaggle account — not something to send on their behalf — and the answer takes days; the entry deadline is Oct 15. `DATA.md` §12 item 4.
+
 **STATUS 2026-08-17: STILL UNRESOLVED, STILL UNASKED BY US — seven days.** A third-time-of-asking
 post is drafted and **not yet sent** (it needs a Kaggle account action, not a repo change). It
 cites 2.6.a against 2.5.a and 1.6's CC-BY-NC winner licence and asks for a yes/no. **`IMPROVEMENTS.md`

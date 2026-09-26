@@ -539,3 +539,59 @@ fracture gain and gives back most of the losses — and still does not clear the
 **Decision:** `steven_v2` stays the training target. Labels were not the binding constraint
 (the model reproduces its own training labels at 0.8486, below the labels' own read), and no public
 table moves them. `DECISIONS.md` CLOSED.
+
+---
+
+## 12. Where the reports and the image reads part — and what each kind of gap needs `2026-09-26`
+
+From the owner's questions on 09-26 ("are the reports reliable, can the adjectives help, how do real
+vision models deal with this"), answered from the data, not from argument.
+
+**Three kinds of mismatch, each seen on gold-58** (report paraphrased; gold is the image read):
+
+| report says | gold | `steven_v2` | Qwen (`qwen35_9b_v1`) | kind | what can fix it |
+|---|--:|--:|---|---|---|
+| medial meniscus signal "without extension to the articular surface" | 0 | 0.82 | 91% "present, below threshold" | **misread severity** | a better reader (Qwen got it) |
+| "moderate thinning" of cartilage, full-thickness fissures, compartment not tied down | 0 (Medial OA) | 0.94 | 69% "below threshold" | **borderline judgement** | severity-aware targets |
+| "moderate joint effusion" — the criterion's own word | 0 | 0.95 | "meets" | **report ≠ images** | nothing in the text; only the images |
+| "osteochondral fracture, 8×12 mm" and, elsewhere, "no fracture is seen" | 0 | 0.95 | "meets" | **contradictory report, and ≠ images** | nothing in the text |
+
+The last two are why a report reader has a ceiling (~0.90 on gold for the best tables; a careful human read
+~0.84–0.87, §1): some of the image truth is not in the text at all. Of the 3 English gold reports that say
+"moderate/large effusion", the image readers call 1 negative.
+
+**The severity the binary labels throw away — Qwen's most likely grade, share of all 4,407 reports:**
+
+| finding | meets | present but BELOW threshold | explicitly absent | not mentioned |
+|---|--:|--:|--:|--:|
+| Effusion | 0.20 | **0.44** | 0.30 | 0.06 |
+| Contusion | 0.18 | **0.52** | 0.10 | 0.21 |
+| Medial OA | 0.12 | **0.39** | 0.19 | 0.30 |
+| MCL | 0.01 | **0.33** | 0.49 | 0.17 |
+| Medial Meniscus | 0.33 | 0.23 | 0.36 | 0.07 |
+| Fracture | 0.03 | 0.08 | 0.33 | 0.55 |
+
+(All twelve, and the full six-letter distribution per study, are in `data/qwen_labels/qwen35_9b_v1/probs.jsonl`.)
+Today "trace effusion" and "no effusion" reach the image model as the same kind of negative.
+
+**What each kind of gap needs — candidate experiments, NOT run, NOT pre-registered yet:**
+1. **An auxiliary severity output** (the owner's idea, 09-26): a second head predicts the grade distribution
+   (absent / below / borderline / meets) beside the 12 main outputs, so the model learns what small vs large
+   looks like — the ordering AUROC rewards. Main targets stay `steven_v2`, so the 691 CAN judge it (fixed-target
+   comparison). One run. Grades are Qwen's reading, which lost on gold as a *replacement* target (§11) — as a
+   secondary signal they are a different use, untested. "Where" (horn, condyle) is a possible later target.
+2. **Teacher → student** for report ≠ image: out-of-fold image models vote; where confident and in
+   disagreement with the label, the label moves. The board's 0.950 single models credit this. Several teacher
+   runs — the expensive route. Precondition met: Stage B reads gold 0.890 against its labels' 0.887.
+3. **A medically pre-tuned model** (the Ortho idea, for text or images): Google's **MedGemma** — 1.5 4B
+   (image+text; its model card lists 3D CT/MRI volumes and an MRI set spanning head, abdomen and **knee**;
+   reported MRI macro accuracy 64.7% on 10 conditions) and 27B text. As a report reader it meets the same
+   ~0.90 text ceiling and would spend the LAST gold-58 read; as an image model it is a second domain-pretrained
+   candidate for the blend. Gated on Hugging Face (the owner must accept the terms — our account is not
+   authorised, checked 09-26), under Google's Health AI Developer Foundations terms — admissible under §2.5.a's
+   carve-out, but the winner obligation to publish weights must be checked against those terms first.
+4. **External expert image labels** — MRNet (1,370 knee MRIs; ACL, meniscus, abnormal; expert-read test set),
+   OAI with MOAKS grades (severity, from images), fastMRI+ (boxes: location) — exactly the supervision the
+   reports cannot give. **Blocked on the host's ruling** (`REFERENCE.md` §1.3: asked twice by others, never
+   answered; our post drafted 08-17, never sent). The MRNet *model* (2018, AlexNet per plane) is not worth
+   borrowing: its ACL 0.965 / meniscus 0.847 are on its own expert-labelled set, and our recipe is stronger.

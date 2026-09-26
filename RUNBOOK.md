@@ -29,6 +29,7 @@ audit (`AUDIT.md`) found no leakage and fixed three HIGHs in the Qwen path. drea
 full run trains on. To submit the dread retrain: `build_submit_kernel.py --ours-only --weights-kernel
 raahimnawaz/rsna-knee-c6-train-ortho-dread --weights-sha <sha of its runs_ortho/last.pt> --tag dread` (download
 `last.pt` for the sha, as done for c7). GPU: ~5 h left this week (estimate), resets Fri Oct 2 17:00 PDT.
+**Candidates queued behind tonight's reads** (`DATA.md` §12, from the owner's 09-26 questions; none pre-registered yet): ① an auxiliary SEVERITY head at fixed `steven_v2` targets — the 691 can judge it, one run; ② teacher → student if dread says labels are the lever; ③ MedGemma — owner must accept its HF terms first; ④ MRNet / OAI MOAKS / fastMRI+ — blocked on the host ruling the owner has not yet asked for (`REFERENCE.md` §1.3).
 
 **⛔ 2026-09-26 — THE LEADERBOARD ANSWERED, AND IT OVERRULES THE 691.** Public LB: **Submission A (our Ortho alone) 0.901**;
 **Submission B (ours at 1/3 in the public 0.943 stack) 0.936 — 0.007 BELOW the stack alone.** Both were verified to be the
