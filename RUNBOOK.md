@@ -155,6 +155,22 @@ bound on the forward). So below ~40 windows the run is **decode-bound**, and the
 `order_series` reads the header of every file in every series before `build_study` decodes the 64 it
 keeps. Projected, not measured -- the curve's timings and Sub B's commit log will say.
 
+**✅ MEASURED 2026-09-26 — the curve (`rsna-knee-window-curve` v1, from `0bbd2d8`) and the rule's answer: n = 54.**
+The n = 54 pass reproduced the scored OOF (max |Δp| 0.0012, mean 0.0001). b = **3.8** s/study/worker (Sub B's gate
+run, 8 studies, 4 workers) → T_decode = 1,322 × 3.8 / 4 = **1,256 s**.
+
+| n | windows | Δ AUC vs n54 (paired, 681) | forward s/study (T4) | T_gpu = 661 × fwd | T(n) | est(n) |
+|---|--:|---|--:|--:|--:|--:|
+| **54** | 51.4 | 0 | 1.278 | 845 s | 1,256 s | **0.0388** |
+| 36 | 35.3 | −0.0017 ± 0.0011 (1.5σ) | 0.788 | 521 s | 1,256 s | 0.0425 |
+| 27 | 25.7 | −0.0056 ± 0.0015 (3.9σ) | 0.734 | 485 s | 1,256 s | 0.0510 |
+| 18 | 16.1 | −0.0142 ± 0.0026 (5.4σ) | 0.363 | 240 s | 1,256 s | 0.0697 |
+| 12 | 11.6 | −0.0483 ± 0.0044 (10.9σ) | 0.324 | 214 s | 1,256 s | 0.1438 |
+
+**Decode-bound at every n, including 54**: on two T4s the model needs ~14 min, the DICOM read ~21 min. Fewer
+windows cost AUC and buy no time, so the rule picks **n = 54** — Submission A runs every window. The efficiency lever
+is the decode (`order_series` reads every header; 96-slice Stage B decodes 1.5× more), then the model.
+
 ⛔ **The "6 min inference on 2×T4" quoted for the public notebook in §0.3 was its COMMIT run on the 3
 visible studies** (its log: 370 s). It is not an efficiency-track entry: at several hours on the hidden
 set its runtime term alone is ~0.5-0.9. The efficiency track is a race between FAST models, and our
