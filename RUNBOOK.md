@@ -133,6 +133,12 @@ with identical weights on both ranks. A Kaggle CPU smoke of the training kernel 
 Cost: one ~11 h T4×2 session. Inference for this model needs `infer_windows.py` to learn Stage B's spec and
 the embeddings — only if it wins.
 
+**TRAINING SMOKE PASSED** — 2026-09-26 00:30–00:52 PDT, `rsna-knee-c7-train-ortho` v2 from `0bbd2d8` on Kaggle CPU: two
+processes on the 4,407-study Stage B corpus, 26 LR groups (6.5e-6 embeddings .. 9e-5 top), the time probe, a full
+epoch, **identical per-rank weight checksums**, sharded eval gathered into `oof_all.csv`, clean exit in 21.8 min.
+**⏳ The full run was pushed 2026-09-26 01:01 PDT** (v3, built from `be9d9be`, T4×2, 10.3 h training budget, cap 14
+epochs): expect it ~12:00 PDT. Read it with the commands at the top of this handoff; THE RULE is above.
+
 **Submission A -- our model alone, at the window count the curve picks** (`build_submit_kernel.py
 --ours-only --n-windows N`; the gate runs in its commit run only, since the scored rerun pays for every
 second). **The rule for N, PRE-REGISTERED 2026-09-24 before the curve has a number:**
