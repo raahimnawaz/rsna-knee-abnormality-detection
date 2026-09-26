@@ -92,6 +92,15 @@ lines are diagnostics, not second chances.
   `3b49bcd`: pinned transformers 5.17.0 over the image's 5.0.0, pinned weights, 348 M of 2,230 M trainable, slot headers
   from the manifest, 2 steps, eval, finite OOF) after three fixes it forced: an in-process reload, two fp32 host
   copies, and no checkpointing on CPU.
+- **✅ VLM BENCH READ 2026-09-26 12:40** (`rsna-knee-c6-train-qwen35vl` v5, from `d6c598a`, T4×2, 16 min): **fp16 holds**
+  — 40 steps, finite loss throughout, the GradScaler settled from 65,536 to 2,048 (a few overflow steps skipped, by
+  design); **peak 13.2 GB** of 15; DDP checksums identical. **Cost: 9.75 s per 2-study micro-step → ~2.4 h per epoch**
+  on two T4s (3,502 studies), eval 1.15 s/study at 12 windows. So a 10.3 h session holds **~3 epochs** (step 5 had 8).
+  The 40-step read — 0.466 on 60 val studies, gold 0.508 — is an untrained model and says nothing either way.
+  **What the bench does NOT show: that this arm learns here.** Proposed next, for the owner: a ONE-epoch learning
+  check (~2.8 GPU-h), rule written now: **continue to a full run only if the 691 macro after one epoch ≥ 0.75**
+  (Ortho's one-epoch bench on the older corpus read 0.7508); below it, the arm does not learn fast enough for T4
+  budgets and is shelved, not tuned on the 691.
 
 *The blend member — a Qwen3.5-2B VLM (Apache-2.0), `fusion/qwen_vlm.py`.* The board's 54th place reports 0.950 from a
 Qwen 3.5 2B VLM (vision encoder fine-tuned + LoRA on the language model, 384 px) — self-reported, a description not code,
