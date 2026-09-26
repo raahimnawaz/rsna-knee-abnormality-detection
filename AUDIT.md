@@ -1,5 +1,117 @@
 # Pipeline Audit — rsna-knee-abnormality-detection
 
+## Audit 2026-09-26 — the live path, before the Qwen runs
+
+Audited at `57693c3`; fixes landed in `b0e330b` and after. Covers the code that runs NOW: the Stage
+A/B cache builder, `train_windows.py` (including the new `qwen35vl` arch), `score_oof.py`, the fold
+split as the kernel builds it, `infer_windows.py`, and the new label path (`qwen_label.py`,
+`bench_qwen_labels.py`). What 09-23 fixed is not repeated here.
+
+**Verdict:** the recorded numbers still mean what they say. There's no leakage in the live path, and
+the DICOM inference path is gated against the scored OOF (it reproduced to max |Δp| 0.00072 on
+Kaggle on 09-26). The problems were in what the Qwen plan was about to run. Two would have wasted a
+~10 h GPU session: a train/eval sequence-length skew in the VLM, and a ~4 GB allocation at the end
+of training. A third made the plan's first GPU run impossible: the kernel could train only on
+`steven_v2`. All three are fixed. What stays open is listed at the end.
+
+### Pipeline map
+
+```
+DICOMs ─ build_slots64.build_study: per-SERIES 2–98% window (:261), 140 mm crop, per-study side (canon)
+   └─► Stage A / B shards (Kaggle CPU)                                    [no cross-study statistic]
+reports ─ public tables (steven_v2 = targets) │ qwen_label.py (local Qwen3.5-9B) → qwen_labels/<tag>/targets.csv
+headers ─ site_fingerprint → folds.py --group-by site (gold pinned) ─ SPLIT
+   └─► kernel PREP: val = the 691 fold-0 control studies; train = fold ≠ 0 AND not gold (build_backbone_ab_kernel.py:244)
+train_windows.py: Windows (k random windows train / every or --eval-windows N eval) → WindowMIL | QwenStudy
+   fitted: weights; pos_weight from TRAIN prevalence only (:586)                → oof_all, oof_gold, last.pt
+score_oof.py: vs lixin gpt56 reference, gold excluded (:80, :159), arms on their intersection, paired
+bench_qwen_labels.py: label tables vs gold-58 (two pre-registered candidates)
+infer_windows.py: build_study + window_centres + WindowMIL, --check-against gate → build_submit_kernel (family rank-mean)
+```
+
+### Findings
+
+#### [HIGH] The VLM would have trained on 12-image sequences and been scored on ~50 — *fixed*
+**Where:** `fusion/train_windows.py` eval path (`predict_sharded`, `Windows`); `fusion/qwen_vlm.py`
+**What:** `train_windows` trains on `--k 12` random windows per study and scores **every** window
+(51 on the median Stage A study). That is the frontier's recipe, and it is harmless for `WindowMIL`,
+whose attention pool is permutation-invariant and indifferent to count. `QwenStudy` feeds the windows
+to a language model as one sequence. It would have trained on ~1,750-token sequences and been read
+on ~7,800-token ones, with M-RoPE positions it never saw in training.
+**Impact:** an unmeasured, one-directional loss on every validation and test read of the VLM arm. It
+would have looked like "the VLM is weaker" rather than "the VLM was read out of distribution".
+**Fix:** `--eval-windows N` scores an evenly spaced subset (`thin_windows`, identical to
+`window_curve.thin` on Stage A: 0 mismatches on 3,000 random masks). The qwen build passes 12
+(`build_backbone_ab_kernel.py:96`). Ortho's runs are unchanged (default 0 = every window).
+
+#### [HIGH] The end-of-run DDP checksum would have allocated ~4 GB on the T4 — *fixed*
+**Where:** `fusion/train_windows.py:717`
+**What:** the checksum summed `p.double()` over **all** parameters. For the VLM that includes the
+frozen 248k×2048 embedding: 508 M values in fp64, about 4 GB, allocated after a full session on a
+card already holding the model, and before `oof_all.csv` is written.
+**Impact:** a likely CUDA OOM at the last step of a ~10 h run, losing every prediction.
+**Fix:** sum trainable parameters only, since frozen ones cannot drift between ranks. For `WindowMIL`
+every parameter trains, so its behaviour is unchanged.
+
+#### [HIGH] The training kernel could not train on any labels but `steven_v2` — *fixed*
+**Where:** `notebooks/build_backbone_ab_kernel.py` PREP (targets built only from `llm_labels_v2.csv`)
+**What:** the RUNBOOK's next GPU run is step 5 with only the targets changed. There was no way to
+pass a table, and no record of which table a run trained on (`summary.json` lacked it).
+**Fix:** `--targets <csv> --tag <t>` embeds the table, checks its hash in the kernel, refuses NaN or
+out-of-range cells and duplicate studies, and gets its own slug. `summary.json` now carries
+`labels_sha256`. Tested: `steven_v2` through this path hashes to `3c082a98`, which is step 5's
+recorded `targets_sha256`, so a retrain differs from step 5 in the targets and nothing else.
+
+#### [MEDIUM] Qwen versions were unpinned — *fixed*
+**Where:** the kernel's `pip install -U transformers`; `snapshot_download("Qwen/Qwen3.5-2B")`
+**Fix:** `transformers==5.17.0` (the version the arch was tested against, installed only if the image
+lacks `qwen3_5`), Qwen3.5-2B at revision `15852e8c` (`qwen_vlm.py:46`). The labeler manifest records
+the MLX weights' revision and the `mlx_lm` version.
+
+#### [MEDIUM] Nothing can serve the VLM yet — *open, by choice*
+**Where:** `fusion/infer_windows.py:87-91` builds only a ViT-L `WindowMIL`.
+**What:** a VLM checkpoint cannot reach a submission. It also needs `transformers` with `qwen3_5`
+inside an internet-off notebook, which means a wheel dataset.
+**Why open:** build it only if the arm earns a place (RUNBOOK, Qwen block). When built, reuse
+`qwen_vlm.build(config=last_meta["qwen_config"])` (a rebuild from the saved config reproduces the
+trained model exactly, checked locally) and keep the `--check-against` gate.
+
+#### [LOW] Duplicate report texts cross folds — *checked, not leakage*
+49 report texts (over 60 chars) repeat, and 11 of those groups span fold 0 and the training folds (25
+fold-0 studies). They are templated normal reports (e.g. the Turkish "all normal" template) on
+different scans. At most 3 groups share both text and series geometry, so there are ≤ 3 possible
+duplicate scans, against 691 validation studies. One gold study shares a template with a fold-3
+training study (both fold 3; gold is never trained on).
+
+### Verified clean
+- **Split:** the training pool excludes fold 0 and gold (`build_backbone_ab_kernel.py:244`), and
+  `train_windows` refuses any overlap (`:527`). The Qwen labeler and C2's rank mapping use report
+  text and other tables only, never gold labels.
+- **Eval mechanics:** `predict` runs under `@torch.no_grad()` with `model.eval()` (`:372-374`), which
+  disables LoRA and vision dropout. No epoch is selected, and gold-58 is reported only.
+- **Scoring:** gold is excluded, arms are restricted to shared studies, ids are sorted, and the
+  bootstrap is paired (`score_oof.py:80,159`).
+- **Cache:** the only intensity statistic is per series (`build_slots64.py:261`). Laterality is per
+  study. Nothing is fitted across studies.
+- **Targets:** `steven_v2` has no duplicate or conflicting study rows.
+- **Qwen labels:** they read only `Report`; a resume is refused if the prompt/VALUE/model hash
+  differs; letter mass is 0.996–1.000 on the smoke. `bench_qwen_labels.py` refuses a partial table,
+  runs both leak checks, and spends exactly two candidates.
+- **VLM wiring:** patchify equals `Qwen2VLImageProcessor.patchify`; each finding is read at its own
+  name's last token; a rebuild from saved config plus `last.pt` matches; the output is invariant
+  to window order; gradients reach vision, LoRA and head, and nothing frozen gets one.
+
+### Open questions
+- **fp16 on a T4.** Qwen3.5 was trained in bf16, and a T4 has none. Per-layer peak activations on real
+  weights (`qwen_vlm.finite_check`) and the Kaggle bench decide this before any long run.
+- **The frontier's gold ×3.** `train_windows` has no per-study weights, and training on gold uses up
+  the only instrument that can judge labels. If the label route goes there, hold out half of gold (a
+  fixed 29/29 split) and read on the other half.
+
+---
+
+## Audit 2026-09-23
+
 Audited **2026-09-23** at `2cb9782`. Covers the scored path (folds → training → both local
 instruments → blend → submission kernel) and the C6 code the RUNBOOK says runs next (Stage 0,
 `slots64.py`, `perlabel_head.py`, the OrthoFoundation loader). `fusion/archive/`, `extractor/`

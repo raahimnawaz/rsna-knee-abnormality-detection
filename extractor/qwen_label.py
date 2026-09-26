@@ -276,7 +276,14 @@ def main() -> None:
     t = score_rows(rows)
     t.to_csv(out / "targets.csv", index=False)
     mass = np.array([r["mass"] for r in rows])
-    man = {"schema": SCHEMA, "model": a.model, "prompt_hash": prompt_hash(), "value": VALUE,
+    try:                                   # the exact weights and runtime, not just the repo name
+        from huggingface_hub import snapshot_download
+        import mlx_lm
+        rev, mlx_v = Path(snapshot_download(a.model, local_files_only=True)).name, mlx_lm.__version__
+    except Exception:                      # noqa: BLE001 -- a record, never a reason to fail
+        rev, mlx_v = None, None
+    man = {"schema": SCHEMA, "model": a.model, "model_revision": rev, "mlx_lm": mlx_v,
+           "prompt_hash": prompt_hash(), "value": VALUE,
            "synovitis_fill": SYNOVITIS_FILL, "letters": LETTERS, "n": len(rows),
            "letter_mass_min": float(mass.min()) if len(rows) else None,
            "letter_mass_median": float(np.median(mass)) if len(rows) else None,
