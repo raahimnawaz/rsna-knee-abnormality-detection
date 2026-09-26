@@ -207,13 +207,24 @@ _tr = pd.read_csv(D / "train.csv")
 _v2 = (pd.read_csv(FOUND["llm_labels_v2.csv"][0])
        .drop_duplicates("StudyInstanceUID").set_index("StudyInstanceUID"))
 _v2.reindex(_tr.StudyInstanceUID)[L].reset_index().to_csv(D / "targets.csv", index=False)
-if __TARGETS_B64__:
-    # A different label table than steven_v2 (built with --targets): embedded, hash-checked, and recorded
-    # in provenance.json -- the run's ONLY change when it is judged against step 5.
-    (D / "targets.csv").write_bytes(base64.b64decode(__TARGETS_B64__))
+if __TARGETS_SHA__:
+    # A different label table than steven_v2 (built with --targets): gzip-embedded, or -- too big for a
+    # notebook -- read from an attached Kaggle dataset by name. Either way held to the hash the builder
+    # computed locally and recorded in provenance.json: the run's ONLY change when judged against step 5.
+    if __TARGETS_B64__:
+        import gzip as _gz
+        (D / "targets.csv").write_bytes(_gz.decompress(base64.b64decode(__TARGETS_B64__)))
+        _how = "embedded"
+    else:
+        _hits = [Path(r) / __TARGETS_NAME__ for r, _d, fs in os.walk("/kaggle/input") if __TARGETS_NAME__ in fs]
+        _hits = [h for h in _hits if _sha(h) == __TARGETS_SHA__]
+        if not _hits:
+            sys.exit(f"no attached {__TARGETS_NAME__} with sha256 {__TARGETS_SHA__[:16]} -- is its dataset attached?")
+        shutil.copy(_hits[0], D / "targets.csv")
+        _how = f"from {_hits[0]}"
     if _sha(D / "targets.csv") != __TARGETS_SHA__:
-        sys.exit("embedded targets do not match their hash")
-    log(f"targets: {__TARGETS_NAME__} (embedded, sha256 {__TARGETS_SHA__[:16]}) -- NOT steven_v2")
+        sys.exit("targets do not match their hash")
+    log(f"targets: {__TARGETS_NAME__} ({_how}, sha256 {__TARGETS_SHA__[:16]}) -- NOT steven_v2")
 TARGETS_DF = pd.read_csv(D / "targets.csv").set_index("StudyInstanceUID")
 if TARGETS_DF.index.duplicated().any() or not set(L) <= set(TARGETS_DF.columns):
     sys.exit("targets.csv: duplicate studies or missing label columns")
@@ -344,6 +355,8 @@ def main() -> None:
     ap.add_argument("--time-budget-h", type=float, default=10.3, help="stage_b: training hours inside the 12 h session")
     ap.add_argument("--corpus", choices=["raptor44", "stage_a", "stage_b"], default="raptor44",
                     help="raptor44: the CC0 44-slice corpus (the A/B); stage_a: our 64-slice shards")
+    ap.add_argument("--targets-from", default="", help="a Kaggle dataset holding --targets byte for byte: attach it "
+                                                         "instead of embedding (notebooks over ~1 MB are refused)")
     ap.add_argument("--targets", type=Path, help="train on this table (StudyInstanceUID + 12 labels) instead of "
                                                  "steven_v2; embedded and hashed. Needs --tag.")
     ap.add_argument("--tag", default="", help="suffix for the kernel slug, so a variant does not overwrite a run")
@@ -389,7 +402,12 @@ def main() -> None:
         if t.StudyInstanceUID.duplicated().any() or bad:
             raise SystemExit(f"{a.targets}: duplicate studies or {bad} missing/out-of-range cells")
         raw = a.targets.read_bytes()
-        t_b64, t_sha, t_name = base64.b64encode(raw).decode(), hashlib.sha256(raw).hexdigest(), a.targets.name
+        import gzip
+        t_sha, t_name = hashlib.sha256(raw).hexdigest(), a.targets.name
+        t_b64 = "" if a.targets_from else base64.b64encode(gzip.compress(raw, 9, mtime=0)).decode()
+        if len(t_b64) > 300_000:
+            raise SystemExit(f"{a.targets}: {len(t_b64) / 1e3:.0f} kB embedded even gzipped -- the 09-26 push of a 2.1 MB "
+                             "notebook was refused (400). Attach its dataset with --targets-from.")
         print(f"targets {a.targets} ({len(t)} studies, sha256 {t_sha[:16]}) replace steven_v2")
     prep = (PREP.replace("__DRAW_SEED__", str(DRAW_SEED)).replace("__N_TRAIN__", str(a.n_train))
                 .replace("__TARGETS_B64__", repr(t_b64)).replace("__TARGETS_SHA__", repr(t_sha))
@@ -401,7 +419,7 @@ def main() -> None:
     # the A/B keeps its slugs; a Stage A run is a different experiment and gets its own
     slug = {"raptor44": f"rsna-knee-backbone-ab-{a.arch}", "stage_a": f"rsna-knee-c6-train-{a.arch}",
             "stage_b": f"rsna-knee-c7-train-{a.arch}"}[a.corpus] + (f"-{a.tag}" if a.tag else "")
-    datasets = DATASETS if a.corpus == "raptor44" else DATASETS[2:]
+    datasets = (DATASETS if a.corpus == "raptor44" else DATASETS[2:]) + ([a.targets_from] if a.targets_from else [])
     kernels = KERNELS + {"raptor44": [], "stage_a": STAGE_A_SHARDS, "stage_b": STAGE_B_SHARDS}[a.corpus]
     nb = {"cells": [{"cell_type": "code", "execution_count": None, "metadata": {}, "outputs": [],
                      "source": c.strip("\n").splitlines(keepends=True)} for c in cells],

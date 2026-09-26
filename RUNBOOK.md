@@ -73,7 +73,7 @@ lines are diagnostics, not second chances.
   C2's +0.005 is inside the noise this gate was built to refuse; it is not "almost a pass". Budget: 2 of 3 gold reads
   on Qwen-family candidates are spent. **Next per the FAIL branch: `dread_soft`** — covers all 3,502 training studies,
   holds out every gold study (so gold-58 stays clean for the report-only read), judged on the LB against Sub A's 0.901:
-  `build_backbone_ab_kernel.py --arch ortho --corpus stage_a --n-train 0 --epochs 8 --targets <dread_soft csv> --tag dread`.
+  `build_backbone_ab_kernel.py --arch ortho --corpus stage_a --n-train 0 --epochs 8 --targets <dread_soft csv> --targets-from dreaddevelopment/rsna-knee-labels --tag dread` (attached, hash-checked: the embedded 2.1 MB notebook was refused with a 400).
   Not pushed: it is ~11 GPU-h and not a Qwen run, so it waits for the owner's word.
 - **⏩ `dread_soft` RETRAIN — the owner said go 2026-09-26 10:20; rule `pre-registered 10:25 PDT, before the push`.**
   Kernel `rsna-knee-c6-train-ortho-dread`: step 5 exactly (Ortho, Stage A, the same 3,502 studies, seed 42, 8 epochs,
