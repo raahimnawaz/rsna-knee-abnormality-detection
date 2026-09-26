@@ -16,7 +16,19 @@ Two ways to win, both verified on the live competition page 09-24:
   the host's daily Efficiency Leaderboard notebook.
 Deadlines: **entry and team merger Oct 15**, final submission **Oct 22** (23:59 UTC).
 
-## ▶ NEXT SESSION STARTS HERE `handoff written 2026-09-25 ~02:30 PDT; updated 2026-09-26 00:40`
+## ▶ NEXT SESSION STARTS HERE `handoff written 2026-09-25 ~02:30 PDT; updated 2026-09-26 12:55 PDT`
+
+**▶ STATE AT 12:55 PDT 09-26 — three things in flight, each with its rule already written below:**
+| what | where | when | read it with | its rule |
+|---|---|---|---|---|
+| **Sub A-c7** — Stage B alone on the LB (ref **56587668**) | submitted 12:52, gate max \|Δp\| 0.00050 | hidden rerun, hours | `kaggle competitions submissions` | vs Sub A's 0.901: same labels, so a model gain |
+| **dread_soft retrain** — step 5 with only the labels changed | `rsna-knee-c6-train-ortho-dread` (queued 12:14) | ~11 h after it starts | Qwen block below | LB ≥ 0.911 = labels are a lever |
+| **VLM one-epoch learning check** | `rsna-knee-c6-train-qwen35vl-e1` (queued 12:54) | ~3 h after it starts | `score_oof.py fusion/runs_c6_ortho <out>/runs_qwen35vl` | ≥ 0.75 on the 691 → a full run next week |
+Settled today: Qwen labels FAIL their gold gate (`steven_v2` stays); Stage B PASSES its 691 rule (+0.0112); the 09-26
+audit (`AUDIT.md`) found no leakage and fixed three HIGHs in the Qwen path. dread_soft's LB result decides what the VLM's
+full run trains on. To submit the dread retrain: `build_submit_kernel.py --ours-only --weights-kernel
+raahimnawaz/rsna-knee-c6-train-ortho-dread --weights-sha <sha of its runs_ortho/last.pt> --tag dread` (download
+`last.pt` for the sha, as done for c7). GPU: ~5 h left this week (estimate), resets Fri Oct 2 17:00 PDT.
 
 **⛔ 2026-09-26 — THE LEADERBOARD ANSWERED, AND IT OVERRULES THE 691.** Public LB: **Submission A (our Ortho alone) 0.901**;
 **Submission B (ours at 1/3 in the public 0.943 stack) 0.936 — 0.007 BELOW the stack alone.** Both were verified to be the
