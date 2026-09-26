@@ -75,6 +75,23 @@ lines are diagnostics, not second chances.
   holds out every gold study (so gold-58 stays clean for the report-only read), judged on the LB against Sub A's 0.901:
   `build_backbone_ab_kernel.py --arch ortho --corpus stage_a --n-train 0 --epochs 8 --targets <dread_soft csv> --tag dread`.
   Not pushed: it is ~11 GPU-h and not a Qwen run, so it waits for the owner's word.
+- **⏩ `dread_soft` RETRAIN — the owner said go 2026-09-26 10:20; rule `pre-registered 10:25 PDT, before the push`.**
+  Kernel `rsna-knee-c6-train-ortho-dread`: step 5 exactly (Ortho, Stage A, the same 3,502 studies, seed 42, 8 epochs,
+  10.5 h budget, one T4) with `--targets labels_llm_soft.csv` (sha256 `8cec477f`, held to `provenance/inputs.json`).
+  **THE RULE — judged on the public LB, submitted ALONE through Sub A's path at every window:**
+  **PASS (the labels are a lever for OUR model) if LB ≥ 0.911** (Sub A 0.901 + 0.010); **null** within ±0.010;
+  **loss** below 0.891. PASS → `dread_soft` becomes the target for every later run (the VLM's full run included) and
+  teacher → student moves up; null → table labels are not our lever, go to teacher → student or the model side.
+  Reported only, never a second chance: gold-58 paired against `c6_ortho`'s `oof_gold.csv` (honest here — neither
+  model saw gold) and the 691 (NOT evidence: it is scored against another LLM reading of the reports).
+  ⚠️ To submit it, `build_submit_kernel.py` needs the weights kernel and sha as flags (today they are constants for
+  `c6-train-ortho`), and its gate must check against THIS run's `oof_all.csv`. Build that while it trains.
+- **VLM bench's job** (`--arch qwen35vl --bench`, after Stage B frees the second GPU session, ≤ 1 GPU-h): (a) 40 fp16
+  steps on a T4 with a finite loss throughout; (b) s per micro-step → epochs that fit a 10.3 h session; (c) eval s/study
+  at 12 windows; (d) peak memory. It prices the full run; it is not a number. **The CPU smoke passed 10:17** (v4, from
+  `3b49bcd`: pinned transformers 5.17.0 over the image's 5.0.0, pinned weights, 348 M of 2,230 M trainable, slot headers
+  from the manifest, 2 steps, eval, finite OOF) after three fixes it forced: an in-process reload, two fp32 host
+  copies, and no checkpointing on CPU.
 
 *The blend member — a Qwen3.5-2B VLM (Apache-2.0), `fusion/qwen_vlm.py`.* The board's 54th place reports 0.950 from a
 Qwen 3.5 2B VLM (vision encoder fine-tuned + LoRA on the language model, 384 px) — self-reported, a description not code,
