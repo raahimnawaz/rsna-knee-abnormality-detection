@@ -1,0 +1,27 @@
+Score any run's `oof_all.csv` on the SAME scale as the 0.7229 baseline. One definition.
+reference: labels_llm_gpt56sol.csv (held out from training) · gold excluded (58)
+
+  arms cover 691 / 691 studies -> scoring all of them on the 691 they share
+
+  runs_c6_ortho          n=  681  macro 0.8298 +-0.0068   vs 0.7229 baseline: +0.1069 (12.8 sigma)
+  runs_qwen35vl          n=  681  macro 0.5041 +-0.0083   vs 0.7229 baseline: -0.2188 (22.8 sigma)
+
+label              ns_c6_ortho ns_qwen35vl
+ACL                      0.835       0.560
+MCL                      0.761       0.476
+Medial Meniscus          0.898       0.452
+Lateral Meniscus         0.837       0.541
+Medial OA                0.837       0.544
+Lateral OA               0.748       0.451
+PF OA                    0.785       0.491
+Effusion                 0.859       0.577
+Synovitis                0.844       0.524
+Baker's                  0.845       0.470
+Contusion                0.835       0.442
+Fracture                 0.874       0.520
+------------------------------------------
+MACRO                   0.8298      0.5041
+
+  PAIRED delta (runs_qwen35vl - runs_c6_ortho) = -0.3257 +-0.0103  ->  31.6 sigma,  P(delta>0) = 0.000
+  (unpaired hypot SE would be +-0.0107 = 30.4 sigma -- the WRONG test here)
+  per-label: 0/12 up. The macro rides on the largest few, so read the table, not the count.
