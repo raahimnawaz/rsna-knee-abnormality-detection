@@ -235,8 +235,17 @@ fit-budget planned 13 epochs from a 2.79 s probe; the run measured 3.52 s (+26%)
 11 iter 185 (~86% of OneCycle). Fixed for later runs: the probe's margin is ×1.35, not +10% (`train_windows.py`).
 **What it buys, per the 09-26 correction above:** a better model on the SAME labels. Before building on it, check the LB:
 that needs `infer_windows.py` to learn Stage B (spec c7 + `--canon` in `build_study`, 384 px, the slot/depth embedding and
-`pos` from `last_meta.json`) and its `--check-against` gate against `runs_c7_ortho/oof_all.csv`. **Not built yet — the next
-build.** Its `last.pt` sits in the kernel output (not downloaded).
+`pos` from `last_meta.json`) and its `--check-against` gate against `runs_c7_ortho/oof_all.csv`.
+**✅ BUILT 2026-09-26 12:20.** `infer_windows.py` now reads the checkpoint's own `last_meta.json` (spec, canon, res,
+slots, slot/depth embedding, RoPE periods); without one it is exactly Stage A as submitted. Proven off Kaggle by
+`notebooks/infer_parity_fixture.py` on `canon_fixture.py`'s four knees: every window, slot and depth from the DICOM
+path identical to the `--canon` cache (max |Δpixel| 0), and the no-canon control differs on every study (139–187).
+⚠️ A random-weight model's prediction check passed EVEN the no-canon control (a random ViT is blind to pixels), so
+off Kaggle the proof is the tensor check; on Kaggle the trained model's `--check-against` is the gate.
+`last.pt` sha256 `406eedaa520ce2cc` (downloaded 12:16, 607 MB). Build and push, when a GPU session is free:
+`build_submit_kernel.py --ours-only --weights-kernel raahimnawaz/rsna-knee-c7-train-ortho --weights-sha 406eedaa520ce2ccdaf3eb681ed70a9724912e7e37f9543ae43965225dd00733 --tag c7 --desc "..."`
+→ `rsna-knee-sub-a-ortho-c7-nall`. Submit only on GATE PASSED and `ARMS: ortho_stage_a only` (the label is historical).
+**Its LB is the read that matters:** A (step 5) scored 0.901; Stage B alone vs that is a same-labels model gain.
 
 **Submission A -- our model alone, at the window count the curve picks** (`build_submit_kernel.py
 --ours-only --n-windows N`; the gate runs in its commit run only, since the scored rerun pays for every

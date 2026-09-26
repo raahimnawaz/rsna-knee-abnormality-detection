@@ -53,7 +53,8 @@ WEIGHTS_SHA256 = "1fe51be2ff4deaae4dfd5fafd2354f3b9bbeb0c26cda3fd918a00699fd481b
 DOCKER_IMAGE = "gcr.io/kaggle-private-byod/python@sha256:37c64f7dd9c54116ecd1bcc88817c5469b88387388fade02bfa8bf3fc647d461"
 EMBED = ["fusion/infer_windows.py", "fusion/train_windows.py", "fusion/window_curve.py",
          "pipeline/build_slots64.py", "pipeline/slots64.py", "pipeline/slots96.py",
-         "fusion/orthofoundation_model.py", "extractor/metrics.py"]   # build_slots64 imports slots96
+         "fusion/orthofoundation_model.py", "extractor/metrics.py",
+         "fusion/qwen_vlm.py"]   # build_slots64 imports slots96; train_windows imports qwen_vlm (qwen archs only)
 LABELS = ["ACL", "MCL", "Medial Meniscus", "Lateral Meniscus", "Medial OA", "Lateral OA",
           "PF OA", "Effusion", "Synovitis", "Baker's", "Contusion", "Fracture"]
 
@@ -297,7 +298,19 @@ def main() -> None:
     ap.add_argument("--n-windows", type=int, default=0, help="thin to ~n windows per study; 0 = all (as scored)")
     ap.add_argument("--w-ours", type=float, default=1 / 3, help="the rule gives 1/3; see docstring")
     ap.add_argument("--n-check", type=int, default=8)
+    # A different checkpoint: the kernel whose output holds runs_ortho/{last.pt, oof_all.csv, last_meta.json},
+    # and last.pt's sha256. infer_windows reads the spec (Stage A/B, canon, 384, slot/depth) from last_meta.json,
+    # and the gate checks against THAT run's oof_all.csv. Defaults: step 5's model, as submitted 09-26.
+    ap.add_argument("--weights-kernel", default=WEIGHTS_KERNEL)
+    ap.add_argument("--weights-sha", default=WEIGHTS_SHA256)
+    ap.add_argument("--tag", default="", help="slug suffix for a Submission A on another checkpoint")
+    ap.add_argument("--desc", default="", help="one line for the notebook's intro: what this checkpoint is")
     a = ap.parse_args()
+    if (a.weights_kernel != WEIGHTS_KERNEL) != (a.weights_sha != WEIGHTS_SHA256):
+        raise SystemExit("--weights-kernel and --weights-sha move together: a new checkpoint needs both")
+    if a.weights_kernel != WEIGHTS_KERNEL and not (a.ours_only and a.tag):
+        raise SystemExit("another checkpoint: build it as --ours-only with a --tag first -- its own LB number "
+                         "before it joins any blend (RUNBOOK 09-26: blending a weaker member costs)")
     if not a.ours_only and not a.public_dir:
         raise SystemExit("Submission B needs --public-dir (or pass --ours-only for Submission A)")
 
@@ -340,16 +353,18 @@ def main() -> None:
     ours = (OURS.replace("__FILES_B64__", repr(blob)).replace("__BUILT_FROM__", built_from)
                 .replace("__W_OURS__", repr(a.w_ours)).replace("__N_CHECK__", str(a.n_check))
                 .replace("__N_WINDOWS__", str(a.n_windows)).replace("__CHECK_ALWAYS__", str(not a.ours_only))
-                .replace("__WEIGHTS_SHA256__", WEIGHTS_SHA256).replace("__WEIGHTS_KERNEL__", WEIGHTS_KERNEL))
+                .replace("__WEIGHTS_SHA256__", a.weights_sha).replace("__WEIGHTS_KERNEL__", a.weights_kernel))
     blend = BLEND.replace("__LABELS__", repr(LABELS)).replace("__BUILT_FROM__", built_from)
     for k, c in enumerate([ours, blend, SUB_A]):
         compile(c, f"ours{k}", "exec")                  # fail here, not after the queue wait
 
     if a.ours_only:
-        slug = f"rsna-knee-sub-a-ortho-n{a.n_windows or 'all'}"
-        new = [md(INTRO_A.replace("__WINDOWS__", str(a.n_windows or "all")).replace("__BUILT_FROM__", built_from)),
-               code(ours), code(SUB_A)]
-        sources = {"dataset_sources": [], "kernel_sources": [WEIGHTS_KERNEL], "model_sources": [],
+        slug = f"rsna-knee-sub-a-ortho{'-' + a.tag if a.tag else ''}-n{a.n_windows or 'all'}"
+        intro = INTRO_A.replace("__WINDOWS__", str(a.n_windows or "all")).replace("__BUILT_FROM__", built_from)
+        if a.desc:
+            intro += f"\n\n**This build:** {a.desc} Weights: `{a.weights_kernel}`, last.pt sha256 `{a.weights_sha[:16]}`."
+        new = [md(intro), code(ours), code(SUB_A)]
+        sources = {"dataset_sources": [], "kernel_sources": [a.weights_kernel], "model_sources": [],
                    "docker_image": DOCKER_IMAGE}
     else:
         slug = SLUG
