@@ -111,8 +111,10 @@ device with normalisation/resize there, DDP and sharded eval on Stage B, one inf
   unmeasured.
 - **[MEDIUM] Gradient checkpointing is on for every block on CUDA** (`train_windows.py:571-579`): ~25–33% recompute
   while peak memory is 6.9 / 8.5 GB of 15. Partial checkpointing: unmeasured.
-- **[LOW-MEDIUM] Data wait is not timed separately.** Step 5 ran 2.72 s/step against the A/B bench's 2.27 on the
-  other corpus (RUNBOOK); shard reads from `/kaggle/input` are the suspect; `/tmp` has 1.2 TB free for a local copy.
+- ~~**[LOW-MEDIUM] Data wait is not timed separately.**~~ **Ruled out from numbers in hand:** step 5's epoch is
+  1,751 micro-steps × 2.685 s = 78.4 min of compute against 78.7 min measured — data loading costs ~0. (The loop's
+  `sec_per_micro_step` starts AFTER the batch arrives, so a data stall would show as a gap between the two; there is
+  none.) `bench.json` now records the wait directly.
 - **[efficiency track] The submission is decode-bound**: 1,322 × 3.8 s/study/worker over 4 workers ≈ 21 min of
   DICOM decode against ~14 min of T4 (RUNBOOK, the curve); `order_series` reads every header before the picked slices.
 - **[LOW] No `pin_memory`** in the training loader — 8 MB uint8 batches, negligible.

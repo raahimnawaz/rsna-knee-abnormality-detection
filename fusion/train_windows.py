@@ -488,6 +488,9 @@ def main() -> None:
     ap.add_argument("--eval-reserve-h", type=float, default=0.0, help="with --fit-budget: hours kept for eval")
     ap.add_argument("--lora-r", type=int, default=16, help="qwen archs: LoRA rank on the language model")
     ap.add_argument("--lora-lr", type=float, default=1e-4, help="qwen archs: LoRA learning rate")
+    ap.add_argument("--ckpt-blocks", type=int, default=-1,
+                    help="gradient-checkpoint only the first N encoder blocks; -1 = all (the default), 0 = none")
+    ap.add_argument("--compile", action="store_true", help="torch.compile the encoder in place")
     ap.add_argument("--eval-windows", type=int, default=0,
                     help="score an evenly spaced ~N windows per study (thin_windows); 0 = every window")
     a = ap.parse_args()
@@ -576,7 +579,21 @@ def main() -> None:
             _tl.set_reentrant_ckpt(False)
         elif world > 1:
             raise SystemExit("this timm cannot switch off re-entrant checkpointing; DDP would break")
-        model.encoder.set_grad_checkpointing(True)
+        if a.ckpt_blocks < 0:
+            model.encoder.set_grad_checkpointing(True)
+        else:
+            # Checkpoint only the first N blocks: peak memory was 6.9 / 8.5 GB of 15 with all 24 (AUDIT 09-26
+            # pass 4), and every checkpointed block costs its forward twice. The forward is overridden per
+            # INSTANCE, so state_dict keys -- and last.pt -- are unchanged.
+            import torch.utils.checkpoint as _cp
+            model.encoder.set_grad_checkpointing(False)
+            for blk in list(model.encoder.blocks)[: a.ckpt_blocks]:
+                blk.forward = (lambda x, _f=blk.forward, **kw: _cp.checkpoint(_f, x, use_reentrant=False, **kw))
+        log(f"gradient checkpointing: {'all' if a.ckpt_blocks < 0 else a.ckpt_blocks} of "
+            f"{len(model.encoder.blocks)} encoder blocks")
+    if a.compile and not is_qwen:
+        model.encoder.compile()          # in place: keys stay `encoder.*`, unlike torch.compile(module)
+        log("encoder compiled (torch.compile, in place)")
     n_enc = sum(p.numel() for p in model.encoder.parameters())
     n_trn = sum(p.numel() for p in model.parameters() if p.requires_grad)
     log(f"trainable {n_trn / 1e6:.1f}M of {sum(p.numel() for p in model.parameters()) / 1e6:.1f}M params")
@@ -666,6 +683,7 @@ def main() -> None:
 
     # ---- train
     hist, last3, step_times, recent = [], [], [], []
+    waits, loss_trace, t_end = [], [], None       # data wait between micro-steps; the first losses, for A/B equality
     stopped_early, gnorm = None, float("nan")
     for ep in range(epochs):
         if sampler is not None:
@@ -677,10 +695,14 @@ def main() -> None:
             if n_opt >= steps_per_epoch:
                 break
             t0 = time.time()
+            if t_end is not None:
+                waits.append(t0 - t_end)
             x, sl, ps, y = to_dev(batch)
             last_micro = (it + 1) % accum == 0
             loss = micro_step(x, sl, ps, y, sync=last_micro)
             tot += float(loss.detach())
+            if len(loss_trace) < 60:
+                loss_trace.append(round(float(loss.detach()), 5))
             recent = (recent + [float(loss.detach())])[-50:]
             if last_micro:
                 scaler.unscale_(opt)
@@ -694,6 +716,7 @@ def main() -> None:
             if amp:
                 torch.cuda.synchronize()
             step_times.append(time.time() - t0)
+            t_end = time.time()
             if it % 50 == 0:
                 log(f"  ep{ep} it{it} loss {float(loss.detach()):.4f} (mean of last {len(recent)}: "
                     f"{np.mean(recent):.4f}) | grad-norm {gnorm:.3f} | scale {scaler.get_scale() if amp else 1:.0f} | "
@@ -735,7 +758,10 @@ def main() -> None:
              "train_epoch_min_measured": hist[0]["sec"] / 60 if hist else None,
              "steps_in_measured_epoch": hist[0]["opt_steps"] if hist else None,
              "full_epoch_min_projected": (per_fwd * len(tr_dl) / 60) if per_fwd else None,
-             "fit_budget_probe_sec": probe, "epochs_run": len(hist), "peak_cuda_gb": peak}
+             "fit_budget_probe_sec": probe, "epochs_run": len(hist), "peak_cuda_gb": peak,
+             "data_wait_sec_median": float(np.median(waits)) if waits else None,
+             "data_wait_frac": float(np.sum(waits) / max(np.sum(waits) + np.sum(step_times), 1e-9)) if waits else None,
+             "ckpt_blocks": a.ckpt_blocks, "compile": a.compile, "loss_trace": loss_trace}
 
     # ---- evaluate: last epoch (primary), then the fixed last-3 average (secondary). Sharded over GPUs.
     t_ev = time.time()
