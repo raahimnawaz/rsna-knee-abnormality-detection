@@ -536,9 +536,10 @@ Every Qwen read is a different reader (Spearman with `steven_v2` 0.72 on non-gol
 (ours +0.108) while losing the frozen labels (ACL, MCL, Medial OA, Baker's −0.03 to −0.05). The rank-mean keeps the
 fracture gain and gives back most of the losses — and still does not clear the gate.
 
-**Decision:** `steven_v2` stays the training target. Labels were not the binding constraint
-(the model reproduces its own training labels at 0.8486, below the labels' own read), and no public
-table moves them. `DECISIONS.md` CLOSED.
+**Decision:** `steven_v2` stays the training target. ~~Labels were not the binding constraint
+(the model reproduces its own training labels at 0.8486, below the labels' own read)~~ — superseded
+09-26: Stage B reads gold-58 0.890 against `steven_v2`'s 0.887, so that argument is spent (`DECISIONS.md`
+D4). No public table moves them. `DECISIONS.md` CLOSED.
 
 ---
 
