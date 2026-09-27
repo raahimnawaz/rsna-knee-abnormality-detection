@@ -107,6 +107,18 @@ costs nothing.
   training permitted use; may the weights be published on Kaggle under CC BY-NC 4.0; may the answer be posted in the
   thread.
 
+- **fastMRI+ — the best-fitting outside data, read 2026-09-27** (`github.com/microsoft/fastmri-plus`, annotations MIT): the
+  whole fastMRI knee set reviewed by radiologists — **1,172 volumes, 974 with findings, 16,167 boxes ON THE IMAGES** (Meniscus
+  Tear 5,658; cartilage partial 2,985 / full 615; Joint Effusion 1,311; Bone fracture/contusion 1,060; subchondral edema 986;
+  periarticular cysts 864; **ACL low-grade 765 / high-grade 678; MCL low–moderate 285 / high 11** — graded as our criteria are).
+  Limits (its README): one radiologist, one view at a time, "not clinical ground truth"; fastMRI knee is coronal-only (from
+  memory — check on download). Images need fastMRI's data-sharing agreement (online, "academic purposes") — the owner's to
+  sign. By §2.6.b ("acceptable unless specifically prohibited") and the host's stated line (registration fine, institutional
+  approval not), it leans allowed; the host has not ruled on it (thread 743416 asks).
+- **A radiologist labelling TRAINING scans is allowed** (§2.4.b bans hand labels only on "the validation dataset or test data
+  records"), **but Competition Data may not reach anyone outside the team** (§7.b) — they must register, accept the rules and
+  JOIN the team (max 5) before seeing an image, and by the **entry / merger deadline 10-15**.
+
 **STATUS 2026-09-26: STILL UNASKED BY US — seven weeks.** Re-raised by the owner ("could we just use MRNet"). The same question now also covers Google's MedGemma (gated, Health AI Developer Foundations terms). It is a public forum post from the owner's Kaggle account — not something to send on their behalf — and the answer takes days; the entry deadline is Oct 15. `DATA.md` §12 item 4.
 
 **STATUS 2026-08-17: STILL UNRESOLVED, STILL UNASKED BY US — seven days.** A third-time-of-asking

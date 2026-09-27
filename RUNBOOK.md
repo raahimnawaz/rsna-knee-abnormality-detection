@@ -3,6 +3,16 @@
 **Purpose: any session can pick this up cold and know the next command to type.** `PLAN-C6.md`
 says *why*; this says *what to run, what to expect, and what to do with the answer.*
 
+## ⛔ GOAL CHANGED AGAIN 2026-09-27: THE GOAL IS 0.965 AUC
+
+Set by the owner 09-27, superseding the 09-24 block below. **"Works" = a VALID improvement over the free public 0.943** — for
+us, public LB **≥ 0.946** (0.943 + 0.003: public-LB moves of 0.001–0.002 are sampling noise), by a rule written before the
+run, never by weights tuned on the public LB. The prize line and the efficiency track do NOT matter. **Only necessary work:**
+every run must change a decision. Cut 09-27: the efficiency-track final and decode speed-ups, round-2 labels unless round 1 gains,
+the normal-baseline, location / severity heads, Qwen, CoAtNet-from-CC0 (unless a later decision needs it), extra blend tests.
+**Proposed (owner to confirm):** drop Friday's Stage B-`dread` run — it only separates input from labels, which changes no
+decision (Stage B already paid +0.014) — and spend that slot on CNN teachers → the student ON Stage B directly.
+
 ## ⛔ GOAL CHANGED 2026-09-24: THE GOAL IS TO WIN
 
 Set by the owner on 09-24, superseding `PLAN-C6.md`'s "the best model, explicitly not a placing" (09-07).
