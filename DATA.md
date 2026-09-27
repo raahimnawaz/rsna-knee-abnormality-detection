@@ -602,6 +602,17 @@ Today "trace effusion" and "no effusion" reach the image model as the same kind 
    candidate for the blend. Gated on Hugging Face (the owner must accept the terms — our account is not
    authorised, checked 09-26), under Google's Health AI Developer Foundations terms — admissible under §2.5.a's
    carve-out, but the winner obligation to publish weights must be checked against those terms first.
+5. **WHERE, from the reports (the owner's idea, 09-27)** — the reports say where a finding is far more often than the labels
+   use: of English reports (1,715 of 4,349, by a crude word test) with a `dread_soft` positive, **86–100% name a sub-location**
+   (Medial Meniscus 91% — horn/body/root, of 207; Lateral Meniscus 86% of 92; Medial OA 95% of 173; Baker's 100% of 170;
+   Contusion 19/19 and Fracture 15/15, few). ⛔ **`test.csv` carries NO reports** (StudyInstanceUID only), so location can
+   only TEACH during training; at test time the model must find it itself. Three forms, cheapest first: (a) extra "where"
+   outputs — medial / lateral / patellofemoral, anterior / posterior horn, femur / tibia / patella — from the same LLM pass as
+   item 1's severity grades, one run, judged on the 691 like item 1 (the 12 main targets unchanged); (b) nudge the per-finding
+   window attention toward the stack region the text names (needs Stage B's canonical orientation; a wrong mapping teaches
+   the wrong place); (c) pixel-level crops — needs anatomy landmarks we do not have (segmentation data is external, blocked).
+   ⚠️ This repo once built compartment attention for what was a slice-sampling bug (`DECISIONS.md` §U→D2): before (b), check
+   where the trained model's attention already goes.
 4. **External expert image labels** — ⛔ *corrected 09-26: MRNet's released labels are report-extracted (only its hidden
    test set is image-read), so of these only OAI/MOAKS and fastMRI+ carry image supervision; `REFERENCE.md` §1.3 has
    the two permission questions and who can answer each.* MRNet (1,370 knee MRIs; ACL, meniscus, abnormal; expert-read test set),
