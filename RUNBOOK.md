@@ -46,6 +46,12 @@ spec c6, RoPE = trained); ARMS `ortho_stage_a only`; 3 rows. **Reported only, NO
 gold-58 **0.9121** vs `c6_ortho` 0.8777, paired **+0.034 [+0.015, +0.055]**, 11/12 up (Fracture 0.778 → 0.906, MCL 0.887 →
 0.959; Contusion the one down); vs Stage B (`c7`) +0.022 [−0.000, +0.047]. The 691: 0.8440 vs 0.8298, +0.0142 (4.0σ).
 **The verdict is the LB against the rule above: ≥ 0.911 PASS · 0.891–0.911 null · < 0.891 loss.**
+**✅ READ 2026-09-27 10:14 PDT — LB 0.916: PASS. The labels are a lever for our model.** Same model, same studies, only the
+targets changed: 0.901 → **0.916 (+0.015)**, above Stage B's 0.915 on the older, cheaper input. Gold-58 said +0.034; the board
+gave 44% of it (`DECISIONS.md`'s "price an arm's LB gain at ~half its gold gain" holds). **Per the rule written before the run:
+`dread_soft` (`labels_llm_soft.csv`, sha `8cec477f`) is the training target for every later run, and teacher → student moves up.**
+Next, NOT yet pre-registered: Stage B's recipe on `dread_soft` (the two gains, +0.014 input and +0.015 labels, were each
+measured alone; whether they add is the question that run answers).
 
 **Candidates queued behind tonight's reads** (`DATA.md` §12, from the owner's 09-26 questions; none pre-registered yet): ① an auxiliary SEVERITY head at fixed `steven_v2` targets — the 691 can judge it, one run; ② teacher → student if dread says labels are the lever; ③ MedGemma — owner must accept its HF terms first; ④ MRNet / OAI MOAKS / fastMRI+ — blocked on the host ruling the owner has not yet asked for (`REFERENCE.md` §1.3).
 
