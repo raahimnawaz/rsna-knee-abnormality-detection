@@ -52,6 +52,14 @@ gave 44% of it (`DECISIONS.md`'s "price an arm's LB gain at ~half its gold gain"
 `dread_soft` (`labels_llm_soft.csv`, sha `8cec477f`) is the training target for every later run, and teacher → student moves up.**
 Next, NOT yet pre-registered: Stage B's recipe on `dread_soft` (the two gains, +0.014 input and +0.015 labels, were each
 measured alone; whether they add is the question that run answers).
+**⏩ OUR-TWO BLEND `pre-registered 2026-09-27 10:40 PDT, before any blend number was computed`.** The owner asked whether a
+blend with the new labels was tried (no) and has ~4.5 GPU-h until Fri — Stage B on `dread_soft` (~11 h) cannot run this week.
+Candidate, ONE, nothing fitted: the equal per-label rank-mean of `dread` (Stage A, `dread_soft`, LB 0.916) and `c7` (Stage B,
+`steven_v2`, LB 0.915). **Offline screen** (OOFs in hand, 0 GPU): build the submission only if on gold-58 the blend's paired
+point estimate vs `dread` alone is ≥ 0 (gold cannot resolve a small gain; this only refuses a blend that reads worse) — the
+691 is reported beside it, not judged (it is another LLM's reading and trained-label-biased). **LB rule:** PASS (the blend
+becomes the main-track candidate) iff LB ≥ **0.921** (best single 0.916 + 0.005); below that, keep `dread` alone.
+Not a candidate: `dread` into the public 0.943 stack — ours is still 0.027 below it, and at 0.901 the same move cost 0.007.
 
 **Candidates queued behind tonight's reads** (`DATA.md` §12, from the owner's 09-26 questions; none pre-registered yet): ① an auxiliary SEVERITY head at fixed `steven_v2` targets — the 691 can judge it, one run; ② teacher → student if dread says labels are the lever; ③ MedGemma — owner must accept its HF terms first; ④ MRNet / OAI MOAKS / fastMRI+ — blocked on the host ruling the owner has not yet asked for (`REFERENCE.md` §1.3).
 
