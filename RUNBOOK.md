@@ -482,6 +482,8 @@ one after 24 hours.
 
 Re-measure before citing. Last pulled **2026-09-23**:
 
+- **Re-pulled 2026-09-27 10:00 PDT:** top **0.959** (two teams), 10th **0.956**, 50th 0.952, 100th 0.947, 200th 0.944.
+  Nobody is at 0.965 (the owner asked 09-27 for a plan to it — none of the levers below is measured to reach it).
 - Leaderboard: **4,244 teams**, top **0.958**, 10th (prize line) **0.955**, ours **0.914** @ rank
   2184. (09-07: 3,289 / 0.954 / 0.950 / rank 1446.)
 - ⛔ **The public notebook tier is now 0.942–0.943** — read off the Kaggle pages, not the titles:
