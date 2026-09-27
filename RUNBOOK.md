@@ -81,6 +81,19 @@ better arm on the 691** (a 2-way pick: expect it to read ~+0.002 optimistic). **
 intensity-only augmentation) — not a verdict on small CNNs; teachers stay Ortho. Reported: gold-58, min/epoch, GPU-h.
 Checked locally (Stage A fixture, CPU): ImageNet weights load, checkpointing off, train → eval → OOF. ~2.6 GPU-h for both.
 
+**⏳ TEACHER → STUDENT — design 2026-09-27 (the owner: "we'll take the better labels teacher student approach"); its rule is
+fixed once the small-CNN read picks the teacher.** Why now: gold-58 says the report label and an image model's OOF, averaged,
+read **0.927** against 0.887 / 0.912 alone (`DATA.md` §12 item 2); the board's 0.950 single models credit this.
+1. **Teachers:** 5 folds over the 3,502 training studies (the 691 and gold stay out), each predicting its held-out fifth →
+   one OOF image prediction per training study. The small CNN if it is USABLE (~1 GPU-h a fold), else Ortho (~8 GPU-h a fold).
+2. **Student targets:** per study and finding, the equal rank-mean of `dread_soft` and the teacher OOF, mapped back onto
+   `dread_soft`'s own values (its graded levels and prevalence kept; only the ORDER moves — the same construction as the Qwen C2
+   candidate). Nothing weighted, nothing fitted.
+3. **Student:** `dread`'s model exactly (Ortho, Stage A, 8 epochs, the same 3,502), only `--targets` changed → the LB against
+   0.916, so the difference is the targets. Judged on the LB (the 691 is another LLM's reading and would call a move toward the
+   images a loss); gold-58 reported only. Round 2 (the student becomes the next teacher) only if round 1 passes.
+Budget: CNN teachers ~6 GPU-h + a student ~11 → one week's quota after Friday's Stage B run.
+
 **⏩ SUB B-dread — our new-labels model in the public 0.943 stack `pre-registered 2026-09-27 16:40 PDT, before the build`.**
 The owner asked 09-27. The stack was re-pulled and is UNCHANGED since Sub B (23/23 code cells verbatim), so this is a clean A/B
 against Sub B's **0.936**: same stack, same rule (ours one of three equal families, 1/3, nothing fitted), only our member moves
