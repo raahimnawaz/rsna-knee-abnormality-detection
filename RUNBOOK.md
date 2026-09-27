@@ -38,6 +38,15 @@ step 5's arithmetic). *Not a second chance, a caveat on the instrument:* eval wa
 in the on-disk cache) look like warm-up, not steady state. Unmeasured. If compile is revisited it needs its own pre-registered
 test with eval run eager (only the training step compiled), which removes the question rather than re-measuring it.
 
+**✅ 2026-09-27 09:48 PDT — dread RETRAIN SUBMITTED** (ref **56614330**, `rsna-knee-sub-a-ortho-dread-nall` v1, built from
+`cffd681`; the owner said "just submit it when it's done"). Run: 8/8 epochs (time budget hit at epoch 7 iter 1567, as step 5),
+the SAME 3,502 train / 691 val studies as step 5 (lists identical), labels sha `8cec477f` as pre-registered; `last.pt` sha256
+`8b4cdbd8c784f131`. Commit-run gate: 8 fold-0 studies rebuilt from DICOMs, max |Δp| **0.00079**; `last_meta.json` read (Stage A,
+spec c6, RoPE = trained); ARMS `ortho_stage_a only`; 3 rows. **Reported only, NOT the verdict** (`fusion/runs_dread_ortho/`):
+gold-58 **0.9121** vs `c6_ortho` 0.8777, paired **+0.034 [+0.015, +0.055]**, 11/12 up (Fracture 0.778 → 0.906, MCL 0.887 →
+0.959; Contusion the one down); vs Stage B (`c7`) +0.022 [−0.000, +0.047]. The 691: 0.8440 vs 0.8298, +0.0142 (4.0σ).
+**The verdict is the LB against the rule above: ≥ 0.911 PASS · 0.891–0.911 null · < 0.891 loss.**
+
 **Candidates queued behind tonight's reads** (`DATA.md` §12, from the owner's 09-26 questions; none pre-registered yet): ① an auxiliary SEVERITY head at fixed `steven_v2` targets — the 691 can judge it, one run; ② teacher → student if dread says labels are the lever; ③ MedGemma — owner must accept its HF terms first; ④ MRNet / OAI MOAKS / fastMRI+ — blocked on the host ruling the owner has not yet asked for (`REFERENCE.md` §1.3).
 
 **⛔ 2026-09-26 — THE LEADERBOARD ANSWERED, AND IT OVERRULES THE 691.** Public LB: **Submission A (our Ortho alone) 0.901**;
