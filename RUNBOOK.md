@@ -67,6 +67,20 @@ submitted ALONE through Sub A's path:** **PASS ≥ 0.926** (Stage A on `dread_so
 the base for teacher → student; **null 0.906–0.926** → input and labels do not add, stay on Stage A for label work (cheaper);
 **loss < 0.906**. Reported only: gold-58 paired vs `dread` and `c7`; the 691.
 
+**⏩ SMALL-CNN BASELINE `pre-registered 2026-09-27 16:45 PDT, before any push` — the owner said yes 09-27.** Question: does
+the board's *"simple CNN at 224 px scores 0.94+"* (`REFERENCE.md` §3.1b) reproduce in OUR pipeline, at a fraction of Ortho's
+cost — and so make teacher → student affordable (5 folds of teachers)? Arms (`build_backbone_ab_kernel.py --arch resnet34
+--corpus stage_a --n-train 0 --epochs 8 --targets …labels_llm_soft.csv --targets-from dreaddevelopment/rsna-knee-labels`):
+`resnet34.a1_in1k` at **224 px**, everything else `dread`'s recipe (Stage A corpus, `dread_soft`, the same 3,502 / 691
+studies, seed 42, k 12, bs 8, head lr 1e-3, our attention head, 8 epochs fitted to a 1.0 h budget), in TWO arms that differ only
+in backbone lr — **3e-5** (Ortho's) and **3e-4** (a usual CNN rate) — because Ortho's rate may starve a CNN. **Primary = the
+better arm on the 691** (a 2-way pick: expect it to read ~+0.002 optimistic). **Compared paired on the 691 against `dread`**
+(Ortho ViT-L, same labels and studies, 0.8440 — the 691 ranks fixed-target arms correctly, twice confirmed on the LB).
+**THE RULE:** paired Δ vs `dread` ≥ **−0.010** → **USABLE**: it is the teacher for teacher → student; Δ > 0 at P ≥ 0.95 →
+**BETTER**: also a main-model candidate (LB next); Δ < −0.010 → **FAIL** for THIS recipe (our attention head, 8 epochs,
+intensity-only augmentation) — not a verdict on small CNNs; teachers stay Ortho. Reported: gold-58, min/epoch, GPU-h.
+Checked locally (Stage A fixture, CPU): ImageNet weights load, checkpointing off, train → eval → OOF. ~2.6 GPU-h for both.
+
 **⏩ SUB B-dread — our new-labels model in the public 0.943 stack `pre-registered 2026-09-27 16:40 PDT, before the build`.**
 The owner asked 09-27. The stack was re-pulled and is UNCHANGED since Sub B (23/23 code cells verbatim), so this is a clean A/B
 against Sub B's **0.936**: same stack, same rule (ours one of three equal families, 1/3, nothing fitted), only our member moves

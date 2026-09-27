@@ -71,6 +71,9 @@ ARCHS = {
     "ortho":   dict(res=336, pool="token"),
     "dinov3l": dict(res=336, pool="token", timm="vit_large_patch16_dinov3.lvd1689m"),
     "coatnet": dict(res=384, pool="avg", timm="coatnet_rmlp_2_rw_384.sw_in12k_ft_in1k"),
+    # The board's "small CNN at 224 px scores 0.94+" (REFERENCE 3.1b), tested in our pipeline 09-27. 21.8M params:
+    # no gradient checkpointing (nothing to save), and no `.blocks` for --ckpt-blocks to walk.
+    "resnet34": dict(res=224, pool="avg", timm="resnet34.a1_in1k", ckpt=False),
     "tiny":    dict(res=224, pool="token", timm="vit_tiny_patch16_224"),
     # wiring only, random weights: Ortho's own architecture family (Eva, RoPE, registers) at 22M params,
     # so gradient checkpointing and DDP are exercised on the code path Ortho takes, on a CPU
@@ -575,7 +578,8 @@ def main() -> None:
         if rank != 0:
             enc = build_encoder(a.arch, a.weights_dir, res, a.drop_path)
         model = WindowMIL(enc, res, n_slots=len(corpus.slot_sizes) if a.pos_emb else 0).to(dev)
-    if not is_qwen and hasattr(model.encoder, "set_grad_checkpointing") and (amp or os.environ.get("TW_FORCE_CKPT")):
+    if (not is_qwen and ARCHS[a.arch].get("ckpt", True) and hasattr(model.encoder, "set_grad_checkpointing")
+            and (amp or os.environ.get("TW_FORCE_CKPT"))):
         # NON-reentrant checkpointing: re-entrant checkpoints and DDP's gradient hooks do not mix
         # (DDP then needs static_graph, which cannot start under no_sync -- measured locally 09-25).
         import timm.layers as _tl

@@ -358,7 +358,9 @@ def _git_head() -> str:
 
 def main() -> None:
     ap = argparse.ArgumentParser(description=__doc__.splitlines()[0])
-    ap.add_argument("--arch", choices=["ortho", "dinov3l", "coatnet", "qwen35vl"], required=True)
+    ap.add_argument("--arch", choices=["ortho", "dinov3l", "coatnet", "resnet34", "qwen35vl"], required=True)
+    ap.add_argument("--train-args", default="", help="extra train_windows flags, one string (e.g. '--bb-lr 3e-4'): "
+                    "for an arm that differs from its recipe by a named setting")
     ap.add_argument("--out", type=Path, required=True)
     g = ap.add_mutually_exclusive_group()
     g.add_argument("--smoke", action="store_true", help="CPU, 16 + 6 studies, one epoch. First.")
@@ -390,6 +392,7 @@ def main() -> None:
         extra = PACKAGE + SPEED + ["--time-budget-h", str(a.time_budget_h if mode == "full" else 0.3)]
     else:
         extra = []
+    extra += a.train_args.split()
 
     files = {}
     for rel in EMBED:
