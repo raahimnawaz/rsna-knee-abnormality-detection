@@ -70,6 +70,10 @@ the base for teacher → student; **null 0.906–0.926** → input and labels do
 `8cec477f`; 2 processes; checkpointing 12 of 24; encoder compiled; DDP checksums identical; epoch 0 loss 0.970; eval ran; done in
 26.8 min; no traceback. **Friday: the same command without `--smoke` → v2 on T4×2.** (Since `e4306de`, `train_windows.py` changed
 only in `5fb0423`: the `resnet34` arch and a `ckpt` guard that is True for Ortho — Ortho's path is unchanged.)
+**Scheduled:** the desktop app's one-time task `rsna-push-stage-b-dread` fires **Fri 2026-10-02 17:20 PDT** (runs only while the
+app is open; if closed, on next launch). It checks nothing is running, builds, verifies the flags, pushes once, and records here.
+Do NOT "Run now" before the reset — it would start an ~11 GPU-h run on ~1 h of quota. (09-26's task sat 7 h on a permission
+prompt — check on it Friday evening.)
 
 **⏩ SMALL-CNN BASELINE `pre-registered 2026-09-27 16:45 PDT, before any push` — the owner said yes 09-27.** Question: does
 the board's *"simple CNN at 224 px scores 0.94+"* (`REFERENCE.md` §3.1b) reproduce in OUR pipeline, at a fraction of Ortho's
