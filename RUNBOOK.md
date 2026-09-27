@@ -6,8 +6,13 @@ says *why*; this says *what to run, what to expect, and what to do with the answ
 ## ⛔ GOAL CHANGED AGAIN 2026-09-27: THE GOAL IS 0.965 AUC
 
 Set by the owner 09-27, superseding the 09-24 block below. **"Works" = a VALID improvement over the free public 0.943** — for
-us, public LB **≥ 0.946** (0.943 + 0.003: public-LB moves of 0.001–0.002 are sampling noise), by a rule written before the
-run, never by weights tuned on the public LB. The prize line and the efficiency track do NOT matter. **Only necessary work:**
+us two standard errors, by a rule written before the run, never by weights tuned on the public LB. **The public LB is ~30% of the
+test (~400 studies; the final is the other ~70%)** — measured 09-27 by bootstrapping our own 691 OOFs at n = 400: one score
+**±0.008**, two different models' difference ±0.005, a small blend change (a member at 1/3 into a fixed base) ±0.002 (at n = 925,
+the private: ±0.005 / ±0.003 / ±0.001). So VALID = **≥ 0.947 for a blend change on the 0.943 stack** (+2 × 0.002) and **≥ 0.953
+for a different standalone model** (+2 × 0.005). The top 25 (0.954–0.959) are one public-LB standard error apart; weights tuned on
+the public 30% (the stack's 0.52 / 0.55 / 0.500001) may not hold on the 70%. Sub B-dread's pre-registered 0.944 stands as written,
+but a read of 0.944–0.946 is NOT a valid improvement. The prize line and the efficiency track do NOT matter. **Only necessary work:**
 every run must change a decision. Cut 09-27: the efficiency-track final and decode speed-ups, round-2 labels unless round 1 gains,
 the normal-baseline, location / severity heads, Qwen, CoAtNet-from-CC0 (unless a later decision needs it), extra blend tests.
 **Proposed (owner to confirm):** drop Friday's Stage B-`dread` run — it only separates input from labels, which changes no
