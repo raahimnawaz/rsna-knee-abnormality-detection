@@ -97,6 +97,30 @@ different scans. At most 3 groups share both text and series geometry, so there 
 duplicate scans, against 691 validation studies. One gold study shares a template with a fold-3
 training study (both fold 3; gold is never trained on).
 
+### Pass 4 — performance, from measured step times `2026-09-26`
+Measured, not guessed: Stage A 2.69 s per 2-study micro-step (24 windows at 336 px) on ONE T4, peak 6.9 GB;
+Stage B 3.52 s at 384 px on EACH of two T4s (DDP), peak 8.5 GB; eval 1.53 s/study (54 windows); the curve's pure
+forward 1.28 s/study. **In place:** fp16 autocast + GradScaler, timm Eva's fused SDPA (`fused_attn=True`), uint8 to the
+device with normalisation/resize there, DDP and sharded eval on Stage B, one inference process per T4.
+- **[MEDIUM] Stage A-recipe runs use one of the two T4s** (`build_backbone_ab_kernel.py` launches NPROC 1 unless
+  `stage_b`/qwen). Step 5 and the 09-26 dread retrain idle half the hardware for ~11 h — for dread by design (its only
+  difference from step 5 must be the labels). Every later run: DDP on both (Stage B measured 55 min/epoch).
+- **[MEDIUM] ~10 TFLOPS achieved per T4** — ViT-L/Eva ≈ 2×303 M×446 tokens per window forward; 24 windows × ~4×
+  forward (backward + checkpoint recompute) in 2.69 s, and the forward-only curve lands at the same rate — about
+  40–50% of what a T4 sustains on fp16 GEMMs. Suspect: Eva's unfused RoPE/norm elementwise work. `torch.compile`:
+  unmeasured.
+- **[MEDIUM] Gradient checkpointing is on for every block on CUDA** (`train_windows.py:571-579`): ~25–33% recompute
+  while peak memory is 6.9 / 8.5 GB of 15. Partial checkpointing: unmeasured.
+- **[LOW-MEDIUM] Data wait is not timed separately.** Step 5 ran 2.72 s/step against the A/B bench's 2.27 on the
+  other corpus (RUNBOOK); shard reads from `/kaggle/input` are the suspect; `/tmp` has 1.2 TB free for a local copy.
+- **[efficiency track] The submission is decode-bound**: 1,322 × 3.8 s/study/worker over 4 workers ≈ 21 min of
+  DICOM decode against ~14 min of T4 (RUNBOOK, the curve); `order_series` reads every header before the picked slices.
+- **[LOW] No `pin_memory`** in the training loader — 8 MB uint8 batches, negligible.
+- The VLM ran HF's PyTorch fallbacks for its linear-attention layers (`fla`/`causal_conv1d` absent) — part of its
+  2.4 h/epoch.
+**Next:** DDP everywhere; then ONE ~0.5 GPU-h bench timing `torch.compile`, partial checkpointing and a local shard
+copy separately, each adopted only if it cuts s/step ≥ 10% with an unchanged loss curve.
+
 ### Verified clean
 - **Split:** the training pool excludes fold 0 and gold (`build_backbone_ab_kernel.py:244`), and
   `train_windows` refuses any overlap (`:527`). The Qwen labeler and C2's rank mapping use report
