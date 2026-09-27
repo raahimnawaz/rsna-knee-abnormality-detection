@@ -66,6 +66,10 @@ needs ~11 GPU-h; the owner has ~4 until the quota resets **Fri 2026-10-02 17:00 
 submitted ALONE through Sub A's path:** **PASS ≥ 0.926** (Stage A on `dread_soft` 0.916 + 0.010) → it becomes our main model and
 the base for teacher → student; **null 0.906–0.926** → input and labels do not add, stay on Stage A for label work (cheaper);
 **loss < 0.906**. Reported only: gold-58 paired vs `dread` and `c7`; the 691.
+**✅ SMOKE PASSED 2026-09-27 17:05** (`rsna-knee-c7-train-ortho-dread` v1, CPU, from `e4306de`): targets `labels_llm_soft.csv` sha
+`8cec477f`; 2 processes; checkpointing 12 of 24; encoder compiled; DDP checksums identical; epoch 0 loss 0.970; eval ran; done in
+26.8 min; no traceback. **Friday: the same command without `--smoke` → v2 on T4×2.** (Since `e4306de`, `train_windows.py` changed
+only in `5fb0423`: the `resnet34` arch and a `ckpt` guard that is True for Ortho — Ortho's path is unchanged.)
 
 **⏩ SMALL-CNN BASELINE `pre-registered 2026-09-27 16:45 PDT, before any push` — the owner said yes 09-27.** Question: does
 the board's *"simple CNN at 224 px scores 0.94+"* (`REFERENCE.md` §3.1b) reproduce in OUR pipeline, at a fraction of Ortho's
