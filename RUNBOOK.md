@@ -60,6 +60,12 @@ point estimate vs `dread` alone is ≥ 0 (gold cannot resolve a small gain; this
 691 is reported beside it, not judged (it is another LLM's reading and trained-label-biased). **LB rule:** PASS (the blend
 becomes the main-track candidate) iff LB ≥ **0.921** (best single 0.916 + 0.005); below that, keep `dread` alone.
 Not a candidate: `dread` into the public 0.943 stack — ours is still 0.027 below it, and at 0.901 the same move cost 0.007.
+**⛔ SCREEN READ 10:45 — FAILS, not built.** gold-58: blend **0.9109** vs `dread` 0.9121, paired **−0.0012 [−0.012, +0.010]**,
+P 0.42 (vs `c7` +0.021). The 691 (reported, not judged): blend 0.8523 vs `dread` 0.8440 vs `c7` 0.8410 — the 691 rewards
+adding a `steven_v2` model by construction, which is why it was not the judge. Rank ρ `dread`~`c7` 0.83 on the 691. The two
+split by finding on gold (`c7` Contusion 0.941 vs 0.888; `dread` Fracture 0.906 vs 0.782), but per-label picking on gold-58 is
+CLOSED (`DECISIONS.md`: −0.0002 ± 0.009 out of sample). Diagnosis, not a second chance: on image truth, an old-label model
+adds nothing to a new-label one; blend only models trained on `dread_soft`.
 
 **Candidates queued behind tonight's reads** (`DATA.md` §12, from the owner's 09-26 questions; none pre-registered yet): ① an auxiliary SEVERITY head at fixed `steven_v2` targets — the 691 can judge it, one run; ② teacher → student if dread says labels are the lever; ③ MedGemma — owner must accept its HF terms first; ④ MRNet / OAI MOAKS / fastMRI+ — blocked on the host ruling the owner has not yet asked for (`REFERENCE.md` §1.3).
 
