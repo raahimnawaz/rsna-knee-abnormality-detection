@@ -98,6 +98,15 @@ costs nothing.
   IW TSE), an OA-risk population (few acute injuries), a very large archive. The OAI CORE Knowledgebase
   (`oaiknowledgebase.com`) runs one-on-one office hours — the channel for the terms question.
 
+- **Stanford AIMI's own page** (`aimi.stanford.edu/datasets-commercial-use`): its datasets are shared "under a license that
+  is restricted to non-commercial purposes"; commercial use is **$70,000 per dataset per year**. So if a prize
+  competition counts as commercial, MRNet fails §2.6.b's "minimal cost" outright.
+- **2026-09-26: the owner-terms questions are DRAFTED, not sent** (Gmail drafts in the owner's account, by the owner's
+  choice; the host is not being asked): Stanford AIMI (`aimicenter@stanford.edu`, cc the executive director named on
+  the commercial-use page) and the NDA Help Desk (`NDAHelp@mail.nih.gov`) for OAI + MOAKS. Each asks: is prize-competition
+  training permitted use; may the weights be published on Kaggle under CC BY-NC 4.0; may the answer be posted in the
+  thread.
+
 **STATUS 2026-09-26: STILL UNASKED BY US — seven weeks.** Re-raised by the owner ("could we just use MRNet"). The same question now also covers Google's MedGemma (gated, Health AI Developer Foundations terms). It is a public forum post from the owner's Kaggle account — not something to send on their behalf — and the answer takes days; the entry deadline is Oct 15. `DATA.md` §12 item 4.
 
 **STATUS 2026-08-17: STILL UNRESOLVED, STILL UNASKED BY US — seven days.** A third-time-of-asking
