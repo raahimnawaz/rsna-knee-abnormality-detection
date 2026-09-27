@@ -30,6 +30,13 @@ full run trains on. To submit the dread retrain: `build_submit_kernel.py --ours-
 raahimnawaz/rsna-knee-c6-train-ortho-dread --weights-sha <sha of its runs_ortho/last.pt> --tag dread` (download
 `last.pt` for the sha, as done for c7). GPU: ~5 h left this week (estimate), resets Fri Oct 2 17:00 PDT.
 **⏩ SPEED BENCH `pre-registered 2026-09-26 18:30 PDT, before the push`** (`notebooks/build_speed_bench_kernel.py`, `rsna-knee-speed-bench`, one T4, ~0.5 GPU-h; AUDIT 09-26 pass 4). The Stage B recipe on 300 studies, 40 identical micro-steps per variant: base (all 24 blocks checkpointed, eager) · ck12 · ck0 · comp (`torch.compile`) · comp12. **A variant is ADOPTED for later runs iff** its median s/micro-step is ≥ 10% below base, peak < 14 GB, its first-40 loss trace within 0.02 of base at every step, and it slows eval by less than it speeds training. Data loading is already ruled out (step 5: 1,751 × 2.685 s = 78.4 of 78.7 min). DDP on both T4s is adopted without a bench — measured on Stage B. New flags: `train_windows --ckpt-blocks N`, `--compile` (in place: `last.pt` keys unchanged, tested); `bench.json` now records data wait and the loss trace.
+**⛔ SPEED BENCH READ 2026-09-26 20:58 — NOTHING ADOPTED, per the rule** (`fusion/runs_speed_bench/`). base 2.90 s/step, 6.05 GB ·
+ck12 2.76 (−5%, 12.7 GB) no — under the 10% bar · ck0 **OOM** (14.5 of 14.6 GB) · comp 2.40 (**−17%**, loss Δ ≤ 0.0003) no — eval
+2.53 → 5.86 s/study · comp12 2.17 (**−25%**, 12.4 GB, loss Δ ≤ 0.0005) no — eval +40%. Data wait 0.1–0.2% of a step (confirms
+step 5's arithmetic). *Not a second chance, a caveat on the instrument:* eval was timed on 12 studies, so a one-time compile
+(and a recompile per new window count) is spread over 12 — comp's +40 s total and comp12's +12 s (it likely found comp's kernels
+in the on-disk cache) look like warm-up, not steady state. Unmeasured. If compile is revisited it needs its own pre-registered
+test with eval run eager (only the training step compiled), which removes the question rather than re-measuring it.
 
 **Candidates queued behind tonight's reads** (`DATA.md` §12, from the owner's 09-26 questions; none pre-registered yet): ① an auxiliary SEVERITY head at fixed `steven_v2` targets — the 691 can judge it, one run; ② teacher → student if dread says labels are the lever; ③ MedGemma — owner must accept its HF terms first; ④ MRNet / OAI MOAKS / fastMRI+ — blocked on the host ruling the owner has not yet asked for (`REFERENCE.md` §1.3).
 

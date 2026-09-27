@@ -120,7 +120,10 @@ device with normalisation/resize there, DDP and sharded eval on Stage B, one inf
 - **[LOW] No `pin_memory`** in the training loader — 8 MB uint8 batches, negligible.
 - The VLM ran HF's PyTorch fallbacks for its linear-attention layers (`fla`/`causal_conv1d` absent) — part of its
   2.4 h/epoch.
-**Next:** DDP everywhere; then ONE ~0.5 GPU-h bench timing `torch.compile`, partial checkpointing and a local shard
+**Bench read 09-26 20:58 (`RUNBOOK.md`, `fusion/runs_speed_bench/`): none adopted.** Partial checkpointing buys 5% (the recompute
+estimate was high); no checkpointing OOMs; compile cuts the training step 17–25% with an identical loss but failed the eval clause
+on a 12-study eval that likely timed warm-up. So of pass 4's list only **DDP on both T4s** is adopted.
+**Next (as written before the bench):** DDP everywhere; then ONE ~0.5 GPU-h bench timing `torch.compile`, partial checkpointing and a local shard
 copy separately, each adopted only if it cuts s/step ≥ 10% with an unchanged loss curve.
 
 ### Verified clean
