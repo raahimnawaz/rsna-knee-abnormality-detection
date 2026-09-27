@@ -375,10 +375,13 @@ def predict(model, ds, dev, amp, bs) -> np.ndarray:
     dl = torch.utils.data.DataLoader(ds, batch_size=bs, shuffle=False, num_workers=ds_workers(),
                                      collate_fn=pad_collate)
     out = []
-    for x, m, sl, ps, _ in dl:
-        with torch.autocast("cuda", dtype=torch.float16, enabled=amp):
-            out.append(torch.sigmoid(model(x.to(dev), m.to(dev), slot=sl.to(dev), pos=ps.to(dev)).float())
-                       .cpu().numpy())
+    # `--compile` compiles the TRAINING step only. Eval feeds a new window count per study (42-62), each a new
+    # shape to compile, and on 12 studies the 09-26 bench's eval ran 1.4-2.3x slower -- so eval runs eager.
+    with torch.compiler.set_stance("force_eager"):
+        for x, m, sl, ps, _ in dl:
+            with torch.autocast("cuda", dtype=torch.float16, enabled=amp):
+                out.append(torch.sigmoid(model(x.to(dev), m.to(dev), slot=sl.to(dev), pos=ps.to(dev)).float())
+                           .cpu().numpy())
     return np.concatenate(out) if out else np.zeros((0, len(LABELS)), np.float32)
 
 
@@ -490,7 +493,8 @@ def main() -> None:
     ap.add_argument("--lora-lr", type=float, default=1e-4, help="qwen archs: LoRA learning rate")
     ap.add_argument("--ckpt-blocks", type=int, default=-1,
                     help="gradient-checkpoint only the first N encoder blocks; -1 = all (the default), 0 = none")
-    ap.add_argument("--compile", action="store_true", help="torch.compile the encoder in place")
+    ap.add_argument("--compile", action="store_true",
+                    help="torch.compile the encoder in place, for training steps only (eval runs eager)")
     ap.add_argument("--eval-windows", type=int, default=0,
                     help="score an evenly spaced ~N windows per study (thin_windows); 0 = every window")
     a = ap.parse_args()

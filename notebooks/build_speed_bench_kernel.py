@@ -1,5 +1,12 @@
 """Speed bench: what torch.compile and partial checkpointing buy on a T4, for the Stage B recipe.
 
+v2 (2026-09-27) -- READ THIS FIRST. v1 (below, read 09-26) adopted nothing: compile cut the training step 17-25% with an
+identical loss but failed the eval clause on a 12-study eval that likely timed compile warm-up. v2 changes two things:
+`--compile` now compiles the TRAINING step only (eval runs under `torch.compiler.set_stance("force_eager")`), and
+every variant runs as the real runs do -- DDP on BOTH T4s -- because compile has never run under DDP here and DDP adds
+~2.5 GB (Stage B peaked 8.5 GB against this bench's 6.05 on one GPU). Variants: base · compT · compT12. The rule is
+v1's, unchanged, in the RUNBOOK's v2 block.
+
     python notebooks/build_speed_bench_kernel.py --out /tmp/sb
     python -m kaggle kernels push -p /tmp/sb
 
@@ -38,8 +45,8 @@ OWNER = "raahimnawaz"
 SLUG = "rsna-knee-speed-bench"
 EMBED = ["fusion/train_windows.py", "fusion/orthofoundation_model.py", "fusion/qwen_vlm.py", "extractor/metrics.py"]
 STAGE_B_SHARDS = [f"{OWNER}/rsna-knee-stage-b-s{i}of8" for i in range(8)]
-VARIANTS = {"base": [], "ck12": ["--ckpt-blocks", "12"], "ck0": ["--ckpt-blocks", "0"],
-            "comp": ["--compile"], "comp12": ["--compile", "--ckpt-blocks", "12"]}
+# v1: {"base": [], "ck12": [...12], "ck0": [...0], "comp": ["--compile"], "comp12": [...]} -- fusion/runs_speed_bench/
+VARIANTS = {"base": [], "compT": ["--compile"], "compT12": ["--compile", "--ckpt-blocks", "12"]}
 
 CELL = r'''
 import base64, hashlib, json, os, subprocess, sys, time
@@ -53,6 +60,7 @@ for rel, (b64, sha) in json.loads(base64.b64decode(__FILES__).decode()).items():
     if hashlib.sha256(p.read_bytes()).hexdigest() != sha: sys.exit(f"{rel}: hash mismatch")
 log(f"built from __BUILT_FROM__; repo files written")
 import torch; log(f"torch {torch.__version__} | {torch.cuda.get_device_name(0)} x {torch.cuda.device_count()}")
+NGPU = torch.cuda.device_count()          # v2: DDP on every GPU, as the real runs
 sys.path[:0] = [str(REPO / "fusion"), str(REPO / "extractor")]
 from train_windows import Corpus, LABELS
 ids = sorted(Corpus(Path("/kaggle/input"), "stage_b").ids)
@@ -65,15 +73,18 @@ pd.Series(tr, name="StudyInstanceUID").to_csv(D / "train.csv", index=False)
 pd.Series(va, name="StudyInstanceUID").to_csv(D / "val.csv", index=False)
 COMMON = ["--arch", "ortho", "--corpus", "/kaggle/input", "--layout", "stage_b", "--train", str(D / "train.csv"),
           "--val", str(D / "val.csv"), "--labels", str(D / "targets.csv"), "--weights-dir", "/tmp", "--epochs", "1",
-          "--max-steps", "40", "--micro", "2", "--bs", "2", "--k", "12", "--res", "384", "--pos-emb", "--llrd", "0.9",
-          "--bb-lr", "9e-5", "--drop-path", "0", "--eval-bs", "2", "--time-budget-h", "1", "--seed", "42"]
+          "--max-steps", "40", "--micro", "2", "--bs", str(2 * NGPU), "--k", "12", "--res", "384", "--pos-emb",
+          "--llrd", "0.9", "--bb-lr", "9e-5", "--drop-path", "0", "--eval-bs", "2", "--time-budget-h", "1", "--seed", "42"]
 VARIANTS = __VARIANTS__
 res = {}
-for name, extra in VARIANTS.items():
+for i, (name, extra) in enumerate(VARIANTS.items()):
     out = OUT / "runs" / name
-    cmd = [sys.executable, "-u", str(REPO / "fusion" / "train_windows.py")] + COMMON + ["--out", str(out)] + extra
+    launch = ([sys.executable, "-m", "torch.distributed.run", "--nnodes", "1", "--node_rank", "0", "--master_addr",
+               "127.0.0.1", "--master_port", str(29521 + i), "--nproc_per_node", str(NGPU)] if NGPU > 1
+              else [sys.executable, "-u"])
+    cmd = launch + [str(REPO / "fusion" / "train_windows.py")] + COMMON + ["--out", str(out)] + extra
     t = time.time()
-    rc = subprocess.call(cmd, env=dict(os.environ, CUDA_VISIBLE_DEVICES="0", TW_WORKERS="4"))
+    rc = subprocess.call(cmd, env=dict(os.environ, TW_WORKERS=str(max(1, (os.cpu_count() or 4) // NGPU))))
     b = json.loads((out / "bench.json").read_text()) if (out / "bench.json").exists() else None
     res[name] = {"rc": rc, "wall_min": (time.time() - t) / 60, "bench": b}
     log(f"{name}: rc {rc}, {res[name]['wall_min']:.1f} min" + (f", {b['sec_per_micro_step_median']:.3f} s/step, "

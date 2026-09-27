@@ -37,6 +37,16 @@ step 5's arithmetic). *Not a second chance, a caveat on the instrument:* eval wa
 (and a recompile per new window count) is spread over 12 — comp's +40 s total and comp12's +12 s (it likely found comp's kernels
 in the on-disk cache) look like warm-up, not steady state. Unmeasured. If compile is revisited it needs its own pre-registered
 test with eval run eager (only the training step compiled), which removes the question rather than re-measuring it.
+**⏩ SPEED BENCH v2 `pre-registered 2026-09-27 11:20 PDT, before the push`** — the owner said yes 09-27 (4.5 GPU-h to Friday;
+no cloud GPUs). Two changes, nothing else: (1) `--compile` now compiles the TRAINING step only — `predict()` runs under
+`torch.compiler.set_stance("force_eager")`; (2) every variant runs as the real runs do, **DDP on both T4s** (compile has never
+run under DDP here, and DDP adds ~2.5 GB). Variants: base · compT (compile, all 24 checkpointed) · compT12 (+ first 12 only;
+may OOM under DDP — recorded, not a fault). **THE RULE, v1's unchanged:** a variant is ADOPTED for later runs iff its median
+s/micro-step is ≥ 10% below THIS session's base, peak < 14 GB, first-40 loss within 0.02 of base at every step, and eval slows
+by less than training speeds up. The fastest adopted variant is used by the Stage B + `dread_soft` run at Friday's reset.
+Checked locally first (`vit_tiny`, 14-study synthetic Stage B corpus, 2 CPU processes, the kernel's own cell): all three rc 0,
+DDP checksums identical across ranks with compile + checkpointing, eval flat (5.04 / 5.17 / 5.02 s/study); force_eager
+unit-checked (four new eval shapes → zero dynamo frames; training still compiles). ~0.4 GPU-h.
 
 **✅ 2026-09-27 09:48 PDT — dread RETRAIN SUBMITTED** (ref **56614330**, `rsna-knee-sub-a-ortho-dread-nall` v1, built from
 `cffd681`; the owner said "just submit it when it's done"). Run: 8/8 epochs (time budget hit at epoch 7 iter 1567, as step 5),
