@@ -55,6 +55,28 @@ unit-checked (four new eval shapes → zero dynamo frames; training still compil
 stopped at 86% of OneCycle) — so the next Stage B run differs from `c7` in that too, not only in its labels. Headroom is
 ~2.3 GB; if a long run ever OOMs, `--compile` alone (7.0 GB, −19%) is the fallback, already passed.
 
+**⏩ STAGE B ON `dread_soft` `pre-registered 2026-09-27 16:40 PDT, before any push` — the owner said "go for it" 09-27.**
+Kernel `rsna-knee-c7-train-ortho-dread`: `c7`'s recipe exactly (`PACKAGE`, Ortho, Stage B corpus, the same 3,502 / 691
+studies, seed 42, cap 14 epochs fitted to a 10.3 h budget, T4×2 DDP) with TWO changes: `--targets labels_llm_soft.csv` (sha
+`8cec477f`, attached from `dreaddevelopment/rsna-knee-labels`) and the adopted `SPEED` flags (`--compile --ckpt-blocks 12`) —
+so it will also complete more of its schedule than `c7` did. Command: `build_backbone_ab_kernel.py --arch ortho --corpus
+stage_b --n-train 0 --epochs 14 --targets data/public_llm_labels/dreaddevelopment_rsna-knee-labels/labels_llm_soft.csv
+--targets-from dreaddevelopment/rsna-knee-labels --tag dread` (`--smoke` first, on CPU: no GPU quota). **When:** the full run
+needs ~11 GPU-h; the owner has ~4 until the quota resets **Fri 2026-10-02 17:00 PDT** — push then. **THE RULE, on the LB,
+submitted ALONE through Sub A's path:** **PASS ≥ 0.926** (Stage A on `dread_soft` 0.916 + 0.010) → it becomes our main model and
+the base for teacher → student; **null 0.906–0.926** → input and labels do not add, stay on Stage A for label work (cheaper);
+**loss < 0.906**. Reported only: gold-58 paired vs `dread` and `c7`; the 691.
+
+**⏩ SUB B-dread — our new-labels model in the public 0.943 stack `pre-registered 2026-09-27 16:40 PDT, before the build`.**
+The owner asked 09-27. The stack was re-pulled and is UNCHANGED since Sub B (23/23 code cells verbatim), so this is a clean A/B
+against Sub B's **0.936**: same stack, same rule (ours one of three equal families, 1/3, nothing fitted), only our member moves
+from 0.901 alone to **0.916** alone. `build_submit_kernel.py --public-dir <pull> --weights-kernel
+raahimnawaz/rsna-knee-c6-train-ortho-dread --weights-sha 8b4cdbd8… --tag dread --alone-lb 0.916`. **THE RULE:** PASS (a blend
+with our model beats the stack alone) iff LB **≥ 0.944**; else it is not a final candidate. Either way the Δ vs Sub B is the
+read: what +0.015 of member strength buys at 1/3. **No re-weighting on the public LB afterwards** (`DECISIONS.md` 2z).
+Written before the result: I expect it BELOW 0.943 — the stack's core (`REFERENCE.md` §3.2) is a 0.928 CoAtNet at ~42% of
+the vote plus 7+ more members; ours at 0.916 is new diversity (an orthopaedic-MRI ViT-L) but weaker than that core.
+
 **✅ 2026-09-27 09:48 PDT — dread RETRAIN SUBMITTED** (ref **56614330**, `rsna-knee-sub-a-ortho-dread-nall` v1, built from
 `cffd681`; the owner said "just submit it when it's done"). Run: 8/8 epochs (time budget hit at epoch 7 iter 1567, as step 5),
 the SAME 3,502 train / 691 val studies as step 5 (lists identical), labels sha `8cec477f` as pre-registered; `last.pt` sha256

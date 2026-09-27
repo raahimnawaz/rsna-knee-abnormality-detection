@@ -303,13 +303,17 @@ def main() -> None:
     # and the gate checks against THAT run's oof_all.csv. Defaults: step 5's model, as submitted 09-26.
     ap.add_argument("--weights-kernel", default=WEIGHTS_KERNEL)
     ap.add_argument("--weights-sha", default=WEIGHTS_SHA256)
-    ap.add_argument("--tag", default="", help="slug suffix for a Submission A on another checkpoint")
+    ap.add_argument("--tag", default="", help="slug suffix for a submission on another checkpoint")
+    ap.add_argument("--alone-lb", type=float, default=None,
+                    help="another checkpoint in Submission B: its own LB number, alone -- the guard's precondition")
     ap.add_argument("--desc", default="", help="one line for the notebook's intro: what this checkpoint is")
     a = ap.parse_args()
     if (a.weights_kernel != WEIGHTS_KERNEL) != (a.weights_sha != WEIGHTS_SHA256):
         raise SystemExit("--weights-kernel and --weights-sha move together: a new checkpoint needs both")
-    if a.weights_kernel != WEIGHTS_KERNEL and not (a.ours_only and a.tag):
-        raise SystemExit("another checkpoint: build it as --ours-only with a --tag first -- its own LB number "
+    if a.weights_kernel != WEIGHTS_KERNEL and not a.tag:
+        raise SystemExit("another checkpoint needs a --tag, so its notebook does not overwrite step 5's")
+    if a.weights_kernel != WEIGHTS_KERNEL and not a.ours_only and a.alone_lb is None:
+        raise SystemExit("another checkpoint: build it as --ours-only first and pass its own LB as --alone-lb "
                          "before it joins any blend (RUNBOOK 09-26: blending a weaker member costs)")
     if not a.ours_only and not a.public_dir:
         raise SystemExit("Submission B needs --public-dir (or pass --ours-only for Submission A)")
@@ -367,11 +371,15 @@ def main() -> None:
         sources = {"dataset_sources": [], "kernel_sources": [a.weights_kernel], "model_sources": [],
                    "docker_image": DOCKER_IMAGE}
     else:
-        slug = SLUG
+        slug = SLUG + (f"-{a.tag}" if a.tag else "")
         body = [dict(c, outputs=[], execution_count=None) if c["cell_type"] == "code" else c for c in cells]
-        new = [md(INTRO.replace("__BUILT_FROM__", built_from)), code(ours)] + body[:-1] + [code(blend), body[-1]]
+        intro = INTRO.replace("__BUILT_FROM__", built_from)
+        if a.desc:
+            intro += (f"\n\n**This build:** {a.desc} Alone on the LB: {a.alone_lb}. Weights: `{a.weights_kernel}`, "
+                      f"last.pt sha256 `{a.weights_sha[:16]}`.")
+        new = [md(intro), code(ours)] + body[:-1] + [code(blend), body[-1]]
         sources = {"dataset_sources": pmeta["dataset_sources"],
-                   "kernel_sources": pmeta["kernel_sources"] + [WEIGHTS_KERNEL],
+                   "kernel_sources": pmeta["kernel_sources"] + [a.weights_kernel],     # was the constant: a latent bug
                    "model_sources": pmeta["model_sources"], "docker_image": pmeta["docker_image"]}
     nb = dict(pub, cells=new)
     a.out.mkdir(parents=True, exist_ok=True)

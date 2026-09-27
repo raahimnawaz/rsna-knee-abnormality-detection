@@ -276,6 +276,35 @@ beat. This *strengthens* the standing read below rather than softening it: every
 trains on the same report-derived label tables and they all pile up in a 0.01-wide band, while the
 top ten sit 0.035 clear of it on something not published.
 
+### 3.2 The public 0.943 stack, taken apart — read from its code `2026-09-27`
+
+`mattiaangeli/bend-the-knee-to-speedy-raptors-the-original` (Apache 2.0), re-pulled 09-27: 24 cells, unchanged since
+our Sub B (23/23 code cells verbatim). It is a **chain of rank blends**, each stage mixing into the last:
+
+| stage (cell) | members | how it joins |
+|---|---|---|
+| DINOv2 (13–15) | 20 DINOv2-small members, 5 folds × 4 (`pilkwang/rsna-knee-weights`), per-finding member weights (Lat. Meniscus 15, Lat. OA 15, Contusion 5, Med. OA 2.5), a legacy soft-pool blend at 0.5 | the base |
+| A5 (16–20) | `mattiaangeli/knee-mri-fold-weights` | 0.52 on studies whose series it can read |
+| Rad (21) | RadImageNet ResNet-50 heads: E10 + E13 (0.5 each), then a legacy E11 read at 0.20 | α 0.55 (not Baker's or Fracture), then a **fitted linear calibrator** on the three ranks, their differences and **scan-protocol counts** (series per plane, fat-sat), applied at 0.4 on its gated findings |
+| CoAt (22) | **public "raptor" CoAtNets** — maxspan-v5 0.60, native384 v8 0.20, native384dense v10 0.10, maxspan-v5 **slice-reversed** 0.10 — blended at 0.6 with **mattiaangeli's four CoAtNets** (resgated, global96, d4-depth-zone SWA3, repairv1; probability mean) at 0.4 | — |
+| final (22) | "transformer" chain (DINOv2 → A5 → Rad) vs the CoAt branch | **CoAt 0.70** by default; ACL 0.75, Fracture 0.75, Lat. OA 0.75, Med. Meniscus 0.80, **Lat. Meniscus 1.00** |
+
+So on a typical finding, roughly: the raptor CoAtNets ~42% (maxspan-v5 — dreaddevelopment's 0.928-alone model family — ~25%
+by itself), mattiaangeli's CoAtNets ~28%, and everything else ~30%.
+
+**What makes it work:** (1) its core is the strongest public single model (CoAtNet on dense 64-slice input, `dread_soft`-style
+labels, LB 0.928 alone); (2) real diversity around it — three architecture families (CoAtNet, ViT-S, ResNet-50 with medical
+pretraining), two inputs (44 vs 64 slices, 336 vs 384 px), several label tables, fold ensembles, slice-reversal TTA; (3) every
+join is in rank space, which is what AUC scores.
+
+**Where it could be improved:** (1) **its weights look tuned on the public LB** (0.52, 0.55, 0.500001, per-finding overrides,
+a fitted calibrator) with no out-of-fold instrument in sight — some of the 0.943 may not survive the private LB; (2) **no member
+uses teacher → student label cleaning**, the thing the board's 0.950 single models credit — a ~0.95 member or its CoAtNets retrained
+on cleaned labels is the biggest available upgrade; (3) its 30% "transformer" branch is small, older models — the natural slot for
+a stronger ViT; (4) **~8–9 h runtime** (20 DINOv2 members and more), so it is out of the efficiency race by construction.
+**For us:** our Ortho is a family it lacks (an orthopaedic-MRI ViT-L), but at 0.916 alone it is weaker than the stack's 0.928 core,
+and Sub B showed a weaker member at 1/3 costs (0.901 → −0.007). The measured route in is a stronger member, not a new weight.
+
 ---
 
 ## 4. Literature

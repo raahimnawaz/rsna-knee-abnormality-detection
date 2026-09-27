@@ -89,6 +89,10 @@ STAGE_B_SHARDS = [f"{OWNER}/rsna-knee-stage-b-s{i}of8" for i in range(8)]   # ..
 # patch embedding ~6e-6. (0.8 on a 3e-5 top, as first written, cut the total 6x and left the embedding at
 # 1.1e-7 -- read off the 09-25 smoke log, before any result.)
 PACKAGE = ["--res", "384", "--drop-path", "0.1", "--llrd", "0.9", "--bb-lr", "9e-5", "--pos-emb", "--fit-budget"]
+# Speed, adopted 09-27 by the pre-registered bench (RUNBOOK, speed bench v2; fusion/runs_speed_bench_v2): the TRAINING
+# step compiled (eval stays eager) and the first 12 of 24 blocks checkpointed -- -28.6% per step on T4x2 DDP,
+# loss unchanged, 13.3 GB peak. Fallback if a long run ever OOMs: drop "--ckpt-blocks", "12" (7.0 GB, -19%).
+SPEED = ["--compile", "--ckpt-blocks", "12"]
 N_TRAIN, DRAW_SEED = 2871, 20260923
 # The VLM: every visible GPU, the epoch count fitted to the session, and the short bench.
 # It trains on 12-image sequences, so it is read on 12 evenly spaced windows, not every window: a
@@ -383,7 +387,7 @@ def main() -> None:
             ["--time-budget-h", str(a.time_budget_h if mode == "full" else 0.6)]
         epochs = a.epochs if mode == "full" else 1
     elif a.corpus == "stage_b":
-        extra = PACKAGE + ["--time-budget-h", str(a.time_budget_h if mode == "full" else 0.3)]
+        extra = PACKAGE + SPEED + ["--time-budget-h", str(a.time_budget_h if mode == "full" else 0.3)]
     else:
         extra = []
 
