@@ -618,6 +618,16 @@ Today "trace effusion" and "no effusion" reach the image model as the same kind 
    the wrong place); (c) pixel-level crops — needs anatomy landmarks we do not have (segmentation data is external, blocked).
    ⚠️ This repo once built compartment attention for what was a slice-sampling bug (`DECISIONS.md` §U→D2): before (b), check
    where the trained model's attention already goes.
+6. **A "normal knee" baseline from Ortho (the owner's idea, 09-27)** — score each knee by how far it sits from normal knees
+   in Ortho's feature space, per slot and depth (anomaly detection, PatchCore/PaDiM-style), as an extra signal. Measured
+   first, on `dread_soft`: **1,131 of 4,349 knees (26%) are below threshold on all 12 findings, but only 26 (0.6%) are
+   clean** (every finding graded absent — no "trace" anything); gold-58 has none. So "normal" here means "below the
+   radiologists' line", which is full of small findings — a distance-from-normal flags trace effusion, which the test grades
+   NEGATIVE; the supervised head must still learn the threshold. Frozen Ortho features were weak as classifiers (C-5: 0.771,
+   confounded by the 160 mm crop, vs 0.815 fine-tuned). Best hope: rare, visually distinct findings (Fracture, Contusion,
+   MCL). No board evidence. Cheapest test: embeddings from the trained `dread` model (~1.5 GPU-h), kNN distance to the 1,131
+   per slot/depth, and whether it adds anything to the model's own OOF on the 691 — pre-register before. Ranked BELOW teacher
+   → student. Variant: distil Ortho into the small CNN if the CNN falls short — at the cost of the CNN agreeing more with Ortho.
 4. **External expert image labels** — ⛔ *corrected 09-26: MRNet's released labels are report-extracted (only its hidden
    test set is image-read), so of these only OAI/MOAKS and fastMRI+ carry image supervision; `REFERENCE.md` §1.3 has
    the two permission questions and who can answer each.* MRNet (1,370 knee MRIs; ACL, meniscus, abnormal; expert-read test set),
