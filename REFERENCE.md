@@ -290,7 +290,9 @@ our Sub B (23/23 code cells verbatim). It is a **chain of rank blends**, each st
 | final (22) | "transformer" chain (DINOv2 → A5 → Rad) vs the CoAt branch | **CoAt 0.70** by default; ACL 0.75, Fracture 0.75, Lat. OA 0.75, Med. Meniscus 0.80, **Lat. Meniscus 1.00** |
 
 So on a typical finding, roughly: the raptor CoAtNets ~42% (maxspan-v5 — dreaddevelopment's 0.928-alone model family — ~25%
-by itself), mattiaangeli's CoAtNets ~28%, and everything else ~30%.
+by itself), mattiaangeli's CoAtNets ~28%, and everything else ~30%. Inside that 30%, the Rad blends leave the DINOv2 + A5 base
+~0.36 of it, so **the 20 DINOv2 members are ~5% of the final vote** (rank mixes are not linear; an estimate from the weights).
+Swapping any one piece of the 30% moves the final little; the stack's result rides on the CoAtNets.
 
 **What makes it work:** (1) its core is the strongest public single model (CoAtNet on dense 64-slice input, `dread_soft`-style
 labels, LB 0.928 alone); (2) real diversity around it — three architecture families (CoAtNet, ViT-S, ResNet-50 with medical

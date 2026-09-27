@@ -538,6 +538,15 @@ fracture gain and gives back most of the losses — and still does not clear the
 
 **⛔ SUPERSEDED 2026-09-27 by the leaderboard: `dread_soft` is the training target** — step 5 retrained on it, nothing else
 changed, scored LB 0.916 against 0.901 (`RUNBOOK.md`). gold-58 could not read it (it holds gold out); the LB could.
+**What `dread_soft` IS, read 09-27** (4,349 rows, 0 gold): a **graded** table with 4–7 fixed levels per finding, not a
+probability — Effusion 0.05 (30%) / **0.20 (44%)** / 0.85 (21%) / 0.95 (4%); Baker's 0.05 / 0.20 / 0.85 / 0.95; Medial
+Meniscus 0.05 / 0.20 / 0.45 / 0.80 / 0.95. The big step sits AT the official threshold: "present but below it" is 0.20, near
+absent — the same 44% "below threshold" share our Qwen read found for Effusion (§12). `steven_v2` orders studies much the same
+(Spearman 0.84–0.94 on 9 of 12; Synovitis 0.53, Fracture 0.61, Contusion 0.75) but places them higher and continuously (~30
+levels; mean Effusion 0.58 vs 0.33, Baker's 0.47 vs 0.17, Fracture 0.30 vs 0.12). **Hypothesis, not measured:** it trains better
+because its largest target gap falls where the radiologists draw their line (borderline = negative), so BCE spends its effort
+there — consistent with the biggest gold gain landing on Fracture (0.78 → 0.91), where the two tables disagree most. The LB proved
+the table is better, not why. It is the best table measured, not an ideal one: the ideal is image reads, and 58 exist.
 ~~**Decision:** `steven_v2` stays the training target.~~ ~~Labels were not the binding constraint
 (the model reproduces its own training labels at 0.8486, below the labels' own read)~~ — superseded
 09-26: Stage B reads gold-58 0.890 against `steven_v2`'s 0.887, so that argument is spent (`DECISIONS.md`
