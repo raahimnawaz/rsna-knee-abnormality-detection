@@ -591,7 +591,9 @@ Today "trace effusion" and "no effusion" reach the image model as the same kind 
    candidate for the blend. Gated on Hugging Face (the owner must accept the terms — our account is not
    authorised, checked 09-26), under Google's Health AI Developer Foundations terms — admissible under §2.5.a's
    carve-out, but the winner obligation to publish weights must be checked against those terms first.
-4. **External expert image labels** — MRNet (1,370 knee MRIs; ACL, meniscus, abnormal; expert-read test set),
+4. **External expert image labels** — ⛔ *corrected 09-26: MRNet's released labels are report-extracted (only its hidden
+   test set is image-read), so of these only OAI/MOAKS and fastMRI+ carry image supervision; `REFERENCE.md` §1.3 has
+   the two permission questions and who can answer each.* MRNet (1,370 knee MRIs; ACL, meniscus, abnormal; expert-read test set),
    OAI with MOAKS grades (severity, from images), fastMRI+ (boxes: location) — exactly the supervision the
    reports cannot give. **Blocked on the host's ruling** (`REFERENCE.md` §1.3: asked twice by others, never
    answered; our post drafted 08-17, never sent). The MRNet *model* (2018, AlexNet per plane) is not worth

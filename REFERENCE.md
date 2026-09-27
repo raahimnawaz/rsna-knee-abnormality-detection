@@ -76,6 +76,28 @@ and no host has confirmed it. **Downgraded from "very likely admissible" to "unr
 It gates a Phase 2 lever, so ask directly rather than assume — that is one forum post and it
 costs nothing.
 
+**⛔ RE-READ 2026-09-26 — the thread, the rules and the datasets' own pages. It is TWO questions, and we asked the wrong one.**
+- **May we TRAIN on it?** §2.6.a is a disjunction — "publicly available and equally accessible… at no cost" **or** "satisfies
+  the Reasonableness criteria" of §2.6.b, which opens: *"the use of external data and models is acceptable unless
+  specifically prohibited by the Host."* No prohibition has been posted; these corpora are free and not geo-restricted.
+  On a plain reading: yes (`Mazzutti`, 18th, in the thread — a participant's reading, still not the host's).
+- **May we WIN with it?** §2.8.a: winners publish the weights as a **public Kaggle dataset** and *"represent that you have
+  the unrestricted right to grant"* the CC-BY-NC 4.0 licence. §2.6.a says external-data permission "does not limit"
+  §2.8. Whether weights trained under a research-use agreement can be published that way is **the dataset owner's
+  question about its own terms** — a written answer from them is what that representation would rest on. Ask for a
+  clarification of the standard terms, and post it in the thread: a private exception for one team argues against
+  "equally accessible".
+- **Host:** still silent on both (thread re-read 09-26; the last reply, "any verdict on any of this?", is unanswered).
+- **MRNet's released labels are NOT image reads.** Its own page: *"labels were obtained through manual extraction from
+  clinical reports."* Only its 120-exam hidden test set was read by three MSK radiologists, and it is not released. So
+  MRNet is ~1,250 more **report-labelled** knees (abnormal / ACL / meniscal tear, no medial–lateral split; one site, GE),
+  not the image-truth supervision `DATA.md` §12 item 4 wanted. Terms sit behind a Redivis sign-in
+  (`stanford.redivis.com/datasets/4a2c-4cpkzrn2c`), unread.
+- **OAI** is the one with image grades (MOAKS: radiologists scoring the images). Access: a free NDA account; its portal
+  permits use *"for human subjects research for scientific and educational purposes"*. Research protocol (3 T, DESS /
+  IW TSE), an OA-risk population (few acute injuries), a very large archive. The OAI CORE Knowledgebase
+  (`oaiknowledgebase.com`) runs one-on-one office hours — the channel for the terms question.
+
 **STATUS 2026-09-26: STILL UNASKED BY US — seven weeks.** Re-raised by the owner ("could we just use MRNet"). The same question now also covers Google's MedGemma (gated, Health AI Developer Foundations terms). It is a public forum post from the owner's Kaggle account — not something to send on their behalf — and the answer takes days; the entry deadline is Oct 15. `DATA.md` §12 item 4.
 
 **STATUS 2026-08-17: STILL UNRESOLVED, STILL UNASKED BY US — seven days.** A third-time-of-asking
@@ -276,8 +298,10 @@ from text, an explicit *uncertain* class, and image labels that disagree with re
 meniscal **0.847**. Our gold-37: ACL 0.702, meniscus 0.634 / 0.526. The split is diagnostic —
 gross-appearance findings work, fine local texture at a specific site does not.
 
-MRNet also supervises three of the labels we are worst at, with expert image reads rather than
-report text, and §2.6.a/§2.5.a admit it.
+~~MRNet also supervises three of the labels we are worst at, with expert image reads rather than
+report text, and §2.6.a/§2.5.a admit it.~~ **⛔ Corrected 2026-09-26:** only MRNet's hidden 120-exam test set is
+an expert image read; its released training labels were extracted from clinical reports (§1.3). The ceilings
+above stand; MRNet as a supervision source is report-grade, like ours.
 
 ### 4.3 Fingerprint biometrics — a different field with our exact failure mode
 
