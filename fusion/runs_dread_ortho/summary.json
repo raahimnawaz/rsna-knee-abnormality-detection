@@ -1,0 +1,96 @@
+{
+  "arch": "ortho",
+  "layout": "stage_a span [0.02, 0.98] img 336 canon False",
+  "epochs": 8,
+  "epochs_cap": 8,
+  "epochs_done": 8,
+  "stopped_early": "time budget at epoch 7 iter 1567",
+  "world": 1,
+  "n_train": 3502,
+  "n_val": 691,
+  "n_gold": 58,
+  "k": 12,
+  "bs": 8,
+  "bb_lr": 3e-05,
+  "head_lr": 0.001,
+  "wd": 0.02,
+  "seed": 42,
+  "res": 336,
+  "drop_path": 0.0,
+  "llrd": 1.0,
+  "pos_emb": false,
+  "eval_windows": 0,
+  "labels_sha256": "8cec477fb555e88bbb4196197fd3f806cbafed8cc2f6b2d48d26a8d49fbd86a1",
+  "primary": "last epoch",
+  "secondary": "mean of last-3 epoch weights (fixed, not selected)",
+  "gold_macro_report_only": 0.9120557820720129,
+  "hist": [
+    {
+      "epoch": 0,
+      "loss": 0.8107771955605164,
+      "sec": 4766.768172740936,
+      "opt_steps": 437
+    },
+    {
+      "epoch": 1,
+      "loss": 0.7612920517134898,
+      "sec": 4774.829060554504,
+      "opt_steps": 437
+    },
+    {
+      "epoch": 2,
+      "loss": 0.7210738127779592,
+      "sec": 4797.891007184982,
+      "opt_steps": 437
+    },
+    {
+      "epoch": 3,
+      "loss": 0.69431013299984,
+      "sec": 4776.035729885101,
+      "opt_steps": 437
+    },
+    {
+      "epoch": 4,
+      "loss": 0.6721562155149131,
+      "sec": 4771.031502485275,
+      "opt_steps": 437
+    },
+    {
+      "epoch": 5,
+      "loss": 0.6502570688315567,
+      "sec": 4778.579251766205,
+      "opt_steps": 437
+    },
+    {
+      "epoch": 6,
+      "loss": 0.6317762814296048,
+      "sec": 4781.481598615646,
+      "opt_steps": 437
+    },
+    {
+      "epoch": 7,
+      "loss": 0.6244748959469856,
+      "sec": 4298.251786231995,
+      "opt_steps": 392
+    }
+  ],
+  "bench": {
+    "arch": "ortho",
+    "device": "Tesla T4",
+    "world": 1,
+    "micro_studies": 2,
+    "k": 12,
+    "res": 336,
+    "eval_windows": 0,
+    "sec_per_micro_step_median": 2.7031445503234863,
+    "sec_per_window_train": 0.11263102293014526,
+    "train_epoch_min_measured": 79.44613621234893,
+    "steps_in_measured_epoch": 437,
+    "full_epoch_min_projected": 78.88676846027374,
+    "fit_budget_probe_sec": null,
+    "epochs_run": 8,
+    "peak_cuda_gb": 6.865682432,
+    "eval_sec_per_study": 1.548087239782993
+  },
+  "wall_min": 667.4653289278348
+}
