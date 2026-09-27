@@ -94,6 +94,18 @@ read **0.927** against 0.887 / 0.912 alone (`DATA.md` §12 item 2); the board's 
    images a loss); gold-58 reported only. Round 2 (the student becomes the next teacher) only if round 1 passes.
 Budget: CNN teachers ~6 GPU-h + a student ~11 → one week's quota after Friday's Stage B run.
 
+**Candidates from the owner's 09-27 questions — NOT pre-registered, ranked by evidence:**
+- **Start from the 0.928 CoAtNet instead of ImageNet.** `dreaddevelopment/raptor-knee-maxspan` (CC0) is a CoAtNet already
+  trained on THIS task (LB 0.928 alone); fine-tune it on teacher → student targets. ⚠️ It trained on all 4,349 studies with gold
+  ×3, so for anything started from it **the 691 and gold-58 are no longer held out** — the LB is its only judge. Check first that
+  its encoder keys load into timm `coatnet_rmlp_2_rw_384` (their head ≈ our `WindowMIL`).
+- **Final models on ALL the data** (3,502 + 691, maybe gold ×3 as the frontier did): their ablation measured +0.010 LB from
+  3,200 → 4,349 studies. Last, once recipes are fixed — it spends the 691 as a check.
+- **A medical-pretrained CNN teacher:** RadImageNet ResNet-50 (1.35 M radiology images; CC-BY-NC-SA, carved out by §2.5.a,
+  `DECISIONS.md`) instead of ImageNet, if the ResNet34 read makes CNNs worth it.
+- **Knee pretraining's own worth is still unmeasured:** `ortho − dinov3l` (generic DINOv3-L) was never run (§2c).
+- OAI-derived pretrained weights (KneeXNet-2.5D etc.): wait for the host — the 12th-place team has asked.
+
 **⏩ SUB B-dread — our new-labels model in the public 0.943 stack `pre-registered 2026-09-27 16:40 PDT, before the build`.**
 The owner asked 09-27. The stack was re-pulled and is UNCHANGED since Sub B (23/23 code cells verbatim), so this is a clean A/B
 against Sub B's **0.936**: same stack, same rule (ours one of three equal families, 1/3, nothing fitted), only our member moves
