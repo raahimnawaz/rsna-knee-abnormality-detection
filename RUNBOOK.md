@@ -102,6 +102,20 @@ read **0.927** against 0.887 / 0.912 alone (`DATA.md` §12 item 2); the board's 
    images a loss); gold-58 reported only. Round 2 (the student becomes the next teacher) only if round 1 passes.
 Budget: CNN teachers ~6 GPU-h + a student ~11 → one week's quota after Friday's Stage B run.
 
+**🗺 ROADMAP IF TEACHER → STUDENT WORKS — proposed 2026-09-27, the owner to confirm; each step keeps its own rule.**
+"Works" = student LB ≥ 0.926 (`dread` 0.916 + 0.010). Quota resets Fri 17:00 PDT (10-02, 10-09, 10-16); final 10-22 16:59 PDT;
+merger / entry deadline **10-15**. Two finals, and they serve BOTH tracks.
+| week | GPU (≈30 h) | what | judged on |
+|---|---|---|---|
+| 10-02 → 10-09 | Stage B `dread` 10.3 · CNN teachers 5 × ~1.2 · student ~5 (Stage A, T4×2 + SPEED) | Stage B read; round-1 labels; student #1 | LB ≥ 0.926 each |
+| 10-09 → 10-16 | Ortho Stage B on student labels ~9.5 · round-2 CNN teachers ~6 (only if round 1 gained ≥ 0.010) · CNN 5-fold on student labels = an ensemble member with its own OOF | best single model; Ortho + CNN blend (equal families) | LB; merger decided by 10-15 |
+| 10-16 → 10-22 | final models on ALL data (3,502 + 691): Ortho Stage B ~10 · CNN 5-fold ~6 · optional CoAtNet from the CC0 weights | the finals | recipes fixed earlier; the 691 is spent |
+**Finals:** (1) the strongest blend, main track; (2) the fastest good model — CNN 5-fold, decode-optimised toward ~10 min — for
+the efficiency track (at maxAUC ~0.96: 0.94 in 10 min scores ~0.062; 0.93 in 25 min ~0.111; lower wins). CPU work alongside:
+`infer_windows` for `resnet34` (its `build_model` passes `img_size`, which a ResNet rejects), a multi-model submission, decode
+speed-ups (`order_series` reads every header). **Honest landing:** single model ~0.93–0.94, blend ~0.94–0.95 — the 0.956 prize
+line still wants outside data, image-read labels or a merger; the efficiency track is the realistic prize.
+
 **Candidates from the owner's 09-27 questions — NOT pre-registered, ranked by evidence:**
 - **Start from the 0.928 CoAtNet instead of ImageNet.** `dreaddevelopment/raptor-knee-maxspan` (CC0) is a CoAtNet already
   trained on THIS task (LB 0.928 alone); fine-tune it on teacher → student targets. ⚠️ It trained on all 4,349 studies with gold
