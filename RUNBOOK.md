@@ -47,6 +47,13 @@ by less than training speeds up. The fastest adopted variant is used by the Stag
 Checked locally first (`vit_tiny`, 14-study synthetic Stage B corpus, 2 CPU processes, the kernel's own cell): all three rc 0,
 DDP checksums identical across ranks with compile + checkpointing, eval flat (5.04 / 5.17 / 5.02 s/study); force_eager
 unit-checked (four new eval shapes → zero dynamo frames; training still compiles). ~0.4 GPU-h.
+**✅ SPEED BENCH v2 READ 2026-09-27 12:14 — `compT12` ADOPTED** (`fusion/runs_speed_bench_v2/`, from `7fa61c2`, T4×2 DDP, torch
+2.10). base **3.465** s/step, 7.26 GB (Stage B's real run measured 3.52 — the bench is the real thing) · compT **2.797 (−19.3%)**,
+7.02 GB, loss Δ ≤ 0.0007, eval +0.4% → passes · **compT12 2.475 (−28.6%)**, 13.27 GB (of 15.6 GB), loss Δ ≤ 0.0006, eval +0.9%
+→ passes, fastest. No OOM, no traceback; DDP checksums identical across ranks in every variant. **Later runs use
+`--compile --ckpt-blocks 12`.** What it buys: Stage B's 55 min/epoch → ~39; a 10.3 h session now fits the full schedule (`c7`
+stopped at 86% of OneCycle) — so the next Stage B run differs from `c7` in that too, not only in its labels. Headroom is
+~2.3 GB; if a long run ever OOMs, `--compile` alone (7.0 GB, −19%) is the fallback, already passed.
 
 **✅ 2026-09-27 09:48 PDT — dread RETRAIN SUBMITTED** (ref **56614330**, `rsna-knee-sub-a-ortho-dread-nall` v1, built from
 `cffd681`; the owner said "just submit it when it's done"). Run: 8/8 epochs (time budget hit at epoch 7 iter 1567, as step 5),

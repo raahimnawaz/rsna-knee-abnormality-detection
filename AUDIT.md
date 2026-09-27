@@ -122,7 +122,7 @@ device with normalisation/resize there, DDP and sharded eval on Stage B, one inf
   2.4 h/epoch.
 **Bench read 09-26 20:58 (`RUNBOOK.md`, `fusion/runs_speed_bench/`): none adopted.** Partial checkpointing buys 5% (the recompute
 estimate was high); no checkpointing OOMs; compile cuts the training step 17–25% with an identical loss but failed the eval clause
-on a 12-study eval that likely timed warm-up. So of pass 4's list only **DDP on both T4s** is adopted.
+on a 12-study eval that likely timed warm-up. So of pass 4's list only **DDP on both T4s** is adopted. **v2 (09-27, eval eager, DDP on both T4s): `--compile --ckpt-blocks 12` ADOPTED, −28.6% per step, loss unchanged.**
 **Next (as written before the bench):** DDP everywhere; then ONE ~0.5 GPU-h bench timing `torch.compile`, partial checkpointing and a local shard
 copy separately, each adopted only if it cuts s/step ≥ 10% with an unchanged loss curve.
 
