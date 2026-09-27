@@ -618,6 +618,14 @@ Today "trace effusion" and "no effusion" reach the image model as the same kind 
    the wrong place); (c) pixel-level crops — needs anatomy landmarks we do not have (segmentation data is external, blocked).
    ⚠️ This repo once built compartment attention for what was a slice-sampling bug (`DECISIONS.md` §U→D2): before (b), check
    where the trained model's attention already goes.
+7. **"A big proven model makes the labels, ours learns from them" (the owner, 09-27)** — that IS teacher → student; what
+   matters is that the teacher (a) is good on images and (b) has NOT seen the knees it labels. Every "proven" public model (the
+   0.928 CoAtNet, the stack's members) trained on all ~4,350 training studies — on them it largely echoes the labels it was
+   trained on, so its "new labels" are not independent. Two teachers that are: **our own k-fold models** (the plan), and **a
+   model trained on fastMRI+'s radiologist image boxes** — it never saw a competition knee, and its signal comes from
+   radiologists reading images, not from reports. Limits: coronal-only (to confirm), a different hospital, labels to map
+   (meniscus tear without medial / lateral; ACL / MCL graded low vs high, as ours). Bigger is not the lever here: the board's
+   0.950 single models say labels were, and small CNNs reach 0.94+.
 6. **A "normal knee" baseline from Ortho (the owner's idea, 09-27)** — score each knee by how far it sits from normal knees
    in Ortho's feature space, per slot and depth (anomaly detection, PatchCore/PaDiM-style), as an extra signal. Measured
    first, on `dread_soft`: **1,131 of 4,349 knees (26%) are below threshold on all 12 findings, but only 26 (0.6%) are
