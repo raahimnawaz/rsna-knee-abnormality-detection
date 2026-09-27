@@ -76,6 +76,9 @@ with our model beats the stack alone) iff LB **≥ 0.944**; else it is not a fin
 read: what +0.015 of member strength buys at 1/3. **No re-weighting on the public LB afterwards** (`DECISIONS.md` 2z).
 Written before the result: I expect it BELOW 0.943 — the stack's core (`REFERENCE.md` §3.2) is a 0.928 CoAtNet at ~42% of
 the vote plus 7+ more members; ours at 0.916 is new diversity (an orthopaedic-MRI ViT-L) but weaker than that core.
+**✅ SUBMITTED 2026-09-27 16:29 PDT** (ref **56621730**, `rsna-knee-sub-b-ortho-blend-dread` v1, from `e4306de`). Commit run: weights
+sha ok; gate max |Δp| **0.00079**; `ARMS: public stack (2 families, as published) + ortho_stage_a = 3 families; w_ours 0.3333`;
+the public publish cell COMPLETE, 3 rows; no traceback. The hidden rerun is the stack's (~8–9 h) — read it tomorrow.
 
 **✅ 2026-09-27 09:48 PDT — dread RETRAIN SUBMITTED** (ref **56614330**, `rsna-knee-sub-a-ortho-dread-nall` v1, built from
 `cffd681`; the owner said "just submit it when it's done"). Run: 8/8 epochs (time budget hit at epoch 7 iter 1567, as step 5),
