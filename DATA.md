@@ -592,7 +592,12 @@ Today "trace effusion" and "no effusion" reach the image model as the same kind 
    looks like — the ordering AUROC rewards. Main targets stay `steven_v2`, so the 691 CAN judge it (fixed-target
    comparison). One run. Grades are Qwen's reading, which lost on gold as a *replacement* target (§11) — as a
    secondary signal they are a different use, untested. "Where" (horn, condyle) is a possible later target.
-2. **Teacher → student** for report ≠ image: out-of-fold image models vote; where confident and in
+2. **Teacher → student** for report ≠ image — **✅ the ingredient measured 09-27 (diagnostic, fixed 50/50, nothing tuned):**
+   on gold-58 the equal rank-mean of the report label (`steven_v2`) and our image model's OOF (`dread`, never saw gold)
+   reads **0.9269** vs the image model 0.9121 (+0.015 [−0.001, +0.031], P 0.96) and the report label 0.8873 (+0.040
+   [+0.024, +0.057]). The combined target sits closer to the radiologists than either — what a student would train on. It
+   needs OOF image predictions for EVERY training study (k-fold teachers): ~5 × 8 GPU-h with Ortho ViT-L, far less with a
+   small CNN (`REFERENCE.md` §3.1b). Original note: out-of-fold image models vote; where confident and in
    disagreement with the label, the label moves. The board's 0.950 single models credit this. Several teacher
    runs — the expensive route. Precondition met: Stage B reads gold 0.890 against its labels' 0.887.
 3. **A medically pre-tuned model** (the Ortho idea, for text or images): Google's **MedGemma** — 1.5 4B

@@ -276,6 +276,25 @@ beat. This *strengthens* the standing read below rather than softening it: every
 trains on the same report-derived label tables and they all pile up in a 0.01-wide band, while the
 top ten sit 0.035 clear of it on something not published.
 
+### 3.1b Forum intelligence, read 2026-09-27 — what the top of the board says it does
+
+LB re-pulled 16:31 PDT: top **0.959**, 3rd 0.958, 10th 0.956, 25th 0.954, 50th 0.952, 100th 0.947 — the top 25 within 0.005.
+Self-reports, not code (`discussion/740610`, `/742926`, `/743416`):
+- **Small CNNs score 0.94+.** Tucker Arrants (22nd): *"Start with 224px / 288px and a simple CNN encoder, like a ResNet34
+  or EffNetB0. No attention mechanisms, just use simple pooling operations. You can score in the 0.94+ range with this
+  alone"*; Tom Aindow (85th) seconds it (*"0.94+ at 224px with small simple model"*). Their method: validate on
+  report-derived labels with a noise threshold (~0.003, seeds to tighten), change one thing at a time, then augmentations,
+  then backbones. **We never tested a small CNN**: our backbone A/B was Ortho ViT-L vs CoAtNet at 336–384 px.
+- **Disagreeing models ensemble better** — Dread Development (157th, the 0.928 CoAtNet's author).
+- **Report label + image model beats both**: a 0.940 competitor's gold-57 read — report-only 0.869, E11 OOF 0.858, fixed
+  50/50 rank blend 0.908; ours reproduces it (`DATA.md` §12 item 2): 0.887 / 0.912 → **0.927**.
+- **External data:** per a participant's summary (host posts not yet read in full), the host **ruled KneeCoT NOT allowed**
+  (a formal institutional agreement = unequal access), and said non-commercial terms alone do not exclude a dataset, while
+  "straightforward registration" and "substantial institutional approval" may be treated differently — so MRNet
+  (click-through) leans allowed, OAI (Data Use Certification) is uncertain. Tucker Arrants (22nd): external data *"even small
+  amounts of it, can substantially increase score in this competition"*; the 12th-place team asks about OAI-derived
+  pretrained models. Some of the top may be using it.
+
 ### 3.2 The public 0.943 stack, taken apart — read from its code `2026-09-27`
 
 `mattiaangeli/bend-the-knee-to-speedy-raptors-the-original` (Apache 2.0), re-pulled 09-27: 24 cells, unchanged since
