@@ -175,9 +175,10 @@ teacher, round 2 and gold ×3 in the finals. The 168 GB fastMRI clinical DICOMs 
 better unfitted (`dread_soft` unscorable on gold, +0.015 on the LB). Perfect reading of the text: ~0.92–0.94 at most (hand read on 30
 gold knees, DATA §1: +0.055 [+0.005, +0.111], one reader). Beyond that the truth is not in the text (DATA §12). The extractor is not
 our ceiling: report + image teacher reads 0.915–0.922 on gold today.
-**⛔ Team merger: NO (owner, 09-28 14:30).** **Studio throughput (owner, 09-28):** a 2025 Studio is an M4 Max (≤40 GPU cores) or M3
-Ultra (≤80) — estimated ~1–1.4× (Max) or ~2–2.5× (Ultra) a Kaggle session, 24/7 = 168 h/week vs Kaggle's 30 → ~5–14× the weekly
-compute, on top of Kaggle. Buys: Ortho k-fold teachers (~25 GPU-h, the strongest teacher), round 2, students off-quota. An estimate
+**⛔ Team merger: NO (owner, 09-28 14:30).** **Studio throughput — HYPOTHETICAL (owner, 09-28: may not have access; nothing built for it):** an
+M5 Ultra, 80 GPU cores, 96 GB. Same GPU generation as this M5 (10 cores), so ~8× the cores → est. ~5–7× this Mac ≈ ~2–3× a Kaggle
+session; 24/7 = 168 h/week vs Kaggle's 30 → ~12–17× the weekly compute, on top of Kaggle. Needed first if it happens: DataLoader
+workers that reopen the memmap per worker (today TW_WORKERS=0; at 8× the GPU, main-process loading would bind). Buys: Ortho k-fold teachers (~25 GPU-h, the strongest teacher), round 2, students off-quota. An estimate
 from core counts — the first hour on it is a one-epoch benchmark of each model (CoAtNet / Ortho at 384 never ran on MPS).
 (p) *Would a 0.92 reader help?* Modestly: +0.02 gold ≈ +0.01 LB single model at the ~½ transfer, less in the blend, and it overlaps
 the teacher (both fix label errors). Route: Claude Opus graded read with the official cut-offs (`extractor/llm_extract.py`), iterate
