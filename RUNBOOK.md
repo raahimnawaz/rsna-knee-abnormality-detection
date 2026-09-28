@@ -235,6 +235,14 @@ cut).** Four layers, each piece kept only if its own gate passes:
 4. **Blend:** our families at equal ranks, nothing fitted → with the public 0.943 stack → **counts only at ≥ 0.947** (valid).
 GPU: NYU teacher ~2 · CoAtNet student ~6 · Ortho student ~10 · finals on all data ~16 → ~34 h (+5 if CNN teachers) of ~90 left.
 Honest landing ~0.95; 0.965 needs the teachers to correct the labels well beyond what reports carry.
+**🏁 PATH TO #1 — the ledger, 2026-09-28 07:25 (live #1: 0.960, up from 0.959 yesterday).** Scoreboard truth: our best submission
+is **0.939**, still under the free stack's 0.943. Measured levers, never yet combined in one model: **labels +0.015 LB** (Ortho 0.901 →
+0.916), **Stage B input +0.014 LB** (0.901 → 0.915), **blending +0.015** (the stack over its best single, 0.928 → 0.943); on gold, not
+yet on the LB: **report + image teacher +0.034** (Ortho) / +0.028 (CNN). The strongest start is the public CoAtNet, **0.928** alone,
+checked in our pipeline. Stacked: CoAtNet student 0.928 + teacher labels + Stage-B-grade input + all-data finals → a ~0.95 single model;
+two such students + the stack's other families → **0.96+, first-place territory**. The gains overlap, so each keeps its own gate. The
+first LB proof point is the CoAtNet student (GPU reset Fri 10-02). What decides it: whether teacher labels move the LB the way
+`dread_soft` did.
 
 **🧭 WHAT'S MISSING — owner's question 09-27 ~20:00 ("if NYU helped, would our data be as good as it could be?"). No.**
 The test's answer key is two MSK radiologists reading the IMAGES with the official cut-offs, borderline = negative (`REFERENCE.md` §2);
