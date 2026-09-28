@@ -111,7 +111,7 @@ same 691). 691: **lr 3e-4 0.7915** (primary, the better arm), lr 3e-5 0.7349, `d
 and fastMRI+ becomes the main teacher.** Diagnosis, not a second chance: the arm is UNDER-trained, not capped — 10× the lr bought
 +0.057, and 8 epochs of 1.9 min is 15 minutes of training; the board's 0.94+ CNNs train longer and augment. Whether a proper CNN
 recipe reaches Ortho is a NEW question (one ~1 GPU-h run), to be pre-registered only if the owner wants cheap teachers.
-**⏩ SMALL-CNN, PROPER RECIPE `pre-registered 2026-09-27 17:15 PDT, before any push` — the owner: "we should do proper testing
+**⏩ SMALL-CNN, PROPER RECIPE `pre-registered 2026-09-27 ~17:08 PDT, before any push` — the owner: "we should do proper testing
 for the cnn".** The first read was under-trained (loss still falling at epoch 7, 0.824 → 0.702; 10× lr bought +0.057). New
 question: does a CNN trained like the board's reach Ortho? Everything as the first read (resnet34 @ 224, Stage A, `dread_soft`,
 the same 3,502 / 691, seed 42) except: **~22–24 epochs** (cap 24, fitted to a 0.75 h budget; ~2 min/epoch) and, in one arm, a new
@@ -119,7 +119,7 @@ training-only **per-window affine** (`--aug-affine 1`: rotate ±10°, zoom ±10%
 unchanged, `last.pt` keys unchanged). Arms: **A** lr 3e-4 · **B** lr 1e-3 · **C** lr 1e-3 + affine. **Primary = the best of the
 three on the 691** (a 3-way pick, ~+0.003 optimistic), paired vs `dread` (Ortho, 0.8440). **THE RULE, unchanged:** ≥ −0.010 →
 USABLE (the teacher: 5 folds ≈ 5 × 1 GPU-h); > 0 at P ≥ 0.95 → BETTER; below → CNNs are out of the teacher role for this
-competition, fastMRI+ and Ortho carry it. ~2.7 GPU-h of the ~3 left this week. **Kaggle allows 2 GPU sessions at once** (C's push was refused: "Maximum batch GPU session count of 2 reached"); C is queued behind A / B by a local watcher. Pushed 17:18 from `3333502`. (Averaging 5 CNN folds would lift a TEST-time
+competition, fastMRI+ and Ortho carry it. ~2.7 GPU-h of the ~3 left this week. **Kaggle allows 2 GPU sessions at once** (C's push was refused: "Maximum batch GPU session count of 2 reached"); C is queued behind A / B by a local watcher. Pushed ~17:09 from `3333502`. (Averaging 5 CNN folds would lift a TEST-time
 ensemble by ~0.005–0.015, but a teacher labels each study with ONE fold model — the single model must be good.)
 
 **⏳ TEACHER → STUDENT — design 2026-09-27 (the owner: "we'll take the better labels teacher student approach"); its rule is
