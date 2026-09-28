@@ -29,7 +29,7 @@ stays only with evidence that it adds to the best available thing.
 | finished model | Ortho, 0.916 alone | **public CoAtNet, 0.928 alone** (CC0 weights) | at EQUAL setup Ortho > CoAtNet +0.010 (one run), gold tie; the 0.012 LB gap is setup (all ~4,350 studies, gold ×3, epochs on gold, SWA) | Ortho is NOT proven better than simply building on the public CoAtNet — **Sub B-dread (tonight) is its test in the stack**; fine-tuning the public CoAtNet on better labels is the untried best-available route |
 | input | Stage B (ours) | the public 64-slice geometry | +0.014 LB | keep |
 | training code | `train_windows` | the public training script | a port of it | keep (equivalent) |
-| small CNN | ResNet34 | — | 0.79 vs 0.84 | v2 arms decide; CUT if they fail |
+| small CNN | ResNet34 | — | best v2 arm 0.808 vs 0.844 (−0.036) | **CUT 09-27 18:45** — out of the teacher role |
 | Qwen VLM, own labeler | — | — | failed their gates | cut (done) |
 | outside data | fastMRI+ | the best image-graded data available | unproven | one test, then keep or cut |
 | 691 hold-out | ours | — | costs ~0.010 on finals | train the finals on all data |
@@ -164,6 +164,11 @@ OA −0.017, Effusion −0.015, Synovitis −0.008, Fracture −0.008.
    before building anything for Ortho — B's recipe plus a zoomed centre crop as extra slots, ~0.7 GPU-h, judged on ACL + MCL +
    both menisci. NOT pre-registered; no quota until Friday's reset, and Friday is Stage B-`dread`. Priority stays: C's read →
    the fastMRI+ teacher tonight → Friday.
+**⛔ C READ 2026-09-27 18:45 — the small CNN is OUT of the teacher role (the pre-registered rule).** C (lr 1e-3 + per-window affine),
+17 epochs, **0.8057** (gold 0.890), paired vs B **−0.0019 ± 0.0048** (0.4σ: augmentation bought nothing). Primary = the best of the three
+= **B 0.8076**, paired vs Ortho **−0.036** < −0.010 → FAIL. fastMRI+ and Ortho carry the teacher role; Friday's Stage B-`dread` stays.
+One more clue for the diagnosis above: the affine raised C's final train loss (0.653 vs B's 0.606: less memorising) and held-out
+did not move, so the ceiling is what the features can see, not over-fitting. Files: `fusion/runs_r34v2_C/`.
 
 **⏳ TEACHER → STUDENT — design 2026-09-27 (the owner: "we'll take the better labels teacher student approach"); its rule is
 fixed once the small-CNN read picks the teacher.** Why now: gold-58 says the report label and an image model's OOF, averaged,
