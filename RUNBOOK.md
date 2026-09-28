@@ -180,6 +180,21 @@ line still wants outside data, image-read labels or a merger; the efficiency tra
 - **Knee pretraining's own worth is still unmeasured:** `ortho − dinov3l` (generic DINOv3-L) was never run (§2c).
 - OAI-derived pretrained weights (KneeXNet-2.5D etc.): wait for the host — the 12th-place team has asked.
 
+**🗺 HOW fastMRI+ FITS — design 2026-09-27 (download ETA ~21:00; not pre-registered).** Purpose: a TEACHER whose signal comes
+from radiologists reading IMAGES and which has never seen a competition knee — the one thing report labels cannot give.
+1. **Convert** (Mac, free): each of the 1,172 h5 volumes' ready image → our 3-slice windows; its boxes → per-knee labels
+   (ACL high-grade 101 · meniscus tear 663 · effusion 142 · fracture / contusion 119 · subchondral edema 196 · cartilage
+   full-thickness 122 · cysts 161). To confirm on the files: coronal-only, field of view (~140 mm, like our crop?), knee side.
+2. **Teacher** (~1–2 GPU-h): a backbone that has NOT seen competition labels — Ortho or an ImageNet CoAtNet, NOT the public 0.928
+   CoAtNet (it trained on our knees, so its predictions would echo their report labels) — fine-tuned on fastMRI+.
+3. **Gate 1, free:** the teacher scores our gold-58 on the findings it covers — radiologists at another hospital, never seen.
+   Useful only if it beats the report label there on those findings.
+4. **Teacher labels:** it predicts all 4,349 training knees' coronal series → combined with `dread_soft` → student targets.
+5. **Student:** the best available start (public 0.928 CoAtNet via `--init`, if its pipeline check passes) trained on those
+   targets → blended into the 0.943 stack → **valid only at ≥ 0.947**.
+Limits: one plane (ACL and effusion are read best sagitally), another hospital's scanners, one radiologist, side of a meniscus
+tear from box position only. Upload a derived cache to Kaggle only after the owner reads the agreement's redistribution terms.
+
 **⏩ THE PUBLIC 0.928 CoAtNet IN OUR PIPELINE — a CHECK, not an experiment (`2026-09-27 17:40 PDT`; owner: "sure download").**
 `dreaddevelopment/raptor-knee-maxspan` (CC0-1.0; `raptor_ft_coatnet_v5_full_swa.pt`, sha256 `20d45e07`, 293 MB, local at
 `data/external/raptor/`) is OUR layout: 486 tensors, every shape equal, three names differ (`backbone.`→`encoder.`,
