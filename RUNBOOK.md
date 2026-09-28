@@ -150,6 +150,17 @@ comes from cutting its 20 DINOv2 members (~5% of the vote), not from trimming Or
 (c) *Studio (2025 = M4 Max or M3 Ultra):* code from GitHub; copy `data/stage_a` 30 GB + the NYU cache 3.7 GB + raptor 0.3 GB from this
 Mac (external SSD / cable — not a download); Stage B from Kaggle only if students train there (8 × ~7.8 GB ≈ 62 GB, resumable
 `curl`); the 168 GB of raw fastMRI archives stay behind. ~half a day incl. a one-epoch benchmark per model.
+**Owner Qs 09-28 ~14:30.** (d) *A statistical second stage that reasons over the 12 predictions?* Measured 08-13 (IMPROVEMENTS §3r):
+a fitted cross-finding stacker **+0.0033 on report labels, −0.0132 on gold** — it learns the REPORTS' co-occurrence; closed.
+(e) *Test is graded on gold, so does extraction matter?* Yes: the model learns only what training labels teach — labels alone were
++0.015 LB. (f) *NYU as the instrument for per-finding weights?* No: image truth, but coronal-only, another protocol, 4–5 findings, one
+reader — our competition models would be scored on inputs they never see at test. It is a teacher, not a ruler. (g) *MedGemma as a
+TEACHER:* the runtime objection does not apply (teachers run offline); a 4-bit quantized 4B fits this Mac. Screen, if the owner
+accepts the terms: zero-shot on the NYU 83-knee hold-out (no gold spent) — low odds (card: MRI 64.7% accuracy). (h) *Fewer DINOv2
+members?* Yes — the branch is ~5% of the vote; cut it to make runtime room for the students, time the stack's cells first.
+(i) *Gold ×3* = each gold knee repeated 3× per epoch; costs the gold instrument, so finals only. (j) *Drop Ortho for CoAtNet?* Friday
+runs both at once (2 Kaggle sessions); to pre-register before the push: the Ortho student stays only if it lifts the stack +
+CoAtNet-student blend by ≥ +0.004 public LB (2 × the blend-change SE).
 
 **⏩ SMALL-CNN BASELINE `pre-registered 2026-09-27 16:45 PDT, before any push` — the owner said yes 09-27.** Question: does
 the board's *"simple CNN at 224 px scores 0.94+"* (`REFERENCE.md` §3.1b) reproduce in OUR pipeline, at a fraction of Ortho's
