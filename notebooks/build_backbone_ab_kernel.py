@@ -455,7 +455,7 @@ def main() -> None:
             "enable_internet": True, "keywords": [],
             "dataset_sources": datasets, "kernel_sources": kernels,
             "competition_sources": ["rsna-knee-abnormality-detection"], "model_sources": []}
-    if mode != "smoke":
+    if mode != "smoke" and not a.cpu:          # a machine_shape makes Kaggle count it as a GPU session, even with enable_gpu off
         meta["machine_shape"] = "NvidiaTeslaT4"
     (a.out / "kernel-metadata.json").write_text(json.dumps(meta, indent=2), encoding="utf-8")
     print(f"built {a.out / (slug + '.ipynb')}  arch={a.arch} corpus={a.corpus} n_train={a.n_train or 'pool'} "
