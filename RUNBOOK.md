@@ -161,6 +161,16 @@ members?* Yes — the branch is ~5% of the vote; cut it to make runtime room for
 (i) *Gold ×3* = each gold knee repeated 3× per epoch; costs the gold instrument, so finals only. (j) *Drop Ortho for CoAtNet?* Friday
 runs both at once (2 Kaggle sessions); to pre-register before the push: the Ortho student stays only if it lifts the stack +
 CoAtNet-student blend by ≥ +0.004 public LB (2 × the blend-change SE).
+**Owner Qs 09-28 ~14:40.** (k) *Are the models weighted for labels being only ~90% right?* Yes, in the way AUC can use: `dread_soft`
+is soft (0 of 52,188 cells exactly 0/1; 14 levels, e.g. hedged reports ~0.3–0.4), the loss is BCE on those soft targets (+ pos_weight
+for rare findings), and student targets turn report-vs-teacher conflicts into ~0.5, not a flip. A uniform "90%" correction cannot
+move AUC (it changes no order); finding WHICH labels are wrong is the teacher's job. (l) *Qwen weights:* moved to the macOS Trash
+(10.55 GB: Qwen3.5-9B-MLX-4bit + Qwen3.5-2B, `~/.Trash/qwen-weights-20260928-1413`), owner's request; `data/qwen_labels` kept;
+`qwen_label.py` / `qwen_vlm.py` would re-download. (m) *MedGemma as the extractor:* no — the ~0.90 report ceiling; ~60% of reports
+are not English (1,715 of 4,349 English by a crude test); 27B does not fit 16 GB even at 4-bit. (n) *Image truth NYU lacks (MCL, OA,
+synovitis, fracture) elsewhere?* No allowed, usable source: OAI closed, SKM-TEA 155 knees on a research sequence (900 GB, Stanford
+non-commercial terms), MRNet / KneeMRI are report labels, KneeCoT ruled out by the host. Those findings rely on the in-domain
+teacher, round 2 and gold ×3 in the finals. The 168 GB fastMRI clinical DICOMs add KNEES (pseudo-labelled), not truth.
 
 **⏩ SMALL-CNN BASELINE `pre-registered 2026-09-27 16:45 PDT, before any push` — the owner said yes 09-27.** Question: does
 the board's *"simple CNN at 224 px scores 0.94+"* (`REFERENCE.md` §3.1b) reproduce in OUR pipeline, at a fraction of Ortho's
