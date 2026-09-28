@@ -612,6 +612,18 @@ Today "trace effusion" and "no effusion" reach the image model as the same kind 
    candidate for the blend. Gated on Hugging Face (the owner must accept the terms — our account is not
    authorised, checked 09-26), under Google's Health AI Developer Foundations terms — admissible under §2.5.a's
    carve-out, but the winner obligation to publish weights must be checked against those terms first.
+   **✅ TERMS READ 2026-09-28 (owner's question; `developers.google.com/health-ai-developer-foundations/terms`) — workable, unlike
+   OAI; still NOT used.** Anyone may use, modify and Distribute; commercial use is not excluded. Distributing HAI-DEF or a "Model
+   Derivative" (§3.1) requires passing on §3.2's use restrictions as enforceable terms, a copy of the agreement, a Notice file and
+   marked modifications; extra terms are allowed if they comply. §3.2: no uses in the Prohibited Use Policy, nothing that could make
+   Google a medical-device "manufacturer"; clinical use needs regulatory authorization. **The catch:** "Model Derivatives" include any
+   model trained on HAI-DEF's Outputs "to perform similarly", distillation and synthetic training data included — so a student
+   distilled from a MedGemma teacher inherits these terms (a text-label pass feeding an image model is arguably not "similar", but
+   grey). The competition side fits: free click-through (host: non-commercial terms alone do not exclude), and rules §5's carve-out
+   lets a winner publish a model built on an incompatibly licensed pretrained model under its own terms instead of CC BY-NC.
+   **Why still not used:** as a report reader it meets the same ~0.90 text ceiling (our similar-size Qwen3.5-9B read FAILED); as an
+   image model its card's MRI result is 64.7% macro accuracy on 10 conditions, our one VLM attempt (Qwen) failed to learn, OrthoFoundation
+   already fills the domain-pretrained slot, and the public stack already uses ~8–9 h of the 9 h runtime.
 5. **WHERE, from the reports (the owner's idea, 09-27)** — the reports say where a finding is far more often than the labels
    use: of English reports (1,715 of 4,349, by a crude word test) with a `dread_soft` positive, **86–100% name a sub-location**
    (Medial Meniscus 91% — horn/body/root, of 207; Lateral Meniscus 86% of 92; Medial OA 95% of 173; Baker's 100% of 170;
