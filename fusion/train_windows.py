@@ -256,6 +256,12 @@ class Windows(torch.utils.data.Dataset):
         cs = window_centres(mask, self.c.slot_sizes)
         if not cs:                                          # nothing valid: the stack's middle
             cs = [len(mask) // 2]
+        keep = getattr(self.c, "slot_keep", None)           # --slots: e.g. a coronal-only teacher
+        if keep is not None:
+            s_of, _ = window_meta(cs, self.c.slot_sizes)
+            k0 = min(keep)
+            mid = int(np.cumsum((0,) + tuple(self.c.slot_sizes))[k0] + self.c.slot_sizes[k0] // 2)
+            cs = [c for c, s in zip(cs, s_of) if s in keep] or [mid]   # none of those planes: a blank window
         elif self.k is None and self.thin:                  # eval, a fixed evenly spaced subset
             cs = thin_windows(cs, self.c.slot_sizes, self.thin)
         if self.k is not None:                              # train: k draws, no repeats if possible
@@ -501,6 +507,10 @@ def main() -> None:
     ap.add_argument("--init", type=Path, help="start from these weights instead of the backbone's pretraining: our "
                     "last.pt, or a public checkpoint dict {'model': ...} with backbone.* / clsW / clsb keys (the CC0 "
                     "0.928 CoAtNet). A bare filename is searched for under --corpus. With --epochs 0: evaluate only")
+    ap.add_argument("--slots", default="", help="comma-separated slot names to use, e.g. cor_1,cor_2 (a coronal-only "
+                    "teacher); train AND eval")
+    ap.add_argument("--allow-missing-labels", action="store_true",
+                    help="train on studies with some targets missing (NaN): those targets carry no loss")
     ap.add_argument("--aug-affine", type=float, default=0.0,
                     help="training-only per-window affine, strength 1 = rotate 10 deg / zoom 10%% / shift 5%%; no flips")
     ap.add_argument("--llrd", type=float, default=1.0, help="layer-wise LR decay per ViT block; 1 = off")
@@ -543,6 +553,13 @@ def main() -> None:
         tr, va = uids[: a.synthetic * 2 // 3], uids[a.synthetic * 2 // 3:]
     else:
         corpus = Corpus(a.corpus, a.layout)
+        if a.slots:
+            names = [m_.get("name") for m_ in getattr(corpus, "slot_meta", [])]
+            bad = [n_ for n_ in a.slots.split(",") if n_ not in names]
+            if bad:
+                raise SystemExit(f"--slots {bad} not in this corpus's slots {names}")
+            corpus.slot_keep = {names.index(n_) for n_ in a.slots.split(",")}
+            log(f"slots: only {a.slots} (indices {sorted(corpus.slot_keep)}), train and eval")
         tgt = pd.read_csv(a.labels).drop_duplicates("StudyInstanceUID").set_index("StudyInstanceUID")
         tr, va = load_split(a.train), load_split(a.val)
         if a.gold:
@@ -553,7 +570,8 @@ def main() -> None:
             raise SystemExit("train overlaps val or gold -- refusing")
     miss_tr = [u for u in tr if u not in corpus.row]
     miss_va = [u for u in va if u not in corpus.row]
-    tr = [u for u in tr if u in corpus.row and tgt.loc[u, LABELS].notna().all()]
+    tr = [u for u in tr if u in corpus.row and (tgt.loc[u, LABELS].notna().any() if a.allow_missing_labels
+                                                 else tgt.loc[u, LABELS].notna().all())]
     va = [u for u in va if u in corpus.row]
     if a.limit_train:
         tr = tr[: a.limit_train]
@@ -643,7 +661,9 @@ def main() -> None:
     log(f"encoder {n_enc / 1e6:.1f}M params, num_features {model.encoder.num_features} | res {res} | "
         f"drop_path {a.drop_path} | llrd {a.llrd} | pos_emb {a.pos_emb}")
 
-    prev = np.clip(ytr.mean(0), 0.03, 0.7)
+    # a finding with NO known target has no prevalence: 0.5 gives pos_weight 1 (a NaN there would poison the masked loss)
+    prev = np.clip(np.nan_to_num(np.nanmean(np.where(np.isfinite(ytr), ytr, np.nan), 0), nan=0.5)
+                   if a.allow_missing_labels else ytr.mean(0), 0.03, 0.7)
     pos_w = torch.tensor(np.clip((1 - prev) / prev, 1, 10), dtype=torch.float32, device=dev)
     groups = (model.param_groups(a.bb_lr, a.head_lr, a.lora_lr) if is_qwen
               else param_groups(model, a.bb_lr, a.head_lr, a.llrd))
@@ -676,9 +696,16 @@ def main() -> None:
         with (nullcontext() if sync or world == 1 else net.no_sync()):
             with torch.autocast("cuda", dtype=torch.float16, enabled=amp):
                 logits = net(x, gain=gain, slot=sl, pos=ps)
-            w = 0.25 + 0.75 * (2 * y - 1).abs()
-            loss = (F.binary_cross_entropy_with_logits(logits.float(), y, pos_weight=pos_w,
-                                                       reduction="none") * w).mean()
+            if a.allow_missing_labels:                  # an unknown target carries no loss (e.g. fastMRI+)
+                known = torch.isfinite(y)
+                y0 = torch.where(known, y, torch.zeros_like(y))
+                w = (0.25 + 0.75 * (2 * y0 - 1).abs()) * known
+                loss = ((F.binary_cross_entropy_with_logits(logits.float(), y0, pos_weight=pos_w, reduction="none")
+                         * w).sum() / known.sum().clamp_min(1))
+            else:
+                w = 0.25 + 0.75 * (2 * y - 1).abs()
+                loss = (F.binary_cross_entropy_with_logits(logits.float(), y, pos_weight=pos_w,
+                                                           reduction="none") * w).mean()
             if not torch.isfinite(loss):
                 raise SystemExit("non-finite loss")
             scaler.scale(loss / accum).backward()
@@ -858,7 +885,8 @@ def main() -> None:
                    "n_train": len(tr), "n_val": len(va), "n_gold": len(gold_ids), "k": a.k, "bs": a.bs,
                    "bb_lr": a.bb_lr, "head_lr": a.head_lr, "wd": a.wd, "seed": a.seed, "res": res,
                    "drop_path": a.drop_path, "llrd": a.llrd, "pos_emb": a.pos_emb, "eval_windows": a.eval_windows,
-                   "aug_affine": a.aug_affine, "init": str(a.init) if a.init else None,
+                   "aug_affine": a.aug_affine, "init": str(a.init) if a.init else None, "slots": a.slots or None,
+                   "allow_missing_labels": a.allow_missing_labels,
                    "init_sha256": getattr(a, "init_sha256", None),
                    "labels_sha256": __import__("hashlib").sha256(Path(a.labels).read_bytes()).hexdigest()
                    if a.labels else None,

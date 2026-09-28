@@ -270,8 +270,15 @@ log(f"corpus ({LAYOUT}) holds {len(CORPUS_IDS)} studies")
 VAL = [u for u in CTRL if u in CORPUS_IDS]
 _pool = sorted(u for u in FOLDS.loc[(FOLDS.fold != 0) & (~FOLDS.is_gold), "StudyInstanceUID"]
                if u in CORPUS_IDS and u in TARGETS_DF.index and TARGETS_DF.loc[u, L].notna().all())
-TRAIN = _pool if not __N_TRAIN__ else sorted(np.random.default_rng(__DRAW_SEED__).choice(
-    _pool, size=min(__N_TRAIN__, len(_pool)), replace=False).tolist())
+TEACHER_FOLD = __TEACHER_FOLD__
+if TEACHER_FOLD:
+    # teacher -> student: train on the other three training folds, label this one -- a study it never saw
+    _fk = set(FOLDS.loc[FOLDS.fold == TEACHER_FOLD, "StudyInstanceUID"])
+    VAL = [u for u in _pool if u in _fk]
+    TRAIN = [u for u in _pool if u not in _fk]
+else:
+    TRAIN = _pool if not __N_TRAIN__ else sorted(np.random.default_rng(__DRAW_SEED__).choice(
+        _pool, size=min(__N_TRAIN__, len(_pool)), replace=False).tolist())
 log(f"train {len(TRAIN)} (a seeded draw from a pool of {len(_pool)}) | val {len(VAL)} "
     f"({len(CTRL) - len(VAL)} control studies are not in the corpus)")
 RUN.mkdir(parents=True, exist_ok=True)
@@ -281,7 +288,7 @@ pd.Series(VAL, name="StudyInstanceUID").to_csv(RUN / "val_studies.csv", index=Fa
     "built_from": BUILT_FROM, "arch": ARCH, "mode": MODE,
     "inputs": {k: {"path": str(v[0]), "sha256": _sha(v[0])} for k, v in FOUND.items()},
     "folds_site_sha256": _sha(D / "folds_site.csv"), "targets_sha256": _sha(LABELS_CSV), "fold_targets_sha256": _sha(D / "targets.csv"),
-    "n_train": len(TRAIN), "n_val": len(VAL), "draw_seed": __DRAW_SEED__}, indent=2))
+    "n_train": len(TRAIN), "n_val": len(VAL), "draw_seed": __DRAW_SEED__, "teacher_fold": TEACHER_FOLD}, indent=2))
 '''
 
 
@@ -336,8 +343,8 @@ if MODE == "smoke":
 else:
     for _arm in [RUN] + ([RUN / "avg3"] if (RUN / "avg3" / "oof_all.csv").exists() else []):
         _ctrl = "runs_c6_ortho" if LAYOUT == "stage_b" or ARCH.startswith("qwen") else "runs_port_repro"
-        _res = subprocess.run([sys.executable, str(REPO / "fusion" / "score_oof.py"),
-                               str(REPO / "fusion" / _ctrl), str(_arm)],
+        _pair = [] if TEACHER_FOLD else [str(REPO / "fusion" / _ctrl)]   # a teacher fold shares no studies with it
+        _res = subprocess.run([sys.executable, str(REPO / "fusion" / "score_oof.py")] + _pair + [str(_arm)],
                               capture_output=True, text=True, cwd=str(REPO))
         print(_res.stdout, _res.stderr)
         (OUT / f"score_{_arm.name}.txt").write_text(_res.stdout + _res.stderr)
@@ -359,6 +366,8 @@ def _git_head() -> str:
 def main() -> None:
     ap = argparse.ArgumentParser(description=__doc__.splitlines()[0])
     ap.add_argument("--arch", choices=["ortho", "dinov3l", "coatnet", "resnet34", "qwen35vl"], required=True)
+    ap.add_argument("--teacher-fold", type=int, default=0, choices=[0, 1, 2, 3, 4],
+                    help="teacher -> student: train on the other training folds, predict fold K (1-4); 0 = off")
     ap.add_argument("--extra-datasets", nargs="*", default=[], help="more Kaggle datasets to attach (e.g. public weights "
                     "for --init)")
     ap.add_argument("--cpu", action="store_true", help="a CPU session even in full mode (an eval-only check: no GPU quota)")
@@ -428,6 +437,7 @@ def main() -> None:
                              "notebook was refused (400). Attach its dataset with --targets-from.")
         print(f"targets {a.targets} ({len(t)} studies, sha256 {t_sha[:16]}) replace steven_v2")
     prep = (PREP.replace("__DRAW_SEED__", str(DRAW_SEED)).replace("__N_TRAIN__", str(a.n_train))
+                .replace("__TEACHER_FOLD__", str(a.teacher_fold))
                 .replace("__TARGETS_B64__", repr(t_b64)).replace("__TARGETS_SHA__", repr(t_sha))
                 .replace("__TARGETS_NAME__", repr(t_name)))
     cells = [setup, prep, TRAIN, SCORE]
@@ -436,7 +446,8 @@ def main() -> None:
 
     # the A/B keeps its slugs; a Stage A run is a different experiment and gets its own
     slug = {"raptor44": f"rsna-knee-backbone-ab-{a.arch}", "stage_a": f"rsna-knee-c6-train-{a.arch}",
-            "stage_b": f"rsna-knee-c7-train-{a.arch}"}[a.corpus] + (f"-{a.tag}" if a.tag else "")
+            "stage_b": f"rsna-knee-c7-train-{a.arch}"}[a.corpus] + (f"-{a.tag}" if a.tag else "") \
+        + (f"-t{a.teacher_fold}" if a.teacher_fold else "")
     datasets = ((DATASETS if a.corpus == "raptor44" else DATASETS[2:]) + ([a.targets_from] if a.targets_from else [])
                 + a.extra_datasets)
     kernels = KERNELS + {"raptor44": [], "stage_a": STAGE_A_SHARDS, "stage_b": STAGE_B_SHARDS}[a.corpus]
