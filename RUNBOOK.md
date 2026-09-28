@@ -288,8 +288,10 @@ from radiologists reading IMAGES and which has never seen a competition knee —
    (`CORPDFS_FBK`) as SEPARATE files; ready image `reconstruction_esc` 320 × 320 over **140 × 140 mm = 0.4375 mm/px** (ours 0.4167 —
    a 5% resize), 3 mm slices, ~33 per file; a hashed `patient_id` per file (→ the hold-out goes by patient); Siemens Aera 1.5 T and
    Biograph mMR 3 T, `institutionName` NYU (the overlap check's fingerprint). Knee side: not in the header — still open.
-   **Download STALLED** at 18:14: `knee_singlecoil_train.tar.xz` 23.8 of ~72.7 GB, no process running (the signed link is in the
-   owner's email; `curl -C -` resumes it); `knee_singlecoil_val` (~14.9 GB) not started. A truncated .tar.xz still unpacks up to the
+   **Download STALLED** at 18:14 at 23.8 GB; **RESUMED 19:10** at the owner's word (links from the NYU email, kept in the session
+   scratchpad, never the repo): the partial's last 64 KB matched the server byte for byte, so `curl -C -` continues it. Sizes:
+   train **78,016,052,604** B, val **16,050,975,296** B; both in parallel, ~7 MB/s, **ETA ~22:00**; each restarts itself if it
+   stalls (`--speed-limit`), under `caffeinate` so the Mac stays awake. A truncated .tar.xz still unpacks up to the
    cut, so the converter can be built on what is there.
 2. **Teacher** (~1–2 GPU-h): a backbone that has NOT seen competition labels — Ortho or an ImageNet CoAtNet, NOT the public 0.928
    CoAtNet (it trained on our knees, so its predictions would echo their report labels) — fine-tuned on fastMRI+.
