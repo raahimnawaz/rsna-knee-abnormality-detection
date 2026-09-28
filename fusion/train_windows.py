@@ -46,6 +46,7 @@ from __future__ import annotations
 
 import argparse
 import json
+import math
 import os
 import random
 import sys
@@ -323,6 +324,7 @@ class WindowMIL(nn.Module):
                  n_slots: int = 0):
         super().__init__()
         self.encoder, self.res, self.n_slots = encoder, res, n_slots
+        self.affine = 0.0            # --aug-affine; a plain attribute, so state_dict and last.pt are unchanged
         f = encoder.num_features
         self.norm = nn.LayerNorm(f)
         self.att = nn.Sequential(nn.Linear(f, 256), nn.Tanh(), nn.Dropout(drop), nn.Linear(256, n))
@@ -350,6 +352,15 @@ class WindowMIL(nn.Module):
             x = (x * gain.repeat_interleave(k).view(-1, 1, 1, 1)).clamp_(0, 1)
         if x.shape[-1] != self.res:
             x = F.interpolate(x, size=(self.res, self.res), mode="bilinear", align_corners=False)
+        if self.affine and self.training and gain is not None:
+            # per-window mild affine at strength 1: rotate +-10 deg, zoom +-10%, shift +-5%; never a flip (laterality)
+            n, dev, s = x.shape[0], x.device, self.affine
+            u = lambda: torch.rand(n, device=dev) * 2 - 1                        # noqa: E731
+            th, sc, tx, ty = u() * s * math.pi / 18, 1 + u() * 0.1 * s, u() * 0.05 * s, u() * 0.05 * s
+            c, si = torch.cos(th) / sc, torch.sin(th) / sc
+            m = torch.stack([torch.stack([c, -si, tx], 1), torch.stack([si, c, ty], 1)], 1)
+            x = F.grid_sample(x, F.affine_grid(m, list(x.shape), align_corners=False), mode="bilinear",
+                              padding_mode="zeros", align_corners=False)
         return (x - self.mean) / self.std
 
     def forward(self, x, mask=None, gain=None, slot=None, pos=None):
@@ -487,6 +498,8 @@ def main() -> None:
     # Stage B's package (RUNBOOK); every one of these defaults to the behaviour before it existed
     ap.add_argument("--res", type=int, default=0, help="encoder input size; 0 = the arch's own (ortho 336)")
     ap.add_argument("--drop-path", type=float, default=0.0, help="stochastic depth rate")
+    ap.add_argument("--aug-affine", type=float, default=0.0,
+                    help="training-only per-window affine, strength 1 = rotate 10 deg / zoom 10%% / shift 5%%; no flips")
     ap.add_argument("--llrd", type=float, default=1.0, help="layer-wise LR decay per ViT block; 1 = off")
     ap.add_argument("--pos-emb", action="store_true", help="slot + depth embedding per window")
     ap.add_argument("--fit-budget", action="store_true",
@@ -578,6 +591,9 @@ def main() -> None:
         if rank != 0:
             enc = build_encoder(a.arch, a.weights_dir, res, a.drop_path)
         model = WindowMIL(enc, res, n_slots=len(corpus.slot_sizes) if a.pos_emb else 0).to(dev)
+    if a.aug_affine and not is_qwen:
+        model.affine = a.aug_affine
+        log(f"augmentation: per-window affine at strength {a.aug_affine} (training only), plus the intensity gain")
     if (not is_qwen and ARCHS[a.arch].get("ckpt", True) and hasattr(model.encoder, "set_grad_checkpointing")
             and (amp or os.environ.get("TW_FORCE_CKPT"))):
         # NON-reentrant checkpointing: re-entrant checkpoints and DDP's gradient hooks do not mix
@@ -823,6 +839,7 @@ def main() -> None:
                    "n_train": len(tr), "n_val": len(va), "n_gold": len(gold_ids), "k": a.k, "bs": a.bs,
                    "bb_lr": a.bb_lr, "head_lr": a.head_lr, "wd": a.wd, "seed": a.seed, "res": res,
                    "drop_path": a.drop_path, "llrd": a.llrd, "pos_emb": a.pos_emb, "eval_windows": a.eval_windows,
+                   "aug_affine": a.aug_affine,
                    "labels_sha256": __import__("hashlib").sha256(Path(a.labels).read_bytes()).hexdigest()
                    if a.labels else None,
                    "primary": "last epoch", "secondary": "mean of last-3 epoch weights (fixed, not selected)",
