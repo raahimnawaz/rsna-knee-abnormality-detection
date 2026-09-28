@@ -275,6 +275,20 @@ so the real gain is somewhat smaller.) **Proposed:** 4-fold CNN teachers (`--tea
 Stage A cache) or ~3 GPU-h on Kaggle — → student targets → gold gate (pre-registered before the folds run) → students; 4-fold Ortho
 teachers (~25 GPU-h) only if the CNN's targets fall short. The zoom / resolution / RadImageNet arms are judged on gold teacher value too.
 
+**🧾 FREE-RESOURCES AUDIT — 09-27 ~20:30 (owner: "are we making the best use of free resources? innovate, don't invent").**
+USING the best available: labels `dread_soft` (every other public table benched on gold 09-23, `DECISIONS.md`: none beats `steven_v2`;
+two contain gold — leaks); the 0.943 stack as the base; the 0.928 CoAtNet as the student start (check passed); OrthoFoundation; the
+public training script (ported); pilkwang's free OOF (tested tonight as a teacher: +0.003, useless); forum recipes; the Mac's GPU (now);
+Kaggle CPU for checks. Our own builds with a public twin are kept on evidence (Stage B +0.014 LB over the public geometry).
+**NOT using:** (1) **fastMRI knee DICOMs** — ~10,000 full clinical NYU knee exams, all planes, unlabelled; our access already covers
+them (`knee_DICOMs_batch1` 137.0 GB + `batch2` 30.6 GB). The standard way to use them is Noisy Student / distillation: the best
+available model (the public 0.928 CoAtNet, which never saw them) labels them, a student trains on ours + theirs. Our DICOM → Stage A
+pipeline already exists (`build_slots64.py`). Evidence of size: more real-labelled knees (3,200 → 4,349) was +0.010 LB in the public
+model's ablation; pseudo-labelled knees are worth less — unmeasured here. Costs: ~7 h download, disk, ~4 GPU-h to label, students 2–3×
+longer; the agreement question (derived data on Kaggle) and the NYU-overlap check apply. Cheapest test first: the CNN on the Mac with
+vs without them. (2) **A team merger** (other teams' models + their 30 GPU-h/week each; deadline 10-15) — the owner's call.
+(3) Kaggle TPU quota (20 h/week) and Colab's free T4 — skipped: a TPU port is invention, and Colab re-downloads 32 GB per session.
+
 **🗺 (SUPERSEDED 09-27 by the target system above) ROADMAP IF TEACHER → STUDENT WORKS — proposed 2026-09-27, the owner to confirm; each step keeps its own rule.**
 "Works" = student LB ≥ 0.926 (`dread` 0.916 + 0.010). Quota resets Fri 17:00 PDT (10-02, 10-09, 10-16); final 10-22 16:59 PDT;
 merger / entry deadline **10-15**. Two finals, and they serve BOTH tracks.
