@@ -137,8 +137,8 @@ designed (report + NYU beats report on its findings' macro, gold-58, P ≥ 0.95;
 alone), pre-registered before it runs. (2) **CPU smoke of both student kernels on Kaggle** (no quota; the 09-27 smoke took 27 min) with
 the real targets file, so Friday cannot die on a flag. (3) **Pre-register the students' LB rules** before the push. (4) Keep the Mac
 awake with the app open Friday 17:20 — the scheduled task needs it, and today an app self-update killed a run.
-**Hardware (owner's what-if, 09-28): a Mac Studio (M5 Ultra).** This Mac is a base M5 (10 GPU cores, 16 GB): ResNet34 3.4 min/epoch vs
-~2 on a T4. An Ultra (if like past Ultras, ~8× the GPU cores, 100s of GB memory) would run teachers, round 2 and likely the students
+**Hardware (owner's what-if, 09-28): a Mac Studio (M5 Ultra).** This Mac is a base M5 (10 GPU cores, 16 GB): ResNet34 ~740 studies/min
+(2,681 in 3.4–3.9 min) vs ~1,840 on a Kaggle T4×2 session (3,502 in 1.9 min) → **~0.4× a Kaggle session**. An Ultra (if like past Ultras, ~8× the GPU cores, 100s of GB memory) would run teachers, round 2 and likely the students
 locally, 24/7, off the ~30 GPU-h/week quota — measure one epoch of each model first (MPS: no `torch.compile`, ViT-L untested). Finals
 still infer on Kaggle's T4s (train locally, upload weights). Competition data must stay reachable only by team members (rules §7.b).
 **Owner Qs 09-28 ~14:15.** (a) *Route the blend to the model best at each finding, or per study?* Per-finding weights need per-finding
@@ -175,6 +175,10 @@ teacher, round 2 and gold ×3 in the finals. The 168 GB fastMRI clinical DICOMs 
 better unfitted (`dread_soft` unscorable on gold, +0.015 on the LB). Perfect reading of the text: ~0.92–0.94 at most (hand read on 30
 gold knees, DATA §1: +0.055 [+0.005, +0.111], one reader). Beyond that the truth is not in the text (DATA §12). The extractor is not
 our ceiling: report + image teacher reads 0.915–0.922 on gold today.
+**⛔ Team merger: NO (owner, 09-28 14:30).** **Studio throughput (owner, 09-28):** a 2025 Studio is an M4 Max (≤40 GPU cores) or M3
+Ultra (≤80) — estimated ~1–1.4× (Max) or ~2–2.5× (Ultra) a Kaggle session, 24/7 = 168 h/week vs Kaggle's 30 → ~5–14× the weekly
+compute, on top of Kaggle. Buys: Ortho k-fold teachers (~25 GPU-h, the strongest teacher), round 2, students off-quota. An estimate
+from core counts — the first hour on it is a one-epoch benchmark of each model (CoAtNet / Ortho at 384 never ran on MPS).
 (p) *Would a 0.92 reader help?* Modestly: +0.02 gold ≈ +0.01 LB single model at the ~½ transfer, less in the blend, and it overlaps
 the teacher (both fix label errors). Route: Claude Opus graded read with the official cut-offs (`extractor/llm_extract.py`), iterate
 on the 303 hand set (~$5–10), full corpus ~$60–150, rank-mean with `dread_soft`. Blocker: no cheap judge — `dread_soft` has no gold
