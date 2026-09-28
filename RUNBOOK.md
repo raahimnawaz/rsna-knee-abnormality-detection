@@ -384,8 +384,15 @@ any teacher: ACL = high-grade only (low-grade 0), Effusion ungraded (over-calls 
 box (Fracture left blank), Baker's = periarticular cyst (noisy), the rest blank. Hold-out 83 knees by patient (seed 20260927;
 ACL 6, Effusion 12, Contusion 14, Baker's 17 — report-only). Trial run: ResNet34, `--slots cor_1,cor_2 --allow-missing-labels`,
 2 epochs on 30 knees, CPU — trains, evaluates, writes (the first "grad-norm nan" is the log's initial value, not a NaN).
-**Still open:** knee size vs the competition (needs the Stage A cache, downloading); the NYU-overlap check (needs the competition
-scanner list, `headers.parquet`); where the converted set may live (the agreement).
+**✅ NYU-OVERLAP CHECK 2026-09-28 07:10 — no sign that any fastMRI knee is a competition knee** (owner OK'd the scanner list:
+`zhukovoleksiy/rsna-metadata-probe` `headers.parquet`, sha `bb2b67e2` = our Kaggle runs' record). NYU's 1,172 files: Siemens Aera 1.5 T /
+Skyra / Biograph_mMR / Prisma_fit 3 T at NYU, HJD, TH; one protocol, coronal PD (TR ~2750–2800, TE 27–32) + PD fat-sat (TR ~2870–3000, TE
+33), 15-channel coil, 320 matrix over 140 mm. The competition has those MODELS (Aera 522 studies, Skyra 184, Prisma 109, Biograph_mMR 2)
+but not that PROTOCOL: its 2 Biograph_mMR studies run COR T2 FS (TR 3800 / TE 68) + COR T1 — no coronal PD; the only NYU-like TR / TE / 3 mm
+coronals are 108 `MAGNETOM Prisma` studies (not Prisma_fit) at 384 × 384, 0.39 mm, software XA30 (2021+), paired with T1, not PD. Nothing
+matches on model + protocol, so no thumbnail pass was needed. The converted set goes to Kaggle as a PRIVATE dataset (owner OK'd the
+agreement question, 09-28). **Still open:** knee size vs the competition (needs the Stage A cache). ⚠ The NYU cache's manifest carries
+the Stage A spec (`c6-64slice`, shard 0 of 1): never attach it beside the Stage A shards — `Corpus` would refuse the mixed set.
 
 **What fastMRI+ could buy — an ESTIMATE, not a gate (owner's question 09-27 ~19:20; gold-58, report = `steven_v2`, the only report
 table with gold rows).** Per finding, report → report + an image model (Ortho's in-domain OOF): ACL 0.993 → 0.994 (no room) · Effusion
