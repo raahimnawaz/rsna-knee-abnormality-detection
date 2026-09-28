@@ -498,6 +498,9 @@ def main() -> None:
     # Stage B's package (RUNBOOK); every one of these defaults to the behaviour before it existed
     ap.add_argument("--res", type=int, default=0, help="encoder input size; 0 = the arch's own (ortho 336)")
     ap.add_argument("--drop-path", type=float, default=0.0, help="stochastic depth rate")
+    ap.add_argument("--init", type=Path, help="start from these weights instead of the backbone's pretraining: our "
+                    "last.pt, or a public checkpoint dict {'model': ...} with backbone.* / clsW / clsb keys (the CC0 "
+                    "0.928 CoAtNet). A bare filename is searched for under --corpus. With --epochs 0: evaluate only")
     ap.add_argument("--aug-affine", type=float, default=0.0,
                     help="training-only per-window affine, strength 1 = rotate 10 deg / zoom 10%% / shift 5%%; no flips")
     ap.add_argument("--llrd", type=float, default=1.0, help="layer-wise LR decay per ViT block; 1 = off")
@@ -591,6 +594,22 @@ def main() -> None:
         if rank != 0:
             enc = build_encoder(a.arch, a.weights_dir, res, a.drop_path)
         model = WindowMIL(enc, res, n_slots=len(corpus.slot_sizes) if a.pos_emb else 0).to(dev)
+    if a.init:
+        import hashlib
+        src = a.init if a.init.exists() else next(iter(sorted(a.corpus.rglob(a.init.name))), None)
+        if src is None:
+            raise SystemExit(f"--init {a.init}: not found (nor under {a.corpus})")
+        sd = torch.load(src, map_location="cpu", weights_only=False)
+        sd = sd["model"] if isinstance(sd, dict) and "model" in sd else sd
+        ren = {"clsW": "w", "clsb": "b"}                           # the public raptor head's names for ours
+        sd = {("encoder." + k[len("backbone."):]) if k.startswith("backbone.") else ren.get(k, k): v for k, v in sd.items()}
+        missing, unexpected = model.load_state_dict(sd, strict=False)
+        zero_init = {k for k in missing if k.startswith(("slot_emb.", "depth_proj."))}   # start at zero by design
+        if unexpected or set(missing) - zero_init:
+            raise SystemExit(f"--init {src}: missing {sorted(set(missing) - zero_init)[:8]}, unexpected {unexpected[:8]}")
+        a.init_sha256 = hashlib.sha256(src.read_bytes()).hexdigest()
+        log(f"init from {src} (sha256 {a.init_sha256[:16]}): {len(sd)} tensors, strict but for "
+            f"{len(zero_init)} zero-initialised slot/depth weights")
     if a.aug_affine and not is_qwen:
         model.affine = a.aug_affine
         log(f"augmentation: per-window affine at strength {a.aug_affine} (training only), plus the intensity gain")
@@ -839,7 +858,8 @@ def main() -> None:
                    "n_train": len(tr), "n_val": len(va), "n_gold": len(gold_ids), "k": a.k, "bs": a.bs,
                    "bb_lr": a.bb_lr, "head_lr": a.head_lr, "wd": a.wd, "seed": a.seed, "res": res,
                    "drop_path": a.drop_path, "llrd": a.llrd, "pos_emb": a.pos_emb, "eval_windows": a.eval_windows,
-                   "aug_affine": a.aug_affine,
+                   "aug_affine": a.aug_affine, "init": str(a.init) if a.init else None,
+                   "init_sha256": getattr(a, "init_sha256", None),
                    "labels_sha256": __import__("hashlib").sha256(Path(a.labels).read_bytes()).hexdigest()
                    if a.labels else None,
                    "primary": "last epoch", "secondary": "mean of last-3 epoch weights (fixed, not selected)",

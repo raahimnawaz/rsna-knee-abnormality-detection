@@ -359,6 +359,9 @@ def _git_head() -> str:
 def main() -> None:
     ap = argparse.ArgumentParser(description=__doc__.splitlines()[0])
     ap.add_argument("--arch", choices=["ortho", "dinov3l", "coatnet", "resnet34", "qwen35vl"], required=True)
+    ap.add_argument("--extra-datasets", nargs="*", default=[], help="more Kaggle datasets to attach (e.g. public weights "
+                    "for --init)")
+    ap.add_argument("--cpu", action="store_true", help="a CPU session even in full mode (an eval-only check: no GPU quota)")
     ap.add_argument("--train-args", default="", help="extra train_windows flags, one string (e.g. '--bb-lr 3e-4'): "
                     "for an arm that differs from its recipe by a named setting")
     ap.add_argument("--out", type=Path, required=True)
@@ -434,7 +437,8 @@ def main() -> None:
     # the A/B keeps its slugs; a Stage A run is a different experiment and gets its own
     slug = {"raptor44": f"rsna-knee-backbone-ab-{a.arch}", "stage_a": f"rsna-knee-c6-train-{a.arch}",
             "stage_b": f"rsna-knee-c7-train-{a.arch}"}[a.corpus] + (f"-{a.tag}" if a.tag else "")
-    datasets = (DATASETS if a.corpus == "raptor44" else DATASETS[2:]) + ([a.targets_from] if a.targets_from else [])
+    datasets = ((DATASETS if a.corpus == "raptor44" else DATASETS[2:]) + ([a.targets_from] if a.targets_from else [])
+                + a.extra_datasets)
     kernels = KERNELS + {"raptor44": [], "stage_a": STAGE_A_SHARDS, "stage_b": STAGE_B_SHARDS}[a.corpus]
     nb = {"cells": [{"cell_type": "code", "execution_count": None, "metadata": {}, "outputs": [],
                      "source": c.strip("\n").splitlines(keepends=True)} for c in cells],
@@ -445,7 +449,7 @@ def main() -> None:
     (a.out / f"{slug}.ipynb").write_text(json.dumps(nb, indent=1), encoding="utf-8")
     meta = {"id": f"{OWNER}/{slug}", "title": slug, "code_file": f"{slug}.ipynb",
             "language": "python", "kernel_type": "notebook", "is_private": True,
-            "enable_gpu": mode != "smoke", "enable_tpu": False,
+            "enable_gpu": mode != "smoke" and not a.cpu, "enable_tpu": False,
             # internet: Ortho's checkpoint comes from the authors' GitHub (sha-checked), the other
             # encoders from the HF Hub. A training run, not a submission.
             "enable_internet": True, "keywords": [],

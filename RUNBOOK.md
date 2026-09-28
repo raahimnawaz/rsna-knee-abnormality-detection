@@ -180,6 +180,15 @@ line still wants outside data, image-read labels or a merger; the efficiency tra
 - **Knee pretraining's own worth is still unmeasured:** `ortho − dinov3l` (generic DINOv3-L) was never run (§2c).
 - OAI-derived pretrained weights (KneeXNet-2.5D etc.): wait for the host — the 12th-place team has asked.
 
+**⏩ THE PUBLIC 0.928 CoAtNet IN OUR PIPELINE — a CHECK, not an experiment (`2026-09-27 17:40 PDT`; owner: "sure download").**
+`dreaddevelopment/raptor-knee-maxspan` (CC0-1.0; `raptor_ft_coatnet_v5_full_swa.pt`, sha256 `20d45e07`, 293 MB, local at
+`data/external/raptor/`) is OUR layout: 486 tensors, every shape equal, three names differ (`backbone.`→`encoder.`,
+`clsW`→`w`, `clsb`→`b`); `train_windows --init` now loads it strictly (tested locally, eval-only with `--epochs 0`). Its
+checkpoint records **gold-58 0.9214** (SWA over epochs 14/12/15; gold was in its training at ×3, so this is NOT a held-out read).
+The check: that model through OUR Stage A cache and OUR eval, on Kaggle CPU (no GPU quota), must reproduce **0.9214 ± 0.010** on
+gold-58 → our pipeline reads images as theirs does, and fine-tuning it on teacher → student labels is a drop-in. Outside ±0.010 →
+find the input difference before building on it.
+
 **⏩ SUB B-dread — our new-labels model in the public 0.943 stack `pre-registered 2026-09-27 16:40 PDT, before the build`.**
 The owner asked 09-27. The stack was re-pulled and is UNCHANGED since Sub B (23/23 code cells verbatim), so this is a clean A/B
 against Sub B's **0.936**: same stack, same rule (ours one of three equal families, 1/3, nothing fitted), only our member moves
