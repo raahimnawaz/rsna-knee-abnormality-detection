@@ -171,6 +171,10 @@ are not English (1,715 of 4,349 English by a crude test); 27B does not fit 16 GB
 synovitis, fracture) elsewhere?* No allowed, usable source: OAI closed, SKM-TEA 155 knees on a research sequence (900 GB, Stanford
 non-commercial terms), MRNet / KneeMRI are report labels, KneeCoT ruled out by the host. Those findings rely on the in-domain
 teacher, round 2 and gold ×3 in the finals. The 168 GB fastMRI clinical DICOMs add KNEES (pseudo-labelled), not truth.
+(o) *Is ~0.90 the realistic best for a report extractor?* For automated readers, yes: `steven_v2` 0.887 on gold; 13 tables + Qwen, none
+better unfitted (`dread_soft` unscorable on gold, +0.015 on the LB). Perfect reading of the text: ~0.92–0.94 at most (hand read on 30
+gold knees, DATA §1: +0.055 [+0.005, +0.111], one reader). Beyond that the truth is not in the text (DATA §12). The extractor is not
+our ceiling: report + image teacher reads 0.915–0.922 on gold today.
 
 **⏩ SMALL-CNN BASELINE `pre-registered 2026-09-27 16:45 PDT, before any push` — the owner said yes 09-27.** Question: does
 the board's *"simple CNN at 224 px scores 0.94+"* (`REFERENCE.md` §3.1b) reproduce in OUR pipeline, at a fraction of Ortho's
