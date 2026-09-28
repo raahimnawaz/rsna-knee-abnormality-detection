@@ -144,6 +144,26 @@ paired vs Ortho −0.036: both below the −0.010 bar; C (lr 1e-3 + affine) deci
 diagnostic): gold +0.0001, the 691 −0.0057 ± 0.0023 (2.5σ worse)** — a weaker member at equal weight dilutes the stronger one,
 the Sub B lesson again. Rank correlation Ortho~CNN 0.78 (they do disagree; the CNN is just weaker). (Averaging 5 CNN folds would lift a TEST-time
 ensemble by ~0.005–0.015, but a teacher labels each study with ONE fold model — the single model must be good.)
+**🔎 WHY THE CNN LOSES — owner's question 2026-09-27 ~18:45 ("too small? wrong type? would the crop-and-classify CNNs fit?");
+analysis of A / B only, C still running, no new run.** Per finding, B − Ortho on the 691 (`score_oof.py`): Lateral Meniscus
+−0.081, MCL −0.074, Lateral OA −0.065, ACL −0.041, Medial Meniscus −0.041, PF OA −0.033, Baker's −0.027, Contusion −0.027, Medial
+OA −0.017, Effusion −0.015, Synovitis −0.008, Fracture −0.008.
+1. **Not "too small to learn".** B's last-epoch train loss **0.606 is below Ortho's 0.625** on the same labels and studies, yet it
+   is 0.036 worse held out: it fits as well and generalises worse (schedules differ, so a rough sign). A bigger ImageNet CNN
+   would fit the training labels better still, which is not what is missing. RSNA 2024 lumbar agrees (§4.5 of `REFERENCE.md`):
+   ConvNeXt-small beat base beat large, and EfficientNet-V2-S is ResNet34's size (~21 M parameters).
+2. **The two real differences from Ortho:** what it saw before (ImageNet photos vs OrthoFoundation's orthopaedic MRI, a 303 M
+   DINOv3 ViT-L), and detail (224 px of a 140 mm field = 0.63 mm/px vs Ortho's 0.42). With the better lr the gap is no longer
+   cleanly "small structures" (Fracture −0.008 but Lateral OA −0.065), so detail explains part of it, not all.
+3. **Crops are the right shape of fix for the findings we lose** (menisci, MCL, ACL: small, at known places), with four costs:
+   the host gives no locations (the lumbar winners had coordinates), so they come from anatomy — fixed mm crops (free, crude),
+   TotalSegmentator MR (adds time to the ~9 h submission) or fastMRI+ boxes (coronal only); the stored Stage A corpus is 336 px,
+   so a crop from it tops out at Ortho's 0.42 mm/px and finer needs a re-extract from DICOM; a multi-week build; and the
+   §U→D2 warning stands — a measured case first.
+4. **The cheap measured case, if wanted:** the CNN is ~40× cheaper than Ortho, so it is where to test whether zooming in helps
+   before building anything for Ortho — B's recipe plus a zoomed centre crop as extra slots, ~0.7 GPU-h, judged on ACL + MCL +
+   both menisci. NOT pre-registered; no quota until Friday's reset, and Friday is Stage B-`dread`. Priority stays: C's read →
+   the fastMRI+ teacher tonight → Friday.
 
 **⏳ TEACHER → STUDENT — design 2026-09-27 (the owner: "we'll take the better labels teacher student approach"); its rule is
 fixed once the small-CNN read picks the teacher.** Why now: gold-58 says the report label and an image model's OOF, averaged,
@@ -206,7 +226,7 @@ locally, nothing run on GPU:**
 - `labeling/build_student_targets.py` — report label + any number of partial OOF teachers → student targets (each teacher
   mapped onto the base's values on its studies, then averaged; uncovered studies unchanged; audit list; `--gold` gate:
   with Ortho's OOF as the teacher, gold-58 0.8873 → 0.9216) — `e5143a6`.
-- **Blocked:** the fastMRI+ converter (`h5py` not installed — a PyPI download; asking the owner). Known from fastMRI+: v1
+- **Unblocked 18:40:** `h5py` 3.16.0 installed in `.venv` (owner OK) — the fastMRI+ converter can be written. Known from fastMRI+: v1
   labels = ACL (high-grade), Effusion, Contusion (fracture/contusion box), Baker's (periarticular cyst); meniscus and OA
   need the tear's SIDE from box position + knee side — v2.
 **Order to run, each with its own rule when it is pushed:** NYU teacher (fastMRI+ corpus, `--slots cor_1,cor_2
