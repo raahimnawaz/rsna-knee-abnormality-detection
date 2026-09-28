@@ -252,6 +252,18 @@ every training label we have is an LLM reading the REPORT. On gold-58 the traini
 2–4 are each ~+0.005–0.010 on a single model, less on the blend — the ~0.95 landing. Only 1 aims at 0.965; it cannot be sized without
 trying. Owner decisions: a radiologist who could join by 10-15? send the OAI / Stanford terms drafts?
 
+**⏩ CNN TEACHERS — 4 folds on the Mac `pre-registered 2026-09-28 ~06:55 PDT, before any fold runs` (the owner, 09-27: CNN
+teachers on the Mac).** Recipe C exactly: `resnet34.a1_in1k` at 224, Stage A, `dread_soft` (sha `8cec477f`), seed 42, k 12, bs 8, head
+and backbone lr 1e-3, `--aug-affine 1`, **17 epochs fixed** (C's count), `--mps` (Apple GPU, bf16; the CUDA path unchanged; trial on 30
+NYU knees: 0.15 s per 2-study step, 27× the CPU). Folds: `provenance/folds_site.csv` training folds 1–4 (821 / 918 / 924 / 839 — their
+union is the 3,502 exactly, checked against `runs_dread_ortho/train_studies.csv`); fold K trains on the other three and predicts fold K
+(its OOF), the 691 and gold-58. Teacher on gold = the mean of the four folds. **THE RULE** (gold-58, paired bootstrap, base `steven_v2`
+— the only report table with gold rows): **PASS iff report + CNN teacher beats report alone at P ≥ 0.95.** PASS → student targets =
+`dread_soft` + the CNN OOF (`build_student_targets.py`); the NYU teacher joins only if it passes its own gate AND the mix does not read
+below the CNN alone (the weak-teacher lesson). FAIL → Ortho k-fold teachers (~25 GPU-h), decided then. Reported: each fold's 691 macro,
+per finding, minutes per fold. Recipe C was the best teacher in last night's exploratory reads (a 3-way pick, ~+0.003–0.005
+optimistic). ~1 h a fold on the Mac, ~4 h in all, no GPU quota.
+
 **🔬 TEACHERS ON GOLD — 09-27 ~20:15 (owner: "are our labels as good as they realistically could be?"; no radiologist; the OAI
 email SENT by the owner). EXPLORATORY gold reads, not pre-registered — gold-58 is being spent; the student's LB is the real judge.**
 `build_student_targets --gold`, base `steven_v2` (0.8873), one teacher's gold OOF each, paired bootstrap:
@@ -417,6 +429,10 @@ the vote plus 7+ more members; ours at 0.916 is new diversity (an orthopaedic-MR
 **✅ SUBMITTED 2026-09-27 16:29 PDT** (ref **56621730**, `rsna-knee-sub-b-ortho-blend-dread` v1, from `e4306de`). Commit run: weights
 sha ok; gate max |Δp| **0.00079**; `ARMS: public stack (2 families, as published) + ortho_stage_a = 3 families; w_ours 0.3333`;
 the public publish cell COMPLETE, 3 rows; no traceback. The hidden rerun is the stack's (~8–9 h) — read it tomorrow.
+**⛔ READ 2026-09-28 06:45 — LB 0.939: FAIL by the rule (≥ 0.944), as predicted.** +0.003 over Sub B (0.936) for +0.015 of member
+strength alone (0.901 → 0.916) at 1/3: **the exchange rate is ~0.2**, and the blend is still 0.004 BELOW the stack alone (0.943). A family at
+1/3 of the tuned stack pays only if it is about as strong as the stack's own core (the 0.928 CoAtNet) — so the route is STRONGER students,
+above all the CoAtNet student (it starts at 0.928), and then our own blend, not a 0.916 Ortho added at 1/3. No re-weighting on the LB.
 
 **✅ 2026-09-27 09:48 PDT — dread RETRAIN SUBMITTED** (ref **56614330**, `rsna-knee-sub-a-ortho-dread-nall` v1, built from
 `cffd681`; the owner said "just submit it when it's done"). Run: 8/8 epochs (time budget hit at epoch 7 iter 1567, as step 5),

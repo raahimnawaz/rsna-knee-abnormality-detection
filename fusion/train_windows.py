@@ -33,7 +33,8 @@ THE RECIPE, read from their script (not its description), and where this differs
   * NO epoch is selected. They keep the best epoch on gold-58, which is `RUNBOOK.md` §3 rule 1.
     Primary is the LAST epoch; secondary, fixed in advance, is the weight average of the last
     three. Gold-58 is scored and written, never used.
-  * fp16 + GradScaler on CUDA: a T4 has no bf16.
+  * fp16 + GradScaler on CUDA: a T4 has no bf16. `--mps` (a Mac, no CUDA): Apple's GPU under bf16 autocast, which
+    needs no scaler -- for the free CNN teachers and tests (2026-09-28); the CUDA path is unchanged.
 
 Normalisation is ImageNet's for every arm, and for Ortho that is not an assumption: its own
 pretraining code applies exactly these constants (`PREMORTEM.md` §9, resolved 2026-09-23).
@@ -389,6 +390,15 @@ def load_split(path: Path) -> list[str]:
     return pd.read_csv(path).StudyInstanceUID.astype(str).drop_duplicates().tolist()
 
 
+def autocast(dev, amp: bool):
+    """fp16 on CUDA (a T4 has no bf16), bf16 on Apple's MPS (no GradScaler needed), nothing on CPU."""
+    if amp:
+        return torch.autocast("cuda", dtype=torch.float16)
+    if str(dev).startswith("mps"):
+        return torch.autocast("mps", dtype=torch.bfloat16)
+    return nullcontext()
+
+
 @torch.no_grad()
 def predict(model, ds, dev, amp, bs) -> np.ndarray:
     model.eval()
@@ -399,7 +409,7 @@ def predict(model, ds, dev, amp, bs) -> np.ndarray:
     # shape to compile, and on 12 studies the 09-26 bench's eval ran 1.4-2.3x slower -- so eval runs eager.
     with torch.compiler.set_stance("force_eager"):
         for x, m, sl, ps, _ in dl:
-            with torch.autocast("cuda", dtype=torch.float16, enabled=amp):
+            with autocast(dev, amp):
                 out.append(torch.sigmoid(model(x.to(dev), m.to(dev), slot=sl.to(dev), pos=ps.to(dev)).float())
                            .cpu().numpy())
     return np.concatenate(out) if out else np.zeros((0, len(LABELS)), np.float32)
@@ -522,6 +532,8 @@ def main() -> None:
     ap.add_argument("--lora-lr", type=float, default=1e-4, help="qwen archs: LoRA learning rate")
     ap.add_argument("--ckpt-blocks", type=int, default=-1,
                     help="gradient-checkpoint only the first N encoder blocks; -1 = all (the default), 0 = none")
+    ap.add_argument("--mps", action="store_true",
+                    help="no CUDA: train on Apple's GPU under bf16 autocast instead of the CPU")
     ap.add_argument("--compile", action="store_true",
                     help="torch.compile the encoder in place, for training steps only (eval runs eager)")
     ap.add_argument("--eval-windows", type=int, default=0,
@@ -535,7 +547,8 @@ def main() -> None:
     random.seed(a.seed)
     np.random.seed(a.seed)
     torch.manual_seed(a.seed)
-    dev = f"cuda:{local}" if torch.cuda.is_available() else "cpu"
+    dev = (f"cuda:{local}" if torch.cuda.is_available()
+           else "mps" if a.mps and torch.backends.mps.is_available() else "cpu")
     amp = dev.startswith("cuda")
     if rank == 0:
         a.out.mkdir(parents=True, exist_ok=True)
@@ -694,7 +707,7 @@ def main() -> None:
     def micro_step(x, sl, ps, y, sync: bool):
         gain = 1.0 + (torch.rand(len(x), device=dev) - 0.5) * 0.2
         with (nullcontext() if sync or world == 1 else net.no_sync()):
-            with torch.autocast("cuda", dtype=torch.float16, enabled=amp):
+            with autocast(dev, amp):
                 logits = net(x, gain=gain, slot=sl, pos=ps)
             if a.allow_missing_labels:                  # an unknown target carries no loss (e.g. fastMRI+)
                 known = torch.isfinite(y)
@@ -821,7 +834,7 @@ def main() -> None:
             raise SystemExit(f"ranks ended with different weights: {vals}")
     peak = torch.cuda.max_memory_allocated(dev) / 1e9 if amp else None
     per_fwd = float(np.median(step_times)) if step_times else None
-    bench = {"arch": a.arch, "device": torch.cuda.get_device_name(local) if amp else "cpu", "world": world,
+    bench = {"arch": a.arch, "device": torch.cuda.get_device_name(local) if amp else str(dev), "world": world,
              "micro_studies": a.micro, "k": a.k, "res": res, "eval_windows": a.eval_windows,
              "sec_per_micro_step_median": per_fwd,
              "sec_per_window_train": per_fwd / (a.micro * a.k) if per_fwd else None,
