@@ -105,6 +105,18 @@ only in `5fb0423`: the `resnet34` arch and a `ckpt` guard that is True for Ortho
 app is open; if closed, on next launch). It checks nothing is running, builds, verifies the flags, pushes once, and records here.
 Do NOT "Run now" before the reset — it would start an ~11 GPU-h run on ~1 h of quota. (09-26's task sat 7 h on a permission
 prompt — check on it Friday evening.)
+**⛔ SUPERSEDED 2026-09-28 07:35 — the owner: "yes swap that for friday".** Sub B-dread (0.939) showed a report-label Ortho of this
+class cannot lift the stack, so ~11 GPU-h on its twin changes no decision. Friday's slot goes to the students on teacher labels —
+see **FRIDAY 10-02 PUSH LIST** below. This run is NOT pushed; the scheduled task now pushes only that list.
+
+**🗓 FRIDAY 10-02 PUSH LIST — ⛔ NOT READY** (the scheduled task `rsna-push-stage-b-dread`, Fri 17:20 PDT, pushes ONLY what this block
+lists once it reads **✅ READY**, and nothing if it does not). To be written after today's CNN-teacher gold gate, each entry with its
+exact build command, kernel id, flag checks and its pre-registered rule. Intended, in order (Kaggle runs two GPU sessions at once):
+1. **CoAtNet student** — `--arch coatnet --init` the public 0.928 weights, student targets (`dread_soft` + CNN-teacher OOF). ~6 GPU-h.
+2. **Ortho student** — Stage B, the same student targets. ~10 GPU-h.
+3. **NYU teacher** — Ortho on `raahimnawaz/rsna-knee-fastmri-plus-cache` alone (`--slots cor_1,cor_2 --allow-missing-labels`),
+   pushed when a session frees. ~1–2 GPU-h.
+If the CNN teachers FAIL their gate, the students train on `dread_soft` alone and this list says so.
 
 **⏩ SMALL-CNN BASELINE `pre-registered 2026-09-27 16:45 PDT, before any push` — the owner said yes 09-27.** Question: does
 the board's *"simple CNN at 224 px scores 0.94+"* (`REFERENCE.md` §3.1b) reproduce in OUR pipeline, at a fraction of Ortho's
