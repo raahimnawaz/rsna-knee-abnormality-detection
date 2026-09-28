@@ -284,7 +284,13 @@ free gate) → student (`--init` public CoAtNet, `--targets` student table) → 
 from radiologists reading IMAGES and which has never seen a competition knee — the one thing report labels cannot give.
 1. **Convert** (Mac, free): each of the 1,172 h5 volumes' ready image → our 3-slice windows; its boxes → per-knee labels
    (ACL high-grade 101 · meniscus tear 663 · effusion 142 · fracture / contusion 119 · subchondral edema 196 · cartilage
-   full-thickness 122 · cysts 161). To confirm on the files: coronal-only, field of view (~140 mm, like our crop?), knee side.
+   full-thickness 122 · cysts 161). **Confirmed 19:10 on the two sample files:** coronal only, PD (`CORPD_FBK`) and PD fat-sat
+   (`CORPDFS_FBK`) as SEPARATE files; ready image `reconstruction_esc` 320 × 320 over **140 × 140 mm = 0.4375 mm/px** (ours 0.4167 —
+   a 5% resize), 3 mm slices, ~33 per file; a hashed `patient_id` per file (→ the hold-out goes by patient); Siemens Aera 1.5 T and
+   Biograph mMR 3 T, `institutionName` NYU (the overlap check's fingerprint). Knee side: not in the header — still open.
+   **Download STALLED** at 18:14: `knee_singlecoil_train.tar.xz` 23.8 of ~72.7 GB, no process running (the signed link is in the
+   owner's email; `curl -C -` resumes it); `knee_singlecoil_val` (~14.9 GB) not started. A truncated .tar.xz still unpacks up to the
+   cut, so the converter can be built on what is there.
 2. **Teacher** (~1–2 GPU-h): a backbone that has NOT seen competition labels — Ortho or an ImageNet CoAtNet, NOT the public 0.928
    CoAtNet (it trained on our knees, so its predictions would echo their report labels) — fine-tuned on fastMRI+.
 3. **Gate 1, free:** the teacher scores our gold-58 on the findings it covers — radiologists at another hospital, never seen.
