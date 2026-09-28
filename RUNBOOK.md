@@ -313,6 +313,9 @@ discounted for NYU's handicaps (another hospital, coronal only, 1,172 knees, ACL
 +0.010 LB, ~+0.005 central; less inside the 0.943 stack** (tomorrow's Sub B-dread read gives the member-at-1/3 exchange rate).
 `dread_soft` is a better base than `steven_v2`, so the real room is somewhat smaller. Worth its ~2 GPU-h as the only image-read
 truth we have; not a route to 0.965 on its own.
+*Owner, 19:55: "could it be 2.5%+?"* — **+0.025 is the CEILING, not a forecast:** it is what a PERFECT teacher on v1's five findings
+would buy a single model (+0.049 gold × ~½); v2's ceiling ~+0.032. On the final blend, 0.943 + 0.025 = 0.968 would beat today's first
+place (0.959) by 0.009. Realistic: single model +0.003 to +0.010, blend less (exchange rate from Sub B-dread tomorrow).
 Limits: one plane (ACL and effusion are read best sagitally), another hospital's scanners, one radiologist, side of a meniscus
 tear from box position only. Upload a derived cache to Kaggle only after the owner reads the agreement's redistribution terms.
 
