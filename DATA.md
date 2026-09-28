@@ -587,7 +587,12 @@ The last two are why a report reader has a ceiling (~0.90 on gold for the best t
 Today "trace effusion" and "no effusion" reach the image model as the same kind of negative.
 
 **What each kind of gap needs — candidate experiments, NOT run, NOT pre-registered yet:**
-1. **An auxiliary severity output** (the owner's idea, 09-26): a second head predicts the grade distribution
+1. **⛔ Mostly ALREADY IN THE TARGETS since 09-27 (measured 09-27):** `dread_soft`'s levels ARE severity grades. Cross-tab
+   against our Qwen graded read, Effusion: level 0.05 = "absent" 90%; **0.20 = "present, below threshold" 75%**; 0.85 = "meets"
+   65%; 0.95 = "meets" 93%. Medial Meniscus: 0.05 = absent 84%; 0.20 = "not mentioned" 95%; 0.45 = below threshold 82%; 0.80 /
+   0.95 = meets 75% / 89%. So training on `dread_soft` already teaches "small vs large" — part of its +0.015 on the LB. A separate
+   severity head would mostly repeat it; NOT tested, and not worth a run on its own. LOCATION (item 5) is the untested half.
+   Original note: **An auxiliary severity output** (the owner's idea, 09-26): a second head predicts the grade distribution
    (absent / below / borderline / meets) beside the 12 main outputs, so the model learns what small vs large
    looks like — the ordering AUROC rewards. Main targets stay `steven_v2`, so the 691 CAN judge it (fixed-target
    comparison). One run. Grades are Qwen's reading, which lost on gold as a *replacement* target (§11) — as a
