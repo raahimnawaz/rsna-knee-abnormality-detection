@@ -169,6 +169,31 @@ OA −0.017, Effusion −0.015, Synovitis −0.008, Fracture −0.008.
 = **B 0.8076**, paired vs Ortho **−0.036** < −0.010 → FAIL. fastMRI+ and Ortho carry the teacher role; Friday's Stage B-`dread` stays.
 One more clue for the diagnosis above: the affine raised C's final train loss (0.653 vs B's 0.606: less memorising) and held-out
 did not move, so the ceiling is what the features can see, not over-fitting. Files: `fusion/runs_r34v2_C/`.
+**A CNN-type model already nearly matches Ortho (owner's follow-up, 09-27 ~19:00: "can a more advanced setup make CNNs the path?").**
+In §2c's equal-setup A/B the ImageNet CoAtNet (convolutional early stages, 384 px, ~74 M) read **0.8047 vs Ortho 0.8148 (−0.010)** and
+beat it on MCL, Lateral OA, PF OA and Fracture; the public CoAtNet is **0.928 alone on the LB** (our Ortho 0.916), and it is already the
+student's planned start. So "CNN vs ViT" is not the gap; ResNet34 at 224 px from ImageNet-1k is. What separates the two: 224 vs 384 px,
+22 M vs ~74 M, ImageNet-1k vs 12k, attention in the late stages. The one medical-pretrained CNN ever run here (RadImageNet, 0.6924,
+§3w-2) was the old pipeline — "our training was refuted, not the architecture". **Tried:** lr ×3, 8 → 19 epochs, affine augmentation.
+**Never tried on a CNN:** more pixels, zoomed crops, medical pretraining, simple pooling instead of our attention head, more slices.
+**⏩ CNN TEST — detail vs pretraining `pre-registered 2026-09-27 ~19:10 PDT, before any code or run` — the owner: "yes the zoomed cropped
+test".** Why it changes a decision: in-domain k-fold teachers at Ortho's price are ~32 GPU-h (a week's quota); at a CNN's price they run on
+the Mac for free. **Where:** the Mac (M5 GPU, fp16 autocast; benched 19:05 on a 96-window step: **3.9 min/epoch at 224, 9.2 at 336**,
+~2× a Kaggle T4) — no quota. **Arms,** all B's recipe (Stage A, `dread_soft` sha `8cec477f`, the same 3,502 / 691, seed 42, k 12, bs 8,
+head lr 1e-3, backbone lr 1e-3, **18 epochs fixed**, no affine, primary = last epoch):
+- **B′ control** — ResNet34 at 224, whole image. Also the run-to-run floor: |B′ − B (0.8076, Kaggle)| > 0.010 → the Mac arms compare
+  only with each other.
+- **Z zoom** — B′ plus every window again as its centre 94 mm (the middle 67% of the 140 mm field) at 224 px = 0.42 mm/px, Ortho's
+  density; both views in one attention bag. Before any run: 20 rendered studies show the joint line inside the box.
+- **R resolution** — ResNet34 at 336, whole image: the same 0.42 mm/px as Z without cutting anything, at about Z's compute.
+- **P pretraining** — RadImageNet ResNet-50 at 224 (1.35 M radiology images; input x/127.5 − 1; strict load).
+**THE RULE:** paired on the 691 (`score_oof.py`). A lever **HELPS** iff arm − B′ > 0 at P ≥ 0.95; per finding and the small-structure
+group (ACL, MCL, both menisci) reported. The CNN is **USABLE** again iff the best arm − Ortho `dread` (0.8440) ≥ **−0.010** paired (a
+4-way pick, ~+0.004 optimistic) → the k-fold teachers run on the Mac. If two or more levers help and none reaches −0.010: **one**
+combined arm, same rule, then stop. Z helps → zoom views become a student candidate (its own LB test). Nothing helps → CNNs and crops
+are closed for this competition. **Needs:** the Stage A cache (~32 GB, our own `raahimnawaz/rsna-knee-stage-a-s{0..3}of4`), the
+RadImageNet encoder (~90 MB, `mattiaangeli/radimagenet-resnet50-encoder`), `train_windows` on MPS + `--zoom` + a `radimagenet_r50`
+arch. **Waiting on the owner's OK for the two downloads.** ~9 h of Mac time; fastMRI+ conversion goes first.
 
 **⏳ TEACHER → STUDENT — design 2026-09-27 (the owner: "we'll take the better labels teacher student approach"); its rule is
 fixed once the small-CNN read picks the teacher.** Why now: gold-58 says the report label and an image model's OOF, averaged,
