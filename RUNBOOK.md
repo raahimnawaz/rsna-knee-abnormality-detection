@@ -296,6 +296,10 @@ the DICOM headers (`PatientSex` on 91%; side = tag on 50% + the IPP-x rule at 97
 a model INPUT is the old F3 idea, never built; it has to be a training feature or a group prior (a monotone post-hoc shift cannot
 move AUC), and the one group prior tried, F1's site prior, died. Report fields that could matter are severity and location — queued
 (aux severity head; DATA §12 item 5's zoom first), behind teacher → student.
+**Owner Q 09-28, "did we consider an already-trained LLM for extraction?"** Yes: 13 public LLM label tables benched on gold (none
+beats `steven_v2` without touching gold; `dread_soft` won on the LB, +0.015), our own Qwen3.5-9B graded read (FAIL). A frontier pass
+(`extractor/llm_extract.py`, Claude Opus, ~$60–150) was costed, never run — and stays unrun: every reader reads the same text (LLM↔LLM
+r 0.82, best tables ~0.90 on gold), and the misses that matter are image truth absent from the report — the teacher's job, not a reader's.
 
 **⏩ CNN TEACHERS — 4 folds on the Mac `pre-registered 2026-09-28 ~06:55 PDT, before any fold runs` (the owner, 09-27: CNN
 teachers on the Mac).** Recipe C exactly: `resnet34.a1_in1k` at 224, Stage A, `dread_soft` (sha `8cec477f`), seed 42, k 12, bs 8, head
