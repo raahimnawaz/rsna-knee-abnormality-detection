@@ -175,6 +175,15 @@ teacher, round 2 and gold ×3 in the finals. The 168 GB fastMRI clinical DICOMs 
 better unfitted (`dread_soft` unscorable on gold, +0.015 on the LB). Perfect reading of the text: ~0.92–0.94 at most (hand read on 30
 gold knees, DATA §1: +0.055 [+0.005, +0.111], one reader). Beyond that the truth is not in the text (DATA §12). The extractor is not
 our ceiling: report + image teacher reads 0.915–0.922 on gold today.
+(p) *Would a 0.92 reader help?* Modestly: +0.02 gold ≈ +0.01 LB single model at the ~½ transfer, less in the blend, and it overlaps
+the teacher (both fix label errors). Route: Claude Opus graded read with the official cut-offs (`extractor/llm_extract.py`), iterate
+on the 303 hand set (~$5–10), full corpus ~$60–150, rank-mean with `dread_soft`. Blocker: no cheap judge — `dread_soft` has no gold
+rows, so only a GPU student on the LB could show it beats our labels; the same design on Qwen failed. Not before Friday; revisit only
+if the teacher gate fails. (q) *Are our labels overfitted?* `dread_soft`: 0 gold rows (cannot be tuned on gold), proven by one
+pre-registered LB read (+0.015 ≈ 3× a model-difference SE); its author may have tuned choices on the public LB — the private 70%
+will show. `steven_v2`'s 0.887 may be optimistic (author-published; a gold-tuned prompt leaves no trace). Two public tables with
+gold copied in were caught and excluded. The larger overfitting risk is OURS: every teacher arm and table was read on the same
+58 knees (recipe C picked 1-of-3, ~+0.003–0.005 optimistic) — guarded by pre-registration and the LB as the judge.
 
 **⏩ SMALL-CNN BASELINE `pre-registered 2026-09-27 16:45 PDT, before any push` — the owner said yes 09-27.** Question: does
 the board's *"simple CNN at 224 px scores 0.94+"* (`REFERENCE.md` §3.1b) reproduce in OUR pipeline, at a fraction of Ortho's
