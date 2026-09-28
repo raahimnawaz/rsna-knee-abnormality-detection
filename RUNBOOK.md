@@ -478,6 +478,19 @@ byte for byte (sha `75757be8…`). Kernels (`--smoke`, 16 + 6 studies, 1 epoch):
   --targets-from raahimnawaz/rsna-knee-student-targets --tag student-r1` (Stage B-`dread`'s command with the targets swapped).
 - `rsna-knee-c6-train-coatnet-student-r1` — `--arch coatnet --corpus stage_a --n-train 0 --targets … --targets-from … --tag
   student-r1 --extra-datasets dreaddevelopment/raptor-knee-maxspan --train-args '--init raptor_ft_coatnet_v5_full_swa.pt'`.
+**📝 PROPOSED 2026-09-28 ~16:50 — the students' full runs and LB rules (owner to confirm; nothing is pushed on them until then).**
+*Power, first:* one public-LB comparison of two models has SE ±0.005 (n ≈ 400), a blend change ±0.002. The teacher is priced at
++0.005–0.010 for a single model — at or below what ONE model-vs-model LB read can resolve. So Friday is judged on the decision that
+matters (does the upgraded stack beat the free one?), with the students alone reported, not on "do teacher labels work" in isolation.
+*Full runs (Fri 10-02 17:20, both T4 sessions):* (1) CoAtNet student — the smoke's command without `--smoke`, `--epochs 7` fixed
+(~50 min/epoch on one T4 → ~6 h), lr 3e-5 / head 1e-3 (the public recipe's), primary last epoch, `avg3/` secondary; (2) Ortho student —
+without `--smoke`, `--epochs 14` cap fitted to 10.3 h on T4×2 (Stage B-`dread`'s). Both on the 3,502; the 691 and gold reported.
+*Needs a build before the weekend:* `build_submit_kernel.py` has `--ours-only` and "ours at 1/3"; the upgraded stack needs a
+**replace-the-core mode** (our CoAtNet student's weights, keys renamed back to theirs, in the maxspan-v5 slot; every other weight as is).
+*Rules (Sat–Sun submissions):* **(A) upgraded stack** (student in the maxspan-v5 slot): PASS iff LB **≥ 0.947** (0.943 + 2 × 0.002) →
+it is final candidate A. **(B) CoAtNet student alone:** reported against the 0.928 it started from (a |Δ| < 0.010 is noise).
+**(C) Ortho student:** joins (A) as a family only if it lifts (A) by **≥ +0.004**; else Ortho is cut from the finals.
+(A) fails → the teacher route has not shown on the LB; next is round 2 / more knees / zoom, each on its own screen first.
 **Owner Q 09-28 ~16:20: will Lateral OA and synovitis always lag; crop to the finding and retry when AUC < 0.93?** They lag for
 different reasons. Lateral OA is VISION, measured 09-25 (DATA §10b): its labels are clean (0.988) and not scarce (25.7%); the model
 recovers the least of them — 2–3 mm cartilage is smaller than one ViT token — and the reports themselves are weakest there on gold
