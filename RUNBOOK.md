@@ -34,6 +34,59 @@ stays only with evidence that it adds to the best available thing.
 | outside data | fastMRI+ | the best image-graded data available | unproven | one test, then keep or cut |
 | 691 hold-out | ours | — | costs ~0.010 on finals | train the finals on all data |
 
+**🧾 SESSION 2026-09-28 — a review, two fixes, and the owner's questions answered. Read before the order to run.**
+Nothing here is pre-registered. Answers and recommendations are for the owner to decide.
+- **Audit** (`AUDIT.md`, 09-28 section): no leakage, and the recorded numbers stand. **Fixed and tested (`ad662ec`):**
+  - `--predict-all` could not start (its train list sat inside its val list). It now requires `--init`, forces 0
+    epochs, skips `--fit-budget` (which would have trained Stage B for one epoch) and pushes as `…-pa`.
+  - Non-Ortho checkpoints (CoAtNet, ResNet34) can now be served through the same DICOM gate. The ARMS line names
+    the real arm from `last_meta.json`.
+- **Still open from the audit:**
+  1. `build_student_targets --gold` does not compute Gate 1's pre-registered statistic (the macro over the covered
+     findings, with a paired bootstrap P). Build that before Gate 1 is read.
+  2. Pooled k-fold teacher OOFs shift student targets by site (measured 0.03-0.10 in pooled rank). Map each fold
+     file separately. This matters only if k-fold teachers come back.
+- **Missing before the NYU route runs** (not code bugs):
+  - The fastMRI converter. Its slot contract: `CORPDFS_FBK` → `cor_1`, `CORPD_FBK` → `cor_2`, the 2-98%
+    per-series window, 140 mm, and Stage A's coronal left/right convention.
+  - A builder for the NYU teacher's own training run. The launcher only knows competition folds.
+  - Run `--predict-all` on the corpus the teacher trained on: `stage_b`'s PACKAGE forces `--res 384`.
+- **The owner's questions, answered:**
+  - **A teacher trained on gold?** No. 58 studies with 9-35 positives per finding cannot train one, and it would
+    spend the only image-read gate. Gold's use is ×3 in the finals, after every gate is read.
+  - **The NYU model as a blend member?** No. It is coronal-only, covers ~5 findings and is weaker than Ortho on
+    our knees, and a weaker member at equal weight has cost twice here (Sub B −0.007; the CNN −0.006 on the 691).
+    Keep it as a teacher, with Ortho or an ImageNet CoAtNet as its backbone, not ResNet34.
+  - **Tensorised images?** Already done for training: the Stage A/B caches, which `infer_windows` rebuilds at
+    submission. Precomputing test tensors stays impossible (the test is hidden; `PLAN.md` §9g). Tensor
+    decompositions: no.
+  - **Topology (TDA)?** Not now, for four reasons:
+    - our gains came from labels (+0.015) and input (+0.014), not from features;
+    - where TDA fits (ACL connectivity) there is no headroom (0.99 on gold);
+    - a 1 mm meniscus tear reads as noise to persistence;
+    - a weak member costs.
+
+    If wanted, a CPU-only screen: per-slot persistence features on the Stage A cache, a GBM on folds 1-4, and
+    two gates on the 691 (alone ≥ ~0.70; adds to `dread` at a combination fixed in advance).
+  - **Statistics on the reports?** `test.csv` carries no reports, so reports can only shape training.
+    - **"What" is exhausted:** see the CLOSED rows in `DECISIONS.md`; the sources are one read repeated (r = 0.995),
+      and the text ceiling is ~0.90 on gold.
+    - **"Where" is the untested candidate:** location as auxiliary targets. 86-100% of positive English reports
+      name one (`DATA.md` §12 item 5). The 12 main targets stay unchanged, so the 691 can judge it. Extraction is
+      free on the Mac (`qwen_label.py`, multilingual); the run is ~8 GPU-h on Ortho.
+    - A latent-class model or co-occurrence post-processing: not worth it (two sources; the 691 shares the
+      reports' co-occurrence).
+- **Recommended, not decided:**
+  - **Lock a safe final now:** the public stack, or Sub B-dread if it reads ≥ 0.944.
+  - Budget the **finals on ALL data + gold ×3 first, not last.** The frontier's ablation gave +0.010 from the
+    extra studies alone.
+  - **Save the avg3 weights** so a final can use them. They were never worse on the 691: +0.0000 to +0.0024.
+  - Put the **fastMRI rules** question to the host before 10-15.
+- **Where the model is weakest:**
+  - On the 691 (`dread`): MCL 0.769, Lateral OA 0.793, PF OA 0.826, Contusion 0.829.
+  - Report labels on gold: Fracture 0.793, Contusion 0.831, Effusion 0.853, Lateral Meniscus 0.862. These are the
+    NYU teacher's findings.
+
 ## ⛔ GOAL CHANGED 2026-09-24: THE GOAL IS TO WIN
 
 Set by the owner on 09-24, superseding `PLAN-C6.md`'s "the best model, explicitly not a placing" (09-07).
