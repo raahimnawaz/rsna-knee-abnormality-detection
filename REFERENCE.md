@@ -424,6 +424,37 @@ does a mm-based crop, which is the same idea in weaker form.
 
 ---
 
+### 4.5 How similar problems are solved — research 2026-09-27 (owner's ask)
+
+**Past RSNA MRI/CT winners: find it, crop it, classify it.** RSNA 2024 lumbar (MRI) 1st place: stage 1 predicts the slice and the
+(x, y) of each level; stage 2 crops tightly around it at 512 px and classifies with ConvNeXt-small / EfficientNet-V2-S + attention
+MIL + bi-LSTM over slices; *"convolution models were better than vits"*, convnext-large < base < small, 7–14 epochs, shift / scale /
+rotate augmentation, and randomly jittering the stage-1 coordinates was *"crucial"*. RSNA 2023 abdominal trauma (CT) 1st place:
+3D segmentation → per-organ crops → 2.5D CNN (CoaT-medium, V2-S) over 96 slices, max over slices. Both had localisation the knee
+competition does not provide; for us it would come from anatomy (TotalSegmentator MR: `total_mr` femur, Apache-2.0;
+`appendicular_bones_mr` tibia / fibula / patella, free licence for non-commercial use) or fastMRI+'s boxes (coronal only).
+**Why it matters here:** our losses are largest on the SMALL structures (menisci −0.11 for the CNN; Stage B's 384 px helped).
+⚠️ This repo once built compartment attention for what was a slice-sampling bug (`DECISIONS.md` §U→D2) — crops need a measured
+case first. Multi-week build; it would also add segmentation time to the ~9 h submission budget.
+**Label noise, the standard tool:** confident learning (Northcutt et al.; `cleanlab`) — k-fold out-of-fold predictions flag the
+training labels most likely wrong, then relabel or down-weight; Noisy Student iterates it. That IS our teacher → student design,
+with an off-the-shelf implementation to use rather than write.
+**Report text as training signal:** image–report contrastive pretraining (CLIP-style; Decipher-MR — GE HealthCare, 22,594 MRI
+studies incl. knee — weights NOT released; MG-3D, fine-grained region–phrase alignment). Expensive, unproven here: low priority.
+**Clinical reality check:** a 2025 multi-condition knee system (3,121 studies, 23 conditions, radiologists labelling the IMAGES,
+3D slice transformer) reached AUC ≥ 0.85 on 8 of 23 conditions; meta-analyses: meniscus tear AUC 0.912 ± 0.053 over 18 studies,
+ACL pooled sensitivity / specificity 0.94 / 0.93. A 0.965 MACRO over our twelve (Synovitis, PF OA included) is beyond published
+clinical systems.
+**Data, ranked for us:** fastMRI+ (have) · OAI MOAKS (large, image grades; NDA data-use certification) · SKM-TEA (155 knees, 16
+pathology boxes + segmentations, qDESS, 900 GB, Stanford AIMI research terms — small) · KneeMRI Rijeka (917 sagittal, ACL grades
+FROM REPORTS, CC BY-NC-ND — skip) · MRNet (report labels — skip) · Hugging Face: nothing usable (one gated OAI re-upload, likely
+against OAI's terms — skip). **Models:** the public 0.928 CoAtNet (CC0, have) · TotalSegmentator MR (localisation) · RadImageNet ·
+OrthoFoundation (have) · Decipher-MR (not public) · MedGemma (gated).
+Sources: kaggle.com/competitions/rsna-2024-lumbar-spine-degenerative-classification/writeups/avengers-1st-place-solution ·
+github.com/Nischaydnk/RSNA-2023-1st-place-solution · github.com/wasserth/TotalSegmentator · docs.cleanlab.ai ·
+arxiv.org/html/2509.21249v2 · link.springer.com/article/10.1007/s00330-025-12052-8 · pmc.ncbi.nlm.nih.gov/articles/PMC12186967 ·
+github.com/StanfordMIMI/skm-tea.
+
 ## 5. What this file says we should do that we are not yet doing
 
 1. **§1.1 unblocks our own LLM read.** Not because the public labels are bad — they are good —
