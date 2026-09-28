@@ -302,6 +302,15 @@ from radiologists reading IMAGES and which has never seen a competition knee —
 4. **Teacher labels:** it predicts all 4,349 training knees' coronal series → combined with `dread_soft` → student targets.
 5. **Student:** the best available start (public 0.928 CoAtNet via `--init`, if its pipeline check passes) trained on those
    targets → blended into the 0.943 stack → **valid only at ≥ 0.947**.
+**What fastMRI+ could buy — an ESTIMATE, not a gate (owner's question 09-27 ~19:20; gold-58, report = `steven_v2`, the only report
+table with gold rows).** Per finding, report → report + an image model (Ortho's in-domain OOF): ACL 0.993 → 0.994 (no room) · Effusion
+0.853 → 0.933 · Fracture 0.793 → 0.868 · Contusion 0.831 → 0.887 · Baker's 0.946 → 0.962 · Lateral Meniscus 0.862 → 0.904. On the
+12-finding macro: **v1's five findings +0.019** if the NYU teacher were as good on our knees as an in-domain image model (+0.024 with
+the menisci, v2); a PERFECT teacher on them tops out at +0.049 (+0.064). Priced at ~half on the LB (`DECISIONS.md` 4c-4) and
+discounted for NYU's handicaps (another hospital, coronal only, 1,172 knees, ACL high-grade 101): **a student single model ~+0.003 to
++0.010 LB, ~+0.005 central; less inside the 0.943 stack** (tomorrow's Sub B-dread read gives the member-at-1/3 exchange rate).
+`dread_soft` is a better base than `steven_v2`, so the real room is somewhat smaller. Worth its ~2 GPU-h as the only image-read
+truth we have; not a route to 0.965 on its own.
 Limits: one plane (ACL and effusion are read best sagitally), another hospital's scanners, one radiologist, side of a meniscus
 tear from box position only. Upload a derived cache to Kaggle only after the owner reads the agreement's redistribution terms.
 
