@@ -29,7 +29,7 @@ stays only with evidence that it adds to the best available thing.
 | finished model | Ortho, 0.916 alone | **public CoAtNet, 0.928 alone** (CC0 weights) | at EQUAL setup Ortho > CoAtNet +0.010 (one run), gold tie; the 0.012 LB gap is setup (all ~4,350 studies, gold ×3, epochs on gold, SWA) | Ortho is NOT proven better than simply building on the public CoAtNet — **Sub B-dread (tonight) is its test in the stack**; fine-tuning the public CoAtNet on better labels is the untried best-available route — **its pipeline check PASSED 09-27 (0.9187 vs 0.9214)** |
 | input | Stage B (ours) | the public 64-slice geometry | +0.014 LB | keep |
 | training code | `train_windows` | the public training script | a port of it | keep (equivalent) |
-| small CNN | ResNet34 | — | best v2 arm 0.808 vs 0.844 (−0.036) | **CUT 09-27 18:45** — out of the teacher role |
+| small CNN | ResNet34 | — | 0.808 vs 0.844 on the 691; as a TEACHER on gold +0.021–0.028 (Ortho +0.034) | cut as a main model 09-27 18:45; **back as the cheap teacher 20:15** (the 691 cannot judge teachers) |
 | Qwen VLM, own labeler | — | — | failed their gates | cut (done) |
 | outside data | fastMRI+ | the best image-graded data available | unproven | one test, then keep or cut |
 | 691 hold-out | ours | — | costs ~0.010 on finals | train the finals on all data |
@@ -251,6 +251,29 @@ every training label we have is an LLM reading the REPORT. On gold-58 the traini
 4. **More strong, different models in the blend** (the CoAtNet + Ortho students).
 2–4 are each ~+0.005–0.010 on a single model, less on the blend — the ~0.95 landing. Only 1 aims at 0.965; it cannot be sized without
 trying. Owner decisions: a radiologist who could join by 10-15? send the OAI / Stanford terms drafts?
+
+**🔬 TEACHERS ON GOLD — 09-27 ~20:15 (owner: "are our labels as good as they realistically could be?"; no radiologist; the OAI
+email SENT by the owner). EXPLORATORY gold reads, not pre-registered — gold-58 is being spent; the student's LB is the real judge.**
+`build_student_targets --gold`, base `steven_v2` (0.8873), one teacher's gold OOF each, paired bootstrap:
+| teacher | its own gold | its 691 | report + teacher | paired Δ | P |
+|---|--:|--:|--:|--:|--:|
+| Ortho `dread` | 0.912 | 0.844 | 0.9216 | **+0.034 ± 0.008** | 1.00 |
+| CNN C (lr 1e-3 + affine) | — | 0.806 | 0.9152 | **+0.028 ± 0.011** | 0.995 |
+| CNN B (the rule's primary) | 0.892 | 0.808 | 0.9081 | +0.021 ± 0.012 | 0.96 |
+| CNN A | — | 0.793 | 0.9050 | +0.018 ± 0.011 | 0.95 |
+| pilkwang OOF (dinov2-small, free, all 4,407) | 0.840 | 0.843 | 0.8905 | +0.003 ± 0.009 | 0.64 |
+| Ortho + pilkwang | | | 0.9086 | +0.021 | 0.99 |
+| Ortho + CNN B | | | 0.9224 | +0.035 ± 0.012 | 1.00 |
+**Two lessons.** (1) **The 691 cannot judge a teacher:** pilkwang ties Ortho there (0.843 vs 0.844) and is useless as a teacher on
+gold (+0.003) — the 691's reference is a report read, so it rewards agreeing with reports; a teacher is worth what it knows BEYOND
+them. So the small-CNN rule (judged on the 691) measured the wrong thing for the teacher role: **the CNN is cut as a MAIN model, not
+as a teacher** — it carries 60–80% of Ortho's teacher value at ~1/40 of the cost. (2) **A weak teacher dilutes a strong one** (Ortho +
+pilkwang +0.021 < Ortho +0.034): only teachers that pass gold on their own go into the mix. **So our labels are NOT as good as they
+realistically could be:** today every model trains on report labels alone; report + an in-domain image teacher reads ~0.91–0.92 on gold
+against 0.887, on all 12 findings — larger than NYU's realistic +0.005–0.019 on five. (`dread_soft` is a better base than `steven_v2`,
+so the real gain is somewhat smaller.) **Proposed:** 4-fold CNN teachers (`--teacher-fold 1..4`, recipe C) — free on the Mac (needs the
+Stage A cache) or ~3 GPU-h on Kaggle — → student targets → gold gate (pre-registered before the folds run) → students; 4-fold Ortho
+teachers (~25 GPU-h) only if the CNN's targets fall short. The zoom / resolution / RadImageNet arms are judged on gold teacher value too.
 
 **🗺 (SUPERSEDED 09-27 by the target system above) ROADMAP IF TEACHER → STUDENT WORKS — proposed 2026-09-27, the owner to confirm; each step keeps its own rule.**
 "Works" = student LB ≥ 0.926 (`dread` 0.916 + 0.010). Quota resets Fri 17:00 PDT (10-02, 10-09, 10-16); final 10-22 16:59 PDT;
