@@ -408,6 +408,14 @@ vs 0.9057, −0.0143 ± 0.0176, CI [−0.048, +0.021], P 0.21 → FAIL.** **(2)*
 0.804 — Baker's (fastMRI+'s "periarticular cyst", noisy by design) did not transfer, and ACL sits far below the report's 0.993. Effusion
 alone looks useful (report + CNN 0.930 → + NYU 0.952), but that is a per-finding pick read off gold — the rule forbids it, and any test
 of it on the same 58 knees is contaminated. Friday's push list drops item 3 (NYU teacher, ~1–2 GPU-h saved).
+**Owner Q 09-28 ~16:20: will Lateral OA and synovitis always lag; crop to the finding and retry when AUC < 0.93?** They lag for
+different reasons. Lateral OA is VISION, measured 09-25 (DATA §10b): its labels are clean (0.988) and not scarce (25.7%); the model
+recovers the least of them — 2–3 mm cartilage is smaller than one ViT token — and the reports themselves are weakest there on gold
+(0.830); the CNN teacher did not move it (0.830 → 0.825). Synovitis is LABELS: reports rarely address it (83.7% of cells), and the
+teacher did help (0.790 → 0.825). AUC exists only over a set, never per knee, so "retry below 0.93" cannot run at test time; the working
+form is an ALWAYS-ON zoomed second view (e.g. the lateral half of the canonical coronal at 2×) added BESIDE the full view — the one crop
+design never run (crop-INSTEAD-of-context died twice, archive PLAN F2). It is DATA §12 item 5's zoom arm. Sized: +0.05 on two findings
+= +0.008 macro; gold cannot judge one finding (11 Lateral OA positives, SE ~0.08), so only the LB can — after Friday, not before.
 
 **🔬 TEACHERS ON GOLD — 09-27 ~20:15 (owner: "are our labels as good as they realistically could be?"; no radiologist; the OAI
 email SENT by the owner). EXPLORATORY gold reads, not pre-registered — gold-58 is being spent; the student's LB is the real judge.**
