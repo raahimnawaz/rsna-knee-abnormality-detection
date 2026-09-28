@@ -128,7 +128,7 @@ exact build command, kernel id, flag checks and its pre-registered rule. Intende
 1. **CoAtNet student** — `--arch coatnet --init` the public 0.928 weights, student targets `data/student/targets_round1_cnn.csv`
    (`dread_soft` + CNN-teacher OOF; **gate PASSED 09-28, P 0.994**). ~6 GPU-h.
 2. **Ortho student** — Stage B, the same student targets. ~10 GPU-h.
-3. **NYU teacher** — Ortho on `raahimnawaz/rsna-knee-fastmri-plus-cache` alone (`--slots cor_1,cor_2 --allow-missing-labels`),
+3. ~~**NYU teacher**~~ **CUT 09-28 16:25 (failed its gold gate on the Mac, P 0.21).** Was: Ortho on `raahimnawaz/rsna-knee-fastmri-plus-cache` alone (`--slots cor_1,cor_2 --allow-missing-labels`),
    pushed when a session frees. ~1–2 GPU-h.
 If the CNN teachers FAIL their gate, the students train on `dread_soft` alone and this list says so.
 **PROPOSED 2026-09-28 14:05 — before Friday, all free (owner to confirm):** (1) **the NYU teacher moves OFF Friday's GPU list onto the
@@ -399,6 +399,15 @@ alone on the macro over its 4 findings at P ≥ 0.95.** (2) It joins the student
 below report + CNN on the 12-finding macro (point estimate) — the weak-teacher lesson. Either fails → the targets stay
 `targets_round1_cnn.csv` and NYU is cut. Report-only: hold-out AUC per finding ("did not learn" vs "did not transfer"), gold per
 finding, minutes.
+**⛔ NYU READ 2026-09-28 16:25 — FAIL on both rules → NYU is CUT; the students train on `targets_round1_cnn.csv`.** Trained 16:08–16:19
+(10.5 min on the Mac; the first launch died on a zsh word-split before any step; the first eval pass needed a `--train` list — 2
+out-of-pool studies, never used at 0 epochs), competition eval 2.5 min. **(1)** report + NYU vs report on its 4-finding macro: **0.8914
+vs 0.9057, −0.0143 ± 0.0176, CI [−0.048, +0.021], P 0.21 → FAIL.** **(2)** report + CNN + NYU vs report + CNN, 12 findings: **0.9079 vs
+0.9131, −0.0053, P 0.08 → FAIL** (the weak-teacher lesson again). Report-only: NYU hold-out (83 knees) ACL 0.784 (6 pos) · Effusion
+**0.962** · Baker's 0.718 · Contusion 0.765 — it LEARNED. On gold, NYU alone: ACL 0.776 · Effusion 0.835 · Baker's **0.525** · Contusion
+0.804 — Baker's (fastMRI+'s "periarticular cyst", noisy by design) did not transfer, and ACL sits far below the report's 0.993. Effusion
+alone looks useful (report + CNN 0.930 → + NYU 0.952), but that is a per-finding pick read off gold — the rule forbids it, and any test
+of it on the same 58 knees is contaminated. Friday's push list drops item 3 (NYU teacher, ~1–2 GPU-h saved).
 
 **🔬 TEACHERS ON GOLD — 09-27 ~20:15 (owner: "are our labels as good as they realistically could be?"; no radiologist; the OAI
 email SENT by the owner). EXPLORATORY gold reads, not pre-registered — gold-58 is being spent; the student's LB is the real judge.**
