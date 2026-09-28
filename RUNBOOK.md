@@ -300,6 +300,11 @@ optimistic). ~1 h a fold on the Mac, ~4 h in all, no GPU quota.
 memmapped corpus into each DataLoader worker (a full 32 GB copy each). Now `TW_WORKERS=0` (the default in `local_teacher_folds.py`) —
 data loading only, the recipe is unchanged; 0.6 GB resident, **0.15 s per 2-study step = 3.4 min an epoch**, ~1 h a fold → all four
 ~13:00. Stage A shard 3 came in at 08:1x by a resumable `curl` on the output's direct link (the Kaggle CLI restarts from zero).
+**Folds 1–2 DONE** (71.7 / 68.7 min; own gold-58 macro, report-only, one fold on 3/4 of the data: 0.874 / 0.872). **Fold 3 was
+killed at 11:40:09, epoch 7 of 17:** the Claude desktop app relaunched itself for an update (`pmset` log: "Preparing to relaunch", then
+ShipIt "Updating") and took the terminal tab with it — no error in `train.log`. **Restarted 13:36 as a detached process** (own session,
+parent = launchd, under `caffeinate -i`; log `fusion/runs_teacher_cnn/runner.log`), so an app relaunch cannot kill it again; fold 3
+starts over (the runner resumes per fold, not per epoch), same recipe, same 0.15 s/step. **Fold 3 ~14:47, fold 4 ~16:00 → the gold gate.**
 
 **🔬 TEACHERS ON GOLD — 09-27 ~20:15 (owner: "are our labels as good as they realistically could be?"; no radiologist; the OAI
 email SENT by the owner). EXPLORATORY gold reads, not pre-registered — gold-58 is being spent; the student's LB is the real judge.**
