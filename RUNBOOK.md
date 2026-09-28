@@ -236,6 +236,22 @@ cut).** Four layers, each piece kept only if its own gate passes:
 GPU: NYU teacher ~2 · CoAtNet student ~6 · Ortho student ~10 · finals on all data ~16 → ~34 h (+5 if CNN teachers) of ~90 left.
 Honest landing ~0.95; 0.965 needs the teachers to correct the labels well beyond what reports carry.
 
+**🧭 WHAT'S MISSING — owner's question 09-27 ~20:00 ("if NYU helped, would our data be as good as it could be?"). No.**
+The test's answer key is two MSK radiologists reading the IMAGES with the official cut-offs, borderline = negative (`REFERENCE.md` §2);
+every training label we have is an LLM reading the REPORT. On gold-58 the training labels read 0.887 and our model 0.878 — level
+(`DATA.md` §10b, "the model has reached its labels"): the label is the binding constraint on a single model. NYU, if it passes, lifts
+~5 of 12 findings from another hospital's radiologists; MCL, the three OA findings and synovitis stay report-grade. Ranked:
+1. **Image-read labels on OUR knees, with the official cut-offs** — the only lever aimed at the gap on all 12. (a) A radiologist on the
+   team labels a few hundred training knees: allowed for training data, but they must JOIN the team before seeing an image, by **10-15**;
+   ~5–10 min a knee → 300 knees ≈ 25–50 h. The public 0.928 counted the 58 gold knees ×3 in training — that is how much 58 were worth.
+   (b) OAI MOAKS: image grades on thousands of knees for cartilage, effusion-synovitis, marrow lesions, menisci, cysts — our weakest
+   findings; blocked on terms (the NDA / Stanford questions are Gmail DRAFTS since 09-26, unsent); a large download and weeks of work.
+2. **What the model sees:** still ~half the slices, 76% of series shrunk, 15% of series unused; Stage B's partial fix was +0.014.
+3. **More knees:** 3,200 → 4,349 was +0.010 in the public model's own ablation; finals on all data are planned.
+4. **More strong, different models in the blend** (the CoAtNet + Ortho students).
+2–4 are each ~+0.005–0.010 on a single model, less on the blend — the ~0.95 landing. Only 1 aims at 0.965; it cannot be sized without
+trying. Owner decisions: a radiologist who could join by 10-15? send the OAI / Stanford terms drafts?
+
 **🗺 (SUPERSEDED 09-27 by the target system above) ROADMAP IF TEACHER → STUDENT WORKS — proposed 2026-09-27, the owner to confirm; each step keeps its own rule.**
 "Works" = student LB ≥ 0.926 (`dread` 0.916 + 0.010). Quota resets Fri 17:00 PDT (10-02, 10-09, 10-16); final 10-22 16:59 PDT;
 merger / entry deadline **10-15**. Two finals, and they serve BOTH tracks.
