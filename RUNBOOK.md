@@ -154,7 +154,18 @@ read **0.927** against 0.887 / 0.912 alone (`DATA.md` §12 item 2); the board's 
    images a loss); gold-58 reported only. Round 2 (the student becomes the next teacher) only if round 1 passes.
 Budget: CNN teachers ~6 GPU-h + a student ~11 → one week's quota after Friday's Stage B run.
 
-**🗺 ROADMAP IF TEACHER → STUDENT WORKS — proposed 2026-09-27, the owner to confirm; each step keeps its own rule.**
+**🎯 TARGET SYSTEM `2026-09-27, owner Q&A` — supersedes the roadmap just below (its efficiency final and prize-line framing are
+cut).** Four layers, each piece kept only if its own gate passes:
+1. **Data:** the competition's 4,349 training knees + reports; NYU fastMRI+ (1,172 image-read knees).
+2. **Labels:** `dread_soft` (proven +0.015) · the NYU image teacher (gate: beats the report label on gold-58 for its findings) ·
+   our k-fold teacher (only if the CNN passes) → **combined labels** (rank-mean, mapped onto `dread_soft`'s values).
+3. **Models (students), one per family:** CoAtNet from the public 0.928 weights (`--init`; gate: its pipeline check) · Ortho on
+   Stage B · CNN (only if it passes). Finals retrained on all data.
+4. **Blend:** our families at equal ranks, nothing fitted → with the public 0.943 stack → **counts only at ≥ 0.947** (valid).
+GPU: NYU teacher ~2 · CoAtNet student ~6 · Ortho student ~10 · finals on all data ~16 → ~34 h (+5 if CNN teachers) of ~90 left.
+Honest landing ~0.95; 0.965 needs the teachers to correct the labels well beyond what reports carry.
+
+**🗺 (SUPERSEDED 09-27 by the target system above) ROADMAP IF TEACHER → STUDENT WORKS — proposed 2026-09-27, the owner to confirm; each step keeps its own rule.**
 "Works" = student LB ≥ 0.926 (`dread` 0.916 + 0.010). Quota resets Fri 17:00 PDT (10-02, 10-09, 10-16); final 10-22 16:59 PDT;
 merger / entry deadline **10-15**. Two finals, and they serve BOTH tracks.
 | week | GPU (≈30 h) | what | judged on |
