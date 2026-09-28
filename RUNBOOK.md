@@ -376,7 +376,7 @@ killed at 11:40:09, epoch 7 of 17:** the Claude desktop app relaunched itself fo
 ShipIt "Updating") and took the terminal tab with it — no error in `train.log`. **Restarted 13:36 as a detached process** (own session,
 parent = launchd, under `caffeinate -i`; log `fusion/runs_teacher_cnn/runner.log`), so an app relaunch cannot kill it again; fold 3
 starts over (the runner resumes per fold, not per epoch), same recipe, same 0.15 s/step. **Fold 3 ~14:47, fold 4 ~16:00 → the gold gate.**
-**✅ GATE READ 2026-09-28 16:10 — CNN TEACHERS PASS.** All four folds done (71.7 / 68.7 / 69.2 / 70.8 min, 4.7 h on the Mac, 0 GPU-h).
+**✅ GATE READ 2026-09-28 ~16:03 — CNN TEACHERS PASS.** All four folds done (71.7 / 68.7 / 69.2 / 70.8 min, 4.7 h on the Mac, 0 GPU-h).
 Teacher on gold = the mean of the four folds' `oof_gold.csv` (last-epoch weights, the primary). `build_student_targets --gold`, base
 `steven_v2`: **report 0.8873 → report + CNN teacher 0.9132, paired +0.0258 ± 0.0102, 95% CI [+0.0060, +0.0463], P 0.994 ≥ 0.95 → PASS.**
 (09-27's exploratory single CNN C read +0.028 at P 0.995 — consistent.) Reported, not judged: own gold per fold 0.874 / 0.873 / 0.874 /
@@ -388,7 +388,7 @@ OOF (`fusion/runs_teacher_cnn/teacher_oof_mean.csv`: each of the 3,502 from its 
 of 4,349 studies have a teacher; the other 166 keep `dread_soft` exactly. The NYU teacher joins only via its own gate (PROPOSED: on the
 Mac tonight, awaiting the owner). Next: the Friday push list → READY (targets to Kaggle as a private dataset, build + CPU smoke both
 students, pre-register their LB rules).
-**⏩ NYU TEACHER ON THE MAC `pre-registered 2026-09-28 ~16:25 PDT, before it trains` (owner: "if it's less than an hour just do it
+**⏩ NYU TEACHER ON THE MAC `pre-registered 2026-09-28 16:08:00 PDT (commit 149cb0a; the run started 16:08:21), before it trains` (owner: "if it's less than an hour just do it
 now").** ResNet34 recipe C exactly as the CNN teachers (`resnet34.a1_in1k`, 224, bb + head lr 1e-3, `--aug-affine 1`, 17 epochs, seed 42,
 k 12, bs 8, `--mps`), ImageNet start — never saw a competition label. Train: the fastMRI+ cache (`data/external/fastmri/cache_stage_a`,
 Stage A format), `--slots cor_1,cor_2 --allow-missing-labels`, labels `labels_fastmri_v1.csv` (ACL high-grade 61 · Effusion 100 ·
