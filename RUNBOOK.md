@@ -269,7 +269,11 @@ locally, nothing run on GPU:**
 - `train_windows --init` (our `last.pt` or the public CC0 CoAtNet, strict) — `d9f473e`; launcher `--cpu`, `--extra-datasets`.
 - launcher `--teacher-fold K` (K = 1–4: train on the other three training folds, label fold K; four runs = an OOF teacher
   label for all 3,502) — `bc56682`; `--predict-all` (an outside teacher, `--init` + `--epochs 0`, labels every training
-  study and the 691) — `6c4bd3b`.
+  study and the 691) — `6c4bd3b`. **⛔ It could not start until 09-28** (its train list sat inside its val list; `AUDIT.md`
+  09-28). Fixed and tested on the fixture: it now requires `--init`, forces 0 epochs and pushes as `…-pa`.
+- **Serving non-Ortho checkpoints, 09-28:** `infer_windows` / `build_submit_kernel` now serve CoAtNet and ResNet34
+  checkpoints (no RoPE, no `img_size`, any `runs_*` dir). The ARMS line names the arm from `last_meta.json`
+  (`coatnet_stage_a`, …). A CoAtNet student can reach a submission through the same DICOM gate.
 - `labeling/build_student_targets.py` — report label + any number of partial OOF teachers → student targets (each teacher
   mapped onto the base's values on its studies, then averaged; uncovered studies unchanged; audit list; `--gold` gate:
   with Ortho's OOF as the teacher, gold-58 0.8873 → 0.9216) — `e5143a6`.

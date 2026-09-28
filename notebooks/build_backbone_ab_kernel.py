@@ -414,6 +414,16 @@ def main() -> None:
     else:
         extra = []
     extra += a.train_args.split()
+    if a.predict_all:
+        # An outside teacher labels studies with the weights it brings: nothing may train here, in any mode.
+        # (train_windows lets the train list overlap val only at --epochs 0, and skips --fit-budget there.)
+        # Read it on the corpus it trained on: --corpus stage_b adds PACKAGE, whose --res 384 sets the eval size.
+        if "--init" not in extra:
+            raise SystemExit("--predict-all needs the teacher's weights: --train-args '--init <file>' "
+                             "(and --extra-datasets for the dataset that holds it)")
+        if a.teacher_fold:
+            raise SystemExit("--predict-all and --teacher-fold are different runs: pick one")
+        epochs = 0
 
     files = {}
     for rel in EMBED:
@@ -456,7 +466,7 @@ def main() -> None:
     # the A/B keeps its slugs; a Stage A run is a different experiment and gets its own
     slug = {"raptor44": f"rsna-knee-backbone-ab-{a.arch}", "stage_a": f"rsna-knee-c6-train-{a.arch}",
             "stage_b": f"rsna-knee-c7-train-{a.arch}"}[a.corpus] + (f"-{a.tag}" if a.tag else "") \
-        + (f"-t{a.teacher_fold}" if a.teacher_fold else "")
+        + (f"-t{a.teacher_fold}" if a.teacher_fold else "") + ("-pa" if a.predict_all else "")
     datasets = ((DATASETS if a.corpus == "raptor44" else DATASETS[2:]) + ([a.targets_from] if a.targets_from else [])
                 + a.extra_datasets)
     kernels = KERNELS + {"raptor44": [], "stage_a": STAGE_A_SHARDS, "stage_b": STAGE_B_SHARDS}[a.corpus]

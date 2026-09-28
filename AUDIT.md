@@ -10,7 +10,7 @@ It doesn't repeat what 09-23 and 09-26 fixed.
 **Verdict:** the recorded numbers still mean what they say. The LB reads, the 691 and gold-58 are sound, and
 the public CoAtNet's contamination (it trained on the 691 and on gold ×3) is already recorded and routed to "LB
 only" (`RUNBOOK.md:255-257, 332`). The problems are all in the path that runs next. **Its next step can't run:
-`--predict-all` refuses to start.** A CoAtNet student couldn't be submitted either. If the k-fold teachers come
+`--predict-all` refuses to start.** A CoAtNet student couldn't be submitted either (both fixed 09-28, below). If the k-fold teachers come
 back, the way their folds are pooled would inject a site-correlated shift into the student targets. None of this
 produces a wrong recorded number. Two of the three would fail loudly, and one would quietly weaken the experiment.
 
@@ -30,7 +30,7 @@ serve: build_submit_kernel ─► infer_windows (Ortho checkpoints only, see bel
 
 ### Findings
 
-#### [MEDIUM] `--predict-all` always refuses to start — the next step on the RUNBOOK's order to run
+#### [MEDIUM] `--predict-all` always refuses to start — the next step on the RUNBOOK's order to run — *fixed 09-28*
 **Where:** `notebooks/build_backbone_ab_kernel.py:275-279`; `fusion/train_windows.py:569-570`
 **What:** predict-all sets `VAL = sorted(set(_pool) | set(VAL))` and then `TRAIN = _pool[:2]`, so both
 training studies are also in VAL. `train_windows` then runs `if set(tr) & set(va) ...: raise SystemExit("train
@@ -43,8 +43,17 @@ at startup. It costs a session and the queue wait, not a wrong number.
 **Fix:** skip the train/val overlap check when `--epochs 0` (nothing trains; keep the train/gold check), or pass
 `TRAIN = []`. Then make the launcher force `--epochs 0` and require `--init` under `--predict-all`, so a
 forgotten flag can't train on two studies.
+**Done:** `train_windows` allows train ⊂ val only at `--epochs 0` (never train ∩ gold) and skips `--fit-budget`
+there. The skip matters as much as the overlap fix: Stage B's `PACKAGE` always passes `--fit-budget`, whose floor is
+one epoch. On two studies its 8-step probe crashed (`StopIteration`, old code). On more studies it would have
+trained. The launcher now requires `--init`, refuses `--teacher-fold` alongside, forces 0 epochs in every mode, and
+gives the kernel its own `-pa` slug, so its output can't land on the training run that `--weights-kernel` attaches.
+**Tested** on `stage_a_fixture`'s cache, through the real trainer: the old code refuses. The new code predicts
+all 3 studies from the teacher's `last.pt`, within 0.00005 of the teacher's own OOF (`last.pt` is fp16), and
+identically with `--fit-budget`. `--epochs 1` with the same overlap still refuses. The launcher builds `EPOCHS = 0`
+for stage A/B, full and smoke, and a normal build is unchanged.
 
-#### [MEDIUM] The submission path can serve only an Ortho checkpoint, but the target system's CoAtNet student needs it
+#### [MEDIUM] The submission path can serve only an Ortho checkpoint, but the target system's CoAtNet student needs it — *fixed 09-28*
 **Where:** `fusion/infer_windows.py:119-128`; `notebooks/build_submit_kernel.py:109`;
 `fusion/runs_coatnet_raptor_check/last_meta.json:19`
 **What:** a CoAtNet checkpoint's `last_meta.json` records `rope_periods: null` (CoAtNet has no RoPE).
@@ -57,6 +66,19 @@ reach a submission. It fails in the commit run's gate, so it costs a cycle, not 
 **Fix:** touch RoPE only when the encoder has it (`getattr(m.encoder, "rope", None)`), and refuse if periods are
 recorded but the encoder has no RoPE. Find `last.pt` by its sha256 under any `runs_*` directory, since the sha is
 already the identity check. The existing `--check-against` gate then proves the CoAtNet path end to end.
+**Done:** `build_model` builds the encoder as `train_windows.build_encoder` does (`img_size` for ViTs only, which
+also fixes the ResNet34 `img_size` crash in `RUNBOOK.md:249`). It restores RoPE only when the encoder has one, and
+refuses a checkpoint whose meta records periods its encoder lacks. The kernel finds `last.pt` by sha256 under any
+`runs_*` directory. Its ARMS line and receipt name the arm from `last_meta.json` (`coatnet_stage_a`,
+`ortho_stage_b`, ...; step 5's meta-less run stays `ortho_stage_a`), where they used to say `ortho_stage_a` for
+every checkpoint, `c7` included.
+**Tested:** the real trainer wrote CoAtNet, ResNet34 and small-Eva (RoPE) checkpoints on the fixture (random
+encoders, because the Hugging Face Hub is blocked in the test box). The old `infer_windows` fails with `'MaxxVit'
+object has no attribute 'rope'` and `ResNet.__init__() got an unexpected keyword argument 'img_size'`. The new one
+passes the DICOM gate on all three (max |Δp| ≤ 0.00009, against between-study prediction SD 0.009-0.013, so the
+gate has power). A meta-less ViT-L checkpoint still gets Ortho's bf16 periods. The built Submission A notebook ran
+end to end on the CoAtNet checkpoint: gate passed, `submission.csv` written, `ARMS: coatnet_stage_a only`.
+`infer_parity_fixture.py` still passes.
 
 #### [MEDIUM] Pooling k-fold teacher OOFs before ranking turns each fold model's calibration into a site-level target shift — *applies if the k-fold teachers return*
 **Where:** `labeling/build_student_targets.py:43-48` (`read_table` concatenates the glob), `:75-81` (one ranking

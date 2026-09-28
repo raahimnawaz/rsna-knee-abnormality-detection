@@ -566,7 +566,9 @@ def main() -> None:
             g = pd.read_csv(a.gold).dropna(subset=LABELS)
             gold_ids = [u for u in g.StudyInstanceUID.astype(str) if u in corpus.row]
             gtab = g.set_index("StudyInstanceUID")
-        if set(tr) & set(va) or set(tr) & set(gold_ids):
+        # --epochs 0 trains nothing (an --init teacher labelling studies, e.g. --predict-all), so only there may the
+        # train list overlap val. It never may overlap gold.
+        if set(tr) & set(gold_ids) or (a.epochs > 0 and set(tr) & set(va)):
             raise SystemExit("train overlaps val or gold -- refusing")
     miss_tr = [u for u in tr if u not in corpus.row]
     miss_va = [u for u in va if u not in corpus.row]
@@ -716,7 +718,7 @@ def main() -> None:
 
     # ---- how many epochs fit: time real micro-steps (data loading included), never extrapolate
     epochs, probe = a.epochs, None
-    if a.fit_budget:
+    if a.fit_budget and a.epochs > 0:           # its floor is 1 epoch: an eval-only run would train on its train list
         net.train()
         if sampler is not None:
             sampler.set_epoch(0)
