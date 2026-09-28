@@ -56,8 +56,11 @@ def main() -> None:
                "--corpus", str(a.corpus), "--layout", "stage_a", "--labels", str(TARGETS),
                "--train", str(run / "train_list.csv"), "--val", str(run / "val_list.csv"),
                "--gold", str(PROJ / "data/train.csv"), "--out", str(run), "--weights-dir", "/tmp"]
+        # macOS spawns DataLoader workers and pickles the dataset into each: np.memmap pickles as a full copy, so 4 workers
+        # asked for 4 x 32 GB and fold 1 was killed (09-28 07:45). Load in the main process: a step reads a few MB.
+        env = {**os.environ, "TW_WORKERS": os.environ.get("TW_WORKERS", "0")}
         with open(run / "train.log", "w") as log:
-            rc = subprocess.run(cmd, stdout=log, stderr=subprocess.STDOUT, env=os.environ).returncode
+            rc = subprocess.run(cmd, stdout=log, stderr=subprocess.STDOUT, env=env).returncode
         print(f"fold {k}: exit {rc}", flush=True)
         if rc:
             raise SystemExit(f"fold {k} failed -- see {run / 'train.log'}")

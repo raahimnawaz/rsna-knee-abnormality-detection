@@ -296,6 +296,10 @@ union is the 3,502 exactly, checked against `runs_dread_ortho/train_studies.csv`
 below the CNN alone (the weak-teacher lesson). FAIL → Ortho k-fold teachers (~25 GPU-h), decided then. Reported: each fold's 691 macro,
 per finding, minutes per fold. Recipe C was the best teacher in last night's exploratory reads (a 3-way pick, ~+0.003–0.005
 optimistic). ~1 h a fold on the Mac, ~4 h in all, no GPU quota.
+**▶ RUNNING since 2026-09-28 08:53** (terminal tab "CNN teachers"). First start 07:45 was killed at the first step: macOS pickles the
+memmapped corpus into each DataLoader worker (a full 32 GB copy each). Now `TW_WORKERS=0` (the default in `local_teacher_folds.py`) —
+data loading only, the recipe is unchanged; 0.6 GB resident, **0.15 s per 2-study step = 3.4 min an epoch**, ~1 h a fold → all four
+~13:00. Stage A shard 3 came in at 08:1x by a resumable `curl` on the output's direct link (the Kaggle CLI restarts from zero).
 
 **🔬 TEACHERS ON GOLD — 09-27 ~20:15 (owner: "are our labels as good as they realistically could be?"; no radiologist; the OAI
 email SENT by the owner). EXPLORATORY gold reads, not pre-registered — gold-58 is being spent; the student's LB is the real judge.**
