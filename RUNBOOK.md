@@ -16,7 +16,8 @@ but a read of 0.944–0.946 is NOT a valid improvement. The prize line and the e
 every run must change a decision. Cut 09-27: the efficiency-track final and decode speed-ups, round-2 labels unless round 1 gains,
 the normal-baseline, location / severity heads, Qwen, CoAtNet-from-CC0 (unless a later decision needs it), extra blend tests.
 **Proposed (owner to confirm):** drop Friday's Stage B-`dread` run — it only separates input from labels, which changes no
-decision (Stage B already paid +0.014) — and spend that slot on CNN teachers → the student ON Stage B directly.
+decision (Stage B already paid +0.014) — and spend that slot on CNN teachers → the student ON Stage B directly. **✅ The owner, 09-27 17:05: "depending on how the CNN works we will do TS"** — CNN USABLE → swap Friday's task for CNN
+teachers → Stage B student; CNN FAIL → keep Friday's Stage B-`dread` run, and the fastMRI+ teacher becomes the main teacher.
 
 ## ⛔ GOAL CHANGED 2026-09-24: THE GOAL IS TO WIN
 

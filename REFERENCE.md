@@ -119,7 +119,11 @@ costs nothing.
   signed URLs — never paste them into the repo). Needed for fastMRI+: `knee_singlecoil_train` (~72.7 GB) and
   `knee_singlecoil_val` (~14.9 GB) — 973 + 199 = 1,172 volumes, the set fastMRI+ annotated; their h5 files carry a ready
   reconstructed image, so no k-space work. NOT needed: knee multicoil (~550 GB, same volumes, raw), knee DICOMs (~164 GB, ~10k
-  clinical studies, unlabelled), brain, prostate. Nothing downloaded until the owner says so (owner, 09-27). **`labels` downloaded 09-27 at the owner's word: it is the PROSTATE set's PI-RADS labels** (`volume_exam_labels.csv`, `t2_` / `dwi_slice_level_labels.csv`), not knee — the knee labels are fastMRI+'s own `Annotations/knee.csv` + `knee_file_list.csv` on GitHub (MIT), so NYU is needed only for the knee IMAGES. Mac has 705 GB free.
+  clinical studies, unlabelled), brain, prostate. Nothing downloaded until the owner says so (owner, 09-27). **`labels` downloaded 09-27 at the owner's word: it is the PROSTATE set's PI-RADS labels** (`volume_exam_labels.csv`, `t2_` / `dwi_slice_level_labels.csv`), not knee — the knee labels are fastMRI+'s own `Annotations/knee.csv` + `knee_file_list.csv` on GitHub (MIT), so NYU is needed only for the knee IMAGES. The prostate file was deleted at the owner's word; fastMRI+ `knee.csv` + `knee_file_list.csv` downloaded 09-27 to
+  `data/external/fastmri/fastmri_plus/` (git-ignored). **Per KNEE, mapped to our findings** (1,173 reviewed, 974 with a box):
+  ACL high-grade (our positive) **101 (9%)** · MCL high-grade **4** (useless for MCL) · meniscus tear **663 (57%)**, side
+  unknown · cartilage full-thickness 122 · effusion 142 (ungraded) · fracture / contusion **119** · subchondral edema 196 ·
+  periarticular cyst 161. A fastMRI+ teacher can speak to ACL, meniscus (any), fracture / contusion, effusion, OA and cysts. Mac has 705 GB free.
   Before any derived copy goes to Kaggle, read the agreement's redistribution terms (a private Kaggle dataset is still a copy on
   a third party's servers).
 - **A radiologist labelling TRAINING scans is allowed** (§2.4.b bans hand labels only on "the validation dataset or test data
