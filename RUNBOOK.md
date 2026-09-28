@@ -19,6 +19,21 @@ the normal-baseline, location / severity heads, Qwen, CoAtNet-from-CC0 (unless a
 decision (Stage B already paid +0.014) — and spend that slot on CNN teachers → the student ON Stage B directly. **✅ The owner, 09-27 17:05: "depending on how the CNN works we will do TS"** — CNN USABLE → swap Friday's task for CNN
 teachers → Stage B student; CNN FAIL → keep Friday's Stage B-`dread` run, and the fastMRI+ teacher becomes the main teacher.
 
+**⚖ HOLDING ITS WEIGHT — every part against the best AVAILABLE alternative (owner, 09-27: "use whatever's best available…
+if any part of the pipeline isn't holding its weight, we get rid of it").** The base is the public 0.943 stack; a part of ours
+stays only with evidence that it adds to the best available thing.
+| part | ours | best available | evidence | verdict |
+|---|---|---|---|---|
+| system | — | **public 0.943 stack** (Apache 2.0) | the free floor | OUR BASE: every submission is judged against it (≥ 0.947 valid) |
+| labels | `dread_soft` (public) | the same | +0.015 LB | keep; teacher → student on top |
+| finished model | Ortho, 0.916 alone | **public CoAtNet, 0.928 alone** (CC0 weights) | at EQUAL setup Ortho > CoAtNet +0.010 (one run), gold tie; the 0.012 LB gap is setup (all ~4,350 studies, gold ×3, epochs on gold, SWA) | Ortho is NOT proven better than simply building on the public CoAtNet — **Sub B-dread (tonight) is its test in the stack**; fine-tuning the public CoAtNet on better labels is the untried best-available route |
+| input | Stage B (ours) | the public 64-slice geometry | +0.014 LB | keep |
+| training code | `train_windows` | the public training script | a port of it | keep (equivalent) |
+| small CNN | ResNet34 | — | 0.79 vs 0.84 | v2 arms decide; CUT if they fail |
+| Qwen VLM, own labeler | — | — | failed their gates | cut (done) |
+| outside data | fastMRI+ | the best image-graded data available | unproven | one test, then keep or cut |
+| 691 hold-out | ours | — | costs ~0.010 on finals | train the finals on all data |
+
 ## ⛔ GOAL CHANGED 2026-09-24: THE GOAL IS TO WIN
 
 Set by the owner on 09-24, superseding `PLAN-C6.md`'s "the best model, explicitly not a placing" (09-07).
