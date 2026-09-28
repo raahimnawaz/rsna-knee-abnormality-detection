@@ -289,7 +289,13 @@ substitute for one; the in-domain image teacher is the closer one.** NYU = 556 k
 study uses, labels on ACL-high-grade / Effusion / Contusion / Baker's (+ menisci), none on MCL, the 3 OA, synovitis, fracture; estimate
 +0.003–0.010 single model. The k-fold image teacher on OUR knees reads report + teacher **+0.028–0.034 on gold, all 12 findings** — more
 than NYU's ceiling on its five. So the image-read-labels lever is carried by: the image teacher (running) → NYU on its findings → round 2
-(student as the next teacher) if round 1 gains → OAI MOAKS for the OA / cartilage / synovitis gap if its terms come back.
+(student as the next teacher) if round 1 gains. ~~OAI MOAKS~~ **closed 09-28** (the NDA reply: research-use only, share only with
+DUC-listed researchers, silent on publishing weights — fails "equally accessible" and the winner's licence warranty; `REFERENCE.md`
+§1.3). **Extra report fields (owner, 09-28: sex, left/right?) — no:** at test time there are no reports, and both already come from
+the DICOM headers (`PatientSex` on 91%; side = tag on 50% + the IPP-x rule at 97.3%, already used by Stage B's canonical flip). Sex as
+a model INPUT is the old F3 idea, never built; it has to be a training feature or a group prior (a monotone post-hoc shift cannot
+move AUC), and the one group prior tried, F1's site prior, died. Report fields that could matter are severity and location — queued
+(aux severity head; DATA §12 item 5's zoom first), behind teacher → student.
 
 **⏩ CNN TEACHERS — 4 folds on the Mac `pre-registered 2026-09-28 ~06:55 PDT, before any fold runs` (the owner, 09-27: CNN
 teachers on the Mac).** Recipe C exactly: `resnet34.a1_in1k` at 224, Stage A, `dread_soft` (sha `8cec477f`), seed 42, k 12, bs 8, head

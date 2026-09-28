@@ -106,6 +106,15 @@ costs nothing.
   the commercial-use page) and the NDA Help Desk (`NDAHelp@mail.nih.gov`) for OAI + MOAKS. Each asks: is prize-competition
   training permitted use; may the weights be published on Kaggle under CC BY-NC 4.0; may the answer be posted in the
   thread.
+- **⛔ NDA HELP DESK ANSWERED 2026-09-28 — OAI CLOSED for this competition (owner shared the reply).** It restated the Data Use
+  Certification, answering none of the three questions directly: (1) use only for scientific investigation, scholarship, teaching or
+  research (DUC clause 2) — silent on whether a cash-prize competition qualifies; (2) data may be shared only with researchers listed
+  on a non-expired DUC for the same permission group (clause 1) — silent on publishing trained weights, which §2.8.a requires of
+  winners under CC BY-NC 4.0 with a warranty of "unrestricted right"; (3) cloud storage is allowed if it meets the NIH security best
+  practices and "your institution['s]" IT policy (clause 7) — an institutional frame. With the host's line (§3.1: "substantial
+  institutional approval" may be excluded; KneeCoT ruled out as unequal access), a DUC-gated set fails "equally accessible", and a
+  winning entry could not honestly warrant the licence. Also against it: DUC approval + a large download + weeks of work vs Oct 22.
+  **Verdict: do not apply; the OA / cartilage / synovitis gap is carried by the in-domain image teacher alone.**
 
 - **fastMRI+ — the best-fitting outside data, read 2026-09-27** (`github.com/microsoft/fastmri-plus`, annotations MIT): the
   whole fastMRI knee set reviewed by radiologists — **1,172 volumes, 974 with findings, 16,167 boxes ON THE IMAGES** (Meniscus
