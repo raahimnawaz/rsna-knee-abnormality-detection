@@ -104,6 +104,13 @@ better arm on the 691** (a 2-way pick: expect it to read ~+0.002 optimistic). **
 **BETTER**: also a main-model candidate (LB next); Δ < −0.010 → **FAIL** for THIS recipe (our attention head, 8 epochs,
 intensity-only augmentation) — not a verdict on small CNNs; teachers stay Ortho. Reported: gold-58, min/epoch, GPU-h.
 Checked locally (Stage A fixture, CPU): ImageNet weights load, checkpointing off, train → eval → OOF. ~2.6 GPU-h for both.
+**⛔ READ 2026-09-27 17:10 — FAIL, for THIS recipe** (`fusion/runs_r34_lr3e5/`, `…_lr3e4/`; both 8/8 epochs, labels `8cec477f`, the
+same 691). 691: **lr 3e-4 0.7915** (primary, the better arm), lr 3e-5 0.7349, `dread` (Ortho) 0.8440 → paired **−0.0525 ± 0.0051**,
+0/12 labels up. Gold-58 (reported): 0.837 / 0.766 vs 0.912. **Cost: 1.9 min per epoch** (8 epochs ≈ 15 min; data wait 6%) —
+~40× cheaper than Ortho. **Per the rule: teachers are NOT this CNN; the owner's branch → Friday's Stage B-`dread` stays scheduled
+and fastMRI+ becomes the main teacher.** Diagnosis, not a second chance: the arm is UNDER-trained, not capped — 10× the lr bought
++0.057, and 8 epochs of 1.9 min is 15 minutes of training; the board's 0.94+ CNNs train longer and augment. Whether a proper CNN
+recipe reaches Ortho is a NEW question (one ~1 GPU-h run), to be pre-registered only if the owner wants cheap teachers.
 
 **⏳ TEACHER → STUDENT — design 2026-09-27 (the owner: "we'll take the better labels teacher student approach"); its rule is
 fixed once the small-CNN read picks the teacher.** Why now: gold-58 says the report label and an image model's OOF, averaged,
