@@ -194,6 +194,23 @@ combined arm, same rule, then stop. Z helps → zoom views become a student cand
 are closed for this competition. **Needs:** the Stage A cache (~32 GB, our own `raahimnawaz/rsna-knee-stage-a-s{0..3}of4`), the
 RadImageNet encoder (~90 MB, `mattiaangeli/radimagenet-resnet50-encoder`), `train_windows` on MPS + `--zoom` + a `radimagenet_r50`
 arch. **Waiting on the owner's OK for the two downloads.** ~9 h of Mac time; fastMRI+ conversion goes first.
+**🔍 OUTSIDE REVIEW OF THE PIPELINE — read against the code, 2026-09-27 ~19:30 (the owner pasted it, "your thoughts?").**
+Adopted: (1) the NYU gate as a paired macro bootstrap, not per-finding deltas (item 3 of "HOW fastMRI+ FITS"); (2) a fastMRI+
+hold-out as a teacher diagnostic, report-only. Already so: 336 px (Stage B 384 = 24 × 16); "quantile matching" IS
+`build_student_targets.py` (each teacher's ranks mapped onto the base's own sorted values, then averaged). Rejected, with the
+evidence: **the 691 as the judge of labels** — its reference is another LLM's read of the same reports; `DATA.md` §2 measured a
+large-n substitute ranking label sets at Spearman 0.43 (p = 0.34) against gold, rewarding copies of the report — and gold-58 is not
+as weak as the review's single-finding, unpaired SE (0.035–0.045): paired macro SE is **0.008** (measured tonight on
+`build_student_targets --gold`: 0.8873 → 0.9216, +0.034 ± 0.008); **"the 691 is contaminated"** — students train only on the
+3,502 (`train_windows` refuses train/val or train/gold overlap), the NYU teacher never trains on a competition knee, and its 691
+predictions exist only for the finals on all data, where the 691 is spent by design; **interpolating slices** — invents data never
+acquired (`PLAN-C6.md`), the real limit (channels 1.6–3.9 source slices apart) is recorded in `DATA.md` §10b and Stage B eases it;
+**box-area severity + sigmoid for fastMRI+** — the student targets use only the teacher's ORDER, so its calibration never reaches
+them, and area needs a joint segmentation and measures size, not presence; **zoom and RadImageNet in one arm** — it could not say
+which helped; **gating on the joint-space findings only** — reported, but the gate stays on all findings; "RadImageNet cuts epochs
+~40%" — no source. **Prompted by it, open:** fastMRI is NYU — if NYU also contributed competition knees, a teacher that saw a gold
+or 691 knee would inflate its own gate. Check during conversion: scanner vendor / field strength / protocol against the
+competition's site fingerprints, then thumbnails if any site matches.
 
 **⏳ TEACHER → STUDENT — design 2026-09-27 (the owner: "we'll take the better labels teacher student approach"); its rule is
 fixed once the small-CNN read picks the teacher.** Why now: gold-58 says the report label and an image model's OOF, averaged,
@@ -271,7 +288,11 @@ from radiologists reading IMAGES and which has never seen a competition knee —
 2. **Teacher** (~1–2 GPU-h): a backbone that has NOT seen competition labels — Ortho or an ImageNet CoAtNet, NOT the public 0.928
    CoAtNet (it trained on our knees, so its predictions would echo their report labels) — fine-tuned on fastMRI+.
 3. **Gate 1, free:** the teacher scores our gold-58 on the findings it covers — radiologists at another hospital, never seen.
-   Useful only if it beats the report label there on those findings.
+   Useful only if it beats the report label there on those findings. **Tightened 09-27 (outside review):** PASS iff report +
+   teacher beats report alone on the MACRO over the teacher's covered findings, **paired bootstrap P ≥ 0.95** — never per finding
+   (measured: 6 findings paired SE **0.011**, 12 findings 0.008; one finding alone can sit at the ceiling, ACL 0.993). Beside it,
+   report-only: the teacher's AUC on a **15% patient-level hold-out of fastMRI+** — if gold fails, it says "did not learn" (fix the
+   training) from "did not transfer" (drop it).
 4. **Teacher labels:** it predicts all 4,349 training knees' coronal series → combined with `dread_soft` → student targets.
 5. **Student:** the best available start (public 0.928 CoAtNet via `--init`, if its pipeline check passes) trained on those
    targets → blended into the 0.943 stack → **valid only at ≥ 0.947**.
