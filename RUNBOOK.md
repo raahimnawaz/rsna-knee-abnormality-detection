@@ -388,6 +388,17 @@ OOF (`fusion/runs_teacher_cnn/teacher_oof_mean.csv`: each of the 3,502 from its 
 of 4,349 studies have a teacher; the other 166 keep `dread_soft` exactly. The NYU teacher joins only via its own gate (PROPOSED: on the
 Mac tonight, awaiting the owner). Next: the Friday push list → READY (targets to Kaggle as a private dataset, build + CPU smoke both
 students, pre-register their LB rules).
+**⏩ NYU TEACHER ON THE MAC `pre-registered 2026-09-28 ~16:25 PDT, before it trains` (owner: "if it's less than an hour just do it
+now").** ResNet34 recipe C exactly as the CNN teachers (`resnet34.a1_in1k`, 224, bb + head lr 1e-3, `--aug-affine 1`, 17 epochs, seed 42,
+k 12, bs 8, `--mps`), ImageNet start — never saw a competition label. Train: the fastMRI+ cache (`data/external/fastmri/cache_stage_a`,
+Stage A format), `--slots cor_1,cor_2 --allow-missing-labels`, labels `labels_fastmri_v1.csv` (ACL high-grade 61 · Effusion 100 ·
+Baker's 111 · Contusion 97 of 556; the other 8 blank → no loss), its 473 training knees; val = the 83-knee patient hold-out
+(report-only). Then eval only (`--init` its `last.pt`, `--epochs 0`, same slots) on the competition Stage A cache: the 3,502 + 691
+and gold-58. **THE RULE** (gold-58, paired bootstrap 4,000 over studies, base `steven_v2`): (1) **PASS iff report + NYU beats report
+alone on the macro over its 4 findings at P ≥ 0.95.** (2) It joins the student targets only if ALSO report + CNN + NYU does not read
+below report + CNN on the 12-finding macro (point estimate) — the weak-teacher lesson. Either fails → the targets stay
+`targets_round1_cnn.csv` and NYU is cut. Report-only: hold-out AUC per finding ("did not learn" vs "did not transfer"), gold per
+finding, minutes.
 
 **🔬 TEACHERS ON GOLD — 09-27 ~20:15 (owner: "are our labels as good as they realistically could be?"; no radiologist; the OAI
 email SENT by the owner). EXPLORATORY gold reads, not pre-registered — gold-58 is being spent; the student's LB is the real judge.**
