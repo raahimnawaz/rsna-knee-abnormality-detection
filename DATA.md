@@ -623,6 +623,11 @@ Today "trace effusion" and "no effusion" reach the image model as the same kind 
    the wrong place); (c) pixel-level crops — needs anatomy landmarks we do not have (segmentation data is external, blocked).
    ⚠️ This repo once built compartment attention for what was a slice-sampling bug (`DECISIONS.md` §U→D2): before (b), check
    where the trained model's attention already goes.
+   **Owner, 09-28 ("crop to the report's location, image ~50% smaller"):** not at test time — no reports there — and cropping
+   training images from the report would train on views the test never gets. The report-free form IS the Mac CNN test's
+   zoom arm (`RUNBOOK`, "CNN TEST — detail vs pretraining"): a centre crop at the same pixel count ≈ 1.5× detail on the joint
+   line and notch, where the weak findings live. Order: zoom arm first; only if zoom HELPS, form (a) — report "where" as extra
+   training outputs, ignored at test — as the one follow-up run.
 7. **"A big proven model makes the labels, ours learns from them" (the owner, 09-27)** — that IS teacher → student; what
    matters is that the teacher (a) is good on images and (b) has NOT seen the knees it labels. Every "proven" public model (the
    0.928 CoAtNet, the stack's members) trained on all ~4,350 training studies — on them it largely echoes the labels it was
