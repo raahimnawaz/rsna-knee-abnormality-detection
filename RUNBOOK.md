@@ -125,7 +125,8 @@ families, nothing tuned on the public LB, the one that survives a shake-up best.
 **🗓 FRIDAY 10-02 PUSH LIST — ⛔ NOT READY** (the scheduled task `rsna-push-stage-b-dread`, Fri 17:20 PDT, pushes ONLY what this block
 lists once it reads **✅ READY**, and nothing if it does not). To be written after today's CNN-teacher gold gate, each entry with its
 exact build command, kernel id, flag checks and its pre-registered rule. Intended, in order (Kaggle runs two GPU sessions at once):
-1. **CoAtNet student** — `--arch coatnet --init` the public 0.928 weights, student targets (`dread_soft` + CNN-teacher OOF). ~6 GPU-h.
+1. **CoAtNet student** — `--arch coatnet --init` the public 0.928 weights, student targets `data/student/targets_round1_cnn.csv`
+   (`dread_soft` + CNN-teacher OOF; **gate PASSED 09-28, P 0.994**). ~6 GPU-h.
 2. **Ortho student** — Stage B, the same student targets. ~10 GPU-h.
 3. **NYU teacher** — Ortho on `raahimnawaz/rsna-knee-fastmri-plus-cache` alone (`--slots cor_1,cor_2 --allow-missing-labels`),
    pushed when a session frees. ~1–2 GPU-h.
@@ -137,8 +138,8 @@ designed (report + NYU beats report on its findings' macro, gold-58, P ≥ 0.95;
 alone), pre-registered before it runs. (2) **CPU smoke of both student kernels on Kaggle** (no quota; the 09-27 smoke took 27 min) with
 the real targets file, so Friday cannot die on a flag. (3) **Pre-register the students' LB rules** before the push. (4) Keep the Mac
 awake with the app open Friday 17:20 — the scheduled task needs it, and today an app self-update killed a run.
-**Hardware (owner's what-if, 09-28): a Mac Studio (M5 Ultra).** This Mac is a base M5 (10 GPU cores, 16 GB): ResNet34 ~740 studies/min
-(2,681 in 3.4–3.9 min) vs ~1,840 on a Kaggle T4×2 session (3,502 in 1.9 min) → **~0.4× a Kaggle session**. An Ultra (if like past Ultras, ~8× the GPU cores, 100s of GB memory) would run teachers, round 2 and likely the students
+**Hardware (owner's what-if, 09-28): a Mac Studio (M5 Ultra).** This Mac is a base M5 (10 GPU cores, 16 GB): ResNet34 3.4 min/epoch vs
+~2 on a T4. An Ultra (if like past Ultras, ~8× the GPU cores, 100s of GB memory) would run teachers, round 2 and likely the students
 locally, 24/7, off the ~30 GPU-h/week quota — measure one epoch of each model first (MPS: no `torch.compile`, ViT-L untested). Finals
 still infer on Kaggle's T4s (train locally, upload weights). Competition data must stay reachable only by team members (rules §7.b).
 **Owner Qs 09-28 ~14:15.** (a) *Route the blend to the model best at each finding, or per study?* Per-finding weights need per-finding
@@ -175,11 +176,6 @@ teacher, round 2 and gold ×3 in the finals. The 168 GB fastMRI clinical DICOMs 
 better unfitted (`dread_soft` unscorable on gold, +0.015 on the LB). Perfect reading of the text: ~0.92–0.94 at most (hand read on 30
 gold knees, DATA §1: +0.055 [+0.005, +0.111], one reader). Beyond that the truth is not in the text (DATA §12). The extractor is not
 our ceiling: report + image teacher reads 0.915–0.922 on gold today.
-**⛔ Team merger: NO (owner, 09-28 14:30).** **Studio throughput — HYPOTHETICAL (owner, 09-28: may not have access; nothing built for it):** an
-M5 Ultra, 80 GPU cores, 96 GB. Same GPU generation as this M5 (10 cores), so ~8× the cores → est. ~5–7× this Mac ≈ ~2–3× a Kaggle
-session; 24/7 = 168 h/week vs Kaggle's 30 → ~12–17× the weekly compute, on top of Kaggle. Needed first if it happens: DataLoader
-workers that reopen the memmap per worker (today TW_WORKERS=0; at 8× the GPU, main-process loading would bind). Buys: Ortho k-fold teachers (~25 GPU-h, the strongest teacher), round 2, students off-quota. An estimate
-from core counts — the first hour on it is a one-epoch benchmark of each model (CoAtNet / Ortho at 384 never ran on MPS).
 (p) *Would a 0.92 reader help?* Modestly: +0.02 gold ≈ +0.01 LB single model at the ~½ transfer, less in the blend, and it overlaps
 the teacher (both fix label errors). Route: Claude Opus graded read with the official cut-offs (`extractor/llm_extract.py`), iterate
 on the 303 hand set (~$5–10), full corpus ~$60–150, rank-mean with `dread_soft`. Blocker: no cheap judge — `dread_soft` has no gold
@@ -380,6 +376,18 @@ killed at 11:40:09, epoch 7 of 17:** the Claude desktop app relaunched itself fo
 ShipIt "Updating") and took the terminal tab with it — no error in `train.log`. **Restarted 13:36 as a detached process** (own session,
 parent = launchd, under `caffeinate -i`; log `fusion/runs_teacher_cnn/runner.log`), so an app relaunch cannot kill it again; fold 3
 starts over (the runner resumes per fold, not per epoch), same recipe, same 0.15 s/step. **Fold 3 ~14:47, fold 4 ~16:00 → the gold gate.**
+**✅ GATE READ 2026-09-28 16:10 — CNN TEACHERS PASS.** All four folds done (71.7 / 68.7 / 69.2 / 70.8 min, 4.7 h on the Mac, 0 GPU-h).
+Teacher on gold = the mean of the four folds' `oof_gold.csv` (last-epoch weights, the primary). `build_student_targets --gold`, base
+`steven_v2`: **report 0.8873 → report + CNN teacher 0.9132, paired +0.0258 ± 0.0102, 95% CI [+0.0060, +0.0463], P 0.994 ≥ 0.95 → PASS.**
+(09-27's exploratory single CNN C read +0.028 at P 0.995 — consistent.) Reported, not judged: own gold per fold 0.874 / 0.873 / 0.874 /
+0.896; the 691 per fold 0.814 / 0.819 / 0.815 / 0.814, mean of four 0.832. Per finding on gold (report → both; indicative, 9–35
+positives each): Effusion 0.853 → 0.930, Fracture 0.793 → 0.881, Contusion 0.831 → 0.891, Medial OA 0.931 → 0.965, Synovitis 0.790 →
+0.825, Lateral Meniscus 0.862 → 0.873, PF OA 0.901 → 0.909, Baker's 0.946 → 0.958; flat or −0.01: ACL, MCL, Medial Meniscus, Lateral OA.
+**Per the rule → student targets built:** `data/student/targets_round1_cnn.csv` (sha256 `f313476903287ab2…`) = `dread_soft` + the CNN
+OOF (`fusion/runs_teacher_cnn/teacher_oof_mean.csv`: each of the 3,502 from its one unseen fold; the 691 the mean of all four). 4,183
+of 4,349 studies have a teacher; the other 166 keep `dread_soft` exactly. The NYU teacher joins only via its own gate (PROPOSED: on the
+Mac tonight, awaiting the owner). Next: the Friday push list → READY (targets to Kaggle as a private dataset, build + CPU smoke both
+students, pre-register their LB rules).
 
 **🔬 TEACHERS ON GOLD — 09-27 ~20:15 (owner: "are our labels as good as they realistically could be?"; no radiologist; the OAI
 email SENT by the owner). EXPLORATORY gold reads, not pre-registered — gold-58 is being spent; the student's LB is the real judge.**
