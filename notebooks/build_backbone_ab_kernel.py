@@ -475,8 +475,14 @@ def main() -> None:
           "metadata": {"kernelspec": {"display_name": "Python 3", "language": "python", "name": "python3"},
                        "language_info": {"name": "python"}},
           "nbformat": 4, "nbformat_minor": 5}
+    body = json.dumps(nb, indent=1)
+    if len(body.encode()) > 1_000_000:
+        # Kaggle answers a bare "400 Bad Request" to a notebook over ~1 MB (09-26 at 2.1 MB; 09-28 at 1.06 MB, when
+        # embedded student targets pushed an ~0.87 MB notebook over). Fail here, with the way out.
+        raise SystemExit(f"notebook {len(body.encode()) / 1e6:.2f} MB > 1 MB: Kaggle refuses it with a 400"
+                         + (" -- attach the targets with --targets-from <dataset>" if t_b64 else ""))
     a.out.mkdir(parents=True, exist_ok=True)
-    (a.out / f"{slug}.ipynb").write_text(json.dumps(nb, indent=1), encoding="utf-8")
+    (a.out / f"{slug}.ipynb").write_text(body, encoding="utf-8")
     meta = {"id": f"{OWNER}/{slug}", "title": slug, "code_file": f"{slug}.ipynb",
             "language": "python", "kernel_type": "notebook", "is_private": True,
             "enable_gpu": mode != "smoke" and not a.cpu, "enable_tpu": False,

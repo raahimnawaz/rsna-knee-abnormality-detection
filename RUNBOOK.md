@@ -461,7 +461,7 @@ vs 0.9057, −0.0143 ± 0.0176, CI [−0.048, +0.021], P 0.21 → FAIL.** **(2)*
 0.804 — Baker's (fastMRI+'s "periarticular cyst", noisy by design) did not transfer, and ACL sits far below the report's 0.993. Effusion
 alone looks useful (report + CNN 0.930 → + NYU 0.952), but that is a per-finding pick read off gold — the rule forbids it, and any test
 of it on the same 58 knees is contaminated. Friday's push list drops item 3 (NYU teacher, ~1–2 GPU-h saved).
-**🔧 STUDENT TARGETS REBUILT 2026-09-28 ~17:00 — the AUDIT 09-28 MEDIUM (on the unmerged cloud branch `claude/relaxed-volta-dpy1al`)
+**🔧 STUDENT TARGETS REBUILT 2026-09-28 ~16:33 — the AUDIT 09-28 MEDIUM (on the unmerged cloud branch `claude/relaxed-volta-dpy1al`)
 applied.** Pooling the four fold OOFs before ranking moved whole site-grouped folds: measured on the 16:03 file, per fold the teacher's
 mean pooled percentile sat up to **0.113** from the base's (Effusion fold 1 −0.113, MCL fold 4 +0.112), shifting mean targets by up to
 **0.039** per fold. Fix in `build_student_targets.py`: each file is mapped onto the base on its own studies, then files are averaged per
@@ -470,6 +470,14 @@ the 691's sites never share a ranking with a fold's. Synthetic check (+0.5 offse
 Real: per-group mean shift **0.0** (was 0.039). **The targets are now `data/student/targets_round1_cnn.csv` sha256 `75757be8c9b5c8d1…`**
 (the `f3134769…` file is superseded; nothing used it). **The gate is unchanged** — every fold scored the same 58, so an offset moves
 all of them together: through the fixed tool (per-file ranks averaged, the audit's LOW) **+0.0261, CI [+0.0066, +0.0465], P 0.994**.
+**▶ STUDENT SMOKES PUSHED 2026-09-28 ~16:40** (Kaggle CPU, no quota; from the merge `3162a94` + the builder's size guard): the targets
+are attached, not embedded — embedded they made a 1.06 MB notebook and Kaggle answered a bare 400 (the 09-26 failure mode; the
+builder now refuses > 1 MB at build time). Private dataset **`raahimnawaz/rsna-knee-student-targets`** = `targets_round1_cnn.csv`
+byte for byte (sha `75757be8…`). Kernels (`--smoke`, 16 + 6 studies, 1 epoch):
+- `rsna-knee-c7-train-ortho-student-r1` — `--arch ortho --corpus stage_b --n-train 0 --targets data/student/targets_round1_cnn.csv
+  --targets-from raahimnawaz/rsna-knee-student-targets --tag student-r1` (Stage B-`dread`'s command with the targets swapped).
+- `rsna-knee-c6-train-coatnet-student-r1` — `--arch coatnet --corpus stage_a --n-train 0 --targets … --targets-from … --tag
+  student-r1 --extra-datasets dreaddevelopment/raptor-knee-maxspan --train-args '--init raptor_ft_coatnet_v5_full_swa.pt'`.
 **Owner Q 09-28 ~16:20: will Lateral OA and synovitis always lag; crop to the finding and retry when AUC < 0.93?** They lag for
 different reasons. Lateral OA is VISION, measured 09-25 (DATA §10b): its labels are clean (0.988) and not scarce (25.7%); the model
 recovers the least of them — 2–3 mm cartilage is smaller than one ViT token — and the reports themselves are weakest there on gold
