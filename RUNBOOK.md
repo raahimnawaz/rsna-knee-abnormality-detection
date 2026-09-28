@@ -141,6 +141,15 @@ awake with the app open Friday 17:20 — the scheduled task needs it, and today 
 ~2 on a T4. An Ultra (if like past Ultras, ~8× the GPU cores, 100s of GB memory) would run teachers, round 2 and likely the students
 locally, 24/7, off the ~30 GPU-h/week quota — measure one epoch of each model first (MPS: no `torch.compile`, ViT-L untested). Finals
 still infer on Kaggle's T4s (train locally, upload weights). Competition data must stay reachable only by team members (rules §7.b).
+**Owner Qs 09-28 ~14:15.** (a) *Route the blend to the model best at each finding, or per study?* Per-finding weights need per-finding
+scores we can trust, and we have none (gold-58 per-finding SE 0.03–0.09; the 691 rewards agreeing with reports): picks transfer at
+−0.0002 ± 0.009 (gold) and 0.8289 vs 0.8298 (691). A per-study router has even less to learn from. Kept: the pre-registered
+"winner only if clearly ahead (> 0.03), else average" rule (+0.0022 ± 0.0019, 09-24), re-measured before use on the students.
+(b) *Strip Ortho?* Its inference is ~35 min (decode ~21 + GPU ~13 on two T4s); the runtime problem is the stack's 8–9 h — the room
+comes from cutting its 20 DINOv2 members (~5% of the vote), not from trimming Ortho; distilling Ortho IS the student.
+(c) *Studio (2025 = M4 Max or M3 Ultra):* code from GitHub; copy `data/stage_a` 30 GB + the NYU cache 3.7 GB + raptor 0.3 GB from this
+Mac (external SSD / cable — not a download); Stage B from Kaggle only if students train there (8 × ~7.8 GB ≈ 62 GB, resumable
+`curl`); the 168 GB of raw fastMRI archives stay behind. ~half a day incl. a one-epoch benchmark per model.
 
 **⏩ SMALL-CNN BASELINE `pre-registered 2026-09-27 16:45 PDT, before any push` — the owner said yes 09-27.** Question: does
 the board's *"simple CNN at 224 px scores 0.94+"* (`REFERENCE.md` §3.1b) reproduce in OUR pipeline, at a fraction of Ortho's
