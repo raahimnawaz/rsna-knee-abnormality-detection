@@ -358,6 +358,23 @@ from radiologists reading IMAGES and which has never seen a competition knee —
 4. **Teacher labels:** it predicts all 4,349 training knees' coronal series → combined with `dread_soft` → student targets.
 5. **Student:** the best available start (public 0.928 CoAtNet via `--init`, if its pipeline check passes) trained on those
    targets → blended into the 0.943 stack → **valid only at ≥ 0.947**.
+**✅ CONVERTED 2026-09-27 22:50 (Mac, 0.3 min) — `pipeline/build_fastmri_cache.py` + `labeling/fastmri_labels.py`, output
+`data/external/fastmri/cache_stage_a/` (3.7 GB, git-ignored).** Both archives unpacked clean (1,172 h5 = 973 + 199, xz-verified).
+**⚠ 1,172 FILES ARE 556 KNEES:** 513 patients have both PD and PD fat-sat (one exam, two files). Per knee: **ACL high-grade 61
+(11%) · Effusion 100 · Contusion 97 · Baker's 111** (the "101 ACL" earlier counted files). Every estimate above that said 1,172
+knees is on half the data it assumed. **⚠ ORIENTATION CORRECTED:** the stored images are UPSIDE DOWN relative to ours (kneecap
+tissue centre on the most anterior coronal: competition 0.30 of height, NYU as stored 0.67, flipped 0.33; fastMRI+ boxes land on
+anatomy only when flipped) → every slice is `np.flipud`-ed; slice order already matches (0 = anterior). The 19:10 "same way up"
+read of two samples was wrong. Reused unchanged: `assign_series` (PD fat-sat → `cor_1`, 22 of 30 in the smoke), `pick_depths`
+over 2–98%, the 2–98th percentile window, `crop_mm` at each file's own header mm/px. Edge tissue cor_1 **0.22 / 0.80 / 0.80**
+(competition 0.22 / 0.81 / 0.75); cor_2 0.08 / 0.76 / 0.74 (0.19 / 0.81 / 0.73). Labels by the OFFICIAL criteria, written before
+any teacher: ACL = high-grade only (low-grade 0), Effusion ungraded (over-calls small), Contusion = fastMRI+'s fracture/contusion
+box (Fracture left blank), Baker's = periarticular cyst (noisy), the rest blank. Hold-out 83 knees by patient (seed 20260927;
+ACL 6, Effusion 12, Contusion 14, Baker's 17 — report-only). Trial run: ResNet34, `--slots cor_1,cor_2 --allow-missing-labels`,
+2 epochs on 30 knees, CPU — trains, evaluates, writes (the first "grad-norm nan" is the log's initial value, not a NaN).
+**Still open:** knee size vs the competition (needs the Stage A cache, downloading); the NYU-overlap check (needs the competition
+scanner list, `headers.parquet`); where the converted set may live (the agreement).
+
 **What fastMRI+ could buy — an ESTIMATE, not a gate (owner's question 09-27 ~19:20; gold-58, report = `steven_v2`, the only report
 table with gold rows).** Per finding, report → report + an image model (Ortho's in-domain OOF): ACL 0.993 → 0.994 (no room) · Effusion
 0.853 → 0.933 · Fracture 0.793 → 0.868 · Contusion 0.831 → 0.887 · Baker's 0.946 → 0.962 · Lateral Meniscus 0.862 → 0.904. On the
