@@ -126,7 +126,7 @@ families, nothing tuned on the public LB, the one that survives a shake-up best.
 lists once it reads **✅ READY**, and nothing if it does not). To be written after today's CNN-teacher gold gate, each entry with its
 exact build command, kernel id, flag checks and its pre-registered rule. Intended, in order (Kaggle runs two GPU sessions at once):
 1. **CoAtNet student** — `--arch coatnet --init` the public 0.928 weights, student targets `data/student/targets_round1_cnn.csv`
-   (`dread_soft` + CNN-teacher OOF; **gate PASSED 09-28, P 0.994**). ~6 GPU-h.
+   sha `75757be8…` (`dread_soft` + CNN-teacher OOF mapped per fold; **gate PASSED 09-28, P 0.994**). ~6 GPU-h.
 2. **Ortho student** — Stage B, the same student targets. ~10 GPU-h.
 3. ~~**NYU teacher**~~ **CUT 09-28 16:25 (failed its gold gate on the Mac, P 0.21).** Was: Ortho on `raahimnawaz/rsna-knee-fastmri-plus-cache` alone (`--slots cor_1,cor_2 --allow-missing-labels`),
    pushed when a session frees. ~1–2 GPU-h.
@@ -408,6 +408,15 @@ vs 0.9057, −0.0143 ± 0.0176, CI [−0.048, +0.021], P 0.21 → FAIL.** **(2)*
 0.804 — Baker's (fastMRI+'s "periarticular cyst", noisy by design) did not transfer, and ACL sits far below the report's 0.993. Effusion
 alone looks useful (report + CNN 0.930 → + NYU 0.952), but that is a per-finding pick read off gold — the rule forbids it, and any test
 of it on the same 58 knees is contaminated. Friday's push list drops item 3 (NYU teacher, ~1–2 GPU-h saved).
+**🔧 STUDENT TARGETS REBUILT 2026-09-28 ~17:00 — the AUDIT 09-28 MEDIUM (on the unmerged cloud branch `claude/relaxed-volta-dpy1al`)
+applied.** Pooling the four fold OOFs before ranking moved whole site-grouped folds: measured on the 16:03 file, per fold the teacher's
+mean pooled percentile sat up to **0.113** from the base's (Effusion fold 1 −0.113, MCL fold 4 +0.112), shifting mean targets by up to
+**0.039** per fold. Fix in `build_student_targets.py`: each file is mapped onto the base on its own studies, then files are averaged per
+study (the teacher still counts once); each fold's OOF is split into its own studies (`oof_own.csv`) and the 691 (`oof_691.csv`) so
+the 691's sites never share a ranking with a fold's. Synthetic check (+0.5 offset in one fold): pooled ±0.071 → per file 0.0000.
+Real: per-group mean shift **0.0** (was 0.039). **The targets are now `data/student/targets_round1_cnn.csv` sha256 `75757be8c9b5c8d1…`**
+(the `f3134769…` file is superseded; nothing used it). **The gate is unchanged** — every fold scored the same 58, so an offset moves
+all of them together: through the fixed tool (per-file ranks averaged, the audit's LOW) **+0.0261, CI [+0.0066, +0.0465], P 0.994**.
 **Owner Q 09-28 ~16:20: will Lateral OA and synovitis always lag; crop to the finding and retry when AUC < 0.93?** They lag for
 different reasons. Lateral OA is VISION, measured 09-25 (DATA §10b): its labels are clean (0.988) and not scarce (25.7%); the model
 recovers the least of them — 2–3 mm cartilage is smaller than one ViT token — and the reports themselves are weakest there on gold

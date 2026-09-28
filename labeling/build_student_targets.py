@@ -19,6 +19,8 @@ boundaries and flipped conflicts outright -- caught by this file's own invariant
 
 WHY a teacher must not have seen the study: a model scoring studies it trained on mostly repeats their labels
 (DATA.md §12 item 7). Pass OOF files -- one per teacher fold, globbed together -- never a model's training-set output.
+Each file is mapped onto the base on ITS OWN studies before the folds are joined (AUDIT 09-28): the folds are
+different models on site-grouped studies, and one ranking over their pooled raw scores moves whole sites.
 
 Also writes <out>.audit.csv: per finding, the studies whose level moved furthest (the confident-learning idea:
 where independent image models disagree most with the report). With --gold, scores base vs combined on the
@@ -48,6 +50,18 @@ def read_table(pattern: str) -> pd.DataFrame:
     return d[[c for c in LABELS if c in d.columns]].apply(pd.to_numeric, errors="coerce")
 
 
+def read_parts(pattern: str) -> list[pd.DataFrame]:
+    """A teacher's files kept APART: each is one fold model, with its own calibration. Pooling their raw scores
+    before ranking lifts whole site-grouped folds (AUDIT 09-28, MEDIUM; measured on the CNN folds: up to 0.11
+    of a percentile per fold), so each file is mapped onto the base on its own studies in `combine`."""
+    files = sorted(glob.glob(pattern))
+    if not files:
+        raise SystemExit(f"{pattern}: no files")
+    return [pd.read_csv(f).drop_duplicates("StudyInstanceUID").set_index("StudyInstanceUID")
+            .pipe(lambda d: d[[c for c in LABELS if c in d.columns]].apply(pd.to_numeric, errors="coerce"))
+            for f in files]
+
+
 def parse_teacher(spec: str) -> tuple[str, str, list[str]]:
     name, rest = spec.split("=", 1)
     pattern, _, labs = rest.partition("@")
@@ -64,21 +78,28 @@ def unit_rank(s: pd.Series) -> pd.Series:
     return pd.Series(rankdata(s.to_numpy()) / len(s), index=s.index)
 
 
-def combine(base: pd.DataFrame, teachers: list[tuple[str, pd.DataFrame, list[str]]]) -> tuple[pd.DataFrame, dict]:
+def on_base(tt: pd.Series, b: pd.Series) -> pd.Series:
+    """The teacher's order, the base's values on these studies."""
+    order = np.argsort(rankdata(tt.to_numpy(), method="ordinal"))
+    v = np.empty(len(tt))
+    v[order] = np.sort(b.loc[tt.index].to_numpy())
+    return pd.Series(v, index=tt.index)
+
+
+def combine(base: pd.DataFrame, teachers: list[tuple[str, list[pd.DataFrame], list[str]]]) -> tuple[pd.DataFrame, dict]:
     out, info = base.copy(), {}
     for lab in LABELS:
         b = base[lab].dropna()
         ests = []
-        for name, t, labs in teachers:
-            if lab not in labs or lab not in t.columns:
+        for name, parts, labs in teachers:
+            if lab not in labs:
                 continue
-            tt = t.loc[t.index.intersection(b.index), lab].dropna()
-            if len(tt) < 2:
-                continue
-            order = np.argsort(rankdata(tt.to_numpy(), method="ordinal"))
-            v = np.empty(len(tt))
-            v[order] = np.sort(b.loc[tt.index].to_numpy())  # the teacher's order, the base's values on these studies
-            ests.append(pd.Series(v, index=tt.index))
+            # one fold file at a time onto the base, then the teacher's value per study = the mean over the files that
+            # scored it (one for a fold's own studies; all of them for the 691 / gold). The teacher still counts once.
+            per = [on_base(tt, b) for t in parts if lab in t.columns
+                   for tt in [t.loc[t.index.intersection(b.index), lab].dropna()] if len(tt) >= 2]
+            if per:
+                ests.append(pd.concat(per, axis=1).mean(axis=1))
         if not ests:
             info[lab] = {"studies": int(len(b)), "with_a_teacher": 0, "level_changed": 0}
             continue
@@ -109,9 +130,10 @@ def main() -> None:
     teachers = []
     for spec in a.teacher:
         name, pattern, labs = parse_teacher(spec)
-        t = read_table(pattern)
-        teachers.append((name, t, labs))
-        print(f"teacher {name}: {len(t)} studies ({len(t.index.intersection(base.index))} in the base), "
+        parts = read_parts(pattern)
+        teachers.append((name, parts, labs))
+        ids = pd.Index(sorted(set().union(*[set(p.index) for p in parts])))
+        print(f"teacher {name}: {len(parts)} file(s), {len(ids)} studies ({len(ids.intersection(base.index))} in the base), "
               f"findings {labs if len(labs) < 12 else 'all 12'}")
     comb, info = combine(base, teachers)
     a.out.parent.mkdir(parents=True, exist_ok=True)
