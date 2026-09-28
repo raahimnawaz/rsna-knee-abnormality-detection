@@ -195,6 +195,24 @@ line still wants outside data, image-read labels or a merger; the efficiency tra
 - **Knee pretraining's own worth is still unmeasured:** `ortho − dinov3l` (generic DINOv3-L) was never run (§2c).
 - OAI-derived pretrained weights (KneeXNet-2.5D etc.): wait for the host — the 12th-place team has asked.
 
+**🧰 PREPPED FOR IMPLEMENTATION `2026-09-27 ~18:15` (owner: "take the important findings and prep them") — built and tested
+locally, nothing run on GPU:**
+- `train_windows --slots cor_1,cor_2` (plane filter, train + eval) and `--allow-missing-labels` (masked loss; the default
+  path verified byte-identical: same loss trace, identical OOF vs HEAD) — `bc56682`.
+- `train_windows --init` (our `last.pt` or the public CC0 CoAtNet, strict) — `d9f473e`; launcher `--cpu`, `--extra-datasets`.
+- launcher `--teacher-fold K` (K = 1–4: train on the other three training folds, label fold K; four runs = an OOF teacher
+  label for all 3,502) — `bc56682`; `--predict-all` (an outside teacher, `--init` + `--epochs 0`, labels every training
+  study and the 691) — `6c4bd3b`.
+- `labeling/build_student_targets.py` — report label + any number of partial OOF teachers → student targets (each teacher
+  mapped onto the base's values on its studies, then averaged; uncovered studies unchanged; audit list; `--gold` gate:
+  with Ortho's OOF as the teacher, gold-58 0.8873 → 0.9216) — `e5143a6`.
+- **Blocked:** the fastMRI+ converter (`h5py` not installed — a PyPI download; asking the owner). Known from fastMRI+: v1
+  labels = ACL (high-grade), Effusion, Contusion (fracture/contusion box), Baker's (periarticular cyst); meniscus and OA
+  need the tear's SIDE from box position + knee side — v2.
+**Order to run, each with its own rule when it is pushed:** NYU teacher (fastMRI+ corpus, `--slots cor_1,cor_2
+--allow-missing-labels`) → `--predict-all` with `--init` on the competition knees → `build_student_targets.py --gold` (the
+free gate) → student (`--init` public CoAtNet, `--targets` student table) → the stack at ≥ 0.947.
+
 **🗺 HOW fastMRI+ FITS — design 2026-09-27 (download ETA ~21:00; not pre-registered).** Purpose: a TEACHER whose signal comes
 from radiologists reading IMAGES and which has never seen a competition knee — the one thing report labels cannot give.
 1. **Convert** (Mac, free): each of the 1,172 h5 volumes' ready image → our 3-slice windows; its boxes → per-knee labels
