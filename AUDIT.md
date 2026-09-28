@@ -1,5 +1,133 @@
 # Pipeline Audit — rsna-knee-abnormality-detection
 
+## Audit 2026-09-28 — the teacher → student path, before its first run
+
+Audited at `5e4b6f0`. Covers what landed after the 09-26 audit: `--init`, `--slots`, `--allow-missing-labels`,
+`--aug-affine`, `--compile` / `--ckpt-blocks`, the `resnet34` arch, the launcher's `--teacher-fold` and
+`--predict-all`, `labeling/build_student_targets.py`, the public-CoAtNet check, and the serving path those feed.
+It doesn't repeat what 09-23 and 09-26 fixed.
+
+**Verdict:** the recorded numbers still mean what they say. The LB reads, the 691 and gold-58 are sound, and
+the public CoAtNet's contamination (it trained on the 691 and on gold ×3) is already recorded and routed to "LB
+only" (`RUNBOOK.md:255-257, 332`). The problems are all in the path that runs next. **Its next step can't run:
+`--predict-all` refuses to start.** A CoAtNet student couldn't be submitted either. If the k-fold teachers come
+back, the way their folds are pooled would inject a site-correlated shift into the student targets. None of this
+produces a wrong recorded number. Two of the three would fail loudly, and one would quietly weaken the experiment.
+
+### Pipeline map (the new path)
+
+```
+fastMRI+ h5 ─(converter: NOT BUILT)─► NYU teacher  train_windows --slots cor_1,cor_2 --allow-missing-labels
+public CoAtNet ckpt ─ train_windows --init (strict; 486 tensors) ─► --epochs 0 eval      [691 + gold NOT held out]
+launcher --teacher-fold K (1-4): train = pool − fold K, predict fold K ──────┐   (pool = fold ≠ 0, not gold)
+launcher --predict-all: an outside teacher predicts pool ∪ 691 ──────────────┤
+                                                                             ▼
+build_student_targets.py: each teacher's ranks → base values on its studies; mean with base; uncovered = base
+   └─ --gold: base vs combined on gold-58 (the "free gate")        [fits nothing; gold labels only score]
+student: launcher --targets <table> [--init public CoAtNet] ─► LB
+serve: build_submit_kernel ─► infer_windows (Ortho checkpoints only, see below) ─► submission.csv
+```
+
+### Findings
+
+#### [MEDIUM] `--predict-all` always refuses to start — the next step on the RUNBOOK's order to run
+**Where:** `notebooks/build_backbone_ab_kernel.py:275-279`; `fusion/train_windows.py:569-570`
+**What:** predict-all sets `VAL = sorted(set(_pool) | set(VAL))` and then `TRAIN = _pool[:2]`, so both
+training studies are also in VAL. `train_windows` then runs `if set(tr) & set(va) ...: raise SystemExit("train
+overlaps val or gold -- refusing")`. That check comes before the model is built, so it fires whether or not
+`--epochs 0` is passed. Reproduced on the committed partition (`provenance/folds_site.csv`): `2 train | 4193 val |
+overlap: 2` → `train overlaps val or gold -- refusing`. It has never run: the CoAtNet check was built from
+`b3cd3ba`, before `6c4bd3b` added the flag, and its `provenance.json` has no `predict_all` field.
+**Impact:** "NYU teacher → `--predict-all` with `--init` on the competition knees" (`RUNBOOK.md:279-281`) dies
+at startup. It costs a session and the queue wait, not a wrong number.
+**Fix:** skip the train/val overlap check when `--epochs 0` (nothing trains; keep the train/gold check), or pass
+`TRAIN = []`. Then make the launcher force `--epochs 0` and require `--init` under `--predict-all`, so a
+forgotten flag can't train on two studies.
+
+#### [MEDIUM] The submission path can serve only an Ortho checkpoint, but the target system's CoAtNet student needs it
+**Where:** `fusion/infer_windows.py:119-128`; `notebooks/build_submit_kernel.py:109`;
+`fusion/runs_coatnet_raptor_check/last_meta.json:19`
+**What:** a CoAtNet checkpoint's `last_meta.json` records `rope_periods: null` (CoAtNet has no RoPE).
+`build_model` then takes the "Stage A" branch and runs `m.encoder.rope.periods.copy_(...)`, which raises
+`AttributeError` on a timm `MaxxVit`. The kernel also finds weights only in a directory named `runs_ortho`, while
+a CoAtNet run writes `runs_coatnet/` (`build_backbone_ab_kernel.py`, `RUN = OUT / f"runs_{ARCH}"`). This is
+separate from the ResNet `img_size` problem the RUNBOOK already lists (`:249`).
+**Impact:** "Models (students), one per family: CoAtNet from the public 0.928 weights" (`RUNBOOK.md:233`) can't
+reach a submission. It fails in the commit run's gate, so it costs a cycle, not a wrong LB.
+**Fix:** touch RoPE only when the encoder has it (`getattr(m.encoder, "rope", None)`), and refuse if periods are
+recorded but the encoder has no RoPE. Find `last.pt` by its sha256 under any `runs_*` directory, since the sha is
+already the identity check. The existing `--check-against` gate then proves the CoAtNet path end to end.
+
+#### [MEDIUM] Pooling k-fold teacher OOFs before ranking turns each fold model's calibration into a site-level target shift — *applies if the k-fold teachers return*
+**Where:** `labeling/build_student_targets.py:43-48` (`read_table` concatenates the glob), `:75-81` (one ranking
+over the pooled scores)
+**What:** the four `--teacher-fold` models are different models. When their `oof_all.csv` files are
+concatenated, a model that reads a finding systematically higher lifts every study in its fold up the pooled
+ranking. Those studies' targets then move. Folds are site-grouped, so the shift lands on whole scanner sites,
+which gives the student a site cue that doesn't exist at test time. **Measured on real OOFs:** two sibling runs
+(`runs_r34v2_B`, `_C`: same labels and studies, one augmentation apart) were assigned to the two halves of the
+691's sites, 200 random site splits. The half's mean pooled percentile moved by **0.03-0.10** depending only on
+which model scored it (Fracture −0.100, ACL +0.065, Baker's +0.064, MCL +0.041). **Reproduced through
+`combine`:** two folds with the same ranking quality and a +0.5 score offset in one fold moved the mean targets
+by **−0.040 / +0.039**. Mapped per fold, the move is **−0.000 / −0.000**.
+**Impact:** label noise correlated with site, of a size comparable to the ~+0.005 LB the student is priced at
+(`RUNBOOK.md:312`). It could hide a real teacher gain and read as "teacher → student doesn't work." Today the
+k-fold teacher is off the plan (the CNN failed its gate), so this applies only if the Mac CNN test revives it. The
+NYU teacher is one model and is unaffected.
+**Fix:** map each OOF file onto the base values of its own studies, then pool. That's the docstring's own rule
+("within the studies that teacher covers") applied per fold model. Folds are label-stratified, so each fold keeps
+its own base levels and real case mix. **Check once the OOFs exist:** per fold, the teacher's mean pooled
+percentile against the base's. A gap of more than ~0.02 is this effect.
+
+#### [MEDIUM] The "free gate" doesn't compute the statistic its pre-registered rule names
+**Where:** `labeling/build_student_targets.py:94-95, 129-134` vs `RUNBOOK.md:299-301`
+**What:** the rule is "PASS iff report + teacher beats report alone on the MACRO over the teacher's covered
+findings, paired bootstrap P ≥ 0.95." `--gold` prints two point estimates of the **12-finding** macro. For a
+teacher covering 4 findings the printed delta is diluted about 3×, and it carries no interval. The "+0.034 ±
+0.008" in `RUNBOOK.md:204` came from outside the tool.
+**Impact:** the gate that decides whether ~11 GPU-h go into a student has to be computed by hand each time. A
+3×-diluted point estimate without a CI is the easy misreading.
+**Fix:** restrict to the covered findings and run a paired bootstrap on sorted ids with a fixed seed (as
+`score_oof.py` does). Print Δ, SE and P(Δ > 0).
+
+#### [LOW]
+- `read_table` keeps the **first** file's rows on duplicate ids (`build_student_targets.py:47`). A glob over the
+  four teacher folds' `oof_gold.csv` (each fold predicts all 58) therefore gates on fold 1's teacher alone. If
+  k-fold teachers are gated on gold, average the folds' per-file ranks instead.
+- `--init <bare filename>` walks all of `/kaggle/input` with `rglob` (`train_windows.py:617`), DICOM trees
+  included. That's the 6-minute walk 09-26 removed from the targets lookup. Skip `train_series` / `test_series`
+  the same way.
+
+### Verified clean
+- **Teacher folds:** `TRAIN = pool − fold K`, `VAL = pool ∩ fold K`. The pool excludes fold 0 and gold, and folds
+  are site-grouped, so a fold-K teacher never saw a study it labels. The 691 gets no k-fold teacher label, and
+  gold predictions come from models that excluded gold.
+- **Student:** trains only on the pool. `build_student_targets` fits nothing, keeps uncovered studies at the base
+  value exactly, and uses gold labels only to score. The launcher still refuses NaN/out-of-range targets and
+  keeps `targets.csv` = `steven_v2`, so the partition doesn't move.
+- **Public CoAtNet:** its contamination is recorded where it's used. Anything started from it is judged on the
+  LB only, and the NYU teacher is specified not to be it (`RUNBOOK.md:296-297`). `--init` is strict except for
+  the zero-initialised slot/depth weights.
+- **New training flags:** `--allow-missing-labels` gives the default loss exactly when every target is known,
+  with prevalence from the training rows only. `--aug-affine` is training-only with no flips. `--compile` leaves
+  eval eager and `last.pt` keys unchanged. `--slots` applies to train and eval alike.
+- **Coronal-only teacher coverage:** `cor_1` fill is 1.000 (`DATA.md:404`), so no competition study reaches a
+  coronal teacher as a blank window.
+- **Serving an Ortho checkpoint:** the 09-27 commit runs passed the DICOM gate at max |Δp| 0.00079.
+
+### Open questions
+1. **Was `dread_soft` built or checked against gold-58?** It carries no gold rows, but a prompt or level
+   mapping tuned on those 58 leaves no trace (`bench_external.py:143`). If it was, `dread`'s gold read (0.912)
+   and the teacher → student ingredient (0.9269, `DATA.md` §12) are optimistic. The LB gave 44% of the gold gain.
+2. **The fastMRI+ converter's slot contract.** For the NYU teacher's competition predictions to be in
+   distribution, `CORPDFS_FBK` must map to `cor_1` (fluid) and `CORPD_FBK` to `cor_2`. It also needs the same
+   per-series 2-98% window, 140 mm field and coronal left/right convention as Stage A. Knee side is not in the
+   header. A per-slot intensity/geometry comparison against Stage A shards is the parity check, before training.
+3. **Will gold-58 gate more than one teacher variant?** One pre-registered candidate is a test. Several, tried
+   in turn, is selection on gold, which `DECISIONS.md` closed (claims +0.0137, delivers −0.0034).
+
+---
+
 ## Audit 2026-09-26 — the live path, before the Qwen runs
 
 Audited at `57693c3`; fixes landed in `b0e330b` and after. Covers the code that runs NOW: the Stage
