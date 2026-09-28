@@ -110,7 +110,11 @@ same 691). 691: **lr 3e-4 0.7915** (primary, the better arm), lr 3e-5 0.7349, `d
 ~40× cheaper than Ortho. **Per the rule: teachers are NOT this CNN; the owner's branch → Friday's Stage B-`dread` stays scheduled
 and fastMRI+ becomes the main teacher.** Diagnosis, not a second chance: the arm is UNDER-trained, not capped — 10× the lr bought
 +0.057, and 8 epochs of 1.9 min is 15 minutes of training; the board's 0.94+ CNNs train longer and augment. Whether a proper CNN
-recipe reaches Ortho is a NEW question (one ~1 GPU-h run), to be pre-registered only if the owner wants cheap teachers.
+recipe reaches Ortho is a NEW question (one ~1 GPU-h run), to be pre-registered only if the owner wants cheap teachers. **Where the CNN loses, per finding (lr 3e-4 vs Ortho, the 691):** Medial Meniscus **−0.115**, Lateral Meniscus **−0.110**, Contusion
+−0.070, MCL −0.066, Fracture −0.052 … but Medial OA only −0.016, Synovitis −0.025, PF OA −0.025, Effusion −0.029. The gap is
+largest on the SMALL structures (menisci, ligaments, bruises) and smallest on the large ones (joint-wide OA, fluid) — consistent
+with resolution: at 224 px the 140 mm crop is 0.63 mm/px, against Ortho's 0.42 (336) and Stage B's 0.36 (384). A hypothesis to
+check against the v2 arms, not a verdict.
 **⏩ SMALL-CNN, PROPER RECIPE `pre-registered 2026-09-27 ~17:08 PDT, before any push` — the owner: "we should do proper testing
 for the cnn".** The first read was under-trained (loss still falling at epoch 7, 0.824 → 0.702; 10× lr bought +0.057). New
 question: does a CNN trained like the board's reach Ortho? Everything as the first read (resnet34 @ 224, Stage A, `dread_soft`,
