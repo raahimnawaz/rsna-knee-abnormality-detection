@@ -106,15 +106,21 @@ for _d, _dirs, _fs in _oos.walk("/kaggle/input"):
     _dirs[:] = [x for x in _dirs if x not in _SKIP]
     if _O_ROOT is None and {"test.csv", "test_series.csv", "train_series.csv"} <= set(_fs):
         _O_ROOT = _OPath(_d)
-    if "last.pt" in _fs and "oof_all.csv" in _fs and _OPath(_d).name == "runs_ortho":
+    # any train_windows run dir (runs_ortho, runs_coatnet, ...): the sha256 is what identifies the checkpoint
+    if "last.pt" in _fs and "oof_all.csv" in _fs and _OPath(_d).name.startswith("runs_"):
         _c = _OPath(_d) / "last.pt"
         if _ohash.sha256(_c.read_bytes()).hexdigest() == "__WEIGHTS_SHA256__":
             _O_CKPT = _c
 if _O_ROOT is None:
     raise RuntimeError("competition root not found under /kaggle/input")
 if _O_CKPT is None:
-    raise RuntimeError("runs_ortho/last.pt with the recorded sha256 not found -- is __WEIGHTS_KERNEL__ attached?")
-_olog(f"competition root {_O_ROOT} | weights {_O_CKPT} (sha256 ok)")
+    raise RuntimeError("runs_*/last.pt with the recorded sha256 not found -- is __WEIGHTS_KERNEL__ attached?")
+# The arm's name for the ARMS line, from how it was trained. Step 5's run predates last_meta.json: Ortho, Stage A.
+_O_ARM = "ortho_stage_a"
+if (_O_CKPT.parent / "last_meta.json").exists():
+    _om = _ojson.loads((_O_CKPT.parent / "last_meta.json").read_text())
+    _O_ARM = f"{_om.get('arch', 'ortho')}_{str(_om.get('layout', 'stage_a')).split()[0]}"
+_olog(f"competition root {_O_ROOT} | weights {_O_CKPT} (sha256 ok) | arm {_O_ARM}")
 
 try:
     _O_NGPU = len([l for l in _osp.run(["nvidia-smi", "-L"], capture_output=True, text=True,
@@ -234,10 +240,10 @@ _b_out.to_csv(_b_stage, index=False)
 _bpd.read_csv("/tmp/ortho_sub/ortho_preds.csv").to_csv("/kaggle/working/ortho_preds.csv", index=False)
 _BPath("/kaggle/working/sub_b_receipt.json").write_text(_bjson.dumps({
     "rule": "equal rank-mean over families, nothing fitted", "w_ours": _O_W,
-    "families": ["public: transformer", "public: CoAtNet", "ours: ortho_stage_a"],
+    "families": ["public: transformer", "public: CoAtNet", f"ours: {_O_ARM}"],
     "n_studies": len(_b_pub), "spearman_ours_vs_public": _b_rho, "ours_minutes": _O_MIN,
     "built_from": "__BUILT_FROM__"}, indent=1))
-print(f"[blend] ARMS: public stack (2 families, as published) + ortho_stage_a = 3 families; "
+print(f"[blend] ARMS: public stack (2 families, as published) + {_O_ARM} = 3 families; "
       f"w_ours {_O_W:.4f}; {len(_b_pub)} studies -> {_b_stage}", flush=True)
 '''
 
@@ -252,7 +258,7 @@ _a_hdr = _a_src.read_text().splitlines()[0].split(",")
 if _a_hdr[0] != "StudyInstanceUID" or len(_a_hdr) != 13:
     raise RuntimeError(f"ortho predictions header {_a_hdr}")
 _APath("/kaggle/working/submission.csv").write_text(_a_src.read_text())
-print(f"[sub A] ARMS: ortho_stage_a only, windows {_O_N_WINDOWS or 'all'}; {len(_test_ids)} studies; "
+print(f"[sub A] ARMS: {_O_ARM} only, windows {_O_N_WINDOWS or 'all'}; {len(_test_ids)} studies; "
       f"ours {_O_MIN:.1f} min of the run", flush=True)
 '''
 

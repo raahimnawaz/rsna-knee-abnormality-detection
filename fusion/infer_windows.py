@@ -112,18 +112,27 @@ class DicomStudies(torch.utils.data.Dataset):
 def build_model(weights: Path, dev: str, meta: dict | None = None) -> WindowMIL:
     import timm
     meta = meta or load_meta(weights)
-    enc = timm.create_model(meta["timm"], pretrained=False, num_classes=0, img_size=meta["res"],
-                            global_pool=meta["pool"])
+    # As train_windows.build_encoder builds it: only the ViTs take img_size (their RoPE / patch grid is sized by it);
+    # a CNN rejects it, and CoAtNet is built at its own 384.
+    kw = dict(pretrained=False, num_classes=0, global_pool=meta["pool"])
+    if meta["pool"] == "token":
+        kw["img_size"] = meta["res"]
+    enc = timm.create_model(meta["timm"], **kw)
     m = WindowMIL(enc, meta["res"], n_slots=meta["n_slots"] if meta["pos_emb"] else 0)
     m.load_state_dict(torch.load(weights, map_location="cpu", weights_only=True), strict=True)
+    rope = getattr(m.encoder, "rope", None)
+    if rope is None:                                        # CoAtNet, CNNs: no RoPE, nothing to restore
+        if meta["rope_periods"]:
+            raise SystemExit(f"{weights}: trained with RoPE periods, but {meta['timm']} has no RoPE -- wrong encoder")
+        return m.to(dev).eval()
     # ⛔ RoPE periods are a NON-persistent buffer: last.pt does not carry them (§9h).
     want = meta["rope_periods"] or ORTHO_PERIODS
     with torch.no_grad():
         if meta["rope_periods"]:
-            m.encoder.rope.periods.copy_(torch.tensor(want, dtype=m.encoder.rope.periods.dtype))
+            rope.periods.copy_(torch.tensor(want, dtype=rope.periods.dtype))
         else:                                               # Stage A: Ortho's are timm's rounded to bf16
-            m.encoder.rope.periods.copy_(m.encoder.rope.periods.bfloat16().float())
-    got = m.encoder.rope.periods.float().tolist()
+            rope.periods.copy_(rope.periods.bfloat16().float())
+    got = rope.periods.float().tolist()
     if len(got) != len(want) or max(abs(a - b) for a, b in zip(got, want)) > 1e-5:
         raise SystemExit(f"RoPE periods {got[:4]}... are not the trained ones {want[:4]}... -- the §9h trap")
     return m.to(dev).eval()
@@ -161,7 +170,7 @@ def main() -> None:
     model = build_model(a.weights, dev, meta)
     log(f"model loaded strict from {a.weights} ({time.time() - t0:.0f} s) | spec {meta['spec']} canon {meta['canon']} "
         f"res {meta['res']} slots {meta['slot_sizes']} pos_emb {meta['pos_emb']} | meta {meta['source']} | "
-        f"RoPE periods = the trained ones")
+        + ("RoPE periods = the trained ones" if getattr(model.encoder, "rope", None) is not None else "no RoPE"))
     if a.n_windows and a.check_against:
         raise SystemExit("--check-against compares with the OOF, which read every window: drop --n-windows")
     ds = DicomStudies(a.root / f"{a.split}_series", uids, series_by_study(a.root, a.split), a.n_windows,
