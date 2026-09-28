@@ -109,6 +109,19 @@ prompt — check on it Friday evening.)
 class cannot lift the stack, so ~11 GPU-h on its twin changes no decision. Friday's slot goes to the students on teacher labels —
 see **FRIDAY 10-02 PUSH LIST** below. This run is NOT pushed; the scheduled task now pushes only that list.
 
+**♻️ WHAT WE TAKE FROM THE PUBLIC 0.943 STACK, AND THE TWO FINALS — owner Q&A 2026-09-28 07:45.** The stack is Apache 2.0: all of it
+is ours to use (`REFERENCE.md` §3.2). It is a chain of rank blends whose vote rides on CoAtNets (~70%); its weights look tuned on the
+public 30%; no member uses teacher-cleaned labels; and it already takes ~8–9 h of the **9 h** submission limit (T4). So:
+1. **Its core model is our CoAtNet student's start** (maxspan-v5, 0.928 alone; check passed). A student is the SAME architecture, so it
+   drops into the stack's CoAtNet slot at zero extra runtime — replace, don't add.
+2. **Its other CoAtNets** (native384 v8 / dense v10, mattiaangeli's four) are further public starts for students if the first one gains.
+3. **Its slow, small branch** (20 DINOv2 members ≈ 5% of the vote) is where runtime comes from for the Ortho student.
+4. **Its code** (inference, slice-reversal TTA, rank-space joins) is reused as is — `build_submit_kernel.py` already wraps it.
+**Two finals (rules 2.2.b), scored on the private 70%; Kaggle ranks a team by the better of the two.** So they should be strong and
+DIFFERENT: (A) **the upgraded stack** — its structure, with our student(s) in its CoAtNet slot; (B) **our own blend** — equal-rank
+families, nothing tuned on the public LB, the one that survives a shake-up best. Both chosen by pre-registered evidence, never by a
+0.001 public difference.
+
 **🗓 FRIDAY 10-02 PUSH LIST — ⛔ NOT READY** (the scheduled task `rsna-push-stage-b-dread`, Fri 17:20 PDT, pushes ONLY what this block
 lists once it reads **✅ READY**, and nothing if it does not). To be written after today's CNN-teacher gold gate, each entry with its
 exact build command, kernel id, flag checks and its pre-registered rule. Intended, in order (Kaggle runs two GPU sessions at once):
