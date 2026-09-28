@@ -119,7 +119,7 @@ training-only **per-window affine** (`--aug-affine 1`: rotate ±10°, zoom ±10%
 unchanged, `last.pt` keys unchanged). Arms: **A** lr 3e-4 · **B** lr 1e-3 · **C** lr 1e-3 + affine. **Primary = the best of the
 three on the 691** (a 3-way pick, ~+0.003 optimistic), paired vs `dread` (Ortho, 0.8440). **THE RULE, unchanged:** ≥ −0.010 →
 USABLE (the teacher: 5 folds ≈ 5 × 1 GPU-h); > 0 at P ≥ 0.95 → BETTER; below → CNNs are out of the teacher role for this
-competition, fastMRI+ and Ortho carry it. ~2.7 GPU-h of the ~3 left this week. (Averaging 5 CNN folds would lift a TEST-time
+competition, fastMRI+ and Ortho carry it. ~2.7 GPU-h of the ~3 left this week. **Kaggle allows 2 GPU sessions at once** (C's push was refused: "Maximum batch GPU session count of 2 reached"); C is queued behind A / B by a local watcher. Pushed 17:18 from `3333502`. (Averaging 5 CNN folds would lift a TEST-time
 ensemble by ~0.005–0.015, but a teacher labels each study with ONE fold model — the single model must be good.)
 
 **⏳ TEACHER → STUDENT — design 2026-09-27 (the owner: "we'll take the better labels teacher student approach"); its rule is
