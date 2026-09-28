@@ -286,7 +286,8 @@ available model (the public 0.928 CoAtNet, which never saw them) labels them, a 
 pipeline already exists (`build_slots64.py`). Evidence of size: more real-labelled knees (3,200 → 4,349) was +0.010 LB in the public
 model's ablation; pseudo-labelled knees are worth less — unmeasured here. Costs: ~7 h download, disk, ~4 GPU-h to label, students 2–3×
 longer; the agreement question (derived data on Kaggle) and the NYU-overlap check apply. Cheapest test first: the CNN on the Mac with
-vs without them. (2) **A team merger** (other teams' models + their 30 GPU-h/week each; deadline 10-15) — the owner's call.
+vs without them. **Download QUEUED 09-27 ~22:40 at the owner's word** (after the Stage A cache; resumable, to
+`data/external/fastmri/dicom/`, git-ignored; ~7 h at ~7 MB/s → ~07:00). (2) **A team merger** (other teams' models + their 30 GPU-h/week each; deadline 10-15) — the owner's call.
 (3) Kaggle TPU quota (20 h/week) and Colab's free T4 — skipped: a TPU port is invention, and Colab re-downloads 32 GB per session.
 
 **🗺 (SUPERSEDED 09-27 by the target system above) ROADMAP IF TEACHER → STUDENT WORKS — proposed 2026-09-27, the owner to confirm; each step keeps its own rule.**
