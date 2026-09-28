@@ -416,6 +416,19 @@ teacher did help (0.790 → 0.825). AUC exists only over a set, never per knee, 
 form is an ALWAYS-ON zoomed second view (e.g. the lateral half of the canonical coronal at 2×) added BESIDE the full view — the one crop
 design never run (crop-INSTEAD-of-context died twice, archive PLAN F2). It is DATA §12 item 5's zoom arm. Sized: +0.05 on two findings
 = +0.008 macro; gold cannot judge one finding (11 Lateral OA positives, SE ~0.08), so only the LB can — after Friday, not before.
+**Owner Qs 09-28 ~16:35.** (a) *Enough to move the needle?* Estimate +0.005–0.010 LB for a single student over `dread_soft` alone (the
+gate's +0.026 is against the weaker `steven_v2`, and gold → LB has run at ~½). Real, not sufficient alone: stacked with the 0.928 start
+and all-data finals it points at ~0.945–0.95 single, more in the stack. Still lacking, the student targets on gold: Lateral OA 0.825,
+Synovitis 0.825, Lateral Meniscus 0.873, Fracture 0.881, Contusion 0.891; the model side on the 691: MCL 0.735, Lateral OA 0.796,
+PF OA / Lateral Meniscus 0.812 — labels gaps (teacher, round 2) vs vision gaps (thin structures: zoom, resolution). (b) *Use the NYU
+images anyway?* The fastMRI+ LABELS are done (their gate failed; an effusion-only pick is off gold). The one open use is the 10k
+UNLABELLED clinical exams (168 GB, all planes) as pseudo-labelled extra knees (Noisy Student) — round 2, judged on the LB. (c) *Are we
+leaving something out by testing NYU with a ResNet34, not Ortho?* Possibly a little: a bigger backbone lifts the numbers, but the
+failure is transfer (Baker's 0.72 hold-out → 0.53 gold; ACL 0.78 vs the reports' 0.993), label definitions and one plane — not
+capacity; and Friday's students train before an Ortho-NYU run could finish, so it changes no Friday decision. (d) *Switch to a better
+model when a weak finding fires?* AUC has no firing moment — every knee gets a score; a conditional second model is a blend, measured
+09-24: "verification" 0.8279 < Ortho alone 0.8298. The working version is ALWAYS averaging the two students and the pre-registered
+clear-winner rule.
 
 **🔬 TEACHERS ON GOLD — 09-27 ~20:15 (owner: "are our labels as good as they realistically could be?"; no radiologist; the OAI
 email SENT by the owner). EXPLORATORY gold reads, not pre-registered — gold-58 is being spent; the student's LB is the real judge.**
