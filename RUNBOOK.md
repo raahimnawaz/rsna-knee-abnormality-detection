@@ -26,7 +26,7 @@ stays only with evidence that it adds to the best available thing.
 |---|---|---|---|---|
 | system | — | **public 0.943 stack** (Apache 2.0) | the free floor | OUR BASE: every submission is judged against it (≥ 0.947 valid) |
 | labels | `dread_soft` (public) | the same | +0.015 LB | keep; teacher → student on top |
-| finished model | Ortho, 0.916 alone | **public CoAtNet, 0.928 alone** (CC0 weights) | at EQUAL setup Ortho > CoAtNet +0.010 (one run), gold tie; the 0.012 LB gap is setup (all ~4,350 studies, gold ×3, epochs on gold, SWA) | Ortho is NOT proven better than simply building on the public CoAtNet — **Sub B-dread (tonight) is its test in the stack**; fine-tuning the public CoAtNet on better labels is the untried best-available route |
+| finished model | Ortho, 0.916 alone | **public CoAtNet, 0.928 alone** (CC0 weights) | at EQUAL setup Ortho > CoAtNet +0.010 (one run), gold tie; the 0.012 LB gap is setup (all ~4,350 studies, gold ×3, epochs on gold, SWA) | Ortho is NOT proven better than simply building on the public CoAtNet — **Sub B-dread (tonight) is its test in the stack**; fine-tuning the public CoAtNet on better labels is the untried best-available route — **its pipeline check PASSED 09-27 (0.9187 vs 0.9214)** |
 | input | Stage B (ours) | the public 64-slice geometry | +0.014 LB | keep |
 | training code | `train_windows` | the public training script | a port of it | keep (equivalent) |
 | small CNN | ResNet34 | — | best v2 arm 0.808 vs 0.844 (−0.036) | **CUT 09-27 18:45** — out of the teacher role |
@@ -324,6 +324,12 @@ checkpoint records **gold-58 0.9214** (SWA over epochs 14/12/15; gold was in its
 The check: that model through OUR Stage A cache and OUR eval, on Kaggle CPU (no GPU quota), must reproduce **0.9214 ± 0.010** on
 gold-58 → our pipeline reads images as theirs does, and fine-tuning it on teacher → student labels is a drop-in. Outside ±0.010 →
 find the input difference before building on it.
+**✅ READ 2026-09-27 19:15 — PASS** (`rsna-knee-c6-train-coatnet-raptor-check`, Kaggle CPU, 115 min; init sha `20d45e07`, 486
+tensors strict, 72.9 M encoder, `--epochs 0`): gold-58 **0.9187** (recomputed locally from `oof_gold.csv`: 0.9187), **−0.0027** from the
+recorded 0.9214 — inside ±0.010. Our Stage A cache + our eval read images as its own pipeline did: the public CoAtNet is a drop-in
+start for the CoAtNet student (step 4). Per finding: ACL 0.982 · MCL 0.982 · Med Men 0.965 · Lat Men 0.901 · Med OA 0.971 · Lat OA
+0.836 · PF OA 0.830 · Effusion 0.976 · Synovitis 0.804 · Baker's 0.944 · Contusion 0.914 · Fracture 0.921 (NOT held out: gold was in
+its training ×3). Files: `fusion/runs_coatnet_raptor_check/`. The student started from it is judged on the LB only.
 
 **⏩ SUB B-dread — our new-labels model in the public 0.943 stack `pre-registered 2026-09-27 16:40 PDT, before the build`.**
 The owner asked 09-27. The stack was re-pulled and is UNCHANGED since Sub B (23/23 code cells verbatim), so this is a clean A/B
