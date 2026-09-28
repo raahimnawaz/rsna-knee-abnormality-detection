@@ -284,6 +284,12 @@ every training label we have is an LLM reading the REPORT. On gold-58 the traini
 4. **More strong, different models in the blend** (the CoAtNet + Ortho students).
 2–4 are each ~+0.005–0.010 on a single model, less on the blend — the ~0.95 landing. Only 1 aims at 0.965; it cannot be sized without
 trying. Owner decisions: a radiologist who could join by 10-15? send the OAI / Stanford terms drafts?
+**⛔ 1(a) CLOSED 2026-09-28 13:50 — the owner: no radiologist.** Owner: "do we even need one with the NYU files?" — **NYU is not a
+substitute for one; the in-domain image teacher is the closer one.** NYU = 556 knees (not 1,172), coronal only, a protocol no competition
+study uses, labels on ACL-high-grade / Effusion / Contusion / Baker's (+ menisci), none on MCL, the 3 OA, synovitis, fracture; estimate
++0.003–0.010 single model. The k-fold image teacher on OUR knees reads report + teacher **+0.028–0.034 on gold, all 12 findings** — more
+than NYU's ceiling on its five. So the image-read-labels lever is carried by: the image teacher (running) → NYU on its findings → round 2
+(student as the next teacher) if round 1 gains → OAI MOAKS for the OA / cartilage / synovitis gap if its terms come back.
 
 **⏩ CNN TEACHERS — 4 folds on the Mac `pre-registered 2026-09-28 ~06:55 PDT, before any fold runs` (the owner, 09-27: CNN
 teachers on the Mac).** Recipe C exactly: `resnet34.a1_in1k` at 224, Stage A, `dread_soft` (sha `8cec477f`), seed 42, k 12, bs 8, head
