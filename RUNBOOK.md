@@ -130,6 +130,17 @@ exact build command, kernel id, flag checks and its pre-registered rule. Intende
 3. **NYU teacher** — Ortho on `raahimnawaz/rsna-knee-fastmri-plus-cache` alone (`--slots cor_1,cor_2 --allow-missing-labels`),
    pushed when a session frees. ~1–2 GPU-h.
 If the CNN teachers FAIL their gate, the students train on `dread_soft` alone and this list says so.
+**PROPOSED 2026-09-28 14:05 — before Friday, all free (owner to confirm):** (1) **the NYU teacher moves OFF Friday's GPU list onto the
+Mac, tonight after fold 4** — a student should train on FINAL targets; if NYU passes after Friday, both students (~16 GPU-h) retrain.
+ResNet34 recipe C (ImageNet, never saw competition labels — the design's rule) on the 556 NYU knees is ~15 min on the M5; gate as
+designed (report + NYU beats report on its findings' macro, gold-58, P ≥ 0.95; mixed in only if the mix does not read below the CNN
+alone), pre-registered before it runs. (2) **CPU smoke of both student kernels on Kaggle** (no quota; the 09-27 smoke took 27 min) with
+the real targets file, so Friday cannot die on a flag. (3) **Pre-register the students' LB rules** before the push. (4) Keep the Mac
+awake with the app open Friday 17:20 — the scheduled task needs it, and today an app self-update killed a run.
+**Hardware (owner's what-if, 09-28): a Mac Studio (M5 Ultra).** This Mac is a base M5 (10 GPU cores, 16 GB): ResNet34 3.4 min/epoch vs
+~2 on a T4. An Ultra (if like past Ultras, ~8× the GPU cores, 100s of GB memory) would run teachers, round 2 and likely the students
+locally, 24/7, off the ~30 GPU-h/week quota — measure one epoch of each model first (MPS: no `torch.compile`, ViT-L untested). Finals
+still infer on Kaggle's T4s (train locally, upload weights). Competition data must stay reachable only by team members (rules §7.b).
 
 **⏩ SMALL-CNN BASELINE `pre-registered 2026-09-27 16:45 PDT, before any push` — the owner said yes 09-27.** Question: does
 the board's *"simple CNN at 224 px scores 0.94+"* (`REFERENCE.md` §3.1b) reproduce in OUR pipeline, at a fraction of Ortho's
