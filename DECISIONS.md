@@ -24,6 +24,9 @@ later — it is **not** the highest-impact stage, and `PIPELINE.md`'s ⭐ was wr
 
 ## Board `PULLED LIVE 2026-09-06 — re-pull weekly, it moved +0.016 in 25 days`
 
+> ⛔ **SUPERSEDED 2026-09-27: the goal is 0.965 AUC.** The prize line and the efficiency track below no
+> longer steer anything (`RUNBOOK.md`, Goal). The board numbers are 09-06's; the RUNBOOK scoreboard holds today's.
+
 3,243 teams. Our 0.914 ranks **~1389**. Free public notebook **0.9360 — 506 teams on it exactly**,
 877 at or above it. Rank 100 is 0.9410. Top **0.9540**.
 

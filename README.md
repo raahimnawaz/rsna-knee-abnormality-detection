@@ -1,33 +1,30 @@
 # RSNA Knee Abnormality Detection
 
-Twelve-label knee-MRI classification, macro-AUROC. **The goal is to win** (set 2026-09-24): the main
-leaderboard (10 prizes, private LB) or the efficiency track (3 prizes). Entry and team-merger deadline
-**2026-10-15**, final submission **2026-10-22**.
+Twelve-label knee-MRI classification, macro-AUROC. **The goal is 0.965 AUC** (owner, 2026-09-27): a valid,
+pre-registered improvement over the free public 0.943 stack. The prize line and the efficiency track do not
+matter. Entry and team-merger deadline **2026-10-15**, final submission **2026-10-22**.
 
 > ## ▶ START HERE: [`RUNBOOK.md`](RUNBOOK.md)
 >
-> The RUNBOOK is the only place that tracks state: what ran, what it scored, and the next command.
-> This README holds what does not change from week to week. **Where the two disagree, the RUNBOOK
-> wins** -- and fix this file.
+> The RUNBOOK is the only place that tracks state: scores, what is running, the next command, and the
+> rule each pending result is judged by. It is one page by design. This README holds only what does not
+> change from week to week, so it carries no scores. **Where the two disagree, the RUNBOOK wins** -- and
+> fix this file.
 
-**Where it stands, 2026-09-24.** The best model trained here is OrthoFoundation-L fine-tuned on our own
-64-slice Stage A cache: **0.8298** on the 691 held-out studies (`fusion/runs_c6_ortho/`). It has **no
-leaderboard number yet**; the best submission is still **0.914** (09-23 board: top 0.958, 10th 0.955,
-public notebooks 0.943). Submission B -- that model rank-meaned into the public 0.943 stack -- is built
-and tested and waits on the weekly GPU quota (RUNBOOK handoff). The repo is the only copy of the
-project: the local DICOM/NIfTI corpus was deleted on 2026-09-07 and everything with pixels runs on
-Kaggle.
+The local DICOM/NIfTI corpus was deleted on 2026-09-07. Ortho and CoAtNet train and infer on Kaggle; small
+CNNs train on the Mac (`--mps`) from the Stage A cache pulled back into `data/stage_a/` (~32 GB, gitignored).
 
 | read | for |
 |---|---|
 | **`RUNBOOK.md`** | state, the next command, and what to do with its answer |
+| `docs/LOG.md` | the detail behind the RUNBOOK since 09-28: read results, diagnoses, owner Q&A (append-only) |
 | `DECISIONS.md` | what is settled and what is closed. **Consult it, do not extend it** |
 | `MODEL.md` | the architecture; §0 is the public frontier's recipe, read from its code |
 | `DATA.md` | labels, the two-tier instrument, Stage 0 / Stage A measurements |
 | `PREMORTEM.md` | the known ways this plan fails |
 | `REFERENCE.md` | external ground truth -- §2 is the official label criteria |
 | `PLAN-C6.md`, `PIPELINE.md`, `FINDINGS.md` | the reasoning behind earlier plans; dated, read for why, not for what next |
-| `fusion/archive/`, `docs/archive/` | provenance. Not maintained, do not read in full |
+| `fusion/archive/`, `docs/archive/` | provenance. Not maintained, do not read in full. `docs/archive/RUNBOOK-2026-09-28.md` is the full RUNBOOK to 09-28; older "RUNBOOK §x" references point there |
 
 ---
 
