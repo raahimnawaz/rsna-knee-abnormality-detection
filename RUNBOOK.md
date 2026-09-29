@@ -41,14 +41,26 @@ decision. **Entry and team merger 10-15; final 10-22 16:59 PDT.** Two finals; Ka
 → a ~0.95 single model. Two such students plus the stack's other families → 0.96+. The gains overlap, so each keeps
 its own gate. The first LB proof is the CoAtNet student, after Friday.
 
-## Running now — nothing (the Mac is idle since 01:17 on 09-29)
+## Running now — on the Mac, detached under `caffeinate -i`
 
-Tonight's three Mac arms are read (*Settled*). The NYU batch1 download completed at 22:35 (137.0 GB). It is parked
-by N's rule.
+| what | where | ETA |
+|---|---|---|
+| **R**: B′ at `--res 336` (ResNet34, whole image, 0.42 mm/px, no crop) | `fusion/runs_cnntest_R/` (`fusion/runs_cnntest/run_R.sh`, log `runner_R.log`) | ~3 h |
 
 ## Pending reads — each rule was written before its result
 
-1. **The students on the LB, Sat–Sun after Friday** (owner confirmed 09-28 ~18:40):
+1. **R vs Z: does the crop add beyond detail?** `pre-registered 2026-09-29 ~08:50 PDT, before R runs` (owner: "yes").
+   R = B′ exactly (ResNet34, Stage A, `dread_soft`, the same 3,502 / 691, seed 42, bb + head lr 1e-3, 18 epochs,
+   primary last epoch) with only `--res 336`. The stored 336 px is then used as is, 0.42 mm/px over the whole field.
+   Z got the same density, but only inside its centre crop.
+   - **THE RULE:** Z − R > 0, paired on the 691 (`score_oof.py`), P ≥ 0.95 → the crop adds beyond detail. The next
+     step is then the PORT test, Z at 336 vs R, proposed and not yet pre-registered. At 336 the crop is magnified from
+     stored pixels, as it would be for our students, so that test decides whether zoom goes into a week-2 student.
+   - Otherwise → Z's gain was detail, which the 336/384 px students already have → zoom stops for this competition.
+   - Reported, not judged: R − B′ (the 09-27 lever rule, HELPS iff > 0 at P ≥ 0.95), per finding, the small
+     structures (ACL, MCL, both menisci), gold-58, minutes.
+   - Power: a paired SE of ~0.0045 means Z must lead R by ~+0.008.
+2. **The students on the LB, Sat–Sun after Friday** (owner confirmed 09-28 ~18:40):
    - **(A)** upgraded stack (the CoAtNet student in the maxspan-v5 slot): PASS iff **≥ 0.947** → final candidate A.
    - **(B)** CoAtNet student alone: reported against 0.928; |Δ| < 0.010 is noise.
    - **(C)** Ortho student: joins (A) as a family only if it lifts (A) by **≥ +0.004**. Otherwise Ortho is cut from
@@ -86,7 +98,7 @@ such as `--extra-corpus`, cannot change what runs. Both pinned builds were test-
    Push dir `/tmp/rsna-friday/ortho`. ~10 GPU-h (T4×2, fitted to 10.3 h).
 3. ~~**NYU teacher**~~ **CUT 09-28 16:25** (failed its gold gate on the Mac, P 0.21) — not pushed.
 
-**Rules:** see *Pending reads* item 1.
+**Rules:** see *Pending reads* item 2.
 
 ## Open — build or decide before it is needed
 
@@ -103,13 +115,7 @@ such as `--extra-corpus`, cannot change what runs. Both pinned builds were test-
       and `COMPLETE`.
 
    For **(C)**, add `--add-family --weights-kernel <Ortho student> --weights-sha <sha> --alone-lb <its LB>`.
-3. **Does Z's gain reach our 336/384 px students?** Z gave the 224 px ResNet the same detail as Ortho's input
-   (0.42 mm/px). Our students already have that detail, so the gain may not transfer. The pre-registered arm **R**
-   answers this: ResNet34 at 336, whole image, the same 0.42 mm/px with no crop. It is free on the Mac, ~3 h.
-   - Z − R > 0 → the crop itself adds → port zoom to a week-2 student (needs `infer_windows` support, ~2× compute).
-   - Z ≈ R → the gain was resolution, which the students already have → zoom stops.
-
-   Owner's call.
+3. **Does Z's gain reach our 336/384 px students?** R is running; its rule is *Pending reads* item 1.
 4. **Runtime room for students in the stack:** it already takes ~8–9 h of 9. Cut its 20 DINOv2 members (~5% of the
    vote), after timing its cells.
 5. **Save the `avg3` weights** of every run a final might use (never worse on the 691: +0.0000 to +0.0024).
