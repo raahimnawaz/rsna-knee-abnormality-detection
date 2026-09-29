@@ -43,6 +43,12 @@ THE RULE, PRE-REGISTERED 2026-09-25 BEFORE THE RUN: the package pays if `c7_orth
 paired on the same 691, P(delta>0) >= 0.95, primary = last epoch; `avg3/` is secondary and not a
 second chance. A pass says the PACKAGE works, not which part of it; a loss ships nothing from it.
 
+ALL DATA (`--all-data`, 2026-09-29). Train on EVERY non-gold study with complete targets: the 3,502 pool,
+the 691 and the rest of fold 0, 4,349 in all. Nothing is held out. It is for a model whose start already
+trained on those studies (the public CoAtNet, `--init`, which saw all 4,349 plus gold x3), so its 691
+read was never a clean check and the LB is its only judge. The val list is the gold studies: train_windows
+needs one disjoint from train, and gold is never trained on. No score_oof pairing. Slug suffix `-all`.
+
 QWEN (`--arch qwen35vl --corpus stage_a`, 2026-09-26). Qwen3.5-2B as a VLM study reader
 (`fusion/qwen_vlm.py`): the vision encoder fine-tuned, LoRA on the language model, every window of a
 study one image in one sequence. Same Stage A cache, the same 3,502 training studies as step 5
@@ -272,7 +278,15 @@ _pool = sorted(u for u in FOLDS.loc[(FOLDS.fold != 0) & (~FOLDS.is_gold), "Study
                if u in CORPUS_IDS and u in TARGETS_DF.index and TARGETS_DF.loc[u, L].notna().all())
 TEACHER_FOLD = __TEACHER_FOLD__
 PREDICT_ALL = __PREDICT_ALL__
-if PREDICT_ALL:
+ALL_DATA = __ALL_DATA__
+if ALL_DATA:
+    # nothing held out: every non-gold study, fold 0 included. Val = gold (never trained on; disjoint from train).
+    TRAIN = sorted(u for u in FOLDS.loc[~FOLDS.is_gold, "StudyInstanceUID"]
+                   if u in CORPUS_IDS and u in TARGETS_DF.index and TARGETS_DF.loc[u, L].notna().all())
+    VAL = sorted(u for u in FOLDS.loc[FOLDS.is_gold, "StudyInstanceUID"] if u in CORPUS_IDS)
+    if set(TRAIN) & set(VAL) or len(VAL) < 50:
+        sys.exit(f"all-data: train/gold overlap or only {len(VAL)} gold studies in the corpus")
+elif PREDICT_ALL:
     # an outside teacher (e.g. trained on fastMRI+, loaded with --init, --epochs 0): label EVERY training study and the
     # 691; it never saw any of them. Gold is scored by --gold as always.
     VAL = sorted(set(_pool) | set(VAL))
@@ -285,8 +299,12 @@ elif TEACHER_FOLD:
 else:
     TRAIN = _pool if not __N_TRAIN__ else sorted(np.random.default_rng(__DRAW_SEED__).choice(
         _pool, size=min(__N_TRAIN__, len(_pool)), replace=False).tolist())
-log(f"train {len(TRAIN)} (a seeded draw from a pool of {len(_pool)}) | val {len(VAL)} "
-    f"({len(CTRL) - len(VAL)} control studies are not in the corpus)")
+if ALL_DATA:
+    log(f"ALL DATA: train {len(TRAIN)} (every non-gold study with targets; the {len(_pool)} pool + fold 0) | "
+        f"val = the {len(VAL)} gold studies, report only")
+else:
+    log(f"train {len(TRAIN)} (a seeded draw from a pool of {len(_pool)}) | val {len(VAL)} "
+        f"({len(CTRL) - len(VAL)} control studies are not in the corpus)")
 RUN.mkdir(parents=True, exist_ok=True)
 pd.Series(TRAIN, name="StudyInstanceUID").to_csv(RUN / "train_studies.csv", index=False)
 pd.Series(VAL, name="StudyInstanceUID").to_csv(RUN / "val_studies.csv", index=False)
@@ -295,7 +313,7 @@ pd.Series(VAL, name="StudyInstanceUID").to_csv(RUN / "val_studies.csv", index=Fa
     "inputs": {k: {"path": str(v[0]), "sha256": _sha(v[0])} for k, v in FOUND.items()},
     "folds_site_sha256": _sha(D / "folds_site.csv"), "targets_sha256": _sha(LABELS_CSV), "fold_targets_sha256": _sha(D / "targets.csv"),
     "n_train": len(TRAIN), "n_val": len(VAL), "draw_seed": __DRAW_SEED__, "teacher_fold": TEACHER_FOLD,
-    "predict_all": PREDICT_ALL}, indent=2))
+    "predict_all": PREDICT_ALL, "all_data": ALL_DATA}, indent=2))
 '''
 
 
@@ -347,6 +365,8 @@ SCORE = r'''
 # ============================================================================ #
 if MODE == "smoke":
     log("SMOKE: the whole path ran. No score -- 6 studies cannot carry one.")
+elif ALL_DATA:
+    log("ALL DATA: nothing held out, so no 691 score; gold-58 is in summary.json (report only); the LB judges.")
 else:
     for _arm in [RUN] + ([RUN / "avg3"] if (RUN / "avg3" / "oof_all.csv").exists() else []):
         _ctrl = "runs_c6_ortho" if LAYOUT == "stage_b" or ARCH.startswith("qwen") else "runs_port_repro"
@@ -395,6 +415,8 @@ def main() -> None:
     ap.add_argument("--targets", type=Path, help="train on this table (StudyInstanceUID + 12 labels) instead of "
                                                  "steven_v2; embedded and hashed. Needs --tag.")
     ap.add_argument("--tag", default="", help="suffix for the kernel slug, so a variant does not overwrite a run")
+    ap.add_argument("--all-data", action="store_true", help="train on every non-gold study (4,349), nothing held "
+                    "out; val = gold. For a model whose --init already saw them; the LB is its judge")
     ap.add_argument("--n-train", type=int, default=None,
                     help=f"seeded draw from the pool ({N_TRAIN} = the A/B count, the default; qwen35vl: 0); "
                          "0 = the whole pool")
@@ -414,6 +436,9 @@ def main() -> None:
     else:
         extra = []
     extra += a.train_args.split()
+    if a.all_data and (a.predict_all or a.teacher_fold or a.n_train or a.bench):
+        raise SystemExit("--all-data trains on everything: not with --predict-all, --teacher-fold, a --n-train draw "
+                         "(pass --n-train 0) or --bench")
     if a.predict_all:
         # An outside teacher labels studies with the weights it brings: nothing may train here, in any mode.
         # (train_windows lets the train list overlap val only at --epochs 0, and skips --fit-budget there.)
@@ -457,6 +482,7 @@ def main() -> None:
         print(f"targets {a.targets} ({len(t)} studies, sha256 {t_sha[:16]}) replace steven_v2")
     prep = (PREP.replace("__DRAW_SEED__", str(DRAW_SEED)).replace("__N_TRAIN__", str(a.n_train))
                 .replace("__TEACHER_FOLD__", str(a.teacher_fold)).replace("__PREDICT_ALL__", str(a.predict_all))
+                .replace("__ALL_DATA__", str(a.all_data))
                 .replace("__TARGETS_B64__", repr(t_b64)).replace("__TARGETS_SHA__", repr(t_sha))
                 .replace("__TARGETS_NAME__", repr(t_name)))
     cells = [setup, prep, TRAIN, SCORE]
@@ -466,7 +492,8 @@ def main() -> None:
     # the A/B keeps its slugs; a Stage A run is a different experiment and gets its own
     slug = {"raptor44": f"rsna-knee-backbone-ab-{a.arch}", "stage_a": f"rsna-knee-c6-train-{a.arch}",
             "stage_b": f"rsna-knee-c7-train-{a.arch}"}[a.corpus] + (f"-{a.tag}" if a.tag else "") \
-        + (f"-t{a.teacher_fold}" if a.teacher_fold else "") + ("-pa" if a.predict_all else "")
+        + (f"-t{a.teacher_fold}" if a.teacher_fold else "") + ("-pa" if a.predict_all else "") \
+        + ("-all" if a.all_data else "")
     datasets = ((DATASETS if a.corpus == "raptor44" else DATASETS[2:]) + ([a.targets_from] if a.targets_from else [])
                 + a.extra_datasets)
     kernels = KERNELS + {"raptor44": [], "stage_a": STAGE_A_SHARDS, "stage_b": STAGE_B_SHARDS}[a.corpus]
@@ -494,7 +521,8 @@ def main() -> None:
     if mode != "smoke" and not a.cpu:          # a machine_shape makes Kaggle count it as a GPU session, even with enable_gpu off
         meta["machine_shape"] = "NvidiaTeslaT4"
     (a.out / "kernel-metadata.json").write_text(json.dumps(meta, indent=2), encoding="utf-8")
-    print(f"built {a.out / (slug + '.ipynb')}  arch={a.arch} corpus={a.corpus} n_train={a.n_train or 'pool'} "
+    print(f"built {a.out / (slug + '.ipynb')}  arch={a.arch} corpus={a.corpus} "
+          f"n_train={'ALL (4,349, nothing held out)' if a.all_data else a.n_train or 'pool'} "
           f"mode={mode} epochs={epochs}  from {built_from}")
     if "uncommitted" in built_from:
         print("  ⚠️ embedded files differ from HEAD -- commit first so the run is reproducible")
