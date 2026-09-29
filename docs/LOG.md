@@ -143,3 +143,18 @@ unsure.** Unsure = max over findings of p(1 − p) under B′, fixed in advance,
   if one model can run with and without its crops, which was never measured (Z's weights were not saved).
 - Moot anyway once zoom stopped. The crop cost is paid per knee, not per finding. Each finding already has its own
   attention head, which learns which views to trust.
+
+**2026-09-29 ~13:45 — the CoAtNet student trains on ALL the knees (owner: "yes train on them").**
+- **Why:** its start, the public CoAtNet, trained on all 4,349 non-gold knees plus gold ×3. So for this model the 691
+  was never a clean check, and the LB is its only judge. Holding the 691 back bought nothing and cost 24% of the
+  training knees: 4,349 vs 3,502, i.e. the 691 plus 156 more fold-0 knees never used before.
+- **What was built:** `build_backbone_ab_kernel.py --all-data` (`b90ab08`). Train = every non-gold study with complete
+  targets; val = the 58 gold studies (disjoint, report only); no 691 pairing; slug suffix `-all`. Default builds are
+  unchanged but for the inert branch.
+- **CPU smoke** `rsna-knee-c6-train-coatnet-student-r1-all` v1, read 13:30: targets sha `75757be8`, partition 691/691,
+  train 4,349, val = the 58 gold exactly, train ∩ gold 0 (the 681 non-gold of the 691 are in train), init strict 486
+  tensors `20d45e07`, epoch 0 ran, 23.3 min, no traceback.
+- **Friday entry 1 swapped** to it, pinned to `b90ab08` in its own worktree. Entry 2 (Ortho) stays at `b5331ff` with its
+  holdout. Both were test-built ~13:40 and pass every flag check.
+- **Cost:** ~7.3 GPU-h (was ~6), done ~Sat 00:40. (A)'s core is now the `-all` kernel. The Ortho student keeps the 691
+  because for it the 691 is still clean.

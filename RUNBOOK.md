@@ -58,49 +58,51 @@ its own gate. The first LB proof is the CoAtNet student, after Friday.
 The scheduled task `rsna-push-stage-b-dread` (Fri 17:20 PDT) pushes ONLY what this block lists. Kaggle runs two GPU
 sessions at once; both entries go together.
 
-**READY 2026-09-28 ~20:50:** both v2 smokes from `b5331ff` read clean. Each epoch-0 loss equals v1's exactly (Ortho
-0.9177, CoAtNet 0.6574), so the off-by-default `--zoom` changed nothing (detail: `docs/LOG.md`). **The build is pinned
-to `b5331ff`,** the commit both v2 smokes ran, through a detached worktree at `/tmp/rsna-friday/src`. Later commits,
-such as `--extra-corpus`, cannot change what runs. Both pinned builds were test-built at 20:40 (not pushed).
+**READY, re-read 2026-09-29 ~13:45.** Entry 1 is now the ALL-DATA CoAtNet student (owner 09-29: "yes train on
+them"). Its CPU smoke from `b90ab08` read clean at 13:30:
+- targets sha `75757be8`; partition check 691/691;
+- **train 4,349** (every non-gold knee), val = the **58 gold** knees only (train ∩ gold 0);
+- init strict, 486 tensors, sha `20d45e07`;
+- epoch 0 ran; no traceback.
 
-1. **CoAtNet student** — kernel `raahimnawaz/rsna-knee-c6-train-coatnet-student-r1`. Build (one line):
+Entry 2 (Ortho) is unchanged: its v2 smoke from `b5331ff` read clean 09-28 ~20:50. Each entry is built from a
+detached worktree pinned to the commit its smoke ran, so later commits cannot change what runs. Both commands below
+were test-built at ~13:40 09-29 (not pushed) and pass every flag check.
+
+1. **CoAtNet student, ALL DATA** — kernel `raahimnawaz/rsna-knee-c6-train-coatnet-student-r1-all`. Build (one line):
    `cd /Users/raahimnawaz/rsna-knee-abnormality-detection && rm -rf /tmp/rsna-friday && git worktree prune && mkdir -p /tmp/rsna-friday && git worktree add --detach
-   /tmp/rsna-friday/src b5331ff && cd /tmp/rsna-friday/src && /Users/raahimnawaz/rsna-knee-abnormality-detection/.venv/bin/python notebooks/build_backbone_ab_kernel.py
+   /tmp/rsna-friday/src-coat b90ab08 && cd /tmp/rsna-friday/src-coat && /Users/raahimnawaz/rsna-knee-abnormality-detection/.venv/bin/python notebooks/build_backbone_ab_kernel.py
    --arch coatnet --corpus stage_a --n-train 0 --epochs 7 --targets /Users/raahimnawaz/rsna-knee-abnormality-detection/data/student/targets_round1_cnn.csv --targets-from
    raahimnawaz/rsna-knee-student-targets --tag student-r1 --extra-datasets dreaddevelopment/raptor-knee-maxspan
-   --train-args '--init /kaggle/input/raptor-knee-maxspan/raptor_ft_coatnet_v5_full_swa.pt' --out /tmp/rsna-friday/coat`.
-   **Flag checks:** prints `sha256 75757be8c9b5c8d1`, `mode=full epochs=7`, `from b5331ff`, no "uncommitted";
-   `kernel-metadata.json`: id as above, `"enable_gpu": true`, `dreaddevelopment/raptor-knee-maxspan` and
-   `raahimnawaz/rsna-knee-student-targets` in `dataset_sources`; the `.ipynb` under 1,000,000 bytes. Push dir
-   `/tmp/rsna-friday/coat`. ~6 GPU-h (one T4, ~50 min/epoch).
-2. **Ortho student** — kernel `raahimnawaz/rsna-knee-c7-train-ortho-student-r1`. Build, after entry 1's (reuses its
-   worktree): `cd /tmp/rsna-friday/src && test "$(git rev-parse --short HEAD)" = b5331ff && /Users/raahimnawaz/rsna-knee-abnormality-detection/.venv/bin/python
+   --train-args '--init /kaggle/input/raptor-knee-maxspan/raptor_ft_coatnet_v5_full_swa.pt' --all-data --out /tmp/rsna-friday/coat`.
+   **Flag checks:** prints `sha256 75757be8c9b5c8d1`, `n_train=ALL (4,349, nothing held out)`, `mode=full epochs=7`,
+   `from b90ab08`, no "uncommitted"; `kernel-metadata.json`: id as above, `"enable_gpu": true`,
+   `dreaddevelopment/raptor-knee-maxspan` and `raahimnawaz/rsna-knee-student-targets` in `dataset_sources`; the
+   `.ipynb` under 1,000,000 bytes (test build: 692,175). Push dir `/tmp/rsna-friday/coat`. ~7.3 GPU-h (one T4,
+   ~62 min/epoch on 4,349).
+2. **Ortho student** — kernel `raahimnawaz/rsna-knee-c7-train-ortho-student-r1`. Build, after entry 1's (its own
+   worktree): `cd /Users/raahimnawaz/rsna-knee-abnormality-detection && git worktree add --detach /tmp/rsna-friday/src b5331ff && cd /tmp/rsna-friday/src &&
+   test "$(git rev-parse --short HEAD)" = b5331ff && /Users/raahimnawaz/rsna-knee-abnormality-detection/.venv/bin/python
    notebooks/build_backbone_ab_kernel.py --arch ortho --corpus stage_b --n-train 0 --epochs 14 --targets
    /Users/raahimnawaz/rsna-knee-abnormality-detection/data/student/targets_round1_cnn.csv --targets-from raahimnawaz/rsna-knee-student-targets --tag student-r1 --out
    /tmp/rsna-friday/ortho`. **Flag checks:** `sha256 75757be8c9b5c8d1`, `mode=full epochs=14`, `from b5331ff`, no
    "uncommitted"; id as above, `"enable_gpu": true`, the eight `raahimnawaz/rsna-knee-stage-b-s{0..7}of8` in
-   `kernel_sources`, `raahimnawaz/rsna-knee-student-targets` in `dataset_sources`; `.ipynb` under 1,000,000 bytes.
-   Push dir `/tmp/rsna-friday/ortho`. ~10 GPU-h (T4×2, fitted to 10.3 h).
+   `kernel_sources`, `raahimnawaz/rsna-knee-student-targets` in `dataset_sources`; `.ipynb` under 1,000,000 bytes
+   (test build: 689,467). Push dir `/tmp/rsna-friday/ortho`. ~10 GPU-h (T4×2, fitted to 10.3 h). It keeps the 691
+   holdout: for Ortho the 691 is a clean check.
 3. ~~**NYU teacher**~~ **CUT 09-28 16:25** (failed its gold gate on the Mac, P 0.21) — not pushed.
 
 **Rules:** see *Pending reads* item 1.
 
 ## Open — build or decide before it is needed
 
-0. **All-data CoAtNet student (owner 09-29: "yes train on them"). Pending its smoke.** The builder's `--all-data`
-   (`b90ab08`) trains on all 4,349 non-gold knees: the 3,502, the 691 and the rest of fold 0. Its start, the public
-   CoAtNet, already trained on all of them, so the 691 was never a clean check for it. The CPU smoke
-   `raahimnawaz/rsna-knee-c6-train-coatnet-student-r1-all` v1 was pushed ~12:40 09-29. **If it reads clean**, Friday
-   entry 1 becomes that kernel, built from a worktree pinned to `b90ab08` with the same flags plus `--all-data`.
-   That is ~7.3 GPU-h at ~62 min/epoch, done ~Sat 00:40. Entry 2 (Ortho) keeps `b5331ff` and the 691 holdout.
-   **Until then entry 1 stays as written below**, so Friday is never left without a valid list.
 1. **Friday 17:20:** the list is READY; be at the Mac with the app open (the task runs only then), or push by hand.
 2. **Replace-the-core submit mode: BUILT and tested locally 09-28** (`build_submit_kernel.py --core-*`; test
    `notebooks/core_swap_fixture.py`; detail in `docs/LOG.md`). Not yet run on Kaggle. **(A) on Saturday:**
-   1. When the CoAtNet student finishes (~Fri 23:30), download its `runs_coatnet/last.pt` and take
+   1. When the CoAtNet student finishes (~Sat 00:40), download its `runs_coatnet/last.pt` and take
       `shasum -a 256`.
    2. Build: `.venv/bin/python notebooks/build_submit_kernel.py --public-dir data/public_notebooks/bend-the-knee-2fc5a420
-      --core-kernel raahimnawaz/rsna-knee-c6-train-coatnet-student-r1 --core-sha <that sha> --tag student-r1 --out
+      --core-kernel raahimnawaz/rsna-knee-c6-train-coatnet-student-r1-all --core-sha <that sha> --tag student-r1 --out
       /tmp/subcore`. Check first that the stack is unchanged upstream.
    3. Push the commit run on the freed session.
    4. Submit only if the log shows both `[core]` lines (the relative change vs the public weights, then `[core] ARMS:`)
