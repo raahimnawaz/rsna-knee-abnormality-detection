@@ -271,6 +271,10 @@ do in 22% — and ACL → Lateral Meniscus gold 0.38 / 0.41 (no link) vs reports
 coupling (why the 08-13 stacker lost −0.013 on gold and part of why synovitis is weak); the image teacher loosens it (0.790 → 0.825).
 Gold is enriched (ACL 41% vs ~20%), so compare the gaps, not levels. **Ortho** = DINOv3-L continued-pretrained on 1.25 M unlabelled knee
 images: it knows what knees LOOK like (why it learns fastest and is the best teacher), not the graders' RULES — those exist only in gold.
+(Owner ~19:45: "isn't Ortho trained on healthy knees?" — no: its paper (arXiv 2601.18250) pretrains on ~1.2 M unlabelled knee X-ray AND
+MRI images from internal (clinical) and public databases, self-supervised; the healthy / injured mix is not stated, but clinical
+archives are pathology-rich, and it ranked first there on MRI structural injury. The owner's "healthy baseline" idea is normative /
+anomaly modelling — useful for a rare finding (Fracture, ~6%), not needed on the main path.)
 Cross-finding terms enter the calibrator only after a shared-parameter version passes (each term is one more number from 58 knees).
 **Owner Qs 09-28 ~14:40.** (k) *Are the models weighted for labels being only ~90% right?* Yes, in the way AUC can use: `dread_soft`
 is soft (0 of 52,188 cells exactly 0/1; 14 levels, e.g. hedged reports ~0.3–0.4), the loss is BCE on those soft targets (+ pos_weight

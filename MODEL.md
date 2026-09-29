@@ -126,7 +126,7 @@ Interchangeable — the head below is what matters. Train the same head over thr
 |---|---|
 | **CoAtNet-ish, 336** | what the frontier uses; conv stem gives locality a plain ViT lacks on fine structure |
 | **DINOv2-small, 336** | known-good here, cheap, reproduces our existing path |
-| **OrthoFoundation-L** | **the differentiator** — DINOv3-L continued-pretrained on 1.25 M knee images, in no public blend. Fine-tune, never frozen: 0.7710 was frozen |
+| **OrthoFoundation-L** | **the differentiator** — DINOv3-L continued-pretrained (self-supervised contrastive, no labels) on ~1.2 M unlabelled knee **X-ray and MRI** images "from internal and public databases" (arXiv 2601.18250 abstract, read 09-28: clinical archives, so pathology-rich — not healthy-only; the MRI / X-ray split is not stated); ranked first in its paper's MRI structural-injury task. In no public blend. Fine-tune, never frozen: 0.7710 was frozen |
 
 Fine-tune the **last 6 blocks**, `lr_backbone 8e-6`, `lr_head 1e-3` — the settings the fork's own
 20 members used.
