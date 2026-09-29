@@ -45,11 +45,11 @@ its own gate. The first LB proof is the CoAtNet student, after Friday.
 
 | what | where | ETA |
 |---|---|---|
-| **B′**: ResNet34 at 224, the control for Z and N | ✅ done 20:45: **0.8129** on the 691 vs Kaggle B's 0.8076 (+0.0053 ± 0.0046, inside 0.010, so Mac and Kaggle arms compare) | — |
-| **Z**: B′ + `--zoom 0.6714` (each window again as its centre 94 mm, in one bag) | `fusion/runs_cnntest_Z/`, epoch 3 of 18 at 21:30, ~9 min/epoch | ~00:15 |
-| NYU pseudo-labels: the mean of the 4 CNN teacher folds on 7,140 NYU knees | ✅ `data/student/nyu_pseudo_r1.csv`, written 21:16 | — |
-| **N**: B′ + the NYU pseudo-knees, 6 epochs (B′'s optimizer steps) | `run_N.sh` waits for Z and the labels | after Z, ~1.5 h+ |
-| NYU batch1 download, resumed (`curl -C -`) | `data/external/fastmri/dicom/`; a second conversion pass needs `--skip-ids`, not built | — |
+| **B′** (control for Z and N) | ✅ done 20:45 — **691: 0.8129**; vs Kaggle B 0.8076: Δ −0.0053, inside ±0.010 → the Mac arms compare with Kaggle's too | — |
+| **Z**: B′ + `--zoom 0.6714` (each window again as its centre 94 mm, in one bag) | `fusion/runs_cnntest_Z/`, epoch 5 of 18 at 21:53, ~8.9 min/epoch | ~23:45 |
+| NYU pseudo-labels | ✅ done 21:16 — `data/student/nyu_pseudo_r1.csv`, 7,140 knees; the 4 folds agree at r 0.883 | — |
+| **N**: B′ + the NYU pseudo-knees, 6 epochs (B′'s optimizer steps) | `run_N.sh` starts when Z ends | ~01:30 |
+| NYU batch1 download, resumed (`curl -C -`) | 124.5 of ~137 GB at 21:53; a second conversion pass needs `--skip-ids`, not built | ~22:35 |
 
 Logs: `fusion/runs_cnntest/runner.log`, `runner_N.log`.
 

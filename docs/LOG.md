@@ -103,3 +103,10 @@ beat it by roughly **+0.008** to reach P ≥ 0.95. A smaller real gain reads as 
 - **The full plan:** students in every CoAtNet slot (~70% of the vote), round 2, and Ortho if (C) passes →
   ~0.950–0.955 central (the silver-to-gold band). #1 (0.960) needs the upside on every lever. 0.965 needs a lever
   beyond these.
+
+**2026-09-28 21:55 — B′ read (the control for Z and N).** `fusion/runs_cnntest_Bp`: ResNet34 at 224, Stage A, `dread_soft`,
+18 epochs on the Mac (MPS), 116 min wall (sharing the GPU with the NYU labelling for its last ~50 min). **691 macro 0.8129**
+(`score_oof.py`); paired vs Kaggle B (`runs_r34v2_B`, the same recipe on a T4) **B − B′ = −0.0053 ± 0.0046**, P(B > B′)
+0.11. The pre-registered floor (|B′ − B| > 0.010 → Mac arms compare only with each other) is NOT tripped, so the Mac
+reproduces Kaggle within noise. Gold-58 0.8943 (report only). NYU pseudo-labels written 21:16: 7,140 knees, mean of the 4
+CNN folds, fold-to-fold correlation of predictions 0.883 (~19–21 min a fold while B′ shared the GPU).
