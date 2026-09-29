@@ -254,6 +254,16 @@ split-half test that killed per-label picking (fit on 29, score on the other 29,
 the calibrated targets beat the unfitted rank-mean (0.913) out of sample at P ≥ 0.95 → round-2 targets. Expected small (+0.00–0.01 on
 gold); CPU, minutes. Other biology already in play: location → crops (tonight's Z); acuity (acute vs chronic) → a reader-side flag;
 co-occurrence (ACL tear + bone bruise + effusion) failed as a learned stacker (−0.013 on gold) and stays out.
+**Owner follow-up ~19:25: do findings inform each other ("not ACL → more likely a bruise"?), and isn't that Ortho's job?** Measured
+(descriptive, gold labels themselves; reports = `dread_soft` > 0.5 on all 4,349): P(B | A) / P(B | not A) — ACL → Contusion gold
+0.54 / 0.18 (reports 0.39 / 0.12): an ACL tear makes a bruise MORE likely (the pivot-shift pattern); Fracture → Contusion 0.56 / 0.23
+(0.35 / 0.14); Medial OA → Medial Meniscus 0.80 / 0.33 (0.70 / 0.28). **Where the reports' structure differs from the graders':**
+Effusion → Synovitis gold **0.63 / 0.22** vs reports **0.92 / 0.01** — reports almost never call synovitis without effusion, the graders
+do in 22% — and ACL → Lateral Meniscus gold 0.38 / 0.41 (no link) vs reports 0.30 / 0.11. A model on report labels learns the reports'
+coupling (why the 08-13 stacker lost −0.013 on gold and part of why synovitis is weak); the image teacher loosens it (0.790 → 0.825).
+Gold is enriched (ACL 41% vs ~20%), so compare the gaps, not levels. **Ortho** = DINOv3-L continued-pretrained on 1.25 M unlabelled knee
+images: it knows what knees LOOK like (why it learns fastest and is the best teacher), not the graders' RULES — those exist only in gold.
+Cross-finding terms enter the calibrator only after a shared-parameter version passes (each term is one more number from 58 knees).
 **Owner Qs 09-28 ~14:40.** (k) *Are the models weighted for labels being only ~90% right?* Yes, in the way AUC can use: `dread_soft`
 is soft (0 of 52,188 cells exactly 0/1; 14 levels, e.g. hedged reports ~0.3–0.4), the loss is BCE on those soft targets (+ pos_weight
 for rare findings), and student targets turn report-vs-teacher conflicts into ~0.5, not a flip. A uniform "90%" correction cannot
