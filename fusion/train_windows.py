@@ -333,6 +333,7 @@ class WindowMIL(nn.Module):
         super().__init__()
         self.encoder, self.res, self.n_slots = encoder, res, n_slots
         self.affine = 0.0            # --aug-affine; a plain attribute, so state_dict and last.pt are unchanged
+        self.zoom = 0.0              # --zoom; the same kind of attribute (train AND eval, unlike the affine)
         f = encoder.num_features
         self.norm = nn.LayerNorm(f)
         self.att = nn.Sequential(nn.Linear(f, 256), nn.Tanh(), nn.Dropout(drop), nn.Linear(256, n))
@@ -372,6 +373,18 @@ class WindowMIL(nn.Module):
         return (x - self.mean) / self.std
 
     def forward(self, x, mask=None, gain=None, slot=None, pos=None):
+        if self.zoom:
+            # Every window again as its centre crop (e.g. 0.6714 = the middle 94 mm of the 140 mm field), resized back to
+            # the window's size, so both views share one attention bag and one prep (RUNBOOK "CNN TEST", arm Z).
+            h_ = x.shape[-1]
+            c = int(round(h_ * self.zoom))
+            o = (h_ - c) // 2
+            z = F.interpolate(x[..., o:o + c, o:o + c].flatten(0, 1).float(), size=(h_, h_), mode="bilinear",
+                              align_corners=False).view(*x.shape[:2], x.shape[2], h_, h_)
+            x = torch.cat([x.float(), z], 1)
+            mask = None if mask is None else torch.cat([mask, mask], 1)
+            slot = None if slot is None else torch.cat([slot, slot], 1)
+            pos = None if pos is None else torch.cat([pos, pos], 1)
         b, k = x.shape[:2]
         h = self.norm(self.encoder(self.prep(x, gain)).view(b, k, -1).float())
         if self.n_slots:
@@ -537,6 +550,9 @@ def main() -> None:
                     help="no CUDA: train on Apple's GPU under bf16 autocast instead of the CPU")
     ap.add_argument("--compile", action="store_true",
                     help="torch.compile the encoder in place, for training steps only (eval runs eager)")
+    ap.add_argument("--zoom", type=float, default=0.0,
+                    help="each window ALSO as its centre crop, this fraction of the field (0.6714 = the middle 94 mm of 140), "
+                         "resized back; both views in one bag, train and eval (2x the windows). 0 = off")
     ap.add_argument("--eval-windows", type=int, default=0,
                     help="score an evenly spaced ~N windows per study (thin_windows); 0 = every window")
     a = ap.parse_args()
@@ -647,6 +663,9 @@ def main() -> None:
     if a.aug_affine and not is_qwen:
         model.affine = a.aug_affine
         log(f"augmentation: per-window affine at strength {a.aug_affine} (training only), plus the intensity gain")
+    if a.zoom:
+        model.zoom = a.zoom
+        log(f"zoom: every window also as its centre {a.zoom:.4f} of the field, both views in one bag (train and eval)")
     if (not is_qwen and ARCHS[a.arch].get("ckpt", True) and hasattr(model.encoder, "set_grad_checkpointing")
             and (amp or os.environ.get("TW_FORCE_CKPT"))):
         # NON-reentrant checkpointing: re-entrant checkpoints and DDP's gradient hooks do not mix
@@ -873,6 +892,7 @@ def main() -> None:
             "timm": ARCHS[a.arch].get("timm", "vit_large_patch16_dinov3"),
             "layout": corpus.layout, "slot_sizes": list(corpus.slot_sizes), "img": getattr(corpus, "img", 336),
             "pos_emb": bool(a.pos_emb), "n_slots": model.n_slots, "llrd": a.llrd, "drop_path": a.drop_path,
+            "zoom": a.zoom,  # infer_windows does NOT apply it yet: a zoom model is not servable until it does
             "rope_periods": rope.periods.float().tolist() if rope is not None and hasattr(rope, "periods") else None,
             "mean": MEAN, "std": STD,
             **({"hf": ARCHS[a.arch].get("hf"), "qwen_config": model.qwen.config.to_dict(), "qwen_ids": model.ids,
@@ -901,7 +921,7 @@ def main() -> None:
                    "n_train": len(tr), "n_val": len(va), "n_gold": len(gold_ids), "k": a.k, "bs": a.bs,
                    "bb_lr": a.bb_lr, "head_lr": a.head_lr, "wd": a.wd, "seed": a.seed, "res": res,
                    "drop_path": a.drop_path, "llrd": a.llrd, "pos_emb": a.pos_emb, "eval_windows": a.eval_windows,
-                   "aug_affine": a.aug_affine, "init": str(a.init) if a.init else None, "slots": a.slots or None,
+                   "aug_affine": a.aug_affine, "zoom": a.zoom, "init": str(a.init) if a.init else None, "slots": a.slots or None,
                    "allow_missing_labels": a.allow_missing_labels,
                    "init_sha256": getattr(a, "init_sha256", None),
                    "labels_sha256": __import__("hashlib").sha256(Path(a.labels).read_bytes()).hexdigest()

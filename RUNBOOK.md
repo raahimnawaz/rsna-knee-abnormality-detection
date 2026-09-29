@@ -327,6 +327,19 @@ combined arm, same rule, then stop. Z helps → zoom views become a student cand
 are closed for this competition. **Needs:** the Stage A cache (~32 GB, our own `raahimnawaz/rsna-knee-stage-a-s{0..3}of4`), the
 RadImageNet encoder (~90 MB, `mattiaangeli/radimagenet-resnet50-encoder`), `train_windows` on MPS + `--zoom` + a `radimagenet_r50`
 arch. **Waiting on the owner's OK for the two downloads.** ~9 h of Mac time; fastMRI+ conversion goes first.
+**▶ TONIGHT'S SCOPE `2026-09-28 ~18:55 PDT, before either arm runs` (owner: "the test and conversion can be done in a few hours while
+I'm asleep").** Arms **B′ and Z only**, sequential on the Mac (MPS) — the owner's crop question; R (336 px) and P (RadImageNet) stay
+pre-registered, unscheduled. The rule above is unchanged: **Z HELPS iff Z − B′ > 0 paired on the 691 (`score_oof.py`) at P ≥ 0.95**;
+per finding and the small-structure group reported; |B′ − B (0.8076, Kaggle)| > 0.010 → the Mac arms compare only with each other.
+(The "CNN USABLE again" clause is moot — the CNN teachers passed on gold 09-28.) Z helps → zoom views become a student candidate, its
+own LB test. **Code:** `train_windows --zoom 0.6714` — in `WindowMIL.forward`, every window again as its centre crop (226 of 336 px =
+the middle 94.2 mm of 140), resized back, both views in one attention bag, masks / slots / positions duplicated, train AND eval; off by
+default (0.0 changes nothing). Not servable yet: `infer_windows` does not apply it (recorded in `last_meta.json`). **The render check
+PASSED** (20 random 691 studies, seed 20260928, middle sagittal + coronal slice of each, box drawn): the joint line is inside the box
+in all 40 tiles; the coronal edges (collateral ligaments) fall outside in some — why Z keeps the full view beside the crop.
+**Runs:** `fusion/runs_cnntest_Bp` (B′) then `fusion/runs_cnntest_Z` (+ `--zoom 0.6714`), both: `--arch resnet34 --bb-lr 1e-3
+--epochs 18 --mps --corpus data/stage_a --layout stage_a --labels <dread_soft> --train/--val runs_dread_ortho/{train,val}_studies.csv
+--gold data/train.csv`, TW_WORKERS=0, detached under `caffeinate -i`. ~1.5 h + ~3 h.
 **🔍 OUTSIDE REVIEW OF THE PIPELINE — read against the code, 2026-09-27 ~19:30 (the owner pasted it, "your thoughts?").**
 Adopted: (1) the NYU gate as a paired macro bootstrap, not per-finding deltas (item 3 of "HOW fastMRI+ FITS"); (2) a fastMRI+
 hold-out as a teacher diagnostic, report-only. Already so: 336 px (Stage B 384 = 24 × 16); "quantile matching" IS
