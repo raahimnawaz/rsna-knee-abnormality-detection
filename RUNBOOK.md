@@ -87,6 +87,13 @@ such as `--extra-corpus`, cannot change what runs. Both pinned builds were test-
 
 ## Open — build or decide before it is needed
 
+0. **All-data CoAtNet student (owner 09-29: "yes train on them"). Pending its smoke.** The builder's `--all-data`
+   (`b90ab08`) trains on all 4,349 non-gold knees: the 3,502, the 691 and the rest of fold 0. Its start, the public
+   CoAtNet, already trained on all of them, so the 691 was never a clean check for it. The CPU smoke
+   `raahimnawaz/rsna-knee-c6-train-coatnet-student-r1-all` v1 was pushed ~12:40 09-29. **If it reads clean**, Friday
+   entry 1 becomes that kernel, built from a worktree pinned to `b90ab08` with the same flags plus `--all-data`.
+   That is ~7.3 GPU-h at ~62 min/epoch, done ~Sat 00:40. Entry 2 (Ortho) keeps `b5331ff` and the 691 holdout.
+   **Until then entry 1 stays as written below**, so Friday is never left without a valid list.
 1. **Friday 17:20:** the list is READY; be at the Mac with the app open (the task runs only then), or push by hand.
 2. **Replace-the-core submit mode: BUILT and tested locally 09-28** (`build_submit_kernel.py --core-*`; test
    `notebooks/core_swap_fixture.py`; detail in `docs/LOG.md`). Not yet run on Kaggle. **(A) on Saturday:**
