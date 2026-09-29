@@ -175,15 +175,27 @@ DIFFERENT: (A) **the upgraded stack** — its structure, with our student(s) in 
 families, nothing tuned on the public LB, the one that survives a shake-up best. Both chosen by pre-registered evidence, never by a
 0.001 public difference.
 
-**🗓 FRIDAY 10-02 PUSH LIST — ⛔ NOT READY** (the scheduled task `rsna-push-stage-b-dread`, Fri 17:20 PDT, pushes ONLY what this block
-lists once it reads **✅ READY**, and nothing if it does not). To be written after today's CNN-teacher gold gate, each entry with its
-exact build command, kernel id, flag checks and its pre-registered rule. Intended, in order (Kaggle runs two GPU sessions at once):
-1. **CoAtNet student** — `--arch coatnet --init` the public 0.928 weights, student targets `data/student/targets_round1_cnn.csv`
-   sha `75757be8…` (`dread_soft` + CNN-teacher OOF mapped per fold; **gate PASSED 09-28, P 0.994**). ~6 GPU-h.
-2. **Ortho student** — Stage B, the same student targets. ~10 GPU-h.
-3. ~~**NYU teacher**~~ **CUT 09-28 16:25 (failed its gold gate on the Mac, P 0.21).** Was: Ortho on `raahimnawaz/rsna-knee-fastmri-plus-cache` alone (`--slots cor_1,cor_2 --allow-missing-labels`),
-   pushed when a session frees. ~1–2 GPU-h.
-If the CNN teachers FAIL their gate, the students train on `dread_soft` alone and this list says so.
+**🗓 FRIDAY 10-02 PUSH LIST — ⛔ NOT READY — waits on the v2 smokes from `b5331ff`** (the scheduled task `rsna-push-stage-b-dread`,
+Fri 17:20 PDT, pushes ONLY what this block lists once its heading reads **✅ READY**, and nothing if it does not). Written 2026-09-28
+~19:05; **the owner confirmed the rules 09-28 ~18:40 ("yes")**. Why not READY yet: both smokes passed on `3162a94` (v1); since then
+`train_windows.py` gained `--zoom` (off by default), so v2 of both smokes was pushed from `b5331ff` (~19:04) — READY once both read
+clean. Kaggle runs two GPU sessions at once; both entries go together. Build dirs are `/tmp/rsna-friday/{coat,ortho}`.
+1. **CoAtNet student** — kernel `raahimnawaz/rsna-knee-c6-train-coatnet-student-r1`. Build:
+   `.venv/bin/python notebooks/build_backbone_ab_kernel.py --arch coatnet --corpus stage_a --n-train 0 --epochs 7 --targets
+   data/student/targets_round1_cnn.csv --targets-from raahimnawaz/rsna-knee-student-targets --tag student-r1 --extra-datasets
+   dreaddevelopment/raptor-knee-maxspan --train-args '--init /kaggle/input/raptor-knee-maxspan/raptor_ft_coatnet_v5_full_swa.pt'
+   --out /tmp/rsna-friday/coat`. **Flag checks:** the build prints `sha256 75757be8c9b5c8d1` and `mode=full epochs=7`, no
+   "uncommitted"; `kernel-metadata.json` has `"enable_gpu": true`, id as above, `dreaddevelopment/raptor-knee-maxspan` and
+   `raahimnawaz/rsna-knee-student-targets` in `dataset_sources`. ~6 GPU-h (one T4, ~50 min/epoch).
+2. **Ortho student** — kernel `raahimnawaz/rsna-knee-c7-train-ortho-student-r1`. Build:
+   `.venv/bin/python notebooks/build_backbone_ab_kernel.py --arch ortho --corpus stage_b --n-train 0 --epochs 14 --targets
+   data/student/targets_round1_cnn.csv --targets-from raahimnawaz/rsna-knee-student-targets --tag student-r1 --out
+   /tmp/rsna-friday/ortho`. **Flag checks:** `sha256 75757be8c9b5c8d1`, `mode=full epochs=14`, no "uncommitted";
+   `"enable_gpu": true`, id as above, the eight `raahimnawaz/rsna-knee-stage-b-s{0..7}of8` in `kernel_sources`,
+   `raahimnawaz/rsna-knee-student-targets` in `dataset_sources`. ~10 GPU-h (T4×2, fitted to 10.3 h).
+3. ~~**NYU teacher**~~ **CUT 09-28 16:25** (failed its gold gate on the Mac, P 0.21) — not pushed.
+**Rules (confirmed):** see "PROPOSED 2026-09-28 ~16:50 — the students' full runs and LB rules" below — (A) upgraded stack ≥ 0.947;
+(B) CoAtNet student alone reported; (C) Ortho joins only at ≥ +0.004. The replace-the-core submit mode is built before the weekend.
 **PROPOSED 2026-09-28 14:05 — before Friday, all free (owner to confirm):** (1) **the NYU teacher moves OFF Friday's GPU list onto the
 Mac, tonight after fold 4** — a student should train on FINAL targets; if NYU passes after Friday, both students (~16 GPU-h) retrain.
 ResNet34 recipe C (ImageNet, never saw competition labels — the design's rule) on the 556 NYU knees is ~15 min on the M5; gate as
@@ -215,6 +227,16 @@ members?* Yes — the branch is ~5% of the vote; cut it to make runtime room for
 (i) *Gold ×3* = each gold knee repeated 3× per epoch; costs the gold instrument, so finals only. (j) *Drop Ortho for CoAtNet?* Friday
 runs both at once (2 Kaggle sessions); to pre-register before the push: the Ortho student stays only if it lifts the stack +
 CoAtNet-student blend by ≥ +0.004 public LB (2 × the blend-change SE).
+**Owner Q 09-28 ~18:50: how do fingerprint models do it — work through our problems.** (REFERENCE §4.3.) Latent-fingerprint matching
+fails the way our weak findings do: the evidence is fine texture at a few places, and one global average over the image erases it.
+The field converged on (1) **local patches around keypoints** (minutiae) instead of one embedding of the whole image; (2) **global +
+local streams fused**; (3) **several patch scales**; (4) **learned attention over patches**. Mapped here: (2) = tonight's arm Z (full
+view + centre 94 mm in one bag); (4) we already have across windows, NOT within a window — a ResNet34 averages its 7×7 feature map, so
+a 2–3 mm cartilage defect is 1 of 49 cells (candidate: per-finding attention over the feature map, a small head change); (1) + (3) =
+anatomical crops at 2–3 sizes — **both halves of the coronal (no laterality needed: the model can tell which half is lateral), the
+notch, the patellofemoral joint** — fixed crops, no detector, since the render check shows the joint line sits reliably mid-field. Order,
+each on the 691 at fixed targets: Z tonight → if it helps, halves + a tighter joint-line crop → spatial attention. If Z does not help,
+the crop family stops per the CNN TEST rule. Not borrowed: fingerprints have clean identity labels — our label problem is the teacher's.
 **Owner Qs 09-28 ~14:40.** (k) *Are the models weighted for labels being only ~90% right?* Yes, in the way AUC can use: `dread_soft`
 is soft (0 of 52,188 cells exactly 0/1; 14 levels, e.g. hedged reports ~0.3–0.4), the loss is BCE on those soft targets (+ pos_weight
 for rare findings), and student targets turn report-vs-teacher conflicts into ~0.5, not a flip. A uniform "90%" correction cannot
@@ -340,6 +362,18 @@ in all 40 tiles; the coronal edges (collateral ligaments) fall outside in some �
 **Runs:** `fusion/runs_cnntest_Bp` (B′) then `fusion/runs_cnntest_Z` (+ `--zoom 0.6714`), both: `--arch resnet34 --bb-lr 1e-3
 --epochs 18 --mps --corpus data/stage_a --layout stage_a --labels <dread_soft> --train/--val runs_dread_ortho/{train,val}_studies.csv
 --gold data/train.csv`, TW_WORKERS=0, detached under `caffeinate -i`. ~1.5 h + ~3 h.
+**▶ LAUNCHED 18:49 (B′), Z follows** (`fusion/runs_cnntest/run.sh`, log `runner.log`): B′ 437 steps/epoch, **4.9–5.0 min/epoch** →
+~20:20; Z ~2× → ~23:30.
+**▶ NYU CLINICAL DICOMs → STAGE A, LAUNCHED 18:58** (`pipeline/build_fastmri_dicom_cache.py`, `nice 10`, 3 workers, detached; log
+`data/external/fastmri/dicom_stage_a_run/convert.log`; out `data/external/fastmri/dicom_stage_a/p###`). **⚠ batch1 is TRUNCATED at
+77.4 of 137.0 GB** — its last write is 11:40:09, the app relaunch that killed fold 3 (its `curl` died with it); batch2 is whole (30.6
+GB). So ~6,000 of ~10,000 exams now; resuming batch1 needs the owner's NYU link again (`curl -C -`). Trial (12 studies, 0.2 min):
+planes and fat-sat read right from the headers (`pd_tse_fs_SAG` → Sagittal FS, `COR PD FS_FBK` → Coronal FS, `SAG PD` → Sagittal),
+0 errors, fill sag_1 1.00 / cor 0.92 / ax 0.75; rendered beside 3 competition studies: **same orientation on every plane** (no flip —
+unlike the h5 set). Headers are de-identified (no scanner model); what survives: 1.5 T, StudyDate 2018, TR/TE, 384 px at 0.39 mm,
+Laterality — recorded per series in each part's `series.csv`. Overlap risk is moot for this use (unlabelled; the labels will be our
+teachers' predictions). Full run: 100 studies/0.9 min → ~1 h. Next (not pre-registered yet): the screen — the CNN on 3,502 vs 3,502 +
+pseudo-labelled NYU knees, judged on the 691 (`Corpus` must learn to take a second root first).
 **🔍 OUTSIDE REVIEW OF THE PIPELINE — read against the code, 2026-09-27 ~19:30 (the owner pasted it, "your thoughts?").**
 Adopted: (1) the NYU gate as a paired macro bootstrap, not per-finding deltas (item 3 of "HOW fastMRI+ FITS"); (2) a fastMRI+
 hold-out as a teacher diagnostic, report-only. Already so: 336 px (Stage B 384 = 24 × 16); "quantile matching" IS
@@ -499,7 +533,7 @@ epoch 0 loss 0.918; eval ran; done 27.5 min; no traceback. CoAtNet: the same tar
 from pretraining only); eval ran; done 22.0 min; no traceback. The bare `--init` filename cost a 6-min `rglob` of /kaggle/input (the
 audit's LOW) → the full run passes the path it found: `--init /kaggle/input/raptor-knee-maxspan/raptor_ft_coatnet_v5_full_swa.pt`.
 Still open before the push list reads READY: the owner's OK on the rules below, and the replace-the-core submit mode.
-**📝 PROPOSED 2026-09-28 ~16:50 — the students' full runs and LB rules (owner to confirm; nothing is pushed on them until then).**
+**📝 CONFIRMED by the owner 2026-09-28 ~18:40 ("yes") — the students' full runs and LB rules (written ~16:50).**
 *Power, first:* one public-LB comparison of two models has SE ±0.005 (n ≈ 400), a blend change ±0.002. The teacher is priced at
 +0.005–0.010 for a single model — at or below what ONE model-vs-model LB read can resolve. So Friday is judged on the decision that
 matters (does the upgraded stack beat the free one?), with the students alone reported, not on "do teacher labels work" in isolation.
