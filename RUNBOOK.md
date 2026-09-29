@@ -478,6 +478,14 @@ byte for byte (sha `75757be8…`). Kernels (`--smoke`, 16 + 6 studies, 1 epoch):
   --targets-from raahimnawaz/rsna-knee-student-targets --tag student-r1` (Stage B-`dread`'s command with the targets swapped).
 - `rsna-knee-c6-train-coatnet-student-r1` — `--arch coatnet --corpus stage_a --n-train 0 --targets … --targets-from … --tag
   student-r1 --extra-datasets dreaddevelopment/raptor-knee-maxspan --train-args '--init raptor_ft_coatnet_v5_full_swa.pt'`.
+**✅ BOTH SMOKES PASSED (read 2026-09-28 18:40; v1 of each, from `3162a94`).** Ortho: targets `targets_round1_cnn.csv` from
+`/kaggle/input/rsna-knee-student-targets` sha `75757be8…` (not `steven_v2`); partition check 691/691 in fold 0; Stage B, canonical;
+train 3,502 | val 691; 2 DDP processes, weight checksums identical; strict load, RoPE = theirs; 12 of 24 blocks checkpointed, compiled;
+epoch 0 loss 0.918; eval ran; done 27.5 min; no traceback. CoAtNet: the same targets sha; init
+`raptor_ft_coatnet_v5_full_swa.pt` sha `20d45e07…`, 486 tensors strict; epoch 0 loss **0.657** (it starts trained — Ortho's is 0.918
+from pretraining only); eval ran; done 22.0 min; no traceback. The bare `--init` filename cost a 6-min `rglob` of /kaggle/input (the
+audit's LOW) → the full run passes the path it found: `--init /kaggle/input/raptor-knee-maxspan/raptor_ft_coatnet_v5_full_swa.pt`.
+Still open before the push list reads READY: the owner's OK on the rules below, and the replace-the-core submit mode.
 **📝 PROPOSED 2026-09-28 ~16:50 — the students' full runs and LB rules (owner to confirm; nothing is pushed on them until then).**
 *Power, first:* one public-LB comparison of two models has SE ±0.005 (n ≈ 400), a blend change ±0.002. The teacher is priced at
 +0.005–0.010 for a single model — at or below what ONE model-vs-model LB read can resolve. So Friday is judged on the decision that
