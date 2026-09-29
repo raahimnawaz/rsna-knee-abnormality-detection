@@ -275,6 +275,13 @@ images: it knows what knees LOOK like (why it learns fastest and is the best tea
 MRI images from internal (clinical) and public databases, self-supervised; the healthy / injured mix is not stated, but clinical
 archives are pathology-rich, and it ranked first there on MRI structural injury. The owner's "healthy baseline" idea is normative /
 anomaly modelling — useful for a rare finding (Fracture, ~6%), not needed on the main path.)
+(Owner ~19:50: "adjust for the X-rays and healthy knees? could healthy knees have thrown training off?" — No. Self-supervised pretraining
+learns no healthy-vs-injured decision, only what varies across knees; normal anatomy is the reference an abnormality stands out against;
+our own targets are mostly negative per finding too (pos_weight ≤ 10×; AUC ignores prevalence). X-rays are a mild inefficiency that full
+fine-tuning absorbs — frozen 0.7710 vs fine-tuned 0.8148 on the same arm. The adjustment the question points at is DOMAIN-ADAPTIVE
+PRETRAINING: continue Ortho's self-supervised training on MRI knees only (the 4,407 + the NYU clinical exams now converting) before
+fine-tuning. Parked: tens of GPU-h for ViT-L (not the 16 GB Mac), and its prize is unmeasured — `ortho − dinov3l` is still open, and an
+ImageNet ResNet34 already carries ~75% of Ortho's teacher value. Revisit only with a large GPU budget (the Studio what-if).)
 Cross-finding terms enter the calibrator only after a shared-parameter version passes (each term is one more number from 58 knees).
 **Owner Qs 09-28 ~14:40.** (k) *Are the models weighted for labels being only ~90% right?* Yes, in the way AUC can use: `dread_soft`
 is soft (0 of 52,188 cells exactly 0/1; 14 levels, e.g. hedged reports ~0.3–0.4), the loss is BCE on those soft targets (+ pos_weight
