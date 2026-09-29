@@ -237,6 +237,23 @@ anatomical crops at 2–3 sizes — **both halves of the coronal (no laterality 
 notch, the patellofemoral joint** — fixed crops, no detector, since the render check shows the joint line sits reliably mid-field. Order,
 each on the 691 at fixed targets: Z tonight → if it helps, halves + a tighter joint-line crop → spatial attention. If Z does not help,
 the crop family stops per the CNN TEST rule. Not borrowed: fingerprints have clean identity labels — our label problem is the teacher's.
+**Owner Q 09-28 ~19:10: use the underlying biology + statistics to stretch the tiny gold set — what do the labels say relative to the
+images?** Measured: reports and the image graders agree on ~85% of cells, errors lean to over-calling (an outside audit of 20 gold
+studies: FP 25 vs FN 17). Two kinds of error, and they need different fixes. (1) RANDOM — a report missed it, the LLM misread it:
+knee-specific, so many knees + an image teacher average it out (the +0.026). (2) SYSTEMATIC — different RULES: reports mention any
+amount ("small effusion", "chronic MCL thickening", "signal not reaching the surface"); the graders count only past a cut-off (moderate+,
+acute, surface on ≥ 2 images, borderline = negative). Every report makes the same mistake, and a teacher trained on reports learns it.
+The biology: most findings are a continuous quantity (fluid volume, % of fibres torn, cartilage loss area × depth, edema extent) that the
+official criteria cut at a threshold; `dread_soft`'s 14 levels already carry the report's severity words. **Proposal (not pre-registered;
+owner to OK): gold as a CALIBRATOR, not training data.** A latent-severity model: each knee has a hidden true state; the report level
+and the image teacher are two noisy readings of it; the gold label is that state past the official cut-off. 58 knees cannot train a
+network, but they can pin a FEW numbers — per severity level, how often the graders call it positive; how far to trust the teacher over
+the report — which then re-weight all 4,349 knees' targets. Guard, from our own record (per-finding picks on gold: −0.0002 out of
+sample): parameters few and SHARED across findings (partial pooling — a finding with 9 positives borrows from the rest), judged by the
+split-half test that killed per-label picking (fit on 29, score on the other 29, 2,000 splits). Rule to write before it runs: PASS iff
+the calibrated targets beat the unfitted rank-mean (0.913) out of sample at P ≥ 0.95 → round-2 targets. Expected small (+0.00–0.01 on
+gold); CPU, minutes. Other biology already in play: location → crops (tonight's Z); acuity (acute vs chronic) → a reader-side flag;
+co-occurrence (ACL tear + bone bruise + effusion) failed as a learned stacker (−0.013 on gold) and stays out.
 **Owner Qs 09-28 ~14:40.** (k) *Are the models weighted for labels being only ~90% right?* Yes, in the way AUC can use: `dread_soft`
 is soft (0 of 52,188 cells exactly 0/1; 14 levels, e.g. hedged reports ~0.3–0.4), the loss is BCE on those soft targets (+ pos_weight
 for rare findings), and student targets turn report-vs-teacher conflicts into ~0.5, not a flip. A uniform "90%" correction cannot
@@ -374,6 +391,11 @@ unlike the h5 set). Headers are de-identified (no scanner model); what survives:
 Laterality — recorded per series in each part's `series.csv`. Overlap risk is moot for this use (unlabelled; the labels will be our
 teachers' predictions). Full run: 100 studies/0.9 min → ~1 h. Next (not pre-registered yet): the screen — the CNN on 3,502 vs 3,502 +
 pseudo-labelled NYU knees, judged on the 691 (`Corpus` must learn to take a second root first).
+**▶ batch1 RESUMED 2026-09-28 19:15 (owner: "yes resume the download")** — the signed link (fastmri@med.nyu.edu, 09-27, valid 90 days)
+lives only in this session's scratchpad; the server's last 64 KB before our cut matched ours byte for byte, so `curl -C -` continues the
+same file (retry loop, `--speed-limit`; log `dicom_stage_a_run/download.log`). ~5 MB/s, 59 GB left → ~22:40. The converter reads batch1
+while it grows: it converts up to the growing end, hits EOF, discards the study in progress and finalizes (handled). **Tomorrow:** a
+second pass over the completed batch1 that skips ids already converted (needs `--skip-ids`), into new parts.
 **🔍 OUTSIDE REVIEW OF THE PIPELINE — read against the code, 2026-09-27 ~19:30 (the owner pasted it, "your thoughts?").**
 Adopted: (1) the NYU gate as a paired macro bootstrap, not per-finding deltas (item 3 of "HOW fastMRI+ FITS"); (2) a fastMRI+
 hold-out as a teacher diagnostic, report-only. Already so: 336 px (Stage B 384 = 24 × 16); "quantile matching" IS
