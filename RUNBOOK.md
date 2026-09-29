@@ -45,11 +45,11 @@ its own gate. The first LB proof is the CoAtNet student, after Friday.
 
 | what | where | ETA |
 |---|---|---|
-| **R**: B′ at `--res 336` (ResNet34, whole image, 0.42 mm/px, no crop) | `fusion/runs_cnntest_R/` (`fusion/runs_cnntest/run_R.sh`, log `runner_R.log`) | ~3 h |
+| **R**: B′ at `--res 336` (ResNet34, whole image, 0.42 mm/px, no crop) | `fusion/runs_cnntest_R/`, started 08:37 (`fusion/runs_cnntest/run_R.sh`, log `runner_R.log`) | ~11:30 |
 
 ## Pending reads — each rule was written before its result
 
-1. **R vs Z: does the crop add beyond detail?** `pre-registered 2026-09-29 ~08:50 PDT, before R runs` (owner: "yes").
+1. **R vs Z: does the crop add beyond detail?** `pre-registered 2026-09-29 08:37:10 PDT (fbcae28), before R started at 08:37:19` (owner: "yes").
    R = B′ exactly (ResNet34, Stage A, `dread_soft`, the same 3,502 / 691, seed 42, bb + head lr 1e-3, 18 epochs,
    primary last epoch) with only `--res 336`. The stored 336 px is then used as is, 0.42 mm/px over the whole field.
    Z got the same density, but only inside its centre crop.
