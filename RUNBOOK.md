@@ -174,6 +174,14 @@ public 30%; no member uses teacher-cleaned labels; and it already takes ~8–9 h
 DIFFERENT: (A) **the upgraded stack** — its structure, with our student(s) in its CoAtNet slot; (B) **our own blend** — equal-rank
 families, nothing tuned on the public LB, the one that survives a shake-up best. Both chosen by pre-registered evidence, never by a
 0.001 public difference.
+**Owner Q 09-28 ~19:35: would a 0.947 of ours hold up on the private 70% better than the stack's users?** Partly. Public n ≈ 400 → one
+score ±0.008; a team that keeps the best of k public variants carries a selection bias of roughly SE × √(2 ln k) on the noise part —
+for 50 blend tweaks (SE ~0.002) ~+0.004, larger than the gaps between the top 25 — which the private 925 do not repeat (the shake-up).
+Our CHANGES are one pre-registered read each, so their public Δ is ~unbiased. But final (A) keeps the stack's public-tuned weights
+(0.52 / 0.55 / 0.500001, per-finding overrides, a fitted calibrator): whatever luck those carry, the stack and (A) lose together; our Δ
+over it should hold. Final (B) — equal ranks, nothing fitted on the public LB — is the shake-up-proof one: its public score is an
+unbiased estimate of its private one. Teacher labels also move toward the graders' image reads, which is what all of the test is. No
+immunity from noise: at n ≈ 925 one score is still ±0.005.
 
 **🗓 FRIDAY 10-02 PUSH LIST — ⛔ NOT READY — waits on the v2 smokes from `b5331ff`** (the scheduled task `rsna-push-stage-b-dread`,
 Fri 17:20 PDT, pushes ONLY what this block lists once its heading reads **✅ READY**, and nothing if it does not). Written 2026-09-28
