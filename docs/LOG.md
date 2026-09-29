@@ -124,3 +124,22 @@ Free-threading only speeds Python threads that do CPU work at the same time, and
   most of it under the normal GIL, since numpy's large copies release it. It is worth ~10% of free Mac time and 0 AUC.
 
 None of it moves AUC, and the binding constraints are the labels, the GPU quota and the 9 h limit. Parked.
+
+**2026-09-29 ~12:00 — R read → zoom STOPS (rule pre-registered 08:37:10, `fbcae28`).** R = B′ with `--res 336` only,
+181.7 min on the M5.
+- **THE RULE:** Z − R **+0.0070 ± 0.0045** (1.5σ), **P 0.943**, which is under 0.95. So Z's gain was mostly detail,
+  which the 336/384 px students already have, and zoom stops for this competition. It is a near-miss. The rule was
+  written to refuse exactly a 1.5σ read, and it is not a second chance.
+- **Reported:** R − B′ +0.0089 ± 0.0046, P 0.979, 10/12 up. Resolution alone buys over half of Z's +0.0159. The 691:
+  B′ 0.8129, R 0.8218, Z 0.8288.
+- **Z − R per finding:** MCL **+0.052** (0.680 → 0.732), the one clearly crop-specific gain; Effusion +0.025, ACL
+  +0.012. PF OA −0.013, Synovitis −0.010, Lateral Meniscus / Fracture ±0.001. Per-finding picking is closed.
+- Gold-58, report only: B′ 0.894, R 0.894, Z 0.877.
+
+**Owner's cascade idea, simulated on the saved OOFs (no training): B′ for every knee, Z's scores only for the most
+unsure.** Unsure = max over findings of p(1 − p) under B′, fixed in advance, compared with random picking.
+- Zooming the 50% most unsure keeps **72%** of Z's gain (random picking: 49%). 30% keeps 35% (random: 29%).
+- A cascade of two models costs 1 + 2q passes: at q = 50% that equals zoom everywhere (2.0). It only saves compute
+  if one model can run with and without its crops, which was never measured (Z's weights were not saved).
+- Moot anyway once zoom stopped. The crop cost is paid per knee, not per finding. Each finding already has its own
+  attention head, which learns which views to trust.
