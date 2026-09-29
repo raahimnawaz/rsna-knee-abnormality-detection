@@ -87,26 +87,26 @@ only as a teacher. The 691 scale is not the LB scale: its reference is another L
 0.844 there was 0.916 on the LB. **What it sets for tomorrow:** the paired SE against B′ is ~0.0045, so Z or N must
 beat it by roughly **+0.008** to reach P ≥ 0.95. A smaller real gain reads as a null.
 
-**2026-09-28 ~22:00 — owner Q: "what kind of gains can we see?"** Estimates, not gates.
-- **Z / N tomorrow:** each likely small on the 691 (+0.000–0.005), under the ~+0.008 bar. They are free screens.
-- **The CoAtNet student alone:** 0.928 + teacher labels (+0.005–0.015; gold +0.026 at ~½ transfer; the board's
-  71st place reported +0.011 from teacher → student on a CoAtNet), minus what round 1 gives up against its own start
-  (the public model trained on all 4,349 plus gold ×3; ours sees the 3,502 only, about −0.000–0.008). That puts it
-  at ~0.925–0.943, central ~0.935.
-- **(A), the core swap:** the core is ~42% of the stack's vote. A replacement moves the stack by ~0.3–0.5× the core's
-  own gain, so (A) lands at ~0.945–0.948: **a coin flip on the 0.947 line as planned.**
-- **Recommendation (not decided):** train the CoAtNet student on ALL studies plus gold ×3, like its start. Its 691
-  and gold are already contaminated by the init (the old RUNBOOK's own warning: "the LB is its only judge"), so
-  the 3,502 split buys nothing for this model and costs data. Estimate for (A): ~0.947–0.951. Needs a
-  `train_windows` / builder flag and a new CPU smoke before Friday. The Ortho student keeps the split, because its
-  691 is clean.
-- **The full plan:** students in every CoAtNet slot (~70% of the vote), round 2, and Ortho if (C) passes →
-  ~0.950–0.955 central (the silver-to-gold band). #1 (0.960) needs the upside on every lever. 0.965 needs a lever
-  beyond these.
-
-**2026-09-28 21:55 — B′ read (the control for Z and N).** `fusion/runs_cnntest_Bp`: ResNet34 at 224, Stage A, `dread_soft`,
-18 epochs on the Mac (MPS), 116 min wall (sharing the GPU with the NYU labelling for its last ~50 min). **691 macro 0.8129**
-(`score_oof.py`); paired vs Kaggle B (`runs_r34v2_B`, the same recipe on a T4) **B − B′ = −0.0053 ± 0.0046**, P(B > B′)
-0.11. The pre-registered floor (|B′ − B| > 0.010 → Mac arms compare only with each other) is NOT tripped, so the Mac
-reproduces Kaggle within noise. Gold-58 0.8943 (report only). NYU pseudo-labels written 21:16: 7,140 knees, mean of the 4
-CNN folds, fold-to-fold correlation of predictions 0.883 (~19–21 min a fold while B′ shared the GPU).
+**2026-09-29 08:40 — Z and N read against B′ (rules pre-registered 09-28 18:55 and ~20:00).** All three are ResNet34 at
+224, Stage A, `dread_soft`, the same 3,502 / 691, seed 42, on the M5.
+- **Z (`--zoom 0.6714`: every window again as its centre 94 mm, one attention bag), 179 min: HELPS.** 691 **0.8288** vs
+  B′ 0.8129, paired **+0.0159 ± 0.0041**, 3.8σ, P 1.000, 10/12 up.
+  - Small structures: ACL 0.817 → 0.836, MCL 0.686 → 0.732, Medial Meniscus 0.889 → 0.900, Lateral Meniscus 0.811
+    → 0.826.
+  - Also Lateral OA 0.754 → 0.796, Fracture 0.861 → 0.887, Baker's +0.023, Contusion +0.014.
+  - Down: PF OA −0.009, Synovitis −0.009.
+  - The two biggest moves are the findings the round-1 teacher did not help on gold (MCL, Lateral OA), which were
+    read as vision gaps on 09-28.
+  - Gold-58, report only, points the other way: B′ 0.8943, Z 0.8770, paired −0.017 ± 0.011, P(Z > B′) 0.06. Per
+    the standing rules the 691 judges an input change at fixed targets, and n = 58 is noisy. But this is a real
+    caveat, and the LB is the final judge.
+  - Against Ortho `dread` (0.8440) the ResNet gap narrows from −0.031 to −0.015.
+- **N (+ 7,140 NYU pseudo-knees, 6 epochs = B′'s optimizer steps), 92 min: null.** 691 0.8164, paired +0.0035 ±
+  0.0051, P 0.75, 6/12 up (Contusion +0.041, Effusion +0.017; Baker's −0.018, Fracture −0.018). Gold 0.878, report
+  only. Per its rule, no more NYU image work before Friday's LB read.
+- **What Z does not answer:** Z brings the 224 px ResNet to 0.42 mm/px, Ortho's density. Our students already see
+  0.42 (Ortho, CoAtNet at 336 → 384) or 0.36 (Stage B). So the gain may be resolution, which the students already
+  have, not the crop. The pre-registered arm **R** (ResNet34 at 336, whole image, the same 0.42 mm/px, no crop)
+  separates the two and is free on the Mac. Proposed rule, NOT yet pre-registered: Z − R > 0 paired at P ≥ 0.95
+  → the crop adds beyond detail → port zoom to a week-2 student. Otherwise zoom stops. The owner decides.
+- Also: NYU batch1 completed 22:35 (137,029,024,396 bytes). It is parked.

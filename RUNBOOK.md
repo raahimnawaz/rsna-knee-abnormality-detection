@@ -41,32 +41,14 @@ decision. **Entry and team merger 10-15; final 10-22 16:59 PDT.** Two finals; Ka
 → a ~0.95 single model. Two such students plus the stack's other families → 0.96+. The gains overlap, so each keeps
 its own gate. The first LB proof is the CoAtNet student, after Friday.
 
-## Running now — on the Mac, detached under `caffeinate -i` (an app relaunch cannot kill them)
+## Running now — nothing (the Mac is idle since 01:17 on 09-29)
 
-| what | where | ETA |
-|---|---|---|
-| **B′** (control for Z and N) | ✅ done 20:45 — **691: 0.8129**; vs Kaggle B 0.8076: Δ −0.0053, inside ±0.010 → the Mac arms compare with Kaggle's too | — |
-| **Z**: B′ + `--zoom 0.6714` (each window again as its centre 94 mm, in one bag) | `fusion/runs_cnntest_Z/`, epoch 5 of 18 at 21:53, ~8.9 min/epoch | ~23:45 |
-| NYU pseudo-labels | ✅ done 21:16 — `data/student/nyu_pseudo_r1.csv`, 7,140 knees; the 4 folds agree at r 0.883 | — |
-| **N**: B′ + the NYU pseudo-knees, 6 epochs (B′'s optimizer steps) | `run_N.sh` starts when Z ends | ~01:30 |
-| NYU batch1 download, resumed (`curl -C -`) | 124.5 of ~137 GB at 21:53; a second conversion pass needs `--skip-ids`, not built | ~22:35 |
-
-Logs: `fusion/runs_cnntest/runner.log`, `runner_N.log`.
+Tonight's three Mac arms are read (*Settled*). The NYU batch1 download completed at 22:35 (137.0 GB). It is parked
+by N's rule.
 
 ## Pending reads — each rule was written before its result
 
-1. **Z (zoom):** HELPS iff Z − B′ > 0, paired on the 691 (`score_oof.py`), P ≥ 0.95. Report it per finding and for
-   the small structures (ACL, MCL, both menisci). If |B′ − 0.8076 (B, Kaggle)| > 0.010, the Mac arms compare only
-   with each other.
-   - HELPS → zoom views become a student candidate, with their own LB test. `infer_windows` does not serve `--zoom`
-     yet.
-   - Otherwise → the crop family stops.
-   - R (336 px) and P (RadImageNet) stay pre-registered and unscheduled.
-2. **N (NYU pseudo-knees):** HELPS iff N − B′ > 0, paired on the 691, P ≥ 0.95.
-   - HELPS → the NYU knees enter the round-2 students (own LB test). Ask the host whether fastMRI is allowed before
-     10-15.
-   - Otherwise → no more NYU image work before Friday's LB read.
-3. **The students on the LB, Sat–Sun after Friday** (owner confirmed 09-28 ~18:40):
+1. **The students on the LB, Sat–Sun after Friday** (owner confirmed 09-28 ~18:40):
    - **(A)** upgraded stack (the CoAtNet student in the maxspan-v5 slot): PASS iff **≥ 0.947** → final candidate A.
    - **(B)** CoAtNet student alone: reported against 0.928; |Δ| < 0.010 is noise.
    - **(C)** Ortho student: joins (A) as a family only if it lifts (A) by **≥ +0.004**. Otherwise Ortho is cut from
@@ -104,7 +86,7 @@ such as `--extra-corpus`, cannot change what runs. Both pinned builds were test-
    Push dir `/tmp/rsna-friday/ortho`. ~10 GPU-h (T4×2, fitted to 10.3 h).
 3. ~~**NYU teacher**~~ **CUT 09-28 16:25** (failed its gold gate on the Mac, P 0.21) — not pushed.
 
-**Rules:** see *Pending reads* item 3.
+**Rules:** see *Pending reads* item 1.
 
 ## Open — build or decide before it is needed
 
@@ -121,11 +103,18 @@ such as `--extra-corpus`, cannot change what runs. Both pinned builds were test-
       and `COMPLETE`.
 
    For **(C)**, add `--add-family --weights-kernel <Ortho student> --weights-sha <sha> --alone-lb <its LB>`.
-3. **Runtime room for students in the stack:** it already takes ~8–9 h of 9. Cut its 20 DINOv2 members (~5% of the
+3. **Does Z's gain reach our 336/384 px students?** Z gave the 224 px ResNet the same detail as Ortho's input
+   (0.42 mm/px). Our students already have that detail, so the gain may not transfer. The pre-registered arm **R**
+   answers this: ResNet34 at 336, whole image, the same 0.42 mm/px with no crop. It is free on the Mac, ~3 h.
+   - Z − R > 0 → the crop itself adds → port zoom to a week-2 student (needs `infer_windows` support, ~2× compute).
+   - Z ≈ R → the gain was resolution, which the students already have → zoom stops.
+
+   Owner's call.
+4. **Runtime room for students in the stack:** it already takes ~8–9 h of 9. Cut its 20 DINOv2 members (~5% of the
    vote), after timing its cells.
-4. **Save the `avg3` weights** of every run a final might use (never worse on the 691: +0.0000 to +0.0024).
-5. **No team merger** (owner 09-28: "I want that Kaggle master"). Solo, on our own 30 GPU-h/week.
-6. **No "safe" final** (owner 09-28). Both finals aim to win. **(A)** is the upgraded stack: its structure, with our
+5. **Save the `avg3` weights** of every run a final might use (never worse on the 691: +0.0000 to +0.0024).
+6. **No team merger** (owner 09-28: "I want that Kaggle master"). Solo, on our own 30 GPU-h/week.
+7. **No "safe" final** (owner 09-28). Both finals aim to win. **(A)** is the upgraded stack: its structure, with our
    students in its CoAtNet slot. **(B)** is our own blend: equal-rank families, nothing fitted on the public LB, the
    one most robust to the shake-up. Both are retrained on all data (3,502 + 691) with gold ×3, recipes fixed before,
    and chosen by pre-registered evidence, never by a 0.001 public difference.
@@ -141,6 +130,12 @@ submission run. Friday spends ~16. Small CNNs run free on the Mac (M5, `--mps`, 
   `data/student/targets_round1_cnn.csv`, sha `75757be8`, per-file rank mapping (AUDIT 09-28).
 - **The public CoAtNet in our pipeline:** gold 0.9187 vs its recorded 0.9214 → a drop-in start (gold was in its
   training, so the LB is its only judge).
+- **Z (zoom), 09-29 → HELPS** (pre-registered): 691 0.8129 → **0.8288**, paired **+0.0159 ± 0.0041** (3.8σ), 10/12
+  up. Small structures: ACL +0.019, MCL +0.046, Med Men +0.011, Lat Men +0.015; also Lateral OA +0.042 and Fracture
+  +0.026. Gold-58, reported only, points the other way: −0.017 ± 0.011. Cost ~2× compute. Zoom is a student
+  candidate but not servable yet (`infer_windows`, and it cannot sit in the public core slot).
+- **N (7,140 NYU pseudo-knees), 09-29 → null:** +0.0035 ± 0.0051, P 0.75. NYU image work is parked until after
+  Friday's LB read.
 - **Cut:**
   - ResNet34 as a main model: −0.036 vs Ortho on the 691; it stays as the cheap teacher.
   - NYU fastMRI+ teacher (P 0.21).
