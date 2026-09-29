@@ -73,3 +73,9 @@ The builder refuses to build if that cache changes upstream.
 Old modes are unchanged: B, A and B-dread rebuilt from HEAD and from this tree are identical apart from the commit
 stamp. **Not yet run on Kaggle.** The first commit run is (A) itself, on the CoAtNet student's freed session
 (~Fri 23:30).
+
+**2026-09-28 21:35 — B′ read (the Mac control for Z and N).** `fusion/runs_cnntest_Bp`: ResNet34 at 224, Stage A,
+`dread_soft`, 18 epochs on the M5 (MPS). It scores **0.8129** on the 691 against Kaggle's run of the same recipe (B,
+`runs_r34v2_B`) at 0.8076, paired +0.0053 ± 0.0046 (1.1σ, 7/12 up). That is inside the pre-registered 0.010, so
+Z and N are judged against B′ as planned, and Mac and Kaggle arms can be compared. The NYU pseudo-labels are written
+(21:16). Z is at ~9 min/epoch → ~00:15; N follows, → ~02:00.

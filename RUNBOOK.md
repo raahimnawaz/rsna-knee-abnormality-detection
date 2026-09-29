@@ -45,9 +45,9 @@ its own gate. The first LB proof is the CoAtNet student, after Friday.
 
 | what | where | ETA |
 |---|---|---|
-| **B′**: ResNet34 at 224, the control for Z and N | `fusion/runs_cnntest_Bp/`, 17 of 18 epochs done at 20:31 (~9.5 min/epoch, sharing the Mac) | ~20:45 |
-| **Z**: B′ + `--zoom 0.6714` (each window again as its centre 94 mm, in one bag) | `fusion/runs_cnntest_Z/`, starts after B′ (`run.sh`) | ~2× B′ |
-| NYU pseudo-labels: the mean of the 4 CNN teacher folds on 7,140 NYU knees | `data/student/nyu_pseudo_r1.csv` (`pseudo_label.py`) | tonight |
+| **B′**: ResNet34 at 224, the control for Z and N | ✅ done 20:45: **0.8129** on the 691 vs Kaggle B's 0.8076 (+0.0053 ± 0.0046, inside 0.010, so Mac and Kaggle arms compare) | — |
+| **Z**: B′ + `--zoom 0.6714` (each window again as its centre 94 mm, in one bag) | `fusion/runs_cnntest_Z/`, epoch 3 of 18 at 21:30, ~9 min/epoch | ~00:15 |
+| NYU pseudo-labels: the mean of the 4 CNN teacher folds on 7,140 NYU knees | ✅ `data/student/nyu_pseudo_r1.csv`, written 21:16 | — |
 | **N**: B′ + the NYU pseudo-knees, 6 epochs (B′'s optimizer steps) | `run_N.sh` waits for Z and the labels | after Z, ~1.5 h+ |
 | NYU batch1 download, resumed (`curl -C -`) | `data/external/fastmri/dicom/`; a second conversion pass needs `--skip-ids`, not built | — |
 
