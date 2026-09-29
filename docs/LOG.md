@@ -79,3 +79,10 @@ stamp. **Not yet run on Kaggle.** The first commit run is (A) itself, on the CoA
 `runs_r34v2_B`) at 0.8076, paired +0.0053 ± 0.0046 (1.1σ, 7/12 up). That is inside the pre-registered 0.010, so
 Z and N are judged against B′ as planned, and Mac and Kaggle arms can be compared. The NYU pseudo-labels are written
 (21:16). Z is at ~9 min/epoch → ~00:15; N follows, → ~02:00.
+
+**2026-09-28 ~21:45 — owner Q: "is B′ being what it is a good result?"** Yes, for its job. B′ is a control, not a
+candidate. It matched Kaggle's run of the same recipe (+0.0053, noise), so the Mac bench is trustworthy. As a model,
+0.8129 is well below Ortho `dread`'s 0.8440 on the same 691, which is why ResNet34 is cut as a main model and kept
+only as a teacher. The 691 scale is not the LB scale: its reference is another LLM's read of the reports, so Ortho's
+0.844 there was 0.916 on the LB. **What it sets for tomorrow:** the paired SE against B′ is ~0.0045, so Z or N must
+beat it by roughly **+0.008** to reach P ≥ 0.95. A smaller real gain reads as a null.
