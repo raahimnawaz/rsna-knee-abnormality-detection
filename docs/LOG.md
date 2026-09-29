@@ -27,3 +27,14 @@ again after `b5331ff` (`--extra-corpus`, `be32fdc`), and the Friday task builds 
 commands create a detached worktree at `b5331ff` and build from there. Every embedded file is tracked, including the
 two `oof_all.csv` controls. Test builds at 20:40, not pushed: both print `from b5331ff`, `sha256 75757be8c9b5c8d1`,
 `mode=full` with 7 / 14 epochs, `enable_gpu` true, the right datasets and shards, 0.69 MB each.
+
+**2026-09-28 ~20:45 — owner Q: "is the overall direction going well?"** The direction is right; the scoreboard does not
+show it yet. Right: the bottleneck is found and confirmed on the LB (labels +0.015, only the targets changed); the model
+has reached its labels on gold (0.878 vs 0.887); the teacher passed (+0.026 gold, P 0.994, free on the Mac); the base is
+now the best available (the public 0.928 CoAtNet, checked in our pipeline); Friday is READY. Not yet: 0.939 < the free
+0.943, and the combined path has no LB read. The first real proof is Sub (A), the upgraded stack, which needs ≥ 0.947
+(~Sun 10-04). Three GPU resets remain, so each week is one iteration and a lost Friday costs a third of what is left.
+Recommended (not decided): (1) build the critical path first. That means the replace-the-core submit mode and timing
+the stack's cells, before any side screen. (2) Write both branches of (A)'s read before Saturday, so week 2's GPU is
+committed the hour it lands. If (A) passes, students go into the stack's other CoAtNet slots, plus round 2. If it fails,
+diagnose from the student-alone read. (3) A team merger by 10-15 is the one lever that adds GPU quota.
