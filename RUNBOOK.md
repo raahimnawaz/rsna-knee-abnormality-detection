@@ -109,13 +109,20 @@ such as `--extra-corpus`, cannot change what runs. Both pinned builds were test-
 ## Open — build or decide before it is needed
 
 1. **Friday 17:20:** the list is READY; be at the Mac with the app open (the task runs only then), or push by hand.
-2. **Replace-the-core submit mode**, needed before the weekend's (A). Not built. Put our CoAtNet student's weights in
-   the maxspan-v5 slot, keys renamed back (`encoder.`→`backbone.`, `w`→`clsW`, `b`→`clsb`), every other weight as is.
-   `build_submit_kernel.py` today has only `--ours-only` and "ours at 1/3".
+2. **Replace-the-core submit mode — the OWNER is building it (09-28)**, needed before the weekend's (A). Put our
+   CoAtNet student's weights in the maxspan-v5 slot, keys renamed back (`encoder.`→`backbone.`, `w`→`clsW`, `b`→`clsb`),
+   every other weight as is. `build_submit_kernel.py` today has only `--ours-only` and "ours at 1/3".
+   - The seam is the public notebook's code cell 21, `ARMS`. Both `maxspan-v5` (w 0.60) and `maxspan-v5-reverse`
+     (w 0.10, the slice-reversed pass) load `raptor_ft_coatnet_v5_full_swa.pt`, and `run_shared_maxspan` requires
+     them to share it, so swap BOTH.
+   - `load_model` wants `{'model': state_dict, 'arch': 'coatnet_rmlp_2_rw_384.sw_in12k_ft_in1k', 'res': 384}` and
+     loads strictly.
+   - Give the student file a NEW name, so a missing file fails instead of silently loading the public weights.
+   - Check the logged `raptor_checkpoint` sha256 in the commit run.
 3. **Runtime room for students in the stack:** it already takes ~8–9 h of 9. Cut its 20 DINOv2 members (~5% of the
    vote), after timing its cells.
 4. **Save the `avg3` weights** of every run a final might use (never worse on the 691: +0.0000 to +0.0024).
-5. **Owner's call:** a team merger (deadline 10-15).
+5. **No team merger** (owner 09-28: "I want that Kaggle master"). Solo, on our own 30 GPU-h/week.
 6. **No "safe" final** (owner 09-28). Both finals aim to win. **(A)** is the upgraded stack: its structure, with our
    students in its CoAtNet slot. **(B)** is our own blend: equal-rank families, nothing fitted on the public LB, the
    one most robust to the shake-up. Both are retrained on all data (3,502 + 691) with gold ×3, recipes fixed before,
