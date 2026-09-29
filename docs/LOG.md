@@ -124,15 +124,3 @@ Free-threading only speeds Python threads that do CPU work at the same time, and
   most of it under the normal GIL, since numpy's large copies release it. It is worth ~10% of free Mac time and 0 AUC.
 
 None of it moves AUC, and the binding constraints are the labels, the GPU quota and the 9 h limit. Parked.
-
-**2026-09-29 ~10:40 — owner Q (what-if): once we have a winning AUC, is the next step speed and CUDA acceleration?**
-Not for the competition. The main leaderboard ranks on private AUC alone, so speed scores nothing once a run fits
-the 9 h limit (the efficiency track is out of scope). The finals freeze on 10-22. Before then, speed is a BUDGET: a
-minute saved in the 9 h run only pays if it buys room for another strong member. That is Open item 4 (cut the 20
-DINOv2 members). After the competition, if the model is to become a usable tool, yes, in this order:
-1. **Profile first.** Our measured bottleneck is DICOM decode, not the GPU: ~21 of ~35 min for Ortho alone on the
-   hidden 1,322 (~1.6 s/study). The whole stack is ~8.5 h (~23 s/study on two T4s).
-2. **Distil the ensemble** into one student. This is the largest lever (~30 members → 1), and it uses the machinery we
-   already have (teacher → student).
-3. **GPU kernels:** fp16/INT8, `torch.compile` or TensorRT, batching.
-4. **GPU decode** (nvJPEG / DALI) if decode still dominates.
