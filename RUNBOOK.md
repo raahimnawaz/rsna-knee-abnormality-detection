@@ -74,41 +74,41 @@ Logs: `fusion/runs_cnntest/runner.log`, `runner_N.log`.
    - If (A) fails, the teacher route has not shown on the LB. Next are round 2, more knees and zoom, each screened
      first.
 
-## 🗓 FRIDAY 10-02 PUSH LIST — ⛔ NOT READY
+## 🗓 FRIDAY 10-02 PUSH LIST — ✅ READY
 
-The scheduled task `rsna-push-stage-b-dread` (Fri 17:20 PDT) pushes ONLY what this block lists, and only once this
-heading reads **✅ READY**. Kaggle runs two GPU sessions at once; both entries go together. Build dirs are
-`/tmp/rsna-friday/{coat,ortho}`.
+The scheduled task `rsna-push-stage-b-dread` (Fri 17:20 PDT) pushes ONLY what this block lists. Kaggle runs two GPU
+sessions at once; both entries go together.
 
-**Why it is not READY:** both smokes passed on v1 (`3162a94`). Then `train_windows.py` gained `--zoom` (off by
-default), so v2 of both was pushed from `b5331ff` (~19:04). **Both v2 read COMPLETE on Kaggle at 20:31, but their logs
-are not read yet.** The list is READY once both logs match v1's checks:
-- targets sha `75757be8`;
-- Ortho: DDP checksums identical; CoAtNet: init 486 tensors, strict;
-- eval ran;
-- no traceback.
+**READY 2026-09-28 ~20:50:** both v2 smokes from `b5331ff` read clean. Each epoch-0 loss equals v1's exactly (Ortho
+0.9177, CoAtNet 0.6574), so the off-by-default `--zoom` changed nothing (detail: `docs/LOG.md`). **The build is pinned
+to `b5331ff`,** the commit both v2 smokes ran, through a detached worktree at `/tmp/rsna-friday/src`. Later commits,
+such as `--extra-corpus`, cannot change what runs. Both pinned builds were test-built at 20:40 (not pushed).
 
-1. **CoAtNet student** — kernel `raahimnawaz/rsna-knee-c6-train-coatnet-student-r1`. Build:
-   `.venv/bin/python notebooks/build_backbone_ab_kernel.py --arch coatnet --corpus stage_a --n-train 0 --epochs 7 --targets
-   data/student/targets_round1_cnn.csv --targets-from raahimnawaz/rsna-knee-student-targets --tag student-r1 --extra-datasets
-   dreaddevelopment/raptor-knee-maxspan --train-args '--init /kaggle/input/raptor-knee-maxspan/raptor_ft_coatnet_v5_full_swa.pt'
-   --out /tmp/rsna-friday/coat`. **Flag checks:** the build prints `sha256 75757be8c9b5c8d1` and `mode=full epochs=7`, no
-   "uncommitted"; `kernel-metadata.json` has `"enable_gpu": true`, id as above, `dreaddevelopment/raptor-knee-maxspan` and
-   `raahimnawaz/rsna-knee-student-targets` in `dataset_sources`. ~6 GPU-h (one T4, ~50 min/epoch).
-2. **Ortho student** — kernel `raahimnawaz/rsna-knee-c7-train-ortho-student-r1`. Build:
-   `.venv/bin/python notebooks/build_backbone_ab_kernel.py --arch ortho --corpus stage_b --n-train 0 --epochs 14 --targets
-   data/student/targets_round1_cnn.csv --targets-from raahimnawaz/rsna-knee-student-targets --tag student-r1 --out
-   /tmp/rsna-friday/ortho`. **Flag checks:** `sha256 75757be8c9b5c8d1`, `mode=full epochs=14`, no "uncommitted";
-   `"enable_gpu": true`, id as above, the eight `raahimnawaz/rsna-knee-stage-b-s{0..7}of8` in `kernel_sources`,
-   `raahimnawaz/rsna-knee-student-targets` in `dataset_sources`. ~10 GPU-h (T4×2, fitted to 10.3 h).
+1. **CoAtNet student** — kernel `raahimnawaz/rsna-knee-c6-train-coatnet-student-r1`. Build (one line):
+   `cd /Users/raahimnawaz/rsna-knee-abnormality-detection && rm -rf /tmp/rsna-friday && git worktree prune && mkdir -p /tmp/rsna-friday && git worktree add --detach
+   /tmp/rsna-friday/src b5331ff && cd /tmp/rsna-friday/src && /Users/raahimnawaz/rsna-knee-abnormality-detection/.venv/bin/python notebooks/build_backbone_ab_kernel.py
+   --arch coatnet --corpus stage_a --n-train 0 --epochs 7 --targets /Users/raahimnawaz/rsna-knee-abnormality-detection/data/student/targets_round1_cnn.csv --targets-from
+   raahimnawaz/rsna-knee-student-targets --tag student-r1 --extra-datasets dreaddevelopment/raptor-knee-maxspan
+   --train-args '--init /kaggle/input/raptor-knee-maxspan/raptor_ft_coatnet_v5_full_swa.pt' --out /tmp/rsna-friday/coat`.
+   **Flag checks:** prints `sha256 75757be8c9b5c8d1`, `mode=full epochs=7`, `from b5331ff`, no "uncommitted";
+   `kernel-metadata.json`: id as above, `"enable_gpu": true`, `dreaddevelopment/raptor-knee-maxspan` and
+   `raahimnawaz/rsna-knee-student-targets` in `dataset_sources`; the `.ipynb` under 1,000,000 bytes. Push dir
+   `/tmp/rsna-friday/coat`. ~6 GPU-h (one T4, ~50 min/epoch).
+2. **Ortho student** — kernel `raahimnawaz/rsna-knee-c7-train-ortho-student-r1`. Build, after entry 1's (reuses its
+   worktree): `cd /tmp/rsna-friday/src && test "$(git rev-parse --short HEAD)" = b5331ff && /Users/raahimnawaz/rsna-knee-abnormality-detection/.venv/bin/python
+   notebooks/build_backbone_ab_kernel.py --arch ortho --corpus stage_b --n-train 0 --epochs 14 --targets
+   /Users/raahimnawaz/rsna-knee-abnormality-detection/data/student/targets_round1_cnn.csv --targets-from raahimnawaz/rsna-knee-student-targets --tag student-r1 --out
+   /tmp/rsna-friday/ortho`. **Flag checks:** `sha256 75757be8c9b5c8d1`, `mode=full epochs=14`, `from b5331ff`, no
+   "uncommitted"; id as above, `"enable_gpu": true`, the eight `raahimnawaz/rsna-knee-stage-b-s{0..7}of8` in
+   `kernel_sources`, `raahimnawaz/rsna-knee-student-targets` in `dataset_sources`; `.ipynb` under 1,000,000 bytes.
+   Push dir `/tmp/rsna-friday/ortho`. ~10 GPU-h (T4×2, fitted to 10.3 h).
 3. ~~**NYU teacher**~~ **CUT 09-28 16:25** (failed its gold gate on the Mac, P 0.21) — not pushed.
 
 **Rules:** see *Pending reads* item 3.
 
 ## Open — build or decide before it is needed
 
-1. **The Friday list → READY:** read both v2 smoke logs (above). Be at the Mac Friday 17:20, or push by hand; the
-   task runs only while the app is open.
+1. **Friday 17:20:** the list is READY; be at the Mac with the app open (the task runs only then), or push by hand.
 2. **Replace-the-core submit mode**, needed before the weekend's (A). Not built. Put our CoAtNet student's weights in
    the maxspan-v5 slot, keys renamed back (`encoder.`→`backbone.`, `w`→`clsW`, `b`→`clsb`), every other weight as is.
    `build_submit_kernel.py` today has only `--ours-only` and "ours at 1/3".
