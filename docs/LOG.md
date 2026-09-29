@@ -86,3 +86,20 @@ candidate. It matched Kaggle's run of the same recipe (+0.0053, noise), so the M
 only as a teacher. The 691 scale is not the LB scale: its reference is another LLM's read of the reports, so Ortho's
 0.844 there was 0.916 on the LB. **What it sets for tomorrow:** the paired SE against B′ is ~0.0045, so Z or N must
 beat it by roughly **+0.008** to reach P ≥ 0.95. A smaller real gain reads as a null.
+
+**2026-09-28 ~22:00 — owner Q: "what kind of gains can we see?"** Estimates, not gates.
+- **Z / N tomorrow:** each likely small on the 691 (+0.000–0.005), under the ~+0.008 bar. They are free screens.
+- **The CoAtNet student alone:** 0.928 + teacher labels (+0.005–0.015; gold +0.026 at ~½ transfer; the board's
+  71st place reported +0.011 from teacher → student on a CoAtNet), minus what round 1 gives up against its own start
+  (the public model trained on all 4,349 plus gold ×3; ours sees the 3,502 only, about −0.000–0.008). That puts it
+  at ~0.925–0.943, central ~0.935.
+- **(A), the core swap:** the core is ~42% of the stack's vote. A replacement moves the stack by ~0.3–0.5× the core's
+  own gain, so (A) lands at ~0.945–0.948: **a coin flip on the 0.947 line as planned.**
+- **Recommendation (not decided):** train the CoAtNet student on ALL studies plus gold ×3, like its start. Its 691
+  and gold are already contaminated by the init (the old RUNBOOK's own warning: "the LB is its only judge"), so
+  the 3,502 split buys nothing for this model and costs data. Estimate for (A): ~0.947–0.951. Needs a
+  `train_windows` / builder flag and a new CPU smoke before Friday. The Ortho student keeps the split, because its
+  691 is clean.
+- **The full plan:** students in every CoAtNet slot (~70% of the vote), round 2, and Ortho if (C) passes →
+  ~0.950–0.955 central (the silver-to-gold band). #1 (0.960) needs the upside on every lever. 0.965 needs a lever
+  beyond these.
