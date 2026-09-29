@@ -106,6 +106,7 @@ repo files it runs (hash-checked on the other side) and records the commit it wa
 | train one encoder on 2.5D windows | `fusion/train_windows.py` | `build_backbone_ab_kernel.py --corpus stage_a` | `runs_<arch>/` with `oof_all.csv`, `last.pt` |
 | score, paired, on the 691 fold-0 studies | `fusion/score_oof.py` (locally) | -- | the only number an arm is judged on |
 | inference from DICOMs | `fusion/infer_windows.py` | `build_submit_kernel.py` | `submission.csv` |
+| the upgraded stack: our CoAtNet student in the public stack's core slot | `notebooks/core_swap_fixture.py` (local test) | `build_submit_kernel.py --core-*` | `submission.csv` |
 | AUC vs windows per study, T4 cost | `fusion/window_curve.py` | `build_window_curve_kernel.py` | `curve/n*/oof_all.csv` |
 
 `infer_windows.py --check-against` and `window_curve.py`'s n=54 pass both **re-score studies the OOF
@@ -135,7 +136,8 @@ python -m kaggle competitions submit rsna-knee-abnormality-detection -k raahimna
 **Before submitting a blend, grep the commit log for its arm count.** It must name every family you
 expect. A guard that refuses an arm produces a valid-looking file that is just the banked path, and
 submitting it burns a submission for nothing -- this has happened. `build_submit_kernel.py` prints an
-`ARMS:` line and stops the notebook, rather than falling back, if its gate fails.
+`ARMS:` line and stops the notebook, rather than falling back, if its gate fails. For the upgraded stack, the
+`[core] ARMS:` line must name our student and its sha256; the cell before it refuses the run otherwise.
 
 ## Working rules
 

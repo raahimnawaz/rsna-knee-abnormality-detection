@@ -38,3 +38,38 @@ Recommended (not decided): (1) build the critical path first. That means the rep
 the stack's cells, before any side screen. (2) Write both branches of (A)'s read before Saturday, so week 2's GPU is
 committed the hour it lands. If (A) passes, students go into the stack's other CoAtNet slots, plus round 2. If it fails,
 diagnose from the student-alone read. (3) A team merger by 10-15 is the one lever that adds GPU quota.
+
+**2026-09-28 ~21:40 — the replace-the-core submit mode is BUILT (owner: "do that").**
+`build_submit_kernel.py --public-dir <pub> --core-kernel K --core-sha S --tag T` builds the upgraded stack. Our
+CoAtNet student's `last.pt` becomes the public core: `maxspan-v5` (w 0.60) and `maxspan-v5-reverse` (0.10), which
+share one file. Everything else runs as published.
+
+What it adds to the notebook:
+- a CPU cell after public cell 1. It finds our `last.pt` by sha256 and checks `last_meta.json` against the slot
+  (CoAtNet, Stage A 2–98%, 336 px, no slot embedding, no zoom). It renames the keys back to the public names and
+  requires the key set to equal the public file's exactly, casting each tensor to its dtype. It writes the result
+  under a NEW name and adds its folder to `ASSET_ROOTS`.
+- the two ARMS entries' `file`, swapped, with seam checks that refuse a moved upstream.
+- a cell before the publish cell. It reads the stack's own `raptor_checkpoint` load log and stops the run, so no
+  submission.csv exists, unless the core loaded our file at its sha256 and never the public v5.
+
+**Bug caught by the test, before Kaggle:** public cell 1 wraps its asset lookup in a ONCE-ONLY catalogue
+(`_speed_asset_catalogue`) and a memo. A folder added to `ASSET_ROOTS` after the first lookup is invisible, and our
+own lookup of the public file makes that first lookup. Built naively, the swap would have died on Kaggle at
+`expected one pinned asset`, after the queue wait. The core cell now drops the catalogue after adding our folder.
+The builder refuses to build if that cache changes upstream.
+
+`notebooks/core_swap_fixture.py` (~7 s on the M5, all passed):
+- a student `last.pt` saved as `train_windows` saves one, strict into WindowMIL, then perturbed;
+- the build;
+- the core cell as built, which refuses a Stage B checkpoint;
+- the public stack's own `load_model` / `find_weight_file` on the swapped ARMS: our file, strict, shared by both arms.
+  Without our folder, the lookup FAILS rather than falling back to the public weights;
+- logits: the public code on the swapped core vs our WindowMIL on `last.pt`, |Δ| **0.00e+00**. Control: vs the
+  public weights, 1.24;
+- the check cell passes on the real load log and refuses a public-v5 load, a missing load and a wrong sha256;
+- the builder refuses the misuses.
+
+Old modes are unchanged: B, A and B-dread rebuilt from HEAD and from this tree are identical apart from the commit
+stamp. **Not yet run on Kaggle.** The first commit run is (A) itself, on the CoAtNet student's freed session
+(~Fri 23:30).

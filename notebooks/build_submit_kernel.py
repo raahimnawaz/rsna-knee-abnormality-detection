@@ -33,6 +33,33 @@ ORDER AND TIME. Ours runs first so a fault surfaces in minutes, not after the pu
 The public stack describes itself as "comfortably in less than 9 hrs" on the hidden 1,322 and
 guards 8 h from its own start; ours is ~15 min of decode overlapped with ~17 min of T4 per GPU.
 The commit run cannot price the hidden run (3 studies), so the margin is the one real risk here.
+
+THE UPGRADED STACK (`--core-kernel K --core-sha S`, RUNBOOK "Pending reads" (A)): our CoAtNet student
+REPLACES the stack's core instead of joining as a family.
+
+    python notebooks/build_submit_kernel.py --public-dir <pub> --core-kernel raahimnawaz/<student kernel> \
+        --core-sha <sha256 of its runs_coatnet/last.pt> --tag student-r1 --out /tmp/subcore
+
+The core is `maxspan-v5` (w 0.60) and `maxspan-v5-reverse` (w 0.10, the slice-reversed pass). Both load
+ONE file, `raptor_ft_coatnet_v5_full_swa.pt`, and `run_shared_maxspan` requires that they share it. The
+student is that model, started from that file (`train_windows --init`, CC0) and fine-tuned on teacher
+labels, so it drops into the slot at zero extra runtime. Three changes to what runs, nothing else:
+  1. a cell after the public cell that defines `ASSET_ROOTS`, CPU only. It finds our `last.pt` by
+     sha256, checks `last_meta.json` against the slot's preprocessing (CoAtNet, Stage A, 64 slices over
+     2-98%, 336 px, no slot embedding, no zoom), and renames the keys back to the public names
+     (`encoder.` -> `backbone.`, `w` -> `clsW`, `b` -> `clsb`). The key set must equal the public file's
+     exactly. Each tensor is cast to the public file's dtype. It is written under a NEW name, and its
+     folder is added to `ASSET_ROOTS`;
+  2. in the public ARMS, those two entries' `file` is that new name. A new name, so a missing file
+     fails the lookup (`_asset_find_asset` wants exactly one hit) instead of loading the public
+     weights;
+  3. a cell before the publish cell. The stack logs `raptor_checkpoint` (file, sha256) for every load.
+     The cell refuses the run, so no submission.csv exists, unless the core loaded our file at its
+     sha256 and the public v5 file was never loaded. Then it prints the ARMS line.
+Every other member, weight, calibrator and the publish cell run as published. `--add-family` also adds
+a `--weights-kernel` model as a family at 1/3, as Submission B does (RUNBOOK rule (C): the Ortho
+student joins only at >= +0.004 over (A)). Without it, nothing of ours runs outside the core slot.
+Tested off Kaggle by `notebooks/core_swap_fixture.py`.
 """
 from __future__ import annotations
 
@@ -40,6 +67,7 @@ import argparse
 import base64
 import hashlib
 import json
+import re
 import subprocess
 from pathlib import Path
 
@@ -270,6 +298,133 @@ leaderboard number, and an efficiency-track entry. Built by `notebooks/build_sub
 --ours-only` (__BUILT_FROM__)."""
 
 
+CORE_PUBLIC = "raptor_ft_coatnet_v5_full_swa.pt"     # the public core's file: maxspan-v5 and its reverse
+CORE_ARMS = ("maxspan-v5", "maxspan-v5-reverse")
+
+CORE = r'''
+# ============================================================================ #
+# Upgraded stack, part 1 -- our CoAtNet student becomes the public stack's CORE
+# (maxspan-v5 + maxspan-v5-reverse, one shared file). CPU only. Runs after the
+# public cell that defines ASSET_ROOTS, before the stack starts its clock.
+# ============================================================================ #
+import gc as _cgc, hashlib as _chash, json as _cjson, os as _cos
+from pathlib import Path as _CPath
+import torch as _ctorch
+
+_C_KERNEL = "__CORE_KERNEL__"
+_C_SHA = "__CORE_SHA256__"          # the student run's runs_*/last.pt
+_C_FILE = "__CORE_FILE__"           # a NEW name: a miss fails the stack's lookup, it never loads the public weights
+_C_PUBLIC = "__CORE_PUBLIC__"
+_C_INPUT = _CPath("/kaggle/input")
+_C_DIR = _CPath("/tmp/student_core")
+# the maxspan-v5 slot's model and preprocessing, as our Stage A cache + eval reproduced it (gold 0.9187 vs 0.9214)
+_C_META = {"arch": "coatnet", "timm": "coatnet_rmlp_2_rw_384.sw_in12k_ft_in1k", "res": 384, "pool": "avg",
+           "layout": "stage_a span [0.02, 0.98] img 336 canon False", "img": 336,
+           "slot_sizes": [18, 14, 12, 8, 12], "pos_emb": False, "n_slots": 0}
+
+
+def _csha(p):
+    h = _chash.sha256()
+    with open(p, "rb") as f:
+        for blk in iter(lambda: f.read(8 << 20), b""):
+            h.update(blk)
+    return h.hexdigest()
+
+
+_c_src = None
+for _d, _dirs, _fs in _cos.walk(_C_INPUT):
+    _dirs[:] = [x for x in _dirs if x not in {"train_series", "test_series", "train_images", "test_images"}]
+    if "last.pt" in _fs and _CPath(_d).name.startswith("runs_") and _csha(_CPath(_d) / "last.pt") == _C_SHA:
+        _c_src = _CPath(_d) / "last.pt"
+if _c_src is None:
+    raise RuntimeError(f"runs_*/last.pt with sha256 {_C_SHA[:16]} not found -- is {_C_KERNEL} attached?")
+_c_meta = _cjson.loads((_c_src.parent / "last_meta.json").read_text())
+_c_bad = {k: (_c_meta.get(k), v) for k, v in _C_META.items() if _c_meta.get(k) != v}
+if _c_meta.get("zoom", 0.0):
+    _c_bad["zoom"] = (_c_meta["zoom"], 0.0)
+if _c_bad:
+    raise RuntimeError(f"{_c_src} is not a model for the maxspan-v5 slot (got, want): {_c_bad}")
+_C_ARM = f"{_c_meta['arch']}_{_c_meta['layout'].split()[0]}"
+
+# The key set must equal the public file's EXACTLY; each tensor takes the public file's dtype
+# (ours are fp16, `train_windows` saves them so; the cast up to fp32 is exact).
+_c_ref = _ctorch.load(_asset_find_asset(_C_PUBLIC), map_location="cpu", weights_only=False)
+_c_rsd = _c_ref["model"]
+_c_ren = {"w": "clsW", "b": "clsb"}
+_c_out = {("backbone." + k[len("encoder."):]) if k.startswith("encoder.") else _c_ren.get(k, k): v
+          for k, v in _ctorch.load(_c_src, map_location="cpu", weights_only=True).items()}
+_c_miss, _c_extra = sorted(set(_c_rsd) - set(_c_out)), sorted(set(_c_out) - set(_c_rsd))
+_c_shape = sorted(k for k in set(_c_rsd) & set(_c_out) if tuple(_c_rsd[k].shape) != tuple(_c_out[k].shape))
+if _c_miss or _c_extra or _c_shape:
+    raise RuntimeError(f"student keys != the public core's: missing {_c_miss[:8]}, extra {_c_extra[:8]}, "
+                       f"shapes {_c_shape[:8]}")
+_c_out = {k: _c_out[k].to(_c_rsd[k].dtype) for k in _c_rsd}
+if not all(bool(t.isfinite().all()) for t in _c_out.values() if t.is_floating_point()):
+    raise RuntimeError("student checkpoint has non-finite weights")
+# how far training moved it from the public start (fp16 storage alone reads ~1e-4); logged, not gated
+_c_num = sum(float((_c_out[k].double() - _c_rsd[k].double()).pow(2).sum()) for k in _c_rsd if _c_rsd[k].is_floating_point())
+_c_den = sum(float(_c_rsd[k].double().pow(2).sum()) for k in _c_rsd if _c_rsd[k].is_floating_point())
+_C_MOVED = (_c_num / _c_den) ** 0.5
+
+_C_DIR.mkdir(parents=True, exist_ok=True)
+_c_path = _C_DIR / _C_FILE
+_ctorch.save({"model": _c_out, "arch": _c_ref["arch"], "res": _c_ref["res"],
+              "source_kernel": _C_KERNEL, "source_sha256": _C_SHA}, _c_path)
+_C_OUT_SHA = _csha(_c_path)
+ASSET_ROOTS.append(str(_C_DIR))
+# Public cell 1 catalogues ASSET_ROOTS ONCE (`_speed_asset_catalogue`) and never walks it again, so a
+# folder added after the first lookup is invisible -- and our lookup of the public file above made it.
+# Drop the catalogue; the next lookup walks every root, ours included.
+with _speed_asset_lock:
+    _speed_asset_catalogue = None
+if _CPath(_asset_find_asset(_C_FILE)).resolve() != _c_path.resolve():
+    raise RuntimeError("the stack's asset lookup does not resolve our core file")
+_c_n = len(_c_out)
+del _c_ref, _c_rsd, _c_out
+_cgc.collect()
+print(f"[core] {_C_ARM} student {_c_src} (sha256 {_C_SHA[:16]} ok) -> {_c_path} (sha256 {_C_OUT_SHA[:16]}): "
+      f"{_c_n} tensors, key set = the public core's, relative change vs the public weights {_C_MOVED:.4f}; "
+      f"maxspan-v5 + maxspan-v5-reverse load it", flush=True)
+'''
+
+CORE_CHECK = r'''
+# ============================================================================ #
+# Upgraded stack, part 3 -- no submission.csv unless the core loaded OUR file.
+# The stack logs raptor_checkpoint (file, sha256) at every load_model.
+# ============================================================================ #
+import json as _vjson
+from pathlib import Path as _VPath
+
+_v_loads = [e for e in _RSNA_AUDIT["events"] if e.get("kind") == "raptor_checkpoint"]
+_v_names = [_VPath(str(e.get("file", ""))).name for e in _v_loads]
+_v_ours = [e for e, n in zip(_v_loads, _v_names) if n == _C_FILE]
+if _C_PUBLIC in _v_names:
+    raise RuntimeError("the public maxspan-v5 weights were loaded: the core was NOT replaced -- stopping")
+if not _v_ours:
+    raise RuntimeError(f"no raptor_checkpoint event for {_C_FILE}: the core did not load our file -- stopping")
+if any(e.get("sha256") != _C_OUT_SHA for e in _v_ours):
+    raise RuntimeError(f"a file named {_C_FILE} loaded with a sha256 that is not ours -- stopping")
+_v_other = sorted(set(_v_names) - {_C_FILE})
+_VPath("/kaggle/working/core_receipt.json").write_text(_vjson.dumps({
+    "rule": "our student replaces the public core (maxspan-v5 + maxspan-v5-reverse); everything else as published",
+    "student_kernel": _C_KERNEL, "student_last_pt_sha256": _C_SHA, "core_file": _C_FILE,
+    "core_file_sha256": _C_OUT_SHA, "loads": len(_v_ours), "relative_change_vs_public": _C_MOVED,
+    "other_raptor_files": _v_other, "built_from": "__BUILT_FROM__"}, indent=1))
+print(f"[core] ARMS: public stack as published, core maxspan-v5 + maxspan-v5-reverse (w 0.60 + 0.10) = our "
+      f"{_C_ARM} student ({_C_KERNEL}, last.pt {_C_SHA[:16]}; loaded {len(_v_ours)}x, sha256 {_C_OUT_SHA[:16]}); "
+      f"other Raptor files as published: {_v_other}__FAMILY__", flush=True)
+'''
+
+INTRO_CORE = """# RSNA Knee -- the upgraded stack: our CoAtNet student in the public stack's core slot
+
+The public stack `mattiaangeli/bend-the-knee-to-speedy-raptors-the-original` (Apache 2.0) runs
+as published but for ONE thing. Its core CoAtNet (`maxspan-v5`, weight 0.60, and its slice-reversed
+pass, 0.10, which share one file) loads our student's weights. The student is the same model
+(`dreaddevelopment/raptor-knee-maxspan`, CC0), fine-tuned on report labels corrected by an image
+teacher. Every other member, weight and calibrator is untouched. A cell before the publish cell
+refuses the run unless the stack's own load log shows our file at its sha256. Built by
+`notebooks/build_submit_kernel.py` (__BUILT_FROM__)."""
+
 
 def _check_import_closure(embed: list[str]) -> None:
     """Refuse to build if an embedded file imports a repo module that is not embedded. 2026-09-25:
@@ -313,7 +468,22 @@ def main() -> None:
     ap.add_argument("--alone-lb", type=float, default=None,
                     help="another checkpoint in Submission B: its own LB number, alone -- the guard's precondition")
     ap.add_argument("--desc", default="", help="one line for the notebook's intro: what this checkpoint is")
+    # The upgraded stack: a CoAtNet student REPLACES the public core (see the docstring).
+    ap.add_argument("--core-kernel", default=None, help="the student's training kernel (holds runs_*/last.pt)")
+    ap.add_argument("--core-sha", default=None, help="sha256 of that last.pt, all 64 hex digits")
+    ap.add_argument("--add-family", action="store_true",
+                    help="with --core-*: ALSO add the --weights-kernel model as a family at 1/3 (rule (C))")
     a = ap.parse_args()
+    core = bool(a.core_kernel or a.core_sha)
+    if core:
+        if not (a.core_kernel and a.core_sha and re.fullmatch(r"[0-9a-f]{64}", a.core_sha)):
+            raise SystemExit("--core-kernel and --core-sha go together; the sha is the full 64-hex sha256 of last.pt")
+        if a.ours_only or not a.public_dir:
+            raise SystemExit("the upgraded stack is the public stack: pass --public-dir, not --ours-only")
+        if not re.fullmatch(r"[a-z0-9][a-z0-9-]*", a.tag or ""):
+            raise SystemExit("the upgraded stack needs a --tag (lowercase, digits, '-'): it names the slug and the core file")
+    elif a.add_family:
+        raise SystemExit("--add-family only means something with --core-kernel (Submission B always adds a family)")
     if (a.weights_kernel != WEIGHTS_KERNEL) != (a.weights_sha != WEIGHTS_SHA256):
         raise SystemExit("--weights-kernel and --weights-sha move together: a new checkpoint needs both")
     if a.weights_kernel != WEIGHTS_KERNEL and not a.tag:
@@ -376,6 +546,58 @@ def main() -> None:
         new = [md(intro), code(ours), code(SUB_A)]
         sources = {"dataset_sources": [], "kernel_sources": [a.weights_kernel], "model_sources": [],
                    "docker_image": DOCKER_IMAGE}
+    elif core:
+        core_file = f"student_core_{a.tag}_{a.core_sha[:12]}.pt"
+        # the seams the swap relies on -- refuse an upstream version that moved any of them
+        i_roots = [i for i, c in enumerate(cells) if c["cell_type"] == "code"
+                   and re.search(r"^ASSET_ROOTS = \[", "".join(c["source"]), re.M)
+                   and "def _asset_find_asset" in "".join(c["source"])]
+        if len(i_roots) != 1 or i_roots[0] >= len(cells) - 2:
+            raise SystemExit("public notebook: no single early cell defines ASSET_ROOTS and _asset_find_asset")
+        roots_src = "".join(cells[i_roots[0]]["source"])
+        if not all(re.search(p, roots_src, re.M) for p in (r"^_speed_asset_lock = ", r"^_speed_asset_catalogue = None$")):
+            raise SystemExit("public cell 1's asset catalogue cache changed -- the core cell resets it; re-read it")
+        if not any(re.search(r"^_RSNA_AUDIT = \{", "".join(c["source"]), re.M) for c in cells):
+            raise SystemExit("public notebook no longer defines _RSNA_AUDIT -- the core check reads its load log")
+        for seam in ("rsna_event('raptor_checkpoint'", "def run_shared_maxspan", "['find_weight_file'](first['file'])"):
+            if seam not in before:
+                raise SystemExit(f"public cell -2 lost `{seam}` -- re-read it before building")
+        if before.count(CORE_PUBLIC) != 2:
+            raise SystemExit(f"public cell -2 names {CORE_PUBLIC} {before.count(CORE_PUBLIC)} times, not twice "
+                             f"(the two core arms) -- re-read it")
+        patched = before
+        for arm in CORE_ARMS:
+            old = f'{{"name": "{arm}", "file": "{CORE_PUBLIC}",'
+            if patched.count(old) != 1:
+                raise SystemExit(f"public ARMS entry {arm} moved -- re-read cell -2 before building")
+            patched = patched.replace(old, f'{{"name": "{arm}", "file": "{core_file}",')
+        if patched.count(CORE_PUBLIC) or patched.count(core_file) != 2:
+            raise SystemExit("the ARMS swap did not land on exactly the two core arms")
+        family = (f"; + a family of ours at {a.w_ours:.4f} ([blend] ARMS line above)" if a.add_family
+                  else "; nothing else of ours runs")
+        core_src = (CORE.replace("__CORE_KERNEL__", a.core_kernel).replace("__CORE_SHA256__", a.core_sha)
+                        .replace("__CORE_FILE__", core_file).replace("__CORE_PUBLIC__", CORE_PUBLIC))
+        check_src = CORE_CHECK.replace("__BUILT_FROM__", built_from).replace("__FAMILY__", family)
+        compile(core_src, "core", "exec")
+        compile(check_src, "core_check", "exec")
+
+        slug = f"rsna-knee-sub-core-{a.tag}" + ("-fam" if a.add_family else "")
+        body = [dict(c, outputs=[], execution_count=None) if c["cell_type"] == "code" else c for c in cells]
+        body[-2] = dict(body[-2], source=patched.splitlines(keepends=True))
+        i = i_roots[0]
+        intro = INTRO_CORE.replace("__BUILT_FROM__", built_from)
+        intro += f"\n\n**Core:** `{a.core_kernel}`, last.pt sha256 `{a.core_sha[:16]}`, served as `{core_file}`."
+        if a.desc:
+            intro += f" {a.desc}"
+        if a.add_family:
+            intro += (f"\n\n**Plus a family of ours at {a.w_ours:.4f}:** `{a.weights_kernel}`, last.pt sha256 "
+                      f"`{a.weights_sha[:16]}`, alone on the LB {a.alone_lb}.")
+        new = ([md(intro)] + ([code(ours)] if a.add_family else []) + body[:i + 1] + [code(core_src)]
+               + body[i + 1:-1] + ([code(blend)] if a.add_family else []) + [code(check_src), body[-1]])
+        sources = {"dataset_sources": pmeta["dataset_sources"],
+                   "kernel_sources": pmeta["kernel_sources"] + [a.core_kernel]
+                   + ([a.weights_kernel] if a.add_family else []),
+                   "model_sources": pmeta["model_sources"], "docker_image": pmeta["docker_image"]}
     else:
         slug = SLUG + (f"-{a.tag}" if a.tag else "")
         body = [dict(c, outputs=[], execution_count=None) if c["cell_type"] == "code" else c for c in cells]
@@ -396,10 +618,17 @@ def main() -> None:
             "competition_sources": ["rsna-knee-abnormality-detection"], **sources,
             "machine_shape": "NvidiaTeslaT4"}
     (a.out / "kernel-metadata.json").write_text(json.dumps(meta, indent=2), encoding="utf-8")
-    print(f"built {a.out / (slug + '.ipynb')}: {len(new)} cells ("
-          + ("Submission A: ours alone" if a.ours_only else f"{len(cells)} public + intro, ours, blend") + ")")
-    print(f"  windows {a.n_windows or 'all'} | " + ("" if a.ours_only else f"w_ours {a.w_ours:.4f} | ")
-          + f"check studies {a.n_check} | from {built_from}")
+    if core:
+        print(f"built {a.out / (slug + '.ipynb')}: {len(new)} cells ({len(cells)} public, core swapped; + intro, "
+              f"core, core check" + (", ours, blend" if a.add_family else "") + ")")
+        print(f"  core {a.core_kernel} last.pt {a.core_sha[:16]} -> {core_file} in {', '.join(CORE_ARMS)} | "
+              + (f"+ family {a.weights_kernel} at w {a.w_ours:.4f} | " if a.add_family else "no family | ")
+              + f"from {built_from}")
+    else:
+        print(f"built {a.out / (slug + '.ipynb')}: {len(new)} cells ("
+              + ("Submission A: ours alone" if a.ours_only else f"{len(cells)} public + intro, ours, blend") + ")")
+        print(f"  windows {a.n_windows or 'all'} | " + ("" if a.ours_only else f"w_ours {a.w_ours:.4f} | ")
+              + f"check studies {a.n_check} | from {built_from}")
     if "uncommitted" in built_from:
         print("  ⚠️ embedded files differ from HEAD -- commit first so the run is reproducible")
     print(f"push:  python -m kaggle kernels push -p {a.out}")

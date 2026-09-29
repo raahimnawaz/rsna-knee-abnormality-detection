@@ -109,16 +109,18 @@ such as `--extra-corpus`, cannot change what runs. Both pinned builds were test-
 ## Open — build or decide before it is needed
 
 1. **Friday 17:20:** the list is READY; be at the Mac with the app open (the task runs only then), or push by hand.
-2. **Replace-the-core submit mode — the OWNER is building it (09-28)**, needed before the weekend's (A). Put our
-   CoAtNet student's weights in the maxspan-v5 slot, keys renamed back (`encoder.`→`backbone.`, `w`→`clsW`, `b`→`clsb`),
-   every other weight as is. `build_submit_kernel.py` today has only `--ours-only` and "ours at 1/3".
-   - The seam is the public notebook's code cell 21, `ARMS`. Both `maxspan-v5` (w 0.60) and `maxspan-v5-reverse`
-     (w 0.10, the slice-reversed pass) load `raptor_ft_coatnet_v5_full_swa.pt`, and `run_shared_maxspan` requires
-     them to share it, so swap BOTH.
-   - `load_model` wants `{'model': state_dict, 'arch': 'coatnet_rmlp_2_rw_384.sw_in12k_ft_in1k', 'res': 384}` and
-     loads strictly.
-   - Give the student file a NEW name, so a missing file fails instead of silently loading the public weights.
-   - Check the logged `raptor_checkpoint` sha256 in the commit run.
+2. **Replace-the-core submit mode: BUILT and tested locally 09-28** (`build_submit_kernel.py --core-*`; test
+   `notebooks/core_swap_fixture.py`; detail in `docs/LOG.md`). Not yet run on Kaggle. **(A) on Saturday:**
+   1. When the CoAtNet student finishes (~Fri 23:30), download its `runs_coatnet/last.pt` and take
+      `shasum -a 256`.
+   2. Build: `.venv/bin/python notebooks/build_submit_kernel.py --public-dir data/public_notebooks/bend-the-knee-2fc5a420
+      --core-kernel raahimnawaz/rsna-knee-c6-train-coatnet-student-r1 --core-sha <that sha> --tag student-r1 --out
+      /tmp/subcore`. Check first that the stack is unchanged upstream.
+   3. Push the commit run on the freed session.
+   4. Submit only if the log shows both `[core]` lines (the relative change vs the public weights, then `[core] ARMS:`)
+      and `COMPLETE`.
+
+   For **(C)**, add `--add-family --weights-kernel <Ortho student> --weights-sha <sha> --alone-lb <its LB>`.
 3. **Runtime room for students in the stack:** it already takes ~8–9 h of 9. Cut its 20 DINOv2 members (~5% of the
    vote), after timing its cells.
 4. **Save the `avg3` weights** of every run a final might use (never worse on the 691: +0.0000 to +0.0024).
