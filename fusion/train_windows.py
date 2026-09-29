@@ -112,7 +112,9 @@ class Corpus:
                     ("extra_vols.npy", "extra_masks.npy", "extra_ids.npy"))
     SPECS = {"stage_a": "c6-64slice", "stage_b": "c7-96slice-384"}
 
-    def __init__(self, root: Path, layout: str = "auto"):
+    def __init__(self, root: Path, layout: str = "auto", extra: tuple = ()):
+        """`extra`: more roots of the SAME layout (e.g. the NYU clinical parts beside our Stage A shards). Each root must be
+        complete on its own; spans, orientation and slot sizes must match; ids must not repeat across roots."""
         found, shards = {}, {k: [] for k in self.SPECS}
         for d, dirs, fs in os.walk(root):
             dirs[:] = [x for x in dirs if x not in ("train_series", "test_series", "train_images")]
@@ -150,7 +152,15 @@ class Corpus:
             self.img = int(c6[0][2].get("img", 336))
             self.layout = f"{layout} span {c6[0][2]['depth_range']} img {self.img} canon {bool(c6[0][2].get('canon'))}"
             parts = [(d / "vols.npy", d / "masks.npy", d / "ids.npy") for _, d, _ in c6]
+            for r in extra:
+                sub = Corpus(Path(r), layout)
+                if (sub.layout, sub.slot_sizes) != (self.layout, self.slot_sizes):
+                    raise SystemExit(f"--extra-corpus {r}: {sub.layout} {sub.slot_sizes} does not match "
+                                     f"{self.layout} {self.slot_sizes}")
+                parts += sub.parts
         else:
+            if extra:
+                raise SystemExit("--extra-corpus needs a stage_a / stage_b layout")
             self.slot_sizes = SLOT_SIZES
             self.layout = "raptor44"
             parts = []
@@ -159,6 +169,7 @@ class Corpus:
                     raise SystemExit(f"corpus part {v} not found under {root} -- attach "
                                      f"dreaddevelopment/knee-raptor-corpus and knee-raptor-corpus-ext")
                 parts.append((found[v], found[m], found[i]))
+        self.parts = parts
         depth = sum(self.slot_sizes)
         self.vols, masks, ids, self.starts = [], [], [], []
         for v, m, i in parts:
@@ -550,6 +561,8 @@ def main() -> None:
                     help="no CUDA: train on Apple's GPU under bf16 autocast instead of the CPU")
     ap.add_argument("--compile", action="store_true",
                     help="torch.compile the encoder in place, for training steps only (eval runs eager)")
+    ap.add_argument("--extra-corpus", type=Path, nargs="*", default=[],
+                    help="more roots of the same layout, joined to --corpus (e.g. NYU clinical parts); ids must not repeat")
     ap.add_argument("--zoom", type=float, default=0.0,
                     help="each window ALSO as its centre crop, this fraction of the field (0.6714 = the middle 94 mm of 140), "
                          "resized back; both views in one bag, train and eval (2x the windows). 0 = off")
@@ -582,7 +595,7 @@ def main() -> None:
                            index=uids, columns=LABELS)
         tr, va = uids[: a.synthetic * 2 // 3], uids[a.synthetic * 2 // 3:]
     else:
-        corpus = Corpus(a.corpus, a.layout)
+        corpus = Corpus(a.corpus, a.layout, tuple(a.extra_corpus))
         if a.slots:
             names = [m_.get("name") for m_ in getattr(corpus, "slot_meta", [])]
             bad = [n_ for n_ in a.slots.split(",") if n_ not in names]

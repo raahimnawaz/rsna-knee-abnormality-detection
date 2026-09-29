@@ -271,17 +271,6 @@ do in 22% — and ACL → Lateral Meniscus gold 0.38 / 0.41 (no link) vs reports
 coupling (why the 08-13 stacker lost −0.013 on gold and part of why synovitis is weak); the image teacher loosens it (0.790 → 0.825).
 Gold is enriched (ACL 41% vs ~20%), so compare the gaps, not levels. **Ortho** = DINOv3-L continued-pretrained on 1.25 M unlabelled knee
 images: it knows what knees LOOK like (why it learns fastest and is the best teacher), not the graders' RULES — those exist only in gold.
-(Owner ~19:45: "isn't Ortho trained on healthy knees?" — no: its paper (arXiv 2601.18250) pretrains on ~1.2 M unlabelled knee X-ray AND
-MRI images from internal (clinical) and public databases, self-supervised; the healthy / injured mix is not stated, but clinical
-archives are pathology-rich, and it ranked first there on MRI structural injury. The owner's "healthy baseline" idea is normative /
-anomaly modelling — useful for a rare finding (Fracture, ~6%), not needed on the main path.)
-(Owner ~19:50: "adjust for the X-rays and healthy knees? could healthy knees have thrown training off?" — No. Self-supervised pretraining
-learns no healthy-vs-injured decision, only what varies across knees; normal anatomy is the reference an abnormality stands out against;
-our own targets are mostly negative per finding too (pos_weight ≤ 10×; AUC ignores prevalence). X-rays are a mild inefficiency that full
-fine-tuning absorbs — frozen 0.7710 vs fine-tuned 0.8148 on the same arm. The adjustment the question points at is DOMAIN-ADAPTIVE
-PRETRAINING: continue Ortho's self-supervised training on MRI knees only (the 4,407 + the NYU clinical exams now converting) before
-fine-tuning. Parked: tens of GPU-h for ViT-L (not the 16 GB Mac), and its prize is unmeasured — `ortho − dinov3l` is still open, and an
-ImageNet ResNet34 already carries ~75% of Ortho's teacher value. Revisit only with a large GPU budget (the Studio what-if).)
 Cross-finding terms enter the calibrator only after a shared-parameter version passes (each term is one more number from 58 knees).
 **Owner Qs 09-28 ~14:40.** (k) *Are the models weighted for labels being only ~90% right?* Yes, in the way AUC can use: `dread_soft`
 is soft (0 of 52,188 cells exactly 0/1; 14 levels, e.g. hedged reports ~0.3–0.4), the loss is BCE on those soft targets (+ pos_weight
@@ -425,6 +414,22 @@ lives only in this session's scratchpad; the server's last 64 KB before our cut 
 same file (retry loop, `--speed-limit`; log `dicom_stage_a_run/download.log`). ~5 MB/s, 59 GB left → ~22:40. The converter reads batch1
 while it grows: it converts up to the growing end, hits EOF, discards the study in progress and finalizes (handled). **Tomorrow:** a
 second pass over the completed batch1 that skips ids already converted (needs `--skip-ids`), into new parts.
+**✅ CONVERTED 19:51 — 7,144 NYU studies in 52.9 min** (batch2 whole + batch1 up to where the resumed download stood; 0 crashes).
+Two ids repeated (the id takes one token of the patient folder): one pair empty, one pair 12 slices each (the same exam in both
+batches, or two patients colliding) → the second copy of each renamed `…__dup_p###` (recorded in that part's manifest) and left
+out. `train_windows --extra-corpus` joins roots of one layout (each complete on its own; spans / orientation / slot sizes must
+match; ids must not repeat): 4,407 + 7,144 = 11,551; one root alone unchanged.
+**⏩ NYU PSEUDO-LABELLED KNEES — the screen `pre-registered 2026-09-28 ~20:00 PDT, before its arm runs` (owner: "yes do that").**
+Pseudo-labels: `fusion/pseudo_label.py` — the MEAN of the four CNN teacher folds' probabilities (`runs_teacher_cnn/fold{1..4}/
+last.pt`, trained on `dread_soft`, none saw the 691 or gold), every window, no calibration → `data/student/nyu_pseudo_r1.csv`, 7,140
+studies (4 out: the renamed repeats, no usable slot). Checked: the script reproduces fold 1's own `oof_all.csv` on 12 studies to max
+|Δp| 0.0035 (bf16). **Arm N** = B′ exactly (ResNet34 at 224, Stage A, bb + head lr 1e-3, seed 42, k 12, bs 8, no affine, primary last
+epoch) plus `--extra-corpus data/external/fastmri/dicom_stage_a`, labels = `dread_soft` ∪ the NYU pseudo rows, train = the 3,502 ∪ the
+7,140; **`--epochs 6` = B′'s optimizer steps** (18 × 437 = 7,866 vs 6 × ~1,330) so a gain is the DATA, not more steps. **THE RULE:**
+N **HELPS** iff N − B′ > 0 paired on the 691 (`score_oof.py`) at **P ≥ 0.95**; per finding and gold-58 reported only. HELPS → the NYU
+pseudo-knees enter the round-2 students (their own LB test). Else → a null for "7k pseudo-labelled knees at equal compute", no more NYU
+image work before Friday's LB read. B′ is the control for both Z and N (each rule written before its arm). Runs after Z on the Mac
+(`fusion/runs_cnntest/run_N.sh` waits for Z and the pseudo-labels), ~1.5 h.
 **🔍 OUTSIDE REVIEW OF THE PIPELINE — read against the code, 2026-09-27 ~19:30 (the owner pasted it, "your thoughts?").**
 Adopted: (1) the NYU gate as a paired macro bootstrap, not per-finding deltas (item 3 of "HOW fastMRI+ FITS"); (2) a fastMRI+
 hold-out as a teacher diagnostic, report-only. Already so: 336 px (Stage B 384 = 24 × 16); "quantile matching" IS
