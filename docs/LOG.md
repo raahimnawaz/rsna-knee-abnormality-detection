@@ -110,3 +110,17 @@ beat it by roughly **+0.008** to reach P ≥ 0.95. A smaller real gain reads as 
   separates the two and is free on the Mac. Proposed rule, NOT yet pre-registered: Z − R > 0 paired at P ≥ 0.95
   → the crop adds beyond detail → port zoom to a week-2 student. Otherwise zoom stops. The owner decides.
 - Also: NYU batch1 completed 22:35 (137,029,024,396 bytes). It is parked.
+
+**2026-09-29 ~10:30 — owner Q: "have we considered free threads with 3.14t Python?"** Not before. On the evidence, no.
+Free-threading only speeds Python threads that do CPU work at the same time, and no stage here is bound by that.
+- **Kaggle training** is GPU-bound: data wait is 0.1–0.2% of a step (speed bench 09-26).
+- **Kaggle inference:** our DICOM decode already runs in separate processes (`infer_windows --workers`, DataLoader
+  workers), so the GIL does not bind it. The public stack decodes in threads, but its decoders are C code, and
+  swapping the interpreter inside a pinned, internet-off image means shipping 3.14t plus free-threaded builds of
+  torch / numpy / pydicom / opencv / timm as a dataset. That is a large risk on a run already 8–9 h of its 9. The
+  cheaper runtime room is Open item 4: cut the 20 DINOv2 members (~5% of the vote).
+- **The Mac** has the only visible slack: data wait is 7–12% of a step (B′ 9.1%, Z 6.7%, teacher fold 1 12.0%),
+  because `TW_WORKERS=0`. macOS workers each pickle a 32 GB copy of the memmap. A plain prefetch thread would recover
+  most of it under the normal GIL, since numpy's large copies release it. It is worth ~10% of free Mac time and 0 AUC.
+
+None of it moves AUC, and the binding constraints are the labels, the GPU quota and the 9 h limit. Parked.
