@@ -394,6 +394,22 @@ report text, and §2.6.a/§2.5.a admit it.~~ **⛔ Corrected 2026-09-26:** only 
 an expert image read; its released training labels were extracted from clinical reports (§1.3). The ceilings
 above stand; MRNet as a supervision source is report-grade, like ours.
 
+**2026-10-02 — owner Q: "Stanford has a lot of similar knee-MRI work — what can we take?" Nothing new before 10-22.**
+Re-read the MRNet paper; checked SKM-TEA, the StanfordMIMI GitHub and Hugging Face orgs, and HF "knee MRI".
+- **Data — closed.** MRNet: report labels (§1.3); released as 256 px after per-series intensity standardisation, one
+  series per plane (sag T2, cor T1, ax PD), one site. That is coarser than our 336/384 px students. Its only remaining use,
+  extra unlabelled knees for teacher pseudo-labels, is arm N on 1/5 as many knees, and N (7,140 NYU knees) was null.
+  AIMI terms are non-commercial (§1.3). SKM-TEA: qDESS (no competition sequence), 155 knees.
+- **Weights — none.** No Stanford knee-MRI classifier is public. `stanfordmimi` on HF is Merlin (CT), MedVAE, RoentGen,
+  CheXmix and SynthPose. The SKM-TEA model zoo has qDESS reconstruction and segmentation only. The HF "knee MRI" hits that
+  are MRNet-trained (e.g. `parkpungam/Knee_MRI`, ResNet-18-sized per plane) inherit MRNet's labels and terms.
+- **Methods — already absorbed or beaten.** MRNet = AlexNet per plane, max over slices, then logistic regression over
+  planes. Ours: per-label attention over every window of five slots. Its regression weighted **axial PD** most for
+  meniscus and **coronal T1** for ACL, not sagittal. Our slots carry all three planes, so there is nothing to change.
+  CheXpert's U-SelfTrained (§4.1) is our teacher → student, which already passed on gold (+0.026).
+- **Context, no action:** MRNet's own reference standard (3 MSK radiologists, 120 exams) agreed at Fleiss κ **0.800
+  ACL, 0.745 meniscus, 0.508 abnormal**. Expert image reads are noisy too.
+
 ### 4.3 Fingerprint biometrics — a different field with our exact failure mode
 
 Suggested as an analogy and it holds better than expected. Latent-fingerprint recognition is
