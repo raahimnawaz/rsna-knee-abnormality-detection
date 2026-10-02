@@ -21,7 +21,7 @@ decision. **Entry and team merger 10-15; final 10-22 16:59 PDT.** Two finals; Ka
 
 | | LB | note |
 |---|--:|---|
-| #1 on the board | **0.960** | 09-28 07:25 (10th 0.956, 100th 0.947 on 09-27) |
+| #1 on the board | **0.961** | 10-02 10:45 (10th 0.958; was 0.960 / 0.956 on 09-28) |
 | free public stack (`mattiaangeli` bend-the-knee, Apache 2.0) | 0.943 | our base; ~8–9 h of the 9 h limit |
 | its core, public CoAtNet maxspan-v5 alone (CC0) | 0.928 | our CoAtNet student's start |
 | **ours, best** — Sub B-dread (Ortho `dread` at 1/3 in the stack) | **0.939** | still below the free stack |
@@ -97,6 +97,10 @@ were test-built at ~13:40 09-29 (not pushed) and pass every flag check.
 ## Open — build or decide before it is needed
 
 1. **Friday 17:20:** the list is READY; be at the Mac with the app open (the task runs only then), or push by hand.
+   **Preflight 10-02 ~10:45: green.** Both kernel ids COMPLETE (nothing running); `rsna-knee-student-targets` holds
+   `targets_round1_cnn.csv`; `raptor_ft_coatnet_v5_full_swa.pt` present; `stage-b-s0of8` COMPLETE; the public stack is
+   unchanged upstream (notebook sha `2fc5a420`, same as `data/public_notebooks/`). The task stalled on its first
+   permission prompt on 09-25, so someone must approve its prompts at 17:20.
 2. **Replace-the-core submit mode: BUILT and tested locally 09-28** (`build_submit_kernel.py --core-*`; test
    `notebooks/core_swap_fixture.py`; detail in `docs/LOG.md`). Not yet run on Kaggle. **(A) on Saturday:**
    1. When the CoAtNet student finishes (~Sat 00:40), download its `runs_coatnet/last.pt` and take
@@ -109,11 +113,16 @@ were test-built at ~13:40 09-29 (not pushed) and pass every flag check.
       and `COMPLETE`.
 
    For **(C)**, add `--add-family --weights-kernel <Ortho student> --weights-sha <sha> --alone-lb <its LB>`.
-3. **Runtime room for students in the stack:** it already takes ~8–9 h of 9. Cut its 20 DINOv2 members (~5% of the
+3. **(B) and (C) are not one-command yet (found 10-02).** (B), the CoAtNet student alone, has no build mode:
+   `--ours-only` is the Ortho pipeline and `--core-*` needs the whole stack. (C) needs the Ortho student's own LB first
+   (`--ours-only --weights-kernel/--weights-sha --tag`; the build refuses `--add-family` without `--alone-lb`). It
+   adds a Stage B Ortho (96 slices, 384 px) to the stack. Sub B-dread fitted a Stage A Ortho (~35 min); Stage B's
+   cost inside the stack has never been timed. That is item 4.
+4. **Runtime room for students in the stack:** it already takes ~8–9 h of 9. Cut its 20 DINOv2 members (~5% of the
    vote), after timing its cells.
-4. **Save the `avg3` weights** of every run a final might use (never worse on the 691: +0.0000 to +0.0024).
-5. **No team merger** (owner 09-28: "I want that Kaggle master"). Solo, on our own 30 GPU-h/week.
-6. **No "safe" final** (owner 09-28). Both finals aim to win. **(A)** is the upgraded stack: its structure, with our
+5. **Save the `avg3` weights** of every run a final might use (never worse on the 691: +0.0000 to +0.0024).
+6. **No team merger** (owner 09-28: "I want that Kaggle master"). Solo, on our own 30 GPU-h/week.
+7. **No "safe" final** (owner 09-28). Both finals aim to win. **(A)** is the upgraded stack: its structure, with our
    students in its CoAtNet slot. **(B)** is our own blend: equal-rank families, nothing fitted on the public LB, the
    one most robust to the shake-up. Both are retrained on all data (3,502 + 691) with gold ×3, recipes fixed before,
    and chosen by pre-registered evidence, never by a 0.001 public difference.
