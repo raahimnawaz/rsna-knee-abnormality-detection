@@ -60,6 +60,22 @@ Every other member, weight, calibrator and the publish cell run as published. `-
 a `--weights-kernel` model as a family at 1/3, as Submission B does (RUNBOOK rule (C): the Ortho
 student joins only at >= +0.004 over (A)). Without it, nothing of ours runs outside the core slot.
 Tested off Kaggle by `notebooks/core_swap_fixture.py`.
+
+THE CORE ALONE (`--core-alone`, RUNBOOK "Pending reads" (B)): only the stack's core, scored by itself.
+
+    python notebooks/build_submit_kernel.py --public-dir <pub> --core-alone --core-kernel raahimnawaz/<student kernel> \
+        --core-sha <sha256 of its runs_coatnet/last.pt> --tag student-r1 --out /tmp/alone   # our student
+    python notebooks/build_submit_kernel.py --public-dir <pub> --core-alone --out /tmp/alone-pub  # the public weights
+
+Both run the SAME code: public cells 1-3 (assets, dense sampling, the rsna_* audit, unmodified), the core
+cell above for the student, then public cell -2's own Raptor code (verbatim, less its DINOv2 gate, its
+read of the stage file and its four-arm runner) with ONLY maxspan-v5 and maxspan-v5-reverse, on both
+T4s, studies split by index. Their probability blend at the core's own weights (0.60 : 0.10 = 6:1),
+ranked, is the submission. This is not the 0.928 notebook: the stack samples up to 96 slices per study
+(capacity-aware) and adds the reversed pass. So the public-weights build is the student's paired
+baseline, the same inference with only the file changed. A last cell refuses the run unless the load
+log shows that one file, once per GPU, at its sha256, and nothing else; in the commit run it also
+refuses any failed study. Tested off Kaggle by `notebooks/core_alone_fixture.py`.
 """
 from __future__ import annotations
 
@@ -415,6 +431,157 @@ print(f"[core] ARMS: public stack as published, core maxspan-v5 + maxspan-v5-rev
       f"other Raptor files as published: {_v_other}__FAMILY__", flush=True)
 '''
 
+CORE_PUBLIC_SHA256 = "20d45e0732a0e9120025d0172a4d2dd0170900bc250b06742dfb7ae08a63786a"   # CC0, as attached
+
+ALONE = r'''
+# ============================================================================ #
+# The core alone, part 2 -- ONLY the public stack's core: maxspan-v5 and its slice-reversed pass
+# (w 0.60 + 0.10, one shared file), through the stack's own Raptor code. Public cell -2 follows
+# verbatim, less its DINOv2 gate, its read of the stage file and its four-arm runner. Then our
+# runner keeps the two core arms and writes their blend at the core's own weights, ranked.
+# ============================================================================ #
+__KE_IMPORTS__
+__KE_DEFS__
+__KE_STATE__
+# ---- ours from here: the two core arms on both T4s, the studies split by index
+import contextlib as _al_ctxlib
+import time as _al_time
+
+_AL_T0 = _al_time.time()
+_AL_FILE = "__AL_FILE__"            # the file both core arms load: our student's, or the public v5 (the baseline)
+_AL_PUBLIC = "__CORE_PUBLIC__"
+_AL_ARMS = ("maxspan-v5", "maxspan-v5-reverse")
+_al_torch = _KE_NS["torch"]
+_al_arms = [a for a in _KE_NS["ARMS"] if a["name"] in _AL_ARMS]
+if [a["name"] for a in _al_arms] != list(_AL_ARMS) or any(a["file"] != _AL_PUBLIC for a in _al_arms):
+    raise RuntimeError(f"public ARMS changed: {[(a['name'], a['file']) for a in _KE_NS['ARMS']]}")
+if (any(_al_arms[0][k] != _al_arms[1][k] for k in ("file", "arch", "res", "img", "slots", "span", "k_eval"))
+        or _al_arms[0]["reverse"] or not _al_arms[1]["reverse"]):
+    raise RuntimeError("the core's forward and reverse arms no longer share preprocessing")
+for _a in _al_arms:
+    _a["file"] = _AL_FILE
+_KE_NS["ARMS"][:] = _al_arms                    # nothing else can load
+_AL_W = _ke_np.asarray([float(a["w"]) for a in _al_arms], _ke_np.float64)
+_AL_W /= _AL_W.sum()                            # 6/7 and 1/7, the core's share of the public Raptor blend
+
+_al_root = _KE_NS["find_test_root"]()
+_al_series_root = _al_root + "/test_series"
+if not _ke_os.path.isdir(_al_series_root):
+    _al_series_root = _al_root + "/test_images"
+_al_test = _ke_pd.read_csv(_al_root + "/test.csv")
+_al_ids = _al_test["StudyInstanceUID"].astype(str).tolist()
+_al_ts = _ke_pd.read_csv(_al_root + "/test_series.csv")
+_al_ts["StudyInstanceUID"] = _al_ts["StudyInstanceUID"].astype(str)
+_al_ts["SeriesInstanceUID"] = _al_ts["SeriesInstanceUID"].astype(str)
+_al_series = {k: f.to_dict("records") for k, f in _al_ts.groupby("StudyInstanceUID")}
+_al_cols = ["StudyInstanceUID", *_KE_NS["LAB"]]
+if _ke_os.path.exists(_al_root + "/sample_submission.csv"):
+    _al_cols = list(_ke_pd.read_csv(_al_root + "/sample_submission.csv", nrows=1).columns)
+if _al_cols[1:] != list(_KE_NS["LAB"]) or _al_cols[1:] != list(_RSNA_LABELS):
+    raise RuntimeError(f"label order drift: sample {_al_cols[1:]}, Raptor {_KE_NS['LAB']}")
+rsna_initialize(_al_ids)
+_al_out = [_ke_np.full((len(_al_ids), len(_KE_NS["LAB"])), _ke_np.nan, _ke_np.float32) for _ in _al_arms]
+_AL_DEVICES = [_al_torch.device(f"cuda:{_i}") for _i in range(2)]
+
+
+def _al_ctx(device):
+    return _al_torch.cuda.device(device) if device.type == "cuda" else _al_ctxlib.nullcontext()
+
+
+def _al_run(device, part):
+    """run_shared_maxspan on the studies `part` (indices into _al_ids): one decode, forward + reversed."""
+    first = _al_arms[0]
+    with _al_ctx(device):
+        reader = _KE_NS["_make_reader"]()
+        model, resolution = _KE_NS["load_model"](_KE_NS["find_weight_file"](first["file"]), first["arch"],
+                                                 first["res"], device)
+        if int(resolution) != int(first["res"]):
+            raise RuntimeError(f"core checkpoint resolution {resolution} != {first['res']}")
+        for j, uid, future in _ke_prefetched_windows(first, [_al_ids[i] for i in part], _al_series,
+                                                     _al_series_root, reader):
+            rsna_deadline("core-alone inference")
+            i = part[j]
+            try:
+                windows = future.result()
+                _al_out[0][i] = _KE_NS["infer_probs"](model, windows, device)
+                _al_out[1][i] = _KE_NS["infer_probs"](model, windows.flip(1).contiguous(), device)
+                del windows
+            except Exception as error:
+                rsna_event("raptor_study_failed", arm=str(first["name"]), study=str(uid),
+                           error=f"{type(error).__name__}: {str(error)[:500]}")
+        del model
+        _ke_gc.collect()
+        if device.type == "cuda":
+            _al_torch.cuda.empty_cache()
+
+
+rsna_phase("core_alone", "START")
+with _KeThreadPool(max_workers=len(_AL_DEVICES)) as _al_ex:
+    _al_fs = [_al_ex.submit(_al_run, d, list(range(k, len(_al_ids), len(_AL_DEVICES))))
+              for k, d in enumerate(_AL_DEVICES)]
+    for _al_f in _al_fs:
+        _al_f.result()
+rsna_phase("core_alone", "COMPLETE")
+for _ai, _arr in enumerate(_al_out):            # the public runner's neutral fill, unchanged
+    _bad = ~_ke_np.isfinite(_arr).all(axis=1)
+    if _bad.any():
+        _fill = (_ke_np.nanmean(_ke_np.where(_ke_np.isfinite(_arr), _arr, _ke_np.nan), axis=0) if (~_bad).any()
+                 else _ke_np.full(_arr.shape[1], .5, _arr.dtype))
+        _arr[_bad] = _ke_np.where(_ke_np.isfinite(_fill), _fill, .5)
+        rsna_event("raptor_neutral_fill", arm=str(_al_arms[_ai]["name"]), studies=int(_bad.sum()))
+rsna_finite(_ke_np.stack(_al_out), "the two core views", probability=True)
+_al_blend = _ke_np.tensordot(_AL_W, _ke_np.stack([_ke_np.clip(v, 0, 1) for v in _al_out]), axes=(0, 0))
+_al_sub = _ke_pd.DataFrame(_KE_NS["rankpct"](_al_blend).astype(_ke_np.float32), columns=_KE_NS["LAB"])
+_al_sub.insert(0, "StudyInstanceUID", _al_ids)
+_al_sub[_al_cols].to_csv("/kaggle/working/_core_alone.csv", index=False)
+_ke_np.savez_compressed("/kaggle/working/core_alone_raw.npz", study_uids=_ke_np.asarray(_al_ids),
+                        raw_probabilities=_ke_np.stack(_al_out))
+_AL_MIN = (_al_time.time() - _AL_T0) / 60
+print(f"[alone] {len(_al_ids)} studies, maxspan-v5 + reverse on {len(_AL_DEVICES)} device(s), "
+      f"{_AL_MIN:.1f} min -> /kaggle/working/_core_alone.csv", flush=True)
+'''
+
+ALONE_CHECK = r'''
+# ============================================================================ #
+# The core alone, part 3 -- no submission.csv unless the core loaded THE ONE file it should
+# (once per GPU, at its sha256) and nothing else did. The commit run also refuses a failed study.
+# ============================================================================ #
+import json as _xjson
+from pathlib import Path as _XPath
+
+_X_SHA = __X_SHA__
+_X_WHO = __WHO__
+_x_loads = [e for e in _RSNA_AUDIT["events"] if e.get("kind") == "raptor_checkpoint"]
+_x_names = [_XPath(str(e.get("file", ""))).name for e in _x_loads]
+if _x_names != [_AL_FILE] * len(_AL_DEVICES):
+    raise RuntimeError(f"loads {_x_names}, want {_AL_FILE} once per device -- stopping")
+if any(e.get("sha256") != _X_SHA for e in _x_loads):
+    raise RuntimeError(f"{_AL_FILE} loaded with a sha256 that is not {_X_SHA[:16]} -- stopping")
+_x_failed = [e for e in _RSNA_AUDIT["events"] if e.get("kind") == "raptor_study_failed"]
+if _x_failed and len(_al_ids) < 100:
+    raise RuntimeError(f"{len(_x_failed)} studies failed in the commit run: {_x_failed[:2]} -- stopping")
+_x_frame = rsna_frame(_ke_pd.read_csv("/kaggle/working/_core_alone.csv", dtype={"StudyInstanceUID": str}),
+                      _al_ids, _al_cols[1:], "core alone")
+_x_frame.to_csv("/kaggle/working/submission.csv", index=False)
+_XPath("/kaggle/working/alone_receipt.json").write_text(_xjson.dumps({
+    "rule": "only the public stack's core (maxspan-v5 + maxspan-v5-reverse, w 6:1), the stack's own code",
+    "weights": _X_WHO, "core_file": _AL_FILE, "core_file_sha256": _X_SHA, "loads": len(_x_loads),
+    "studies": len(_al_ids), "failed_studies": len(_x_failed), "minutes": _AL_MIN,
+    "built_from": "__BUILT_FROM__"}, indent=1))
+print(f"[alone] ARMS: maxspan-v5 + maxspan-v5-reverse ONLY (w 6/7 + 1/7) = {_X_WHO}; {_AL_FILE} loaded "
+      f"{len(_x_loads)}x, sha256 {_X_SHA[:16]}; {len(_al_ids)} studies, {len(_x_failed)} failed; "
+      f"{_AL_MIN:.1f} min -> submission.csv", flush=True)
+'''
+
+INTRO_ALONE = """# RSNA Knee -- the public stack's core, alone: __WHO_MD__
+
+Only the core of `mattiaangeli/bend-the-knee-to-speedy-raptors-the-original` (Apache 2.0): its
+CoAtNet `maxspan-v5` and the slice-reversed pass of the same file, weighted 6:1 as the stack weights
+them, run by the stack's own code (public cells 1-3 unmodified, and cell -2's Raptor code less its
+DINOv2 gate, stage read and other two Raptor arms). Nothing else of the stack runs. A last cell refuses
+the run unless the load log shows the one expected file at its sha256. Built by
+`notebooks/build_submit_kernel.py --core-alone` (__BUILT_FROM__)."""
+
 INTRO_CORE = """# RSNA Knee -- the upgraded stack: our CoAtNet student in the public stack's core slot
 
 The public stack `mattiaangeli/bend-the-knee-to-speedy-raptors-the-original` (Apache 2.0) runs
@@ -473,8 +640,14 @@ def main() -> None:
     ap.add_argument("--core-sha", default=None, help="sha256 of that last.pt, all 64 hex digits")
     ap.add_argument("--add-family", action="store_true",
                     help="with --core-*: ALSO add the --weights-kernel model as a family at 1/3 (rule (C))")
+    ap.add_argument("--core-alone", action="store_true",
+                    help="only the stack's core, alone (rule (B)): with --core-*, our student; without, the public "
+                         "weights (the paired baseline)")
     a = ap.parse_args()
     core = bool(a.core_kernel or a.core_sha)
+    if a.core_alone and (a.ours_only or a.add_family or not a.public_dir):
+        raise SystemExit("--core-alone runs the public stack's own core code: pass --public-dir, not --ours-only "
+                         "or --add-family")
     if core:
         if not (a.core_kernel and a.core_sha and re.fullmatch(r"[0-9a-f]{64}", a.core_sha)):
             raise SystemExit("--core-kernel and --core-sha go together; the sha is the full 64-hex sha256 of last.pt")
@@ -546,6 +719,76 @@ def main() -> None:
         new = [md(intro), code(ours), code(SUB_A)]
         sources = {"dataset_sources": [], "kernel_sources": [a.weights_kernel], "model_sources": [],
                    "docker_image": DOCKER_IMAGE}
+    elif a.core_alone:
+        # the seams this build relies on -- refuse an upstream version that moved any of them
+        def one(pred, what):
+            hits = [i for i, c in enumerate(cells) if c["cell_type"] == "code" and pred("".join(c["source"]))]
+            if len(hits) != 1:
+                raise SystemExit(f"public notebook: {len(hits)} cells {what}, want one -- re-read it")
+            return hits[0]
+        i_roots = one(lambda s: bool(re.search(r"^ASSET_ROOTS = \[", s, re.M)) and "def _asset_find_asset" in s,
+                      "define ASSET_ROOTS and _asset_find_asset")
+        i_dense = one(lambda s: "def _dense_allocate" in s and "def _dense_unique_linspace" in s,
+                      "define the dense sampler")
+        i_rsna = one(lambda s: bool(re.search(r"^_RSNA_AUDIT = \{", s, re.M)) and all(
+            f"def {f}(" in s for f in ("rsna_initialize", "rsna_frame", "rsna_deadline", "rsna_phase", "rsna_strict_load")),
+                     "define the rsna_* audit")
+        if [i_roots, i_dense, i_rsna] != [1, 2, 3]:
+            raise SystemExit(f"public setup cells moved: assets {i_roots}, dense {i_dense}, rsna {i_rsna} (want 1, 2, 3)")
+        gate = ("if globals().get('_DINOV2_MATCHED_MEMBERS') != 20:\n"
+                "    raise RuntimeError('DINOv2 20/20 fingerprint gate did not pass')\n")
+        marks = {"stage": "_ke_primary = _KePath('/kaggle/working/_pipeline_stage.csv')\n",
+                 "src": "_KE_SRC = r'''", "runner": "\n\ndef _ke_run_raptor_arms():",
+                 "state": "_ke_input_lock = _ke_threading.Lock()\n", "start": "rsna_phase('public_raptor', 'START')"}
+        if not before.startswith(gate) or any(before.count(m) != 1 for m in marks.values()):
+            raise SystemExit("public cell -2's Raptor seams moved (gate, stage read, _KE_SRC, runner, state) -- re-read it")
+        at = {k: before.index(m) for k, m in marks.items()}
+        if not at["stage"] < at["src"] < at["runner"] < at["state"] < at["start"]:
+            raise SystemExit(f"public cell -2's Raptor seams are out of order: {at}")
+        ke_imports = before[len(gate):at["stage"]]
+        ke_defs = before[at["src"]:at["runner"]]
+        ke_state = before[at["state"]:at["start"]]
+        if any(not (ln.startswith(("import ", "from ")) or not ln.strip()) for ln in ke_imports.splitlines()):
+            raise SystemExit("public cell -2 runs more than imports before its stage read -- re-read it")
+        for name in ("_ke_ours", "_KE_LAB", "_ke_primary", "_DINOV2"):
+            if name in ke_defs or name in ke_state:
+                raise SystemExit(f"public cell -2's Raptor code now uses {name} -- re-read it")
+        if ke_defs.count(CORE_PUBLIC) != 2:
+            raise SystemExit(f"public cell -2 names {CORE_PUBLIC} {ke_defs.count(CORE_PUBLIC)} times, not twice")
+        if "dreaddevelopment/raptor-knee-maxspan" not in pmeta["dataset_sources"]:
+            raise SystemExit("the public stack no longer attaches dreaddevelopment/raptor-knee-maxspan")
+
+        if core:
+            al_file = f"student_core_{a.tag}_{a.core_sha[:12]}.pt"
+            who = 'f"our {_C_ARM} student ({_C_KERNEL}, last.pt {_C_SHA[:16]})"'
+            who_md = f"our CoAtNet student (`{a.core_kernel}`, last.pt sha256 `{a.core_sha[:16]}`)"
+            x_sha = "_C_OUT_SHA"
+            slug = f"rsna-knee-sub-alone-{a.tag}"
+            core_src = (CORE.replace("__CORE_KERNEL__", a.core_kernel).replace("__CORE_SHA256__", a.core_sha)
+                            .replace("__CORE_FILE__", al_file).replace("__CORE_PUBLIC__", CORE_PUBLIC))
+            compile(core_src, "core", "exec")
+        else:
+            al_file = CORE_PUBLIC
+            who = '"the public weights (dreaddevelopment/raptor-knee-maxspan, CC0): the paired baseline"'
+            who_md = "the public weights (`dreaddevelopment/raptor-knee-maxspan`, CC0), the paired baseline"
+            x_sha = repr(CORE_PUBLIC_SHA256)
+            slug = "rsna-knee-sub-alone-public" + (f"-{a.tag}" if a.tag else "")
+        alone_src = (ALONE.replace("__KE_IMPORTS__", ke_imports.strip("\n")).replace("__KE_DEFS__", ke_defs.strip("\n"))
+                          .replace("__KE_STATE__", ke_state.strip("\n")).replace("__AL_FILE__", al_file)
+                          .replace("__CORE_PUBLIC__", CORE_PUBLIC))
+        check_src = (ALONE_CHECK.replace("__X_SHA__", x_sha).replace("__WHO__", who)
+                                .replace("__BUILT_FROM__", built_from))
+        compile(alone_src, "alone", "exec")
+        compile(check_src, "alone_check", "exec")
+        intro = INTRO_ALONE.replace("__WHO_MD__", who_md).replace("__BUILT_FROM__", built_from)
+        if a.desc:
+            intro += f"\n\n{a.desc}"
+        body = [dict(c, outputs=[], execution_count=None) if c["cell_type"] == "code" else c for c in cells]
+        new = ([md(intro), body[i_roots]] + ([code(core_src)] if core else [])
+               + [body[i_dense], body[i_rsna], code(alone_src), code(check_src)])
+        sources = {"dataset_sources": ["dreaddevelopment/raptor-knee-maxspan"],
+                   "kernel_sources": [a.core_kernel] if core else [], "model_sources": [],
+                   "docker_image": pmeta["docker_image"]}
     elif core:
         core_file = f"student_core_{a.tag}_{a.core_sha[:12]}.pt"
         # the seams the swap relies on -- refuse an upstream version that moved any of them
@@ -618,7 +861,13 @@ def main() -> None:
             "competition_sources": ["rsna-knee-abnormality-detection"], **sources,
             "machine_shape": "NvidiaTeslaT4"}
     (a.out / "kernel-metadata.json").write_text(json.dumps(meta, indent=2), encoding="utf-8")
-    if core:
+    if a.core_alone:
+        print(f"built {a.out / (slug + '.ipynb')}: {len(new)} cells (intro, public cells 1-3"
+              + (", core" if core else "") + ", the core alone, its check)")
+        print(f"  maxspan-v5 + maxspan-v5-reverse load {al_file} | "
+              + (f"student {a.core_kernel} last.pt {a.core_sha[:16]}" if core else "the public weights")
+              + f" | from {built_from}")
+    elif core:
         print(f"built {a.out / (slug + '.ipynb')}: {len(new)} cells ({len(cells)} public, core swapped; + intro, "
               f"core, core check" + (", ours, blend" if a.add_family else "") + ")")
         print(f"  core {a.core_kernel} last.pt {a.core_sha[:16]} -> {core_file} in {', '.join(CORE_ARMS)} | "

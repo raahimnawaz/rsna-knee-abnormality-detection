@@ -47,7 +47,10 @@ its own gate. The first LB proof is the CoAtNet student, after Friday.
 
 1. **The students on the LB, Sat–Sun after Friday** (owner confirmed 09-28 ~18:40):
    - **(A)** upgraded stack (the CoAtNet student in the maxspan-v5 slot): PASS iff **≥ 0.947** → final candidate A.
-   - **(B)** CoAtNet student alone: reported against 0.928; |Δ| < 0.010 is noise.
+   - **(B)** CoAtNet student alone: reported against 0.928; |Δ| < 0.010 is noise. *Proposed 10-02, owner to confirm:*
+     read it against the **public-weights build of the same notebook** (`--core-alone`, no `--core-*`), not the
+     0.928. The stack's core code samples up to 96 slices and adds a reversed pass, so 0.928 is another notebook's
+     number. Same 0.010 noise line (2 × the ±0.005 model-vs-model SE).
    - **(C)** Ortho student: joins (A) as a family only if it lifts (A) by **≥ +0.004**. Otherwise Ortho is cut from
      the finals.
    - If (A) fails, the teacher route has not shown on the LB. Next are round 2, more knees and zoom, each screened
@@ -113,13 +116,20 @@ were test-built at ~13:40 09-29 (not pushed) and pass every flag check.
       and `COMPLETE`.
 
    For **(C)**, add `--add-family --weights-kernel <Ortho student> --weights-sha <sha> --alone-lb <its LB>`.
-3. **(B) and (C) are not one-command yet (found 10-02).** (B), the CoAtNet student alone, has no build mode:
-   `--ours-only` is the Ortho pipeline and `--core-*` needs the whole stack. (C) needs the Ortho student's own LB first
-   (`--ours-only --weights-kernel/--weights-sha --tag`; the build refuses `--add-family` without `--alone-lb`). It
-   adds a Stage B Ortho (96 slices, 384 px) to the stack. Sub B-dread fitted a Stage A Ortho (~35 min); Stage B's
-   cost inside the stack has never been timed. That is item 4. **(B) is worth building (owner Q 10-02):** it is the
-   fail-branch diagnostic (`docs/LOG.md` 09-28: "if (A) fails, diagnose from the student-alone read"), and rule 4 needs
-   the student's own score before it joins our own blend (final B). Submit it next to (A) so a fail costs no extra day.
+3. **(B) BUILT 10-02: `build_submit_kernel.py --core-alone`** (owner: "yes start b"). It runs only the stack's core,
+   maxspan-v5 + its reversed pass at 6:1, on both T4s, with the stack's own code: public cells 1–3 and cell −2's Raptor
+   code, verbatim. With `--core-kernel/--core-sha/--tag` it loads our student; without, the public weights (the paired
+   baseline, which needs no student and can run any time). A last cell refuses the run unless the load log shows that
+   one file, once per GPU, at its sha256; the commit run also refuses any failed study. Test:
+   `notebooks/core_alone_fixture.py` PASSED (both builds run as built on CPU over synthetic DICOMs; study-by-study
+   parity exact; the control differs; four refusals). Why (B) is worth it: the fail-branch diagnostic (`docs/LOG.md`
+   09-28), and rule 4 needs the student's own score before our own blend (final B). Submit next to (A).
+   Student build: `.venv/bin/python notebooks/build_submit_kernel.py --public-dir data/public_notebooks/bend-the-knee-2fc5a420
+   --core-alone --core-kernel raahimnawaz/rsna-knee-c6-train-coatnet-student-r1-all --core-sha <sha> --tag student-r1 --out
+   /tmp/alone`. Baseline: the same without `--core-*`/`--tag`, `--out /tmp/alone-pub`.
+   **(C)** needs the Ortho student's own LB first (`--ours-only --weights-kernel/--weights-sha --tag`; the build
+   refuses `--add-family` without `--alone-lb`). It adds a Stage B Ortho (96 slices, 384 px) to the stack. Sub
+   B-dread fitted a Stage A Ortho (~35 min); Stage B's cost inside the stack has never been timed. That is item 4.
 4. **Runtime room for students in the stack:** it already takes ~8–9 h of 9. Cut its 20 DINOv2 members (~5% of the
    vote), after timing its cells. **Owner Q 10-02: "drop DINOv2 while testing to save GPU?" No.** The hidden-test
    rerun does not count against the weekly quota (Kaggle: it runs on a private server; only the version save counts,
