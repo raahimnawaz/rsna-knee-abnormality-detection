@@ -47,10 +47,10 @@ its own gate. The first LB proof is the CoAtNet student, after Friday.
 
 1. **The students on the LB, Sat–Sun after Friday** (owner confirmed 09-28 ~18:40):
    - **(A)** upgraded stack (the CoAtNet student in the maxspan-v5 slot): PASS iff **≥ 0.947** → final candidate A.
-   - **(B)** CoAtNet student alone: reported against 0.928; |Δ| < 0.010 is noise. *Proposed 10-02, owner to confirm:*
-     read it against the **public-weights build of the same notebook** (`--core-alone`, no `--core-*`), not the
-     0.928. The stack's core code samples up to 96 slices and adds a reversed pass, so 0.928 is another notebook's
-     number. Same 0.010 noise line (2 × the ±0.005 model-vs-model SE).
+   - **(B)** CoAtNet student alone, reported (no gate). **Read (owner 10-02: "sure"): student-alone − public-alone,
+     the same `--core-alone` notebook, only the weight file differs**, not vs 0.928 (the stack's core code samples up
+     to 96 slices and adds a reversed pass, so 0.928 is another notebook's number). |Δ| < 0.010 is noise (2 × the
+     ±0.005 model-vs-model SE). The public-alone half is SUBMITTED: ref `56779801`, 10-02 11:10, from `3f15198`.
    - **(C)** Ortho student: joins (A) as a family only if it lifts (A) by **≥ +0.004**. Otherwise Ortho is cut from
      the finals.
    - If (A) fails, the teacher route has not shown on the LB. Next are round 2, more knees and zoom, each screened
@@ -96,6 +96,29 @@ were test-built at ~13:40 09-29 (not pushed) and pass every flag check.
 3. ~~**NYU teacher**~~ **CUT 09-28 16:25** (failed its gold gate on the Mac, P 0.21) — not pushed.
 
 **Rules:** see *Pending reads* item 1.
+
+## 🗓 WEEKEND RUN SHEET (written 10-02 ~11:30; each step submits only if its check line is in the log)
+
+All builds run from `main` HEAD with no "uncommitted" warning. Check the public stack is unchanged first: `kaggle
+kernels pull mattiaangeli/bend-the-knee-to-speedy-raptors-the-original -m`, notebook sha256 starts `2fc5a420`. At most 2
+GPU sessions run at once, and the Ortho student holds one until ~Sat 03:30, so push the commit runs one at a time.
+
+1. **Fri 17:12: the Friday push list** (above), by hand from this session. The scheduled task at 17:20 is the fallback.
+   It skips any kernel already RUNNING or QUEUED.
+2. **Sat ~00:45, CoAtNet student COMPLETE →**
+   1. `kaggle kernels output raahimnawaz/rsna-knee-c6-train-coatnet-student-r1-all -p fusion/runs_coatnet_student_r1_all
+      --file-pattern 'runs_coatnet/(last\.pt|last_meta\.json|summary\.json|oof_gold\.csv)$'`, then `shasum -a 256` its `last.pt`.
+   2. **(A):** Open item 2's build → push → submit only if the log has `[core] ... relative change` and `[core] ARMS:`.
+   3. **(B):** `build_submit_kernel.py --public-dir data/public_notebooks/bend-the-knee-2fc5a420 --core-alone --core-kernel
+      raahimnawaz/rsna-knee-c6-train-coatnet-student-r1-all --core-sha <sha> --tag student-r1 --out /tmp/alone` → push →
+      submit only if the log has `[core]`, `[alone] ARMS: ... student` and `0 failed`.
+3. **Sat ~03:30, Ortho student COMPLETE →** download `runs_ortho/(last.pt|last_meta.json|oof_all.csv|summary.json)` the
+   same way, and read its 691 score (`score_runs_ortho.txt`). **Ortho alone:** `build_submit_kernel.py --ours-only
+   --weights-kernel raahimnawaz/rsna-knee-c7-train-ortho-student-r1 --weights-sha <sha> --tag student-r1 --out /tmp/suba-os`
+   → push → submit only if the log has `GATE PASSED` and `[sub A] ARMS:`. Its LB is (C)'s `--alone-lb`.
+4. **Sat ~11:00, the reads** (`kaggle competitions submissions`): (A) vs 0.947; (B) student − public; Ortho alone. One line
+   each under *Settled*. **(C) waits for the owner:** Stage B Ortho inside the 8–9 h stack has never been timed (Open
+   item 4), and a run over 9 h fails.
 
 ## Open — build or decide before it is needed
 
