@@ -117,9 +117,15 @@ were test-built at ~13:40 09-29 (not pushed) and pass every flag check.
    `--ours-only` is the Ortho pipeline and `--core-*` needs the whole stack. (C) needs the Ortho student's own LB first
    (`--ours-only --weights-kernel/--weights-sha --tag`; the build refuses `--add-family` without `--alone-lb`). It
    adds a Stage B Ortho (96 slices, 384 px) to the stack. Sub B-dread fitted a Stage A Ortho (~35 min); Stage B's
-   cost inside the stack has never been timed. That is item 4.
+   cost inside the stack has never been timed. That is item 4. **(B) is worth building (owner Q 10-02):** it is the
+   fail-branch diagnostic (`docs/LOG.md` 09-28: "if (A) fails, diagnose from the student-alone read"), and rule 4 needs
+   the student's own score before it joins our own blend (final B). Submit it next to (A) so a fail costs no extra day.
 4. **Runtime room for students in the stack:** it already takes ~8–9 h of 9. Cut its 20 DINOv2 members (~5% of the
-   vote), after timing its cells.
+   vote), after timing its cells. **Owner Q 10-02: "drop DINOv2 while testing to save GPU?" No.** The hidden-test
+   rerun does not count against the weekly quota (Kaggle: it runs on a private server; only the version save counts,
+   i.e. the stack's ~6 min commit run on 3 studies). So the cut saves no GPU-h, only turnaround and 9 h room. It
+   would also move the base under the ≥ 0.947 gate: "~5% of the vote" is a weight estimate, not an LB delta, and a
+   blend change reads ±0.002. Cut only when (C) needs the room, and then test and ship the same cut stack.
 5. **Save the `avg3` weights** of every run a final might use (never worse on the 691: +0.0000 to +0.0024).
 6. **No team merger** (owner 09-28: "I want that Kaggle master"). Solo, on our own 30 GPU-h/week.
 7. **No "safe" final** (owner 09-28). Both finals aim to win. **(A)** is the upgraded stack: its structure, with our
