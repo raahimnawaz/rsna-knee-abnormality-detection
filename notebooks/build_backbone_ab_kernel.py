@@ -333,6 +333,10 @@ if NPROC > 1:
     if not torch.cuda.is_available():          # CPU smoke: checkpoint like the GPU run, and use every core
         os.environ["TW_FORCE_CKPT"] = "1"
         os.environ["OMP_NUM_THREADS"] = str(max(1, (os.cpu_count() or 4) // NPROC))
+if not torch.cuda.is_available():
+    # EVERY CPU smoke takes the gradient-checkpointing branch the GPU run takes. 10-02: the CoAtNet student (Stage A,
+    # one process, so the flag above was never set) died 8 min into its GPU run on a line only that branch reaches.
+    os.environ["TW_FORCE_CKPT"] = "1"
 if ARCH.startswith("qwen") and not torch.cuda.is_available():
     # The VLM's CPU smoke: checkpoint as the GPU run does (without it, activations of a 2B model on one
     # CPU process were SIGKILLed after the first step, smoke v3), with one loader worker.

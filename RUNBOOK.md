@@ -59,7 +59,7 @@ its own gate. The first LB proof is the CoAtNet student, after Friday.
    - If (A) fails, the teacher route has not shown on the LB. Next are round 2, more knees and zoom, each screened
      first.
 
-**Forecast written 10-03 ~08:00, BEFORE (A) and (B) read (owner Q: "put it all together, what do we get?"). Estimates.**
+**Forecast written 10-03 ~07:55, BEFORE (A) and (B) read (owner Q: "put it all together, what do we get?"). Estimates.**
 - Evidence: the Ortho student is 0.927. Labels (+0.015) and input (+0.014) alone would add to ~0.930 from 0.901, so the
   teacher's own LB gain reads ~0 to +0.005 (one score is ±0.008), not the +0.013 that gold priced.
 - (B) student − public: within ±0.005, i.e. noise. (A): 0.943–0.946; ≥ 0.947 about 1 in 4.
@@ -69,7 +69,7 @@ its own gate. The first LB proof is the CoAtNet student, after Friday.
 - Why the levers do not sum: the stack already holds the label table (`dread_soft` is its core author's), dense input
   (+0.005 at inference), blending, all data and epochs picked on gold. Only the teacher step is new to it.
 
-## ▶ ORTHO, ALL DATA — pre-registered 10-03 ~09:30, before the build (owner: "yes do that"; quota 12 h 50 min by the owner's page)
+## ▶ ORTHO, ALL DATA — pre-registered 10-03 08:25, before the build (owner: "yes do that"; quota 12 h 50 min by the owner's page)
 
 - **The run:** the Ortho student r1 recipe with ONE change: it trains on every non-gold study (4,349, was 3,502; the 691
   is no longer held out). Same targets (`targets_round1_cnn.csv`, sha `75757be8`), same Stage B input, same PACKAGE and
@@ -189,7 +189,7 @@ mean of 12: +0.05 on those four is +0.017, more than any lever measured. vs the 
 gold): the CoAtNet student is up on Synovitis / PF OA / Baker's / Fracture and down on MCL / both menisci; it trained
 without gold. Rank-mean of the two students on gold: 0.9194 vs 0.9192 CoAtNet alone (no blend gain; never select on it).
 
-**⛔ CORRECTION 10-03 ~09:15 — "gold ×3" has NO source; the public core never trained on gold.** The phrase first
+**⛔ CORRECTION 10-03 ~08:20 — "gold ×3" has NO source; the public core never trained on gold.** The phrase first
 appears in a RUNBOOK note of 09-26 (`0c8f7f5`) with no reference, and it spread from there (this page, the archive, today's
 answers). Read today: the author's training script (`dreaddevelopment/knee-mri-training-the-twelve-finding-model`) trains on
 the non-gold studies only (`train_ids = [... u not in goldset]`); gold is its VALIDATION set, and the three best epochs BY
