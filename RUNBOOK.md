@@ -84,8 +84,14 @@ its own gate. The first LB proof is the CoAtNet student, after Friday.
   - Its LB is (C)'s `--alone-lb`. (C)'s own rule is unchanged: Ortho joins (A) only if it lifts (A) by ≥ +0.004.
   - Reported, no gate: ≥ 0.937 would be the +0.010 the author measured; by the measured exchange rate ~0.936 is where an
     Ortho family stops costing the stack.
-- **Before the push:** a CPU smoke of this exact build, and rule 11 (the GPU-only branches forced locally on HEAD's
-  trainer with the Ortho arch).
+- **Before the push — both done:** the CPU smoke of this exact build (v1, from `c3c612c`, 23.4 min): targets `75757be8`,
+  partition 691/691, `ALL DATA: train 4349 ... val = the 58 gold`, 2 processes, Ortho strict load, **`gradient
+  checkpointing: 12 of 24 encoder blocks`** (a Stage B smoke forces that branch, so it IS rule 11 on HEAD's trainer),
+  compiled, epoch 0 ran, DDP checksums identical, 0 tracebacks.
+- **⏳ PUSHED 10-03 09:05 PDT** raahimnawaz/rsna-knee-c7-train-ortho-student-r1-all v2 (built from `c3c612c`; mode full,
+  epochs 11, time budget 11.0 h, 693,072 bytes). Due ~18:00–18:30. Then: download `runs_ortho/`, sha256 `last.pt`,
+  `build_submit_kernel.py --ours-only --weights-kernel raahimnawaz/rsna-knee-c7-train-ortho-student-r1-all --weights-sha
+  <sha> --tag student-r1-all --out /tmp/suba-osa` → push → submit only on `GATE PASSED` and `[sub A] ARMS:`.
 
 ## 🗓 FRIDAY 10-02 PUSH LIST — ✅ READY
 
