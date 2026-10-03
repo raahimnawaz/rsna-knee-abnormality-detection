@@ -1,0 +1,1329 @@
+[
+ {
+  "lens": "POST-MORTEM: what went wrong, and what it cost (repo /home/user/rsna-knee-abnormality-detection, read-only; paths below are relative to it)",
+  "headline": "The biggest losses were calendar time and compute, not modeling choices. 32 of the 58 days have no recorded work, about two-thirds of the free T4 quota went unused, and each lever that now carries the score (dense slice coverage, dread_soft labels, all-data training) was diagnosed 3 to 6 weeks before anyone acted on it. The project still runs about one big experiment per GPU-week under self-imposed limits (no cloud GPUs, no team merger, no API label read). The failure mode it named for itself is still active: gold-58 is gating a round-2 teacher after it overstated round 1 about 5\u00d7, and single LB reads are being spent on effects forecast below the LB's resolution. Separately, a trainer default (loss \u00d7 (0.25+0.75|2y\u22121|)) mutes exactly the cells the teacher corrects. On this trajectory the honest landing is about 0.945. That is outside gold, which needs roughly top 20 of 4,999 (about 0.957 on today's board).",
+  "what_went_wrong": [
+   {
+    "title": "TIMELINE: when each real lever was found, and when it could have been",
+    "evidence": "08-06 FINDINGS.md:144-162 says 'the extractor is the solution', external data 'may be decisive', hand-label 250-400 reports. 08-10 \u00a72e: the frozen-feature architecture 'cannot fine-tune'. 08-12 \u00a72w: 'our own pipeline is 0.13 BELOW a thing we already have banked'. 08-13 \u00a73p/D4: 'labels were never the ceiling'. 08-17 the host external-data post is drafted and never sent (REFERENCE.md:142-149). 08-18 \u00a73z: 'the port sees 18 slices to pilkwang's 72'. 08-18 best LB 0.914. 08-19 is the last dated entry until 09-06. 09-06 board re-pulled ('moved +0.016 in 25 days', DECISIONS.md:25); 'efficiency track is the primary target' (DECISIONS.md:37-38); D2 = 18 slices at depth 0.5. 09-07 the 458 GB corpus is deleted on D3 and PLAN-C6 + PREMORTEM are written; Stage L is scheduled 09-07..09-15 and never runs (DATA.md:292-305). No dated entry 09-08..09-22. 09-23 Stage 0; the frontier's training script is read (it was cited at 0.924 by 09-06); D3 is amended; dread_soft is benched and dismissed as 'not scorable'. 09-24 Stage A +0.0149; goal = WIN; cloud-GPU question asked. 09-26 first own-model LB reads (Sub A 0.901, Sub B 0.936). 09-27 dread 0.916, which reverses D4; owner says 'no cloud GPUs'. 09-28 Sub B-dread 0.939; CNN teachers. 10-02/03 students 0.931 / 0.927; Ortho all-data finally running. Lags from diagnosis to action: dense coverage 37 days (08-18 to 09-24), labels-as-lever 45 days (08-13 to 09-27), frontier recipe 17+ days (by 09-06 to 09-23), NIfTI blame 35 days (about 08-19 to 09-23), all-data 10 days (09-23 to 10-03).",
+    "cost": "Every lever now in the score arrived 3-6 weeks after the evidence for it existed."
+   },
+   {
+    "title": "32 of 58 days dormant, and about two-thirds of the free GPU unused",
+    "evidence": "A count of dates across every doc shows activity 08-07..08-19, a single burst on 09-06/07, then nothing until 09-23. Supporting points: no board pull from 08-12 to 09-06 (DECISIONS.md:25); 'The first GPU runs were pushed 2026-09-23' (archive RUNBOOK-2026-09-28:1270); no LB submission between 08-18 (0.914) and 09-26 (38 days). PIPELINE.md:189-198 budgeted ~25 of ~195 GPU-h ('Resource-rich, time-poor'). Usage I reconstructed: the week to 09-25 hit the 30.00 h cap (archive :1021); the week to 10-02 used about 30 h (c7 ~11, dread ~10.6, VLM ~2.5, R34 \u00d73 ~2, benches ~1); the week to 10-09 used about 26 h. That is ~90 T4-h used of ~270 available since early August.",
+    "cost": "About 32 calendar days (55%) and ~135-180 T4-h of free quota. When the project was active it moved 0.914 \u2192 0.939 in about 11 days. My estimate of the LB that never got built is 0.010-0.020."
+   },
+   {
+    "title": "'Labels are not the binding constraint' (D4) was held for 45 days, and the cheapest lever was cancelled",
+    "evidence": "D4 was measured 08-13, dropped, then RESTORED on 09-06 (DATA.md:39-60; DECISIONS.md:19). PIPELINE.md:128-144 says 'S3 labels: demoted, deliberately ... No API spend'. Stage L (a frontier-LLM severity read with the official criteria quoted verbatim, priced at $25-150 in DATA.md:257-275) was scheduled 09-07..09-15 and never ran: no targets_sev.csv exists, and labeling/model_labels.csv still holds 86 of the 303 planned hand labels. dread_soft was found on 09-23 and kept out because gold-58 cannot score it (DATA.md \u00a711, row 'not scorable here'). Only the LB reversed D4, on 09-27 (0.901 \u2192 0.916). The forum's 71st place reported +0.011 from label work at under $5 of API (archive RUNBOOK ~1300).",
+    "cost": "The largest measured lever (+0.015 LB) arrived about 6 weeks late. Teacher\u2192student started 09-28 instead of mid-August, which gave up roughly two label/teacher rounds."
+   },
+   {
+    "title": "D3: the NIfTI files were blamed for 0.085, and the 458 GB corpus was deleted on that false attribution",
+    "evidence": "DECISIONS.md:17 (amended 09-23: the files cost nothing measurable; input sampling was the cause). AUDIT.md:368-390: contract_audit read two fields off a module train_port never imports and printed PASS. DECISIONS.md:124-125: 'The corpus was deleted on that attribution.' README.md:14.",
+    "cost": "About 16 days with no local pixels. Today the Mac holds only the 32 GB Stage A cache. So every free Mac screen (the teachers, Z/R/N) runs a 224-336 px Stage A ResNet34 that sits 0.03-0.04 below the students it is supposed to inform, and anything at Stage B resolution needs Kaggle GPU."
+   },
+   {
+    "title": "The goal changed four times, and one plan budgeted 13% of the available GPU",
+    "evidence": "The goal went from 'best model, not a placing' (PLAN-C6.md:3, 09-07) to 'efficiency track primary' (DECISIONS.md:37-38; PIPELINE.md:116, 09-06) to 'WIN' (09-24) to '0.965' (09-27). PIPELINE.md:21-29: 'the accuracy track is not reachable on the evidence, and the plan should stop pretending otherwise.' PREMORTEM.md \u00a72 already priced the sequential C6 plan at 6-8 weeks against 45 days.",
+    "cost": "About 18 days steered by a target later declared irrelevant. The September dormancy was effectively planned in."
+   },
+   {
+    "title": "The project kept rebuilding things it could have copied",
+    "evidence": "In August, a frozen-DINOv2 feature cache with heads trained on the laptop ('the laptop only ever sees vectors', archive README-2026-08-17:747-750), after \u00a72e had measured that it cannot fine-tune. \u00a74b: 'trained a RadImageNet to 0.6924 while a 0.8514 one was a free download'. In September, train_windows ports the frontier's script with 'deliberate' differences (fusion/train_windows.py:25-38: a confidence weight, no gold epoch pick, windows that never straddle slots). Our Stage A dread Ortho reads 0.916 against the frontier's 0.928 on the same labels and geometry. That 0.012 'setup' gap was never broken down; the one factor named for it, 'gold \u00d73', turned out to have no source (RUNBOOK.md:198-207).",
+    "cost": "About 3 weeks in August on an architecture that could not win. The unexplained 0.012 is inside every Ortho number."
+   },
+   {
+    "title": "Self-imposed resource limits: no cloud GPU, no merger, no radiologist, no host question, no API spend",
+    "evidence": "Cloud GPUs (about 100 A100-h for $150-250) were asked about 09-24 (archive :1218) and declined 09-27 ('no cloud GPUs', archive :132). The team merger was declined (RUNBOOK.md:249). The host question was 'STILL UNASKED BY US, seven weeks' (REFERENCE.md:142). Kaggle TPU and Colab were skipped (archive :670). LOG.md:36: 'each week is one iteration'. Round 1's teacher was a ResNet34 because Ortho k-fold would cost '~32 GPU-h (a week's quota)' (archive :377).",
+    "cost": "Roughly 10-20\u00d7 less compute than a funded solo competitor. Inside this budget only one large experiment fits per GPU-week, which is why the round-1 teacher was the weakest model in the project."
+   },
+   {
+    "title": "Teacher round 1: a weak teacher, and a loss that mutes its corrections",
+    "evidence": "The teacher was ResNet34 (0.8129 on the 691) teaching students at 0.853-0.93. On gold-58, report+ResNet reads 0.913 vs report+Ortho OOF 0.927 (DATA.md \u00a712 item 2). labeling/build_student_targets.py:14-16: a conflict 'lands near 0.5'. fusion/train_windows.py:755-760 always multiplies the BCE by 0.25+0.75|2y\u22121|, so a 0.5 cell weighs 0.25 against 0.925 for an agreeing 0.05 or 0.95 cell (3.7\u00d7 less). The weight was built for steven_v2, where 0.5 means 'not said' (train_windows.py:31), and was carried over silently to dread_soft (0.45 \u2192 weight 0.33; the Synovitis fill 0.35 \u2192 0.48) and to the teacher targets. Result: gold-58 said +0.026; the CoAtNet student read \u22120.002 (noise), and the Ortho student's gain is about labels + input, with the teacher adding roughly 0 to +0.005 (RUNBOOK.md:63-64).",
+    "cost": "About 17 GPU-h (CoAtNet 7.4 + Ortho ~9.5) and the 10-02 GPU week. The teacher route still has no LB proof."
+   },
+   {
+    "title": "Process overhead and fragile operations",
+    "evidence": "There are 13,390 lines of markdown. The RUNBOOK reached 169 KB / 1,729 lines (LOG.md:11). 39 of the 50 commits since 09-28 touch docs only (3,875 lines of markdown churn vs 1,502 of code). There are 55+ owner-Q&A entries, many of them tangents (free-threaded Python 3.14t at LOG.md:114-126, speed/CUDA after winning, TDA, tensor decompositions, the Stanford work, fingerprint biometrics). Operations: the scheduled task stalled on a permission prompt on 09-25 (7 h) and again on 10-02; the Mac slept on 10-02/03, delaying reads by about 12 h; an app update killed a teacher fold on 09-28; a GPU-only log line killed the CoAtNet run on 10-02 (2.5 h). The CoAtNet student and dread ran on 1 of the 2 T4s (summary.json world=1, 3,800 s and 4,770 s per epoch).",
+    "cost": "About 1 day per week of wall-clock on the critical path, about 9 T4-h on the single-GPU runs, and a large share of the owner's attention."
+   },
+   {
+    "title": "The leaderboard was barely used",
+    "evidence": "About 13 submissions in 58 days (0.891, 0.899, 0.908, 0.914 in August; then A, B, c7, dread, B-dread, the (B) baseline, (B), the Ortho student and (A)). That is ~4.5% of the ~290 allowed, with a 38-day gap from 08-18 to 09-26. The first LB read of our own model came on 09-26, about day 51. Hidden-test reruns do not use quota (RUNBOOK.md:243-245).",
+    "cost": "The only image-truth instrument larger than gold-58 (about 400 radiologist-read studies) sat idle, so label effects that neither the 691 nor gold-58 can judge waited weeks for an answer."
+   },
+   {
+    "title": "The failure mode the project named is still active, and it has a twin",
+    "evidence": "DECISIONS.md:112-127 names it: 'A real measurement, aimed at a question it cannot answer.' Live instances on 10-03: (a) the plan gates round 2 on gold-58 vs 0.913, though gold-58 priced round 1 at +0.026 and the LB gave about 0 to +0.005, a ~5\u00d7 overstatement; (b) (B) and the Ortho all-data read are single LB reads with the rule |\u0394|<0.010 = noise, spent on effects forecast at 0 to +0.005, so 'noise' is the only possible answer; (c) a 224 px Stage A ResNet34 (roughly 0.88 LB-equivalent) screens levers meant for 0.93 models (Z, R, N); (d) gold-58 certifies the targets' AUROC while the trainer down-weights the cells that moved; (e) the '0.2\u00d7 exchange rate' rests on two LB points that are each \u00b10.005. The twin: an underpowered or buggy null gets closed by a rule. Examples: \u00a73t DINOv3 ('measured a NULL and wrote it down as a refutation', Aug); the VLM defect 'shelved per the rule' (09-26); the small CNN cut without trying the forum's recipe (09-27); N run with a weak teacher; zoom stopped at P 0.943.",
+    "cost": "Systematic false negatives. The process guards against false positives, which are cheap at this rank, and lets go of the small, stackable gains a winner collects."
+   }
+  ],
+  "closed_too_early": [
+   {
+    "title": "Qwen3.5-2B VLM, shelved for a bug rather than a result",
+    "why_reopen": "The run did not test whether the VLM learns. The vision tower never trained, a defect the record calls 'cause not identified'. The forum's 54th place reports 0.950 from this exact model size. A different architecture family is the 'disagreeing model' the core's author says ensembles best. The code, builder and bench already exist.",
+    "evidence": "archive RUNBOOK-2026-09-28:930-946: predictions constant (per-label std ~0.0003); the 24 vision blocks did not move (median relative change 4.4e-4) while the merger moved 2.9%; 'the cheap next diagnostic is a ~15-min GPU run printing per-group gradient norms ... Not scheduled'. Forum report at archive :1301-1303."
+   },
+   {
+    "title": "Small CNN as a main model and fast iteration engine",
+    "why_reopen": "It was cut after changing only lr, epochs and affine augmentation. The recipe that two top-100 teams report at 0.94+ (simple pooling, no attention head, 224-288 px) was never run. It costs about 2 min/epoch on a T4, against 36-80 min for Ortho, which makes it the only model that allows 10+ experiments a day under the current compute.",
+    "evidence": "archive :375: 'Never tried on a CNN: ... simple pooling instead of our attention head, more slices'. REFERENCE.md:316-319 (22nd and 85th place). fusion/runs_r34v2_B/summary.json: ~119 s/epoch. It is still only proposed as a side item (4) on 10-03."
+   },
+   {
+    "title": "Cloud GPUs and the team merger",
+    "why_reopen": "These two owner closures cost more than any modeling decision. Training is allowed on any hardware; only inference must run on Kaggle. On 'I want that Kaggle master': Competitions Master is 1 gold + 2 silver medals, and team medals count. Only Grandmaster needs a solo gold. Gold here is roughly the top 20 (about 0.957 on today's board), which our trajectory does not reach.",
+    "evidence": "archive :1218 ($150-250 for ~100 A100-h), archive :132 ('no cloud GPUs'), RUNBOOK.md:249, LOG.md:36 ('each week is one iteration'). The merger deadline is 10-15."
+   },
+   {
+    "title": "NYU Noisy Student (arm N)",
+    "why_reopen": "N used the weakest possible setup: ResNet34 teachers at 0.81 pseudo-labelling 7,140 knees for a ResNet34 student over 6 epochs, at P 0.75. That is an underpowered null, not a refutation. The obvious version was never tried: a strong teacher that never saw NYU (the public 0.928 CoAtNet plus our Ortho) and a strong student. The knees are already converted to Stage A.",
+    "evidence": "LOG.md:104-106 (+0.0035 \u00b1 0.0051). REFERENCE.md:322-326: 22nd place says 'external data, even small amounts, can substantially increase score'. The frontier gained +0.010 going from 3,200 to 4,349 real knees."
+   },
+   {
+    "title": "Zoom / crop views",
+    "why_reopen": "Zoom stopped on a P 0.943 near-miss, measured on the weak ResNet instrument. Its crop-specific gain landed on MCL (+0.052), one of the weakest findings. Every recent RSNA MRI/CT winner finds the structure, crops and classifies. This is worth one test on a strong model if compute appears.",
+    "evidence": "LOG.md:128-137 (Z\u2212R +0.0070 \u00b1 0.0045; MCL 0.680 \u2192 0.732). REFERENCE.md \u00a74.5."
+   },
+   {
+    "title": "Using gold-58 the way the frontier does (epoch pick + top-3 weight average)",
+    "why_reopen": "The ban comes from a much larger selection: per-label picks among label tables on 29 studies. Picking 1 epoch of ~16 and averaging the top 3 is how the 0.928/0.933 core was made. Our recipe forbids it (train_windows.py:33-35), which may be part of the unexplained 0.012 setup gap. The cost is small, and the decision can be pre-registered for the finals.",
+    "evidence": "RUNBOOK.md:198-207 (the core's script: gold is the validation set; top-3 by gold AUC are averaged). DECISIONS.md:69 (the +0.0137 / \u22120.0034 figure comes from table-picking)."
+   }
+  ],
+  "ideas": [
+   {
+    "title": "Rent GPUs for the last 19 days ($200-500)",
+    "mechanism": "Every lever left is compute-bound: k-fold strong teachers, multi-round students, seeds, a second architecture family. One A100 or H100 does roughly 5-12\u00d7 a T4 for this kind of bf16 training, so a full 5-fold Ortho or CoAtNet teacher round becomes about a day instead of a week of quota. Only inference has to run on Kaggle.",
+    "evidence_for": "The archive itself priced ~100 A100-h at $150-250 (archive :1218), which is about 13-20 weeks of Kaggle quota. Round 1 used ResNet34 teachers only because Ortho k-fold cost a week (archive :377). Only ~64 Kaggle T4-h remain before 10-22.",
+    "evidence_against": "The owner declined on 09-27. Setup takes 0.5-1 day (moving the Stage A/B caches or rebuilding from the competition download, environment parity with the Kaggle image). Competition data must stay on infrastructure only the team controls (rules \u00a77).",
+    "expected_lb_gain": "Enabler; it is the precondition for most of the +0.010-0.020 in the ideas below.",
+    "cost": "$200-500 and about 1 engineering day",
+    "time_to_first_signal": "1-2 days",
+    "fastest_test": "Today: rent one H100, run the Ortho-student-r1 build for 1 epoch, and compare s/epoch with Kaggle's 2,170 s on T4\u00d72."
+   },
+   {
+    "title": "Drop the confidence weight for soft and teacher targets (plain BCE + pos_weight, as in the frontier)",
+    "mechanism": "The trainer multiplies the loss by 0.25+0.75|2y\u22121|. A teacher-report conflict lands near 0.5 and gets weight 0.25, against 0.925 for an agreeing cell. The student therefore learns least from the cells the teacher fixed. dread_soft's graded levels (0.20/0.45) and the Synovitis fill are also down-weighted, which departs from the recipe that made the 0.928 core.",
+    "evidence_for": "fusion/train_windows.py:755-760 applies it unconditionally, and the docstring (:31) justifies it only for steven_v2's 'not said' 0.5. labeling/build_student_targets.py:14-16 puts conflicts at ~0.5. Gold-58 said +0.026 for the targets; the student gained about 0 on the LB. The 0.012 'setup' gap to the frontier has never been decomposed.",
+    "evidence_against": "Down-weighting uncertain cells is itself a legitimate confident-learning variant, so this may be neutral. Unmeasured.",
+    "expected_lb_gain": "+0.002 to +0.008 on a student (speculative)",
+    "cost": "A one-line flag; a 7.4 GPU-h CoAtNet re-run, or about 1 h on a rented H100",
+    "time_to_first_signal": "Same day on the Mac; 1 day on the LB",
+    "fastest_test": "Mac: B\u2032 ResNet34 on targets_round1_cnn with vs without the weight, scored on gold-58 (report only) and the 691. Then the CoAtNet student without the weight through the same --core-alone notebook, compared paired against 0.931/0.933."
+   },
+   {
+    "title": "A strong-teacher round: 5-fold Ortho Stage B (+ ImageNet-init CoAtNet) OOF on all 4,349 studies \u2192 report+ensemble targets \u2192 students",
+    "mechanism": "Noisy student needs a teacher at least as good as the student. Round 1's teacher was 0.03-0.04 below every student. On gold-58 a report+Ortho-OOF target already reads 0.927 vs 0.913 for report+ResNet. The teachers need ImageNet or Ortho init, because the public CoAtNet has seen every training study.",
+    "evidence_for": "DATA.md \u00a712 item 2 (0.927). Forum: 71st place went 0.938 \u2192 0.949 from teacher pseudo-labels; 36th place reports 0.950 and says 'labels were the bottleneck' (archive ~1300).",
+    "evidence_against": "Gold\u2192LB transfer was about 0.2\u00d7 in round 1. It costs ~25-40 T4-h on Kaggle (all of next week), and the student read would land about 10-17 at the earliest. Gate it on the LB, not gold-58.",
+    "expected_lb_gain": "+0.005 to +0.015 single-model; about half that inside a blend",
+    "cost": "About 5 H100-h (~$15-30) on cloud, or 25-40 Kaggle T4-h",
+    "time_to_first_signal": "2-3 days with cloud; about 10 days without",
+    "fastest_test": "Reuse the Ortho r1 fold-0 model plus 4 more folds; build round-2 targets; train one all-data CoAtNet student without the weight; LB, paired vs 0.931."
+   },
+   {
+    "title": "Use 3-5 LB submissions a day as the image-truth instrument",
+    "mechanism": "About 400 radiologist-read public studies are 7\u00d7 gold-58, and they are the only instrument that can judge label and teacher changes. Hidden reruns use no quota, so a cheap model (the small CNN, or a short CoAtNet fine-tune) can be trained per label recipe and read daily. About 95 submissions remain; the project uses ~1 a day.",
+    "evidence_for": "RUNBOOK.md:243-245 (hidden reruns off-quota). Label levers measure at +0.015, above the \u00b10.005 paired resolution. Gold-58 overstated round 1 about 5\u00d7.",
+    "evidence_against": "Overfitting the public 30%. Only effects of 0.010 or more are readable per read. It needs a cheap model to scale.",
+    "expected_lb_gain": "Indirect: +0.005 to +0.010 through better decisions",
+    "cost": "Submissions (free) plus cheap training runs",
+    "time_to_first_signal": "1 day",
+    "fastest_test": "Small CNN, 5 folds, on dread_soft vs round-1 targets vs round-1 without the weight: 3 submissions in one day."
+   },
+   {
+    "title": "Run the forum's exact small-CNN recipe as the iteration engine and a 5-fold family",
+    "mechanism": "ResNet34 or EffNet-B0 at 224-288 px with simple pooling, no attention MIL, and all slices. At about 2 min/epoch on a T4 it is 20-40\u00d7 cheaper than Ortho. If it reaches 0.93-0.94 it becomes the teacher, the screening instrument and a diverse member.",
+    "evidence_for": "REFERENCE.md:316-319 (two independent top-100 self-reports at 0.94+). archive :375 confirms it was never tried. fusion/runs_r34v2_B/summary.json shows ~119 s/epoch.",
+    "evidence_against": "Self-reports, not code. Our attention-MIL ResNet34 fits training as well as Ortho but generalises 0.036 worse (archive ~350-360).",
+    "expected_lb_gain": "+0.003 to +0.010 as a family; large gain in iteration speed",
+    "cost": "About 1 Mac-night, or ~1 GPU-h for 5 folds",
+    "time_to_first_signal": "Same day",
+    "fastest_test": "Mac: B\u2032's data with --pool avg (mean/max over all windows, no per-finding attention) at 288 px, 25 epochs; then read 5 folds on the LB."
+   },
+   {
+    "title": "Find and fix the VLM's frozen vision tower (a 15-min GPU diagnostic)",
+    "mechanism": "Print per-group gradient norms each step under the exact GPU path (CUDA + autocast + DDP + checkpointing). Find why the vision blocks got no gradient, fix it, rerun the one-epoch check.",
+    "evidence_for": "archive :930-946 says it is a defect, not slow learning. Forum 54th place: 0.950 at 384 px in about 3.5 h. It is a different family from the stack's members.",
+    "evidence_against": "About 2.4 h/epoch on T4\u00d72 and 3 epochs per session; its inference cost inside 9 h is untimed. The forum claim is the least-evidenced in the record.",
+    "expected_lb_gain": "+0.003 to +0.010 as a diverse family if it reaches ~0.94",
+    "cost": "0.25 GPU-h to diagnose; about 10 T4-h or ~1.5 H100-h for a full run",
+    "time_to_first_signal": "1 day",
+    "fastest_test": "A 40-step GPU run logging the grad norm of qwen.visual.blocks.* vs the merger vs LoRA, and checking that the vision params receive gradient."
+   },
+   {
+    "title": "Team merger before 10-15",
+    "mechanism": "Pools models, GPU quota (+30 h a week per member) and submissions. Rank-blending two disagreeing strong systems is the board's most reliable last-mile gain. Team medals count toward Competitions Master.",
+    "evidence_for": "Three teams tie at 0.961, and the top 25 sit within about one LB SE. The 'disagreeing models ensemble better' self-report. LOG.md:39-40 already named the merger as 'the GPU lever'.",
+    "evidence_against": "The owner declined (RUNBOOK.md:249). There is a submission-count constraint on merging. It needs a partner.",
+    "expected_lb_gain": "+0.005 to +0.015 (partner-dependent)",
+    "cost": "Social/ego; zero GPU",
+    "time_to_first_signal": "Days",
+    "fastest_test": "Post in the team-up thread or message 2-3 teams in the 0.950-0.955 band this weekend."
+   },
+   {
+    "title": "Own the runtime: cut the 20 DINOv2 members, or build our own lean ensemble, and fit per-finding weights on 5-fold OOF",
+    "mechanism": "The stack takes 8-9 of the 9 h, so stronger members cannot fit. The DINOv2 block is about 5% of the vote. A self-built ensemble (k folds \u00d7 2-3 families on cleaned labels) can be timed and weighted on 4,349-study OOF rather than on the public LB.",
+    "evidence_for": "REFERENCE.md:343-347 (~5% of the vote). RUNBOOK.md:242-247 (Open item 4 has never been timed). The stack's weights look tuned on the public LB.",
+    "evidence_against": "A blend change reads \u00b10.002, so this is hard to validate. Fitted weights were closed on gold (DECISIONS.md:67), though not on 4,349-study OOF.",
+    "expected_lb_gain": "+0.002 to +0.008 (mostly by making room for strong students)",
+    "cost": "1-2 engineering days, plus one timing run",
+    "time_to_first_signal": "2 days",
+    "fastest_test": "Time each stack cell in one commit run over N test-like studies; build the cut stack; submit it paired against the full stack."
+   },
+   {
+    "title": "A frontier-LLM graded read (official criteria verbatim) as another weak-label source",
+    "mechanism": "A different, stronger reader than steven/dread/Qwen-9B, used as one more teacher input rather than a replacement table. It covers severity-at-threshold and 'where'.",
+    "evidence_for": "The host permits it (REFERENCE.md \u00a71.1). DATA.md:257-275 priced it at $25-150. The forum's API label work cost under $5. A graded table (dread_soft) gave +0.015. The Qwen-9B rank-mean read +0.0054 even though it lost alone.",
+    "evidence_against": "The text ceiling is about 0.90 on gold; LLM readers correlate at r\u22480.82-0.995; OA severity is often missing from the text (DATA.md \u00a712 item 8b).",
+    "expected_lb_gain": "+0.002 to +0.006",
+    "cost": "$20-150 and 1 day",
+    "time_to_first_signal": "1-2 days",
+    "fastest_test": "A batch read of the 4,407 reports with structured outputs; rank-mean with dread_soft; one small-CNN LB read."
+   },
+   {
+    "title": "NYU Noisy Student with a strong teacher",
+    "mechanism": "The public 0.928 CoAtNet plus Ortho (neither has seen NYU) pseudo-label the 7,140 converted NYU knees. A CoAtNet student trains on 4,349 real knees plus the NYU knees.",
+    "evidence_for": "The frontier gained +0.010 from 1,149 extra real knees. The forum: 'external data even small amounts'. The data is already converted.",
+    "evidence_against": "N was null with a weak teacher. NYU is 1.5 T, single-site, from 2018. It doubles training cost, and the agreement's terms apply to a derived copy on Kaggle.",
+    "expected_lb_gain": "+0.002 to +0.008",
+    "cost": "About 4 GPU-h to label, plus a ~2\u00d7 student (cloud recommended)",
+    "time_to_first_signal": "3-4 days",
+    "fastest_test": "Small-CNN arm N rerun with public-CoAtNet pseudo-labels instead of ResNet34's, on the 691."
+   },
+   {
+    "title": "Unconventional: transductive self-training on the hidden test inside the 9 h run",
+    "mechanism": "Run the ensemble on the 1,322 test studies, fine-tune one fast member for one epoch on train plus test pseudo-labels inside the notebook, then re-predict. This adapts to the test's scanner and case mix.",
+    "evidence_for": "It is legal in code competitions. Case mix differs strongly by scanner (FINDINGS.md \u00a77.1, 0.14 spread in Medial OA prevalence), and harmonising it away hurt, which suggests a shift worth adapting to.",
+    "evidence_against": "It needs 2-3 h of runtime the public stack does not have. It is risky, with no offline analogue except a simulated fold.",
+    "expected_lb_gain": "+0.000 to +0.006",
+    "cost": "2-3 engineering days",
+    "time_to_first_signal": "About 1 week",
+    "fastest_test": "Simulate offline: treat the 691 as 'test', pseudo-label it with the ensemble, fine-tune the ResNet for 1 epoch, compare against the unadapted model on the 691."
+   },
+   {
+    "title": "Unconventional: per-site / per-language report-bias correction",
+    "mechanism": "Reports come from many readers with different thresholds; the test comes from one pair of radiologists. Estimate each site's (scanner fingerprint) and language's systematic report-vs-image offset from strong-teacher OOF disagreement, then shift that group's soft labels toward the image consensus.",
+    "evidence_for": "9 languages, 265 site fingerprints, and Turkish post-negation (REFERENCE.md \u00a73). AUDIT 09-28 measured per-fold site shifts of 0.03-0.10 in pooled ranks. The graders' effusion\u2192synovitis coupling (0.63/0.22) differs from the reports' (0.92/0.01).",
+    "evidence_against": "Case mix is real (ComBat lost 0.013-0.032), so per-site offsets are confounded with prevalence. It needs strong teachers first.",
+    "expected_lb_gain": "+0.001 to +0.005",
+    "cost": "CPU only, about 1 day after the teachers exist",
+    "time_to_first_signal": "1 day after the teacher OOF",
+    "fastest_test": "On round-1 OOF, check whether the report-minus-teacher rank gap per site or language is stable across folds before using it."
+   }
+  ],
+  "winner_would": [
+   "Spend $200-500 on rented A100/H100 time for the last 19 days. The project's entire remaining Kaggle quota (~64 T4-h) is a few H100-days.",
+   "Run 20-60 trained models a week and use most of the 5 submissions a day, not ~1 a day. The project has used about 13 of ~290 so far.",
+   "Iterate on a cheap model (the forum's small CNN at ~2 min/epoch) with 5-fold OOF on all 4,349 studies plus seeds as the dev instrument (SE ~0.002), then port the winners to CoAtNet/Ortho. Do not judge everything on one 691 fold at SE ~0.004-0.005.",
+   "Treat labels as the main lever from week 1: several weak sources (dread_soft, steven, a $5-150 frontier-LLM graded read) feeding strong k-fold image teachers, then students over 2-3 rounds, with plain BCE on the soft targets.",
+   "Copy the frontier's training script exactly first (including its gold-58 epoch pick and top-3 average), confirm 0.928 alone, and only then change one thing at a time. Never carry an unexplained 0.012 'setup' gap.",
+   "Build its own ensemble sized to the 9 h limit (k folds \u00d7 2-3 families: CoAtNet, Ortho, a CNN, perhaps the VLM), timed per member, instead of squeezing members into a public stack that already takes 8-9 h.",
+   "Keep pre-registration and 2-SE rules for choosing the two finals. For daily development, take any effect that holds across 5-fold OOF and seeds, and confirm the stacked sum on the LB.",
+   "Treat a buggy or underpowered null as 'not tested', and fix the bug the same day (the VLM's 15-minute diagnostic).",
+   "Merge with a 0.950-0.955 team before 10-15 if solo cannot reach the top 20. Team gold counts toward Master.",
+   "Never let the machines sit idle: something always training, unattended steps that do not depend on a laptop lid, both T4s used on every run, and a 10-minute end-of-day log instead of a page-long RUNBOOK entry per result."
+  ],
+  "questions_for_owner": [
+   "Will you approve $200-500 of rented GPU time for the last 19 days? Training anywhere is legal, and the archive priced ~100 A100-h at $150-250.",
+   "What medals do you already hold? Competitions Master is 1 gold + 2 silver, and team medals count; only Grandmaster needs a solo gold. Gold here is roughly the top 20 (about 0.957 today). Does that change the no-merger decision before 10-15?",
+   "Was the 0.25+0.75|2y\u22121| loss weight in train_windows.py:755-760 meant to apply to dread_soft and to the teacher targets? It down-weights teacher-report conflicts 3.7\u00d7.",
+   "Will you accept 3-5 LB submissions a day as the main judge of label and teacher changes, given that gold-58 overstated round 1 about 5\u00d7?",
+   "Can you keep pre-registration for the finals only, and allow fast, ungated iteration on cheap models during development?",
+   "Can the Mac stay on power with the lid open and the permission prompts pre-approved through 10-22? Sleep and prompts cost about a day on 10-02/03 and 7 h on 09-25.",
+   "Will you approve the 15-minute GPU diagnostic for the VLM's frozen vision tower? It was shelved by a rule for what the record itself calls a defect.",
+   "What happened between 08-20 and 09-05, and between 09-08 and 09-22? If more dead weeks are possible, the plan should front-load the finals' training rather than assume three more weekly iterations."
+  ]
+ },
+ {
+  "lens": "How winners win: what past RSNA and medical-imaging Kaggle winners did, plus what this competition's public repos reveal, mapped onto this project. Network note: kaggle.com, huggingface.co and albumentations.ai are blocked by the egress proxy, so Kaggle writeups and the 18th-place HF blog were read only through search-engine snippets. GitHub READMEs were fetched directly. Tags: [DOC] = documented by the cited source; [INF] = my inference.",
+  "headline": "Past RSNA winners, and this board's own top-100 posts, win in the ordinary Kaggle way. They train many cheap CNN members (folds \u00d7 seeds \u00d7 families), iterate a fast proxy hundreds of times, clean labels with strong out-of-fold ensembles, and judge on large instruments. This project spent its entire 30 T4-h/week on single-seed ViT-L runs (at most ~3 a week), has used ~13 of ~290 possible submissions, never bought compute, and trains on 12 randomly drawn windows out of 54\u201376. That draw leaves a lesion seen on 2\u20134 windows out of 35\u201371% of positive training bags. The highest-value move is to rent ~$200\u2013500 of H100 time and turn every main model into a 5-fold / 3-seed ensemble that also serves as the round-2 teacher, fix the bag sampling, and spend the ~95 remaining free submissions as the image-graded instrument. Realistically that reaches 0.950\u20130.955 public. Winning at 0.961+ stays a long shot (<5%, my estimate); the gold zone (top 20, ~0.957) is perhaps 10\u201315%.",
+  "what_went_wrong": [
+   {
+    "title": "It took ~6 weeks to reach the recipe that was already public",
+    "evidence": "DECISIONS.md D2: the model sampled 18 slices at depth 0.5 until it was fixed and measured on 09-24. CONFOUNDED-160: a 160 mm crop confound worth +0.0268 was hidden. D3 (amended 09-23): 'The corpus was deleted on that attribution', and it was the wrong attribution. MODEL.md \u00a70: the frontier's training script was public but was only copied on 09-23. The rule extractor came 'last of six' (0.777). Before late September, LB results sat at 0.891\u20130.914.",
+    "cost": "~5\u20136 weeks of a ~10-week competition. Every lever after that (Stage B, dread_soft, teacher) was squeezed into the last 3 weeks."
+   },
+   {
+    "title": "The biggest backbone was paired with the smallest compute budget",
+    "evidence": "RUNBOOK \u25b6 ORTHO ALL DATA: ViT-L Stage B takes 45 min/epoch on 2\u00d7T4, ~8.6 h per run. The GPU line is 30 h/week. One seed (42) per arm, and the seed floor was never measured (archive RUNBOOK-2026-09-28.md:1183, :1585). No rented or cloud GPU appears anywhere in the docs (grep: runpod / A100 / H100 / colab = none). Winners train on A100-class hardware: the lumbar 2nd-place README lists an A100 40GB and ~24 h; the mammography 1st place took ~8 days for 4 folds.",
+    "cost": "10\u201320\u00d7 fewer experiments than a funded competitor. No fold or seed ensembles of the main models, and no recipe tuning. [INF] ~0.005\u20130.015 LB."
+   },
+   {
+    "title": "The leaderboard was treated as a rare event, even though it is the only large image-graded instrument",
+    "evidence": "The docs record ~13 submission refs (grep for 5xxxxxxx ids). DECISIONS.md:87 still says 'A submission costs ~2 h... ~15/week', but RUNBOOK.md:244 established that only the ~6-minute commit run counts against quota. DATA.md:682 claims 'No instrument can confirm a one-finding fix'. That is wrong for a single-column swap: when 11 columns are identical, the macro delta is \u0394AUC_k/12 and its noise comes only from that column (~\u00b10.001 macro including 3-decimal rounding, i.e. \u00b10.012\u20130.015 on the finding over ~400 image-graded studies). The Vetri-78640/rsna-abnorm-det README reports that its comparison set of competitors made 16\u2013287 submissions (median 117).",
+    "cost": "~60\u201380 image-graded reads will go unused by 10-22 at the current pace. Label decisions were pushed onto gold-58 (n=58), which cannot resolve them."
+   },
+   {
+    "title": "Label work was gated on an instrument that cannot see labels, and the gate passed something the LB then showed as null",
+    "evidence": "The round-1 CNN teacher read +0.026 on gold-58 at P 0.994 (RUNBOOK Settled). On the LB, (B) student minus public = \u22120.002 (RUNBOOK.md:178), and the RUNBOOK forecast puts the teacher's own LB gain at ~0 to +0.005. An outside repo saw the same effect: SummerLinda/rsna-knee-weak-label-study removed 198 conflicting ACL labels, gaining +0.001\u20130.006 on report-label validation and losing \u22120.004 to \u22120.010 on expert-46.",
+    "cost": "~17 GPU-h (CoAtNet student 7.3 h plus a share of Ortho r1) and the 10-02 week went to a lever not yet proven on images."
+   },
+   {
+    "title": "The frontier's compute compromises were copied as if they were findings",
+    "evidence": "fusion/train_windows.py:281 draws k=12 random windows from all slots (default --k 12, :526). Stage B has 82 windows (pipeline/slots96.py), ~76 in a typical study. By comb(N\u2212w,12)/comb(N,12), a lesion visible on 2/3/4 windows is absent from 71/59/50% of positive training bags (Stage A, 54 windows: 60/46/35%). Augmentation is intensity \u00b110% only (train_windows.py:22, MODEL.md:30), epochs are 7\u201316, and there is one seed. None of these was A/B-tested on the main models. Every winner reviewed builds bags that contain the target region (lumbar crops around the predicted level, cervical per-vertebra crops, abdominal-trauma organ crops).",
+    "cost": "Not measured. [INF] It plausibly explains part of the weakness on focal findings (MCL, menisci, fracture, contusion)."
+   },
+   {
+    "title": "A rule against weak blend members grew into an aversion to ensembling",
+    "evidence": "RUNBOOK rule 4 says 'Blend only strong members', and Settled says 'Cut: the blend of our own two models'. Yet the project's own data shows the 4-fold ResNet34 mean reading 0.832 on the 691 against 0.814 / 0.819 / 0.815 / 0.814 for single folds, +0.016 (archive RUNBOOK-2026-09-28.md:546). SIIM-ISIC 1st place: single-model LB-to-CV correlation ~0, 'the bigger the ensemble, the more stable the LB', 18 models. Abdominal-trauma 2023 1st place: 15 seeds \u00d7 4 folds.",
+    "cost": "[INF] ~+0.005\u20130.010 LB per family left unclaimed, plus private-LB stability."
+   },
+   {
+    "title": "The project is locked inside the public stack's 8\u20139 h runtime",
+    "evidence": "RUNBOOK Open item 4 and (C): Stage B Ortho inside the stack 'has never been timed', and the exchange rate means a member at 1/3 moves the stack only 0.2\u00d7 its own gain. TranBaDat2607/RSNA-Knee-Abnormality-Detection shares one decode per study across all arms and both GPUs, and reaches 0.939 LB (gold 0.930) with the 4 public CoAtNets (v5 + v10 + v8 + gated) in ~2.5\u20133 h.",
+    "cost": "No room for our own fold or seed members. The stack adds only +0.004 over that 3-hour lean set, at the price of ~6 extra hours."
+   }
+  ],
+  "closed_too_early": [
+   {
+    "title": "The small CNN as a main or ensemble family",
+    "why_reopen": "It was cut on a report-graded instrument and never put on the LB. Two top-100 competitors say a plain ResNet34/EffNet-B0 at 224\u2013288 px with simple pooling scores 0.94+, and our 4-fold mean already closes most of the gap to Ortho on the 691. The 4 fold weights exist, so one submission settles where we stand.",
+    "evidence": "RUNBOOK.md:282 ('ResNet34 as a main model: \u22120.036 vs Ortho on the 691'); REFERENCE.md:315 (Tucker Arrants 22nd, Tom Aindow 85th); archive RUNBOOK-2026-09-28.md:430 and :546 (fusion/runs_teacher_cnn/fold{1..4}/last.pt, 4-fold mean 0.832 vs Ortho dread 0.844, a gap of only \u22120.012); the Vetri-78640 issue #23 plans the same test (no result posted)."
+   },
+   {
+    "title": "Pseudo-labelling unlabelled NYU knees",
+    "why_reopen": "Noisy Student needs a teacher much stronger than the student. Arm N used a ResNet34 teacher to train a ResNet34 student (with mostly the same data), the weakest possible form. With the 0.943 stack or a 5-fold ensemble as teacher, on rented GPUs, it is a different experiment.",
+    "evidence": "docs/LOG.md 09-29: N +0.0035 \u00b1 0.0051, P 0.75, teacher = mean of the 4 ResNet34 folds (archive :430). RANZCR 1st place: pseudo-labels on 28k external NIH images from a 10-model segmentation ensemble [DOC, Kaggle writeup snippet]. 7,140 NYU knees are already cached at Stage A."
+   },
+   {
+    "title": "Our own LLM label read",
+    "why_reopen": "Only a local 9B Qwen was tried. The host allows hosted frontier LLMs, the criteria-aware read recommended on 08-10 (REFERENCE \u00a75 item 2) was never run with one, and dread_soft showed that table design alone is worth +0.015 LB.",
+    "evidence": "DATA.md \u00a711: qwen35_9b_v1 \u22120.0108 on gold, yet Fracture +0.108; REFERENCE.md \u00a71.1 (host statement); DATA.md \u00a711 'SUPERSEDED 2026-09-27' (dread_soft 0.916 vs 0.901)."
+   },
+   {
+    "title": "'No instrument can confirm a one-finding fix'",
+    "why_reopen": "A pre-registered single-column-swap submission resolves about \u00b10.012\u20130.015 on one finding over ~400 image-graded studies, enough for the +0.03\u20130.05 fixes the RUNBOOK prices on the four weak findings (+0.05 on four = +0.017 macro).",
+    "evidence": "DATA.md:682; RUNBOOK 'Where the students are weak' (Synovitis, PF OA, Lateral OA, Lateral Meniscus at 0.81\u20130.87). Arithmetic: macro \u0394 = \u0394AUC_k/12, with noise only from column k."
+   },
+   {
+    "title": "Solo instead of a merger",
+    "why_reopen": "If 'Kaggle master' means the Competitions Master tier, team medals count: Master = 1 gold + 2 silver, and only Grandmaster needs a solo gold. With 4,999 teams, gold is the top 20 (~0.957 public today). A merger with a 0.950\u20130.955 team is the single largest step in gold probability available before 10-15.",
+    "evidence": "Kaggle progression (search: 'Master: at least 1 gold and 2 silver'; 'GM: 5 golds, at least 1 solo'; '5000 teams \u2192 gold to top 20'); RUNBOOK Open item 6 (owner 09-28: 'I want that Kaggle master'); COMPETITION_RULES.txt:63 (merger allowed if the submission count fits)."
+   },
+   {
+    "title": "Zoom as an ensemble member (not as a lever)",
+    "why_reopen": "The rule correctly stopped zoom as a recipe change at P 0.943. For ensembling, though, a model that sees the joint line at 1.5\u00d7 detail is diversity with a real crop-specific MCL signal. Winners keep near-miss variants as members when they disagree with the others.",
+    "evidence": "docs/LOG.md 09-29: Z \u2212 R +0.0070 \u00b1 0.0045; MCL +0.052 crop-specific. REFERENCE \u00a73.1b: 'Disagreeing models ensemble better' (Dread Development)."
+   }
+  ],
+  "ideas": [
+   {
+    "title": "Rent GPU compute for training (inference stays on Kaggle)",
+    "mechanism": "The rules limit only the submission notebook (9 h, 2\u00d7T4). Training can run anywhere: COMPETITION_RULES.txt has no training-compute clause, and winners must only document 'the required computational environment' (:110). An H100 at ~$2\u20133/h is roughly 6\u201310\u00d7 a 2\u00d7T4 session for ViT-L/CoAtNet in bf16 [INF]. That turns the binding constraint from GPU-hours into engineering time and makes folds, seeds, families and higher resolution affordable.",
+    "evidence_for": "Winners train on A100-class rigs (lumbar 2nd: A100 40GB, ~24 h; mammography 1st: ~8 days for 4 folds) [DOC, their READMEs]. Every item in the current plan is quota-bound (RUNBOOK GPU line: 30 h/week; Ortho all-data 8.6 h; 4 more Ortho folds = 20 GPU-h).",
+    "evidence_against": "0.5\u20131 day to set up. ~62 GB of Stage B shards must be pulled with `kaggle kernels output` (the DICOMs are deleted locally). The owner's budget is unknown. The MPS/CUDA paths differ, and a solo owner's attention is also a constraint.",
+    "expected_lb_gain": "An enabler, not a gain by itself. Through ideas 4, 5, 9 and 11: +0.005\u20130.015 [INF].",
+    "cost": "$150\u2013500 total; 0.5\u20131 engineering day",
+    "time_to_first_signal": "Same day",
+    "fastest_test": "Rent 1\u00d7H100 (RunPod / Lambda / Vast), pull one Stage B shard, and run train_windows --arch ortho --corpus stage_b on ~500 studies for 1 epoch with --compile. Compare s/step with the 2\u00d7T4 log (45 min/epoch on 4,349). If it is \u22655\u00d7 faster, move all training there."
+   },
+   {
+    "title": "Submit the existing 4 ResNet34 teacher folds as one ensemble, alone (one submission, no training)",
+    "mechanism": "This places our small-CNN recipe against the forum's 0.94+ on the image-graded LB. A read of \u22650.925 means a cheap, disagreeing family for the final ensemble. A read of ~0.90 means a ~0.04 recipe gap for the free Mac loop to hunt (pooling, bag size, epochs, augmentation).",
+    "evidence_for": "Small CNNs at 0.94+ (REFERENCE.md:315). The 4-fold mean is 0.832 on the 691, against single folds at ~0.815 and Ortho dread at 0.844 (archive :546). The weights exist (archive :430).",
+    "evidence_against": "Each fold trained on ~2,600 studies at 224 px with Stage A and attention MIL, which is not the forum recipe. Mapping the 691 to LB the way Ortho mapped (0.844\u21920.916, 0.853\u21920.927) predicts ~0.90.",
+    "expected_lb_gain": "Mainly diagnostic. As a final-B member, +0.002\u20130.005 if it reads \u22650.925 [INF].",
+    "cost": "1 submission, ~0 GPU-h (the hidden rerun is off-quota), 1\u20133 h to build if --ours-only loads a resnet34 last_meta",
+    "time_to_first_signal": "Today, if built before the 17:00 PDT reset; otherwise tomorrow",
+    "fastest_test": "build_submit_kernel.py --ours-only with the four fold last.pt files as arms and a rank-mean. Pre-register: report only; \u22650.925 lets the CNN family into final B, and \u22640.905 triggers the forum-recipe hunt on the Mac."
+   },
+   {
+    "title": "Stop hiding focal lesions in training: full-bag or per-slot-stratified MIL",
+    "mechanism": "With k=12 random windows out of ~76 (Stage B) or 54 (Stage A), 35\u201371% of positive training bags for a lesion visible on 2\u20134 windows contain no lesion window. The attention head is told 'positive' while looking at none of the lesion, so it learns global proxies (effusion, edema) instead. Fix this by training on all windows (a small CNN can afford it), on per-slot stratified contiguous blocks, or by a short full-bag fine-tune of the head and top blocks on the big students.",
+    "evidence_for": "Every RSNA winner reviewed builds bags that contain the target: lumbar 1st/2nd crops around the predicted level (2nd: 5\u201324 frames centred on it); cervical 1st, 15 slices per vertebra crop; abdominal-trauma 1st, organ crops [DOC]. SummerLinda: raising inference coverage from 24 windows to all (\u226442) gave +0.0035 OOF with the CI above 0 [DOC]. [INF] Full bags may be why small CNNs do well for the forum posters.",
+    "evidence_against": "The public 0.928 core trains this way and works. Across 16 epochs each positive still shows its lesion in ~30\u201365% of steps. Full bags cost ~4.5\u00d7 per epoch. Diffuse findings (effusion, OA, synovitis) gain little.",
+    "expected_lb_gain": "+0.005\u20130.015 on the 691 for the CNN (focal findings); +0.003\u20130.008 LB once ported to a student [INF]",
+    "cost": "~5\u20138 Mac-h for two arms; 0 GPU-h",
+    "time_to_first_signal": "Overnight",
+    "fastest_test": "The Mac B\u2032 recipe (ResNet34, 224, Stage A, dread_soft, seed 42; control B\u2032 = 0.8129) against k=all (54) and against per-slot stratified k=15. Pre-register: HELPS iff paired \u0394 > 0 at P \u2265 0.95 on the 691 (a fixed-target comparison, which rule 3 allows). Report ACL / MCL / menisci / fracture / contusion as a subgroup."
+   },
+   {
+    "title": "Make each main model a 5-fold \u00d7 1\u20133-seed ensemble that also serves as the round-2 teacher",
+    "mechanism": "The same runs give out-of-fold predictions on all 4,349 studies (round-2 targets: report + Ortho OOF) and an inference ensemble. Averaging folds and seeds removes single-run variance, which is what makes LB rankings stable.",
+    "evidence_for": "Abdominal-trauma 1st: 15 seeds \u00d7 4 folds. SIIM-ISIC 1st: 18 models, 'the bigger the ensemble, the more stable the LB'. Mammography 1st: 4-fold ConvNeXt-S [DOC]. Our ResNet34: +0.016 on the 691 from 4 folds (archive :546). Gold diagnostic: report + Ortho OOF 0.927 vs report + ResNet34 0.913 (RUNBOOK plan context; DATA \u00a712 item 2).",
+    "evidence_against": "Inference time: Stage B Ortho per member is untimed and 5 members could take 5\u20137 h. Round 1's gold gain did not transfer to the LB. Each fold sees only 80% of the data, so finals should use all-data seeds.",
+    "expected_lb_gain": "+0.004\u20130.010 from ensembling; +0.000\u20130.008 from round-2 labels [INF]",
+    "cost": "~10\u201315 H100-h (~$30\u201350) versus ~45\u201360 T4-h (two weeks of quota) on Kaggle",
+    "time_to_first_signal": "1\u20132 days on rented GPUs",
+    "fastest_test": "First measure the seed floor and the ensemble gain in one step: a second seed of the Ortho r1 recipe (3,502 / 691), reporting seed1, seed2 and their rank-mean on the 691 (r1 = 0.8534)."
+   },
+   {
+    "title": "A one-decode lean inference notebook as the robust final (final B)",
+    "mechanism": "Decode each study once and stream it to every member on both T4s. Equal-rank families, nothing fitted on the public LB: the 4 public CoAtNets (0.939 in ~2.5\u20133 h, per TranBaDat) + Ortho-all + the CoAtNet student + seed or fold members + CNN folds. This uses the ~6 h the stack spends on low-weight members.",
+    "evidence_for": "TranBaDat2607: one decode shared across arms and GPUs, 0.939 LB in 2.5\u20133 h [DOC]. The stack's weights look LB-tuned (REFERENCE \u00a73.2, 'Where it could be improved' (1)), so its private score is probably below 0.943 [INF]. SIIM-ISIC: broad ensembles survive shake-ups.",
+    "evidence_against": "1\u20132 engineering days in build_submit_kernel. The lean base starts ~0.004 below the stack. Members must be timed.",
+    "expected_lb_gain": "Final B at ~0.945\u20130.950 public, and probably better than the stack-based final on private [INF]",
+    "cost": "1\u20132 engineering days; ~0.5 GPU-h of commit runs",
+    "time_to_first_signal": "2 days",
+    "fastest_test": "Build the lean notebook with only the 4 public CoAtNets, confirm ~0.939 and log wall time per member, then add Ortho-all."
+   },
+   {
+    "title": "A leaderboard label lab: one fixed cheap model per label table, submitted alone and paired",
+    "mechanism": "Label effects are large (+0.015 for dread_soft over steven_v2) and only the LB can see them. Train the same Mac ResNet34 (all data, same seed) on table X and on dread_soft, and submit both alone. The prediction correlation is high, so the paired noise is ~\u00b10.003\u20130.005. Use this to judge round-1 vs round-2 targets, an LLM table, the Synovitis fix and gold-in-training before spending big-model GPU time.",
+    "evidence_for": "DATA \u00a711: dread_soft's win was visible only on the LB. Round-1's +0.026 on gold became ~0 on the LB. SummerLinda: a gain on report-label validation reversed on expert labels [DOC].",
+    "evidence_against": "A label ranking found on ResNet34 may not transfer to ViT-L or CoAtNet. Each comparison costs 2 submissions. Some differences will be smaller than the noise.",
+    "expected_lb_gain": "Indirect: it selects the label changes worth +0.005\u20130.015 for the students [INF]",
+    "cost": "1\u20132 Mac-h + 1 submission per table",
+    "time_to_first_signal": "1 day",
+    "fastest_test": "ResNet34 all-data on dread_soft vs on targets_round1_cnn (75757be8), same seed. Pre-register |\u0394| < 0.006 = noise. This also checks whether the teacher's LB null was specific to the CoAtNet."
+   },
+   {
+    "title": "Single-column-swap probes for the four weak findings",
+    "mechanism": "Change one finding's column inside the submission notebook and keep the other 11 identical. The LB delta is \u0394AUC_k/12 with noise only from that column, so a +0.03 finding-level change is ~2\u03c3 on ~400 image-graded studies. Example probes: Synovitis := an Effusion-weighted variant; Lateral OA / PF OA taken from a different family.",
+    "evidence_for": "Arithmetic (see closed_too_early). RUNBOOK: +0.05 on the four weak findings = +0.017 macro, more than any measured lever.",
+    "evidence_against": "Picking among many probes overfits the public 30%. Rounding to 3 decimals limits resolution. It costs submissions.",
+    "expected_lb_gain": "+0.002\u20130.005 if one or two pre-registered fixes pass [INF]",
+    "cost": "1 submission per probe; 0 GPU-h",
+    "time_to_first_signal": "Same day",
+    "fastest_test": "Sub B-dread's notebook with Synovitis replaced by rank-mean(Synovitis, Effusion), one pre-registered rule, one submission."
+   },
+   {
+    "title": "A criteria-aware graded label read from frontier LLMs (2\u20133 vendors)",
+    "mechanism": "Prompt with the official severity criteria (REFERENCE \u00a72), output dread_soft-style levels with the step at the graders' threshold, then rank-mean across vendors to break the correlated errors of a single reader.",
+    "evidence_for": "The host permits hosted LLMs (REFERENCE \u00a71.1). REFERENCE \u00a75 item 2 was never run with a frontier model. Qwen-9B read Fracture +0.108 better than steven_v2 even while failing overall (DATA \u00a711).",
+    "evidence_against": "Public GPT reads are near-duplicates (|r| 0.87\u20130.95). The text ceiling is ~0.90 on gold (DATA \u00a712). dread_soft cannot be scored on gold.",
+    "expected_lb_gain": "+0.000\u20130.008 [INF]",
+    "cost": "$50\u2013200 API + 1 engineering day; judged by the label lab",
+    "time_to_first_signal": "2 days",
+    "fastest_test": "A single read of the 58 gold reports per vendor (<$5) vs steven_v2's 0.887, report only and done once. If \u2265 steven_v2, label all 4,349 and send the table through the label lab."
+   },
+   {
+    "title": "A second-stage sequence head on out-of-fold window features (ICH-winner style)",
+    "mechanism": "Dump per-window features from the fold models, then train a bi-GRU or 2-layer transformer per slot followed by per-finding attention, on full bags, in minutes on the Mac. It adds cross-slice context and trains the head without bag subsampling.",
+    "evidence_for": "ICH 2019 1st: 'the key module of the pipeline is a sequence model'. Cervical 2022 1st: CNN \u2192 LSTM over 15 slices. Abdominal-trauma 2023 1st: CNN + GRU. Lumbar 2024 2nd: encoder \u2192 LSTM \u2192 attention [DOC]. PLAN.md \u00a73.3 planned a slice transformer, but the current WindowMIL has none (train_windows.py:339\u2013404).",
+    "evidence_against": "It needs fold models (idea 4) to be clean. For all-data models the features are in-sample. It adds one more stage to inference.",
+    "expected_lb_gain": "+0.003\u20130.008 [INF]",
+    "cost": "~1\u20132 GPU-h per fold model to dump features; Mac minutes to train; ~1 engineering day",
+    "time_to_first_signal": "1 day using the ResNet34 folds",
+    "fastest_test": "Using the 4 ResNet34 teacher folds: dump OOF window features on the Mac, train a GRU head on the 3,502, compare on the 691 against the folds' own OOF mean (0.832)."
+   },
+   {
+    "title": "Noisy Student on the 7,140 cached NYU knees with a strong teacher",
+    "mechanism": "The teacher is the 0.943 stack or our 5-fold ensemble, run on rented GPUs. The student trains on competition knees plus soft pseudo-labels from the NYU knees, with augmentation and dropout.",
+    "evidence_for": "RANZCR 1st: 28k external pseudo-labelled images [DOC]. Lumbar 2nd: 0.5 \u00d7 label loss + 0.5 \u00d7 pseudo-label loss [DOC]. Forum: 'external data, even small amounts, can substantially increase score' (REFERENCE.md:323).",
+    "evidence_against": "N was null with a weak teacher. It is a different site and population. The fastMRI terms are 'academic purposes', and the winner-publication question is unresolved (REFERENCE \u00a71.3).",
+    "expected_lb_gain": "+0.000\u20130.006 [INF]",
+    "cost": "$30\u201380 GPU + 1\u20132 engineering days",
+    "time_to_first_signal": "3 days",
+    "fastest_test": "Rerun N with the teacher swapped from ResNet34 folds to Ortho r1 plus the CoAtNet student (both stronger), judged on the 691 against B\u2032 as pre-registered before."
+   },
+   {
+    "title": "A high-resolution CNN family (ConvNeXt-S / EfficientNetV2-S at 448\u2013512 px, near native 437 px)",
+    "mechanism": "Thin structures (MCL, cartilage, meniscus) lose detail at 384. CNNs scale to resolution more cheaply than ViT-L, and a third architecture family adds disagreement to the ensemble.",
+    "evidence_for": "Lumbar 1st: 512 px crops, ConvNeXt-small, 'convolution models were better than vits' (REFERENCE \u00a74.5) [DOC]. Our R \u2212 B\u2032 (resolution alone) +0.0089, P 0.979; Stage B +0.014 LB.",
+    "evidence_against": "It needs a new cache (8 CPU kernels, ~1 h, as for Stage B) and more inference time.",
+    "expected_lb_gain": "+0.003\u20130.008 as a family [INF]",
+    "cost": "~1 h of Kaggle CPU kernels + ~5\u201310 H100-h",
+    "time_to_first_signal": "3 days",
+    "fastest_test": "ConvNeXt-S at 448 on 3,502 / 691 against Ortho r1's 0.8534 at fixed targets."
+   },
+   {
+    "title": "Retrain the finals with gold-58 included (\u00d73)",
+    "mechanism": "The only image-graded rows teach the graders' borderline-negative convention. After the last gold read is spent, gold has no remaining use as an instrument.",
+    "evidence_for": "Standard practice to train on all labelled data for finals. HMS-HBAC solutions: fine-tune on the highest-agreement labels in a second stage [DOC].",
+    "evidence_against": "58 rows; the effect cannot be measured; the public core's author did not do it (RUNBOOK correction 10-03).",
+    "expected_lb_gain": "+0.000\u20130.003 [INF]",
+    "cost": "One flag in the final retrains",
+    "time_to_first_signal": "Not measurable before 10-22",
+    "fastest_test": "None. Decide once and apply only in the final retrain."
+   },
+   {
+    "title": "Merge with a 0.950\u20130.955 team before 10-15",
+    "mechanism": "A rank blend of two independent strong pipelines, plus shared compute and ideas.",
+    "evidence_for": "Most top RSNA finishes are teams (lumbar 2nd: 4 people; SIIM-ISIC 1st: 3) [DOC]. Kaggle Master counts team golds [DOC].",
+    "evidence_against": "The owner's stated preference. Finding a partner takes time. Any submission count must fit the cap.",
+    "expected_lb_gain": "+0.003\u20130.008 for the merged blend [INF]; a large rise in gold probability",
+    "cost": "0 compute; social effort",
+    "time_to_first_signal": "Days (deadline 10-15)",
+    "fastest_test": "Owner decision only."
+   }
+  ],
+  "winner_would": [
+   "Fold and seed ensembles of every strong recipe. [DOC] Abdominal-trauma 2023 1st: 4-fold GroupKFold \u00d7 15 seeds. SIIM-ISIC 1st: 18 models, single-model LB-to-CV correlation ~0, bigger ensembles more stable. Mammography 1st: 4-fold ConvNeXt-S. [PROJECT] One seed per arm; seed floor never measured; own ResNet34 4-fold +0.016 on the 691 unused at inference. [GAP] ~0.005\u20130.010 LB.",
+   "A fast proxy loop and hundreds of experiments. [DOC] Tucker Arrants' method (REFERENCE \u00a73.1b): report-label validation with a ~0.003 noise threshold, seeds, one change at a time. Vetri-78640 README: its comparison set of competitors used 16\u2013287 submissions (median 117). [PROJECT] Main runs take 5\u201310 GPU-h and ~2\u20133 a week; ~13 submissions recorded. [GAP] The main recipe was never tuned. [INF] ~0.005\u20130.015.",
+   "Pay for training compute. [DOC] Lumbar 2nd trained on an A100 40GB (~24 h); mammography 1st spent ~8 days on 4 folds. [PROJECT] 30 T4-h/week plus a Mac; no rental considered. [GAP] 10\u201320\u00d7 fewer GPU-hours; the root cause of the two habits above.",
+   "Prefer CNNs at high resolution for fine structures. [DOC] Lumbar 1st: 'convolution models were better than vits', ConvNeXt-small, 512 px crops. Forum: ResNet34 / EffNet-B0 at 0.94+. [PROJECT] Main bet on ViT-L Ortho; CNN used only as a teacher. [GAP] Compute misallocation more than an AUC gap. [INF] A 448\u2013512 CNN family is +0.003\u20130.008.",
+   "Put the target region inside every training bag (localise, then crop or sample around it). [DOC] Lumbar 1st/2nd, cervical 1st, abdominal-trauma 1st, aneurysm 2025 1st (vessel-ROI masking). [PROJECT] 140 mm field and k=12 random windows; 50\u201371% of positive bags miss a 2\u20134-window lesion (Stage B). [GAP] Unmeasured; test it overnight on the Mac.",
+   "A sequence model over slices. [DOC] ICH 2019 1st ('key module'), cervical 1st LSTM, abdominal-trauma 1st GRU, lumbar 2nd LSTM \u2192 attention. [PROJECT] Per-finding attention MIL with slot/depth embeddings, no cross-window context. [GAP] [INF] +0.003\u20130.008.",
+   "Heavy augmentation, matched to longer training. [DOC] Abdominal-trauma 1st: flips, rotate \u00b125\u00b0, perspective. Lumbar 2nd: 'heavy augmentation, sequence reversal, left/right side mixing, manifold mixup', 9-rotation TTA. Lumbar 1st: coordinate jitter 'crucial'. [PROJECT] Intensity \u00b110% only on the main models; affine tried once on ResNet34 (arm C). [GAP] Unknown, [INF] 0\u20130.005. Note: medial/lateral flips are only safe with label swapping, and knee compartments are not symmetric.",
+   "Clean labels with strong out-of-fold ensembles and mix in pseudo-label loss. [DOC] Lumbar 2nd: confident learning on an OOF ensemble plus 0.5 \u00d7 pseudo-label loss. RANZCR 1st: external pseudo-labels. HMS: a second stage on high-agreement labels. Board posts: '0.950 single models credit labels'. [PROJECT] One round with the weakest available teacher (ResNet34 recipe C, 0.806 on the 691); LB ~0. [GAP] Up to +0.01\u20130.02 with a strong teacher [INF], judged on the LB rather than gold.",
+   "External data, even a little. [DOC] Mammography 1st: 5 external datasets, about +0.02 F1 on OOF and private LB. Forum 22nd: 'even small amounts... substantially'. [PROJECT] fastMRI+ teacher cut (P 0.21); NYU pseudo-knees null with a weak teacher; OAI closed on its terms. [GAP] Unknown. [INF] Possibly part of what the top teams do that nobody posts.",
+   "Inference engineering to fit more members. [DOC] Mammography 1st: TensorRT. TranBaDat: one shared decode, 4 CoAtNets in 2.5\u20133 h \u2192 0.939. [PROJECT] Bound to the 8\u20139 h public stack; (C) blocked on runtime. [GAP] Room for 4\u20138 members.",
+   "Pick finals by CV or robustness, with two different objectives. [DOC] SIIM-ISIC 1st: two ensembles, one per CV definition; survived a large shake-up. [PROJECT] Two pre-registered finals (A = stack + students, B = own blend), which matches. But A rides LB-tuned stack weights, so B is the real shake-up hedge and deserves the lean multi-member build.",
+   "Use every free submission on pre-registered, low-degree-of-freedom questions (which label table, which family, single-finding fixes), never on weight tuning. [INF from the median-117 statistic plus this competition's structure: the public LB, ~400 image-graded studies, is 7\u00d7 gold-58.] [PROJECT] ~1\u20133 a day, often unused. [GAP] ~60\u201380 image-graded reads.",
+   "Team up for the last 0.005. [DOC] Top RSNA finishes are mostly teams (lumbar 2nd: 4; SIIM-ISIC 1st: 3). [PROJECT] Solo by choice, and Master does not require a solo gold.",
+   "A 19-day schedule [INF]. Day 0\u20131: rent GPUs; submit the ResNet34 4-fold alone; start the bag-sampling A/B on the Mac. Day 2\u20135: 5-fold Ortho + 5-fold CoAtNet on cloud (OOF \u2192 round-2 targets; members); label lab on the LB; lean one-decode notebook. Day 6\u201312: round-2 all-data students \u00d7 2\u20133 seeds; sequence head on OOF features; a 448 px CNN family. Day 13\u201318: finals retrained with gold; final B = lean equal-rank ensemble, final A = stack with our members in the core slot. Day 19: select by the pre-registered rule."
+  ],
+  "questions_for_owner": [
+   "Can you spend $150\u2013500 on rented GPUs (H100 or A100 on RunPod / Lambda / Vast, or Colab Pro compute units) for training? The rules restrict only the inference notebook, and this is the largest lever available.",
+   "Are the four ResNet34 teacher folds (fusion/runs_teacher_cnn/fold{1..4}/last.pt) still on the Mac, and can build_submit_kernel --ours-only load a resnet34 WindowMIL from its last_meta? If so, one of today's 2 remaining submissions (before the 17:00 PDT reset) could go to the 4-fold CNN read.",
+   "By 'Kaggle master', do you mean the Competitions Master tier (1 gold + 2 silver; team golds count) or a solo gold on the Grandmaster path? Gold here is the top 20 (~0.957 public today). Does that change the no-merger decision before the 10-15 deadline?",
+   "Will you commit to using ~4\u20135 submissions a day on pre-registered paired reads (label lab, single-column probes, family-alone reads)? They cost ~0 GPU quota because only the commit run counts.",
+   "May the Stage B shards (8 \u00d7 ~7.8 GB Kaggle kernel outputs) be copied to a private rented VM? Under the rules' data-protection clause this is normal practice, but it is your call.",
+   "Will you accept a single-column-swap LB probe, pre-registered, as evidence for a one-finding label fix (Synovitis, PF OA, Lateral OA, Lateral Meniscus)? That means retiring DATA.md:682's 'no instrument' line.",
+   "Can you spend ~$50\u2013200 on frontier-LLM API reads of the 4,407 reports with the official grading criteria, judged through the LB label lab rather than gold-58?",
+   "Should round-2 targets be gated on the LB (a ResNet34 label-lab pair) instead of gold-58, given that round 1 passed gold at P 0.994 and read about 0 on the LB?"
+  ]
+ },
+ {
+  "lens": "THE MODEL: what would take a single model from 0.927\u20130.933 to \u2265 0.950",
+  "headline": "Our models are short of training signal and compute, not capacity. Every model trains on 12 random windows out of the 54\u201382 a study has. At eval, a 12-window bag scores 0.048 macro below the full bag (window curve), so for a focal finding 20\u201350% of positive training bags hold no evidence. On top of that, runs are single-seed with no EMA, every non-Stage-B run used one of its two T4s, and the only main model is a ViT-L that costs ~9 session-hours per all-data run, so its recipe was never tuned. A single checkpoint at \u22650.950 by 10-22 is unlikely. About 0.95 is reachable with three things: full-bag training (or a full-bag head on frozen embeddings), 3\u20135 seeds or folds of 2\u20133 families inside our own 9-h notebook (the budget fits about 4 Ortho + 4 CoAtNet at Stage B), and more compute (both T4s, the Mac around the clock, ideally $50\u2013150 of rented A100/H100).",
+  "what_went_wrong": [
+   {
+    "title": "One of the two T4s sat idle on every Stage A, CNN and CoAtNet run (known since 09-26, still unfixed)",
+    "evidence": "notebooks/build_backbone_ab_kernel.py:326-327 launches a single process unless LAYOUT == 'stage_b' or the arch is qwen. The summary.json files read world 1 or None for ab_coatnet (383 min), ab_ortho (514), c6_ortho (667), dread_ortho (667), coatnet_student_r1_all (456; 63.5 min/epoch) and all five ResNet34 runs: about 48.5 session-hours on one GPU. docs/archive/RUNBOOK-2026-09-28.md:1138-1142 already says 'Every GPU kernel here has had two T4s and used one.' Two runs were cut short by the 12-h session: dread and c6 Ortho stopped at 8 epochs ('time budget at epoch 7'), against the public core's 16. Kaggle bills the session, not the GPU.",
+    "cost": "About 20 session-hours, two-thirds of a weekly quota. About 10 h of that came after the 09-26 note (dread 11.1 h, CoAtNet student 7.6 h, ResNet runs 2.4 h). The Stage A Ortho models also got half the epochs they could have had."
+   },
+   {
+    "title": "12-window training bags were treated as harmless; the coverage gap at train time was never tested",
+    "evidence": "Training draws k=12 random windows per study (fusion/train_windows.py:280-282) and scores every window at eval. Window curve (docs/archive/RUNBOOK-2026-09-28.md:1122-1128), c6_ortho trained at k=12: 12 evenly spaced windows \u22120.0483\u00b10.0044 against 54; 18 windows \u22120.0142; 36 windows \u22120.0017. AUDIT.md:186-188 calls the count difference 'harmless for WindowMIL', but that argument covers eval only. Hypergeometric odds that a bag misses a focal finding seen on 6 windows: 20% at Stage A (54 windows, k=12), 34% at Stage B (~76 windows); k=24 brings that to 9%, k=36 to 2%. So Stage B made training bags sparser at fixed k. Each window is seen about 12/82\u00d714 \u2248 2 times over the whole r1 run.",
+    "cost": "Unmeasured. Plausibly 0.005\u20130.015 on the focal findings (Lateral Meniscus, Lateral OA, PF OA, MCL) in every model trained here, the public core included."
+   },
+   {
+    "title": "The small-CNN verdict measured our ViT harness, not the forum's recipe",
+    "evidence": "ResNet34 B 0.8076 and B\u2032 0.8129 on the 691 (LOG.md:77-80). Mapping through Ortho dread (0.8440 on the 691, 0.916 on the LB), that is about 0.88 on the LB, against 0.94+ self-reported by the 22nd and 85th places (REFERENCE \u00a73.1b). How our setup differs from 'ResNet34/EffNetB0, 224\u2013288, simple pooling, no attention':\n- a 12-head attention-MIL head;\n- k=12 of 54 windows;\n- micro=2, so BatchNorm normalizes 24 windows from 2 knees in every layer;\n- 336\u2192224 bilinear with no antialias (train_windows.py:374);\n- resnet34.a1_in1k weights;\n- 18 epochs, about 4 views per window;\n- eval with all windows after training on 12.\nThe archive itself lists 'never tried: simple pooling, more slices, medical pretraining' (archive :375-376). B's train loss of 0.606 sits below Ortho's 0.625 while it generalizes 0.036 worse, which looks like memorization through noisy bags.",
+    "cost": "We lost a family that costs 1/40 of Ortho per run (1.9 min/epoch on a T4), and with it cheap seeds, diversity and cheap teachers. The round-1 teacher became the weakest model available, and the round-1 students read about 0 on the LB (CoAtNet 0.931 vs 0.933; Ortho r1 roughly the sum of the known levers). About 1 week."
+   },
+   {
+    "title": "Single-seed decisions, with seed noise never measured",
+    "evidence": "score_oof's paired SE (\u00b10.004\u20130.005) covers study sampling only. The same recipe on Mac vs Kaggle differed by B\u2032\u2212B = +0.0053 (LOG.md:78-80). Mean per-finding Spearman on the 691, computed here from fusion/runs_*/oof_all.csv:\n- ResNet34 B vs C (identical apart from the affine): 0.808.\n- ResNet34 B vs Ortho-r1: 0.797, so seed-level disagreement is as large as the architecture gap.\n- c6 vs c7: 0.921.\nThree levers were closed on single seeds within that noise: zoom (Z\u2212R +0.0070, P 0.943), the affine augmentation (\u22120.0019) and NYU N (+0.0035). Every run used seed 42.",
+    "cost": "Possibly closed real +0.005-scale levers. It also hid how much seed and fold ensembling is worth."
+   },
+   {
+    "title": "The main model is too expensive to iterate on, so its recipe was never tuned",
+    "evidence": "Ortho Stage B trains at 2.525 s per 2-study micro-step per T4, about 105 ms per window (runs_ortho_student_r1 bench.json): 36 min/epoch on 3,502 with DDP and about 8.6 h for an all-data run, so roughly one Ortho experiment per week. Its recipe is the public CoAtNet's: lr, OneCycle 15%, k=12, clip 3.0, intensity-only augmentation (train_windows.py:748). On top sits one Stage B package (llrd 0.9, drop_path 0.1, top lr 9e-5, slot and depth embedding; build_backbone_ab_kernel.py PACKAGE) adopted as a bundle and never ablated. Unchanged in every Ortho run: aug_affine 0.0, no EMA, one seed. The confidence weight 0.25+0.75|2y\u22121| (train_windows.py:759) was built for steven_v2's 'not said' 0.5. It was kept for dread_soft and the teacher targets, cutting dread_soft's 0.45 level to a third of the weight, and was never A/B'd. The public core has no such weight.",
+    "cost": "Bag size, EMA, augmentation and schedule have never been touched on the main model; plausibly 0.005\u20130.01."
+   },
+   {
+    "title": "The CoAtNet student spent 7.6 session-hours on a null its setup made likely",
+    "evidence": "It started from the converged SWA public core and restarted a full OneCycle at the same 3e-5 peak: loss 0.5756 \u2192 0.5822 at epoch 1 \u2192 0.5536, relative weight change 0.024 (RUNBOOK.md:184-186). It kept Stage A input for core-slot compatibility, so it never got Stage B's +0.014. It trained on the weakest teacher (ResNet34 at 224) on one T4, and read 0.931 vs 0.933.",
+    "cost": "7.6 session-hours and the weekend's main read."
+   },
+   {
+    "title": "Ortho r1 held out the 691 for a read that cannot judge its labels",
+    "evidence": "RUNBOOK rule 3: 'the 691 judges fixed-target comparisons only'. r1 trained on teacher targets with 3,502 studies (\u221224% data). The public author measured +0.010 from all data (MODEL.md \u00a70), so our best-alone 0.927 lacks it. The fix is today's 8.6-h all-data run.",
+    "cost": "About 0.01 LB on the 10-03 read, and a week."
+   }
+  ],
+  "closed_too_early": [
+   {
+    "title": "'k=12 vs every window is harmless for WindowMIL' (AUDIT.md:186-188)",
+    "why_reopen": "The argument covers eval only: the attention pool accepts any window count. Whether 12-window training bags carry enough evidence was never asked, and the evidence says they often don't.",
+    "evidence": "Window curve: 12 windows \u22120.0483, 18 \u22120.0142, 36 \u22120.0017 against 54 (archive :1122-1128). Hypergeometric miss rates are 20\u201334% for a 6-window finding at k=12. The stack's core code gains +0.005 from denser test sampling plus a reversed pass on the same weights (RUNBOOK.md:56)."
+   },
+   {
+    "title": "Small CNN as a main model or family (RUNBOOK Settled, 'Cut: ResNet34 as a main model'; archive :364-368)",
+    "why_reopen": "It was tested inside a harness with CNN-specific defects:\n- BatchNorm over 2-study micro-batches;\n- a 224 downsample without antialias;\n- an attention-MIL head;\n- k=12.\nIt never got the forum's recipe: simple pooling, every slice, larger batches, 384 native, in21k weights, EMA. Resolution alone moved it +0.009 (R) and zoom +0.016 (Z), so it was resolution-starved, not capped.",
+    "evidence": "LOG.md:77-140 (B\u2032 0.8129, R 0.8218, Z 0.8288); REFERENCE \u00a73.1b (0.94+ at 224\u2013288 px); ResNet34-B vs Ortho-r1 per-finding Spearman 0.797, so a working CNN would add real diversity."
+   },
+   {
+    "title": "Zoom / crops 'STOPS' (LOG.md:128-140)",
+    "why_reopen": "One seed at P 0.943, with seed noise of about \u00b10.005 (B\u2032 vs B). The crop-specific gains landed on hard findings: MCL +0.052 over R, Lateral OA +0.042 over B\u2032, and Lateral OA is one of the gold weak four. It was never tested on a ViT. For Ortho at 384 a 16-px token covers 5.8 mm, so a zoomed view means finer tokens over the same pixels, which is not the same as 'more resolution'.",
+    "evidence": "Z\u2212R +0.0070\u00b10.0045. DATA \u00a710b: thin cartilage and ligaments are smaller than one ViT token; CoAtNet (conv early stages) beat Ortho on Lateral OA (+0.024) and PF OA (+0.022) in runs_ab_ortho/score_vs_coatnet.txt."
+   },
+   {
+    "title": "'Augmentation buys nothing' (C vs B \u22120.0019, archive :364-368)",
+    "why_reopen": "Tested on ResNet34 at 224 only, with one seed. The 303M-parameter Ortho and the 74M CoAtNet still train with a \u00b110% intensity gain as their only augmentation and have never had an augmentation arm.",
+    "evidence": "aug_affine 0.0 in every Ortho and CoAtNet summary.json; train_windows.py:748."
+   },
+   {
+    "title": "Seed/fold ensembling of one family ('worth ~+0.001', MODEL.md:34); avg3 as the only averaging",
+    "why_reopen": "Our own OOFs show high run-to-run disagreement, so averaging seeds or folds should pay more than the core author's 3-arm blend on one corpus. avg3 averages the last 3 epochs at an annealed LR, which is not a seed ensemble.",
+    "evidence": "Spearman ResNet34 B vs C 0.808 (recipes one flag apart); avg3 moved the 691 by +0.000 to +0.0024 (RUNBOOK Open 5); the public stack is +0.015 over its best member."
+   },
+   {
+    "title": "'The blend of our own two models' (RUNBOOK.md:285, Cut)",
+    "why_reopen": "It was cut when the second model was a weak ResNet34 (\u22120.0057 on the 691). The current pair (CoAtNet student 0.931, Ortho student 0.927, soon Ortho all-data) has never had an LB read, and it is final B's core.",
+    "evidence": "Ortho-r1 vs ImageNet-CoAtNet per-finding Spearman: 0.797 mean, Baker's 0.574, Lateral OA 0.734, Lateral Meniscus 0.791. Per-finding strengths are complementary (score_vs_coatnet.txt)."
+   },
+   {
+    "title": "NYU pseudo-labelled knees (N null, LOG.md:100-104)",
+    "why_reopen": "It was run with the weakest teacher (the mean of 4 ResNet34 folds) and the weakest student (ResNet34 at 224, 6 epochs). Noisy Student needs a strong teacher and a student at least as large, with noise. Worth revisiting only if rented compute and Ortho-fold pseudo-labels exist; low priority.",
+    "evidence": "N +0.0035\u00b10.0051, P 0.75, with Contusion +0.041 and Effusion +0.017."
+   }
+  ],
+  "ideas": [
+   {
+    "title": "Use the compute already paid for: both T4s on every run, the Mac around the clock, and resume across sessions",
+    "mechanism": "Kaggle bills the session, not the GPU.\n- Set NPROC to device_count for stage_a; DDP is already proven on Stage B. For single-GPU arms, run two independent arms or seeds per session with CUDA_VISIBLE_DEVICES=0 and 1.\n- Add checkpoint and resume (optimizer, scheduler and scaler state saved each epoch to /kaggle/working, with the previous version attached as input) so a schedule is no longer capped at 12 h. dread and c6 were cut to 8 epochs where the core used 16.\n- Keep the idle Mac on the CNN and head experiments below every night.",
+    "evidence_for": "build_backbone_ab_kernel.py:326-327; 48.5 single-GPU session-hours in fusion/runs_*; c6 and dread stopped at the time budget; the Mac runs ResNet34 at ~5 min/epoch and is free; RUNBOOK 'Running now: nothing'.",
+    "evidence_against": "CPU and shard I/O contention for two concurrent arms is unmeasured (data wait is 0.3% for CoAtNet, 6\u20138% for ResNet34). Confirm the per-session billing on the quota page.",
+    "expected_lb_gain": "0 directly. Roughly doubles the number of runs and seeds, which feeds the +0.003\u20130.008 from seeds below.",
+    "cost": "About 0.5\u20131 engineering day; no GPU.",
+    "time_to_first_signal": "Next push: CoAtNet at 4,349 should drop from 63.5 to ~33 min/epoch.",
+    "fastest_test": "Build the next CoAtNet stage_a run with NPROC=2 (TW_FORCE_CKPT smoke as rule 11). Read 'steps/epoch' halving and identical DDP checksums in the log."
+   },
+   {
+    "title": "Rent GPU time for training; keep the Kaggle quota for inference and commit runs",
+    "mechanism": "A T4 runs fp16 at roughly 20\u201325 effective TFLOPs. An A100 runs bf16 at about 150, an H100 at 300+.\n- Ortho all-data (8.6 h on 2\u00d7T4, ~17 T4-GPU-h) \u2248 2.5\u20133 A100-h, about $5.\n- 4 Ortho teacher folds \u2248 $20.\n- 3 extra seeds \u2248 $15.\nIt also unlocks k=24\u201336 bags, 448 px and full 16-epoch schedules that do not fit a 12-h T4 session. Switch autocast to bf16 (train_windows.autocast is hard-coded to fp16 on CUDA). Download the Stage A and B shards (32 + 62 GB) with the kaggle CLI. The infer_windows --check-against gate already proves parity back on Kaggle. A secondary free option is Kaggle's separate TPU quota, but PyTorch/XLA porting of a RoPE ViT-L is risky in 19 days.",
+    "evidence_for": "About 64 session-hours of T4\u00d72 remain (~4 now + 30 + ~30), and the plan needs ~20 h for teacher folds alone. The public core trained in bf16 (MODEL.md \u00a70), so its author did not use T4s. Rules: competition data may be used 'for any purpose\u2026 including participating' (COMPETITION_RULES.txt:74); winner obligations only require documented training code and environment.",
+    "evidence_against": "The owner's budget and preference are unknown. A day of setup. Data-handling duty ('reasonable measures', rules :80). bf16 vs fp16 numerics need one parity check.",
+    "expected_lb_gain": "Enabler. The levers it makes affordable (folds, seeds, bag size, round 2) plausibly add +0.01\u20130.02 to the final.",
+    "cost": "$50\u2013150 total; about 1 day of setup.",
+    "time_to_first_signal": "1 day",
+    "fastest_test": "Rent one A100 or H100 for an hour. Copy one Stage B shard and run 50 Ortho steps with --max-steps at micro 4 in bf16. If it is \u22656\u00d7 a T4's 2.525 s per 2-study step, move the teacher folds and seeds there."
+   },
+   {
+    "title": "Fix the training bag: k=12 random windows \u2192 k=24\u201336 or slot-stratified bags (test on the CNN tonight, then port)",
+    "mechanism": "Each training bag should contain the evidence for its label. Arms:\n- k=36 at equal window-passes (epochs/3);\n- k=36 at full epochs;\n- k=12 stratified by slot and depth (thin_windows plus jitter instead of rng.sample).\nThe eval-bag mismatch also shrinks. Port the winner to CoAtNet first (k=24 \u2248 2\u00d7 cost) and to Ortho with rented compute (k=24 on 2\u00d7T4 \u2248 90 min/epoch at 4,349, which does not fit 11 epochs in 12 h without resume).",
+    "evidence_for": "Window curve: 12 windows \u22120.048, 36 windows \u22120.0017. 34% of positive bags miss a 6-window finding at Stage B. The forum's CNNs pool every slice. The core gains +0.005 from denser test sampling.",
+    "evidence_against": "The 0.928\u20130.933 public core trains at k=12, so k=12 is not fatal. Fewer distinct study updates per unit of compute could hurt the global findings (Effusion, Synovitis). Port cost is 2\u20133\u00d7 per epoch.",
+    "expected_lb_gain": "+0.003\u20130.010, concentrated on Lateral Meniscus, Lateral OA, PF OA and MCL.",
+    "cost": "Mac: B\u2032 recipe at k=36 \u2248 15 min/epoch, so 6 epochs \u2248 1.5 h and 18 epochs \u2248 4.5 h, plus the stratified arm at 1.5 h, all free. Port: CoAtNet k=24 \u2248 7.3 session-h for 7 epochs on 2\u00d7T4.",
+    "time_to_first_signal": "Overnight on the Mac (~8 h).",
+    "fastest_test": "train_windows --arch resnet34 --mps --k 36 --epochs 6 (and 18) on Stage A with dread_soft, the same 3,502 / 691. Pair against B\u2032 0.8129 with score_oof and report the weak findings. Run 2 seeds of B\u2032 first so seed noise is known."
+   },
+   {
+    "title": "Full-bag head on frozen r1 embeddings, plus an attention and slot diagnostic (best use of this week's ~4 h)",
+    "mechanism": "Extract every window's 1024-d CLS output from r1's last.pt for the 3,502 train studies, the 691 and gold (eval mode, no gradients). On the Mac, train heads on FULL bags and compare each with r1's own head on the 691 (0.8534, same targets):\n- (a) the same per-finding attention MIL with window dropout;\n- (b) gated attention;\n- (c) a 2-layer transformer or bi-GRU over windows ordered within each slot, giving sequence context for the meniscus criterion 'surface contact on \u22652 images';\n- (d) per-slot mean+max pooling then linear (the forum's 'simple pooling').\nWith the same embeddings: per-finding attention mass by slot and depth (does Lateral Meniscus look at lateral sagittal depth? does PF OA use the axial slot?) and leave-one-slot-out on the 691. If a head wins, re-extract embeddings for the all-data model (1.75 session-h) and ship that head. Later, the Ortho teacher folds give clean OOF embeddings.",
+    "evidence_for": "Window curve; RSNA 2024 lumbar 1st place used attention MIL plus a bi-LSTM over slices (REFERENCE \u00a74.5); the gold meniscus criterion (REFERENCE \u00a72); a head costs seconds per epoch, so many arms are free.",
+    "evidence_against": "Embeddings for the 3,502 are in-sample (the encoder saw those labels), so a re-fitted head may overfit; the 691 shows that. The encoder was tuned for 12-window bags, so head-only gains may be small.",
+    "expected_lb_gain": "+0.002\u20130.006 if it transfers. The diagnostic itself decides whether crops or specialists are worth building.",
+    "cost": "About 1.7 session-hours (4,251 studies \u00d7 2.9 s / 2 GPUs) and ~0.7 GB of fp16 embeddings; the Mac is free.",
+    "time_to_first_signal": "About 1 day.",
+    "fastest_test": "A kernel: r1 last.pt with --epochs 0, saving every window's encoder output for train, 691 and gold. Read paired 691 deltas per head arm."
+   },
+   {
+    "title": "A second family that pulls its weight: CoAtNet on Stage B (canonical, native 384, 96 slices, slot and depth embedding), from the public init, DDP, all data",
+    "mechanism": "The CoAtNet student used Stage A only to fit the stack's core slot. For final B the slot doesn't matter: give CoAtNet the input that bought Ortho +0.014 on the LB. Fine-tune 7\u20138 epochs from raptor maxspan-v5 on 2\u00d7T4. Optionally use k=24 and EMA if the CNN tests pass.",
+    "evidence_for": "Stage B +0.0112 on the 691 (runs_c7_ortho/score_runs_ortho.txt), +0.014 on the LB. CoAtNet beats Ortho on Lateral OA (+0.024), PF OA (+0.022), MCL and Fracture (runs_ab_ortho/score_vs_coatnet.txt), two of the gold weak four. Ortho-r1 vs CoAtNet per-finding Spearman 0.797 (Baker's 0.57, Lateral OA 0.73). Training costs 72 ms/window vs Ortho's 105.",
+    "evidence_against": "Fine-tuning the core on new targets moved nothing (0.931 vs 0.933). The init's features and BN statistics come from upsampled, non-canonical input. The init saw the 691, so only the LB can judge.",
+    "expected_lb_gain": "Alone about 0.935\u20130.945. Equal-rank with Ortho all-data, +0.005\u20130.010 over the better of the two.",
+    "cost": "About 4.5 session-hours (\u224832 min/epoch at 4,349 on DDP \u00d7 8, plus eval); inference \u2248 16 min per model on 2\u00d7T4.",
+    "time_to_first_signal": "One session plus a commit run (~1 day).",
+    "fastest_test": "build_backbone_ab_kernel --arch coatnet --corpus stage_b --all-data --train-args '--init \u2026maxspan\u2026 --epochs 8'. Read alone through --ours-only, paired against 0.931."
+   },
+   {
+    "title": "Seeds and folds inside our own 9-h notebook (final B), one shared decode, and the stack's dense + reversed inference for any Stage A CoAtNet",
+    "mechanism": "Final B owes nothing to the stack's 8\u20139 h runtime.\n- Ortho Stage B costs 2.88 s/study/T4, about 32 min per model on 2\u00d7T4. A Stage B CoAtNet \u2248 16 min. Stage B decode \u2248 31 min once (b=3.8 s/study/worker \u00d7 1.5, archive :1119).\n- So 4 Ortho + 4 CoAtNet plus TTA fit in about 4\u20135 h. infer_windows needs to decode once and run N checkpoints.\n- Any Stage A CoAtNet must go through the stack's core code (\u226496 slices plus a reversed pass), worth +0.005 on the same weights (RUNBOOK.md:56), not through infer_windows' 64 slices.",
+    "evidence_for": "Near-identical ResNet recipes rank-correlate at only 0.81; the stack is +0.015 over its best member; the hidden-test rerun costs no quota.",
+    "evidence_against": "The core author: same-family blends worth ~+0.001 (MODEL.md:34). Each extra Ortho seed costs 8.6 session-h on T4s.",
+    "expected_lb_gain": "+0.004\u20130.010 for 3\u20134 Ortho models vs 1; +0.005 for the CoAtNet run through the stack's core code.",
+    "cost": "About 1 engineering day for multi-model inference; training per extra Ortho seed 8.6 session-h (or ~$5 rented).",
+    "time_to_first_signal": "Tonight, once Ortho all-data finishes.",
+    "fastest_test": "A free 2-model ensemble already exists: r1 (3,502) + Ortho all-data (4,349). Submit their average through --ours-only next to all-data alone. One commit run, no training."
+   },
+   {
+    "title": "Ortho k-fold as a triple-use investment, not just a teacher",
+    "mechanism": "Use r1 as fold 0 (it is already out-of-fold on 847 fold-0 studies) plus 4 new folds over the 3,502 pool. Each fold run saves:\n- (1) OOF probabilities \u2192 round-2 targets, mapped per fold as AUDIT.md:83-103 requires;\n- (2) OOF per-window embeddings \u2192 a leak-free stage-2 head trained on full bags;\n- (3) last.pt \u2192 a 5-model test ensemble in final B.\nIf compute allows, add CoAtNet-from-ImageNet folds so the teacher spans two families.",
+    "evidence_for": "On gold: report + Ortho OOF 0.9216\u20130.927 vs report + ResNet34 0.913 (DATA \u00a712 item 2; archive :640 table). A strong teacher dilutes less than a weak one (Ortho + pilkwang < Ortho alone).",
+    "evidence_against": "Round 1 bought ~0 to +0.005 on the LB. Fold models train on 3/4 of the data, so each is weaker than all-data. Gold can only gate one teacher variant (AUDIT open question 3).",
+    "expected_lb_gain": "Round-2 student +0.003\u20130.008; the fold ensemble at test +0.003\u20130.007.",
+    "cost": "About 5.1 session-hours per fold (\u224834 min/epoch \u00d7 8 + eval of ~1,090 held-out studies), so ~20.5 h, or ~$20 rented.",
+    "time_to_first_signal": "About 1 week on T4s (the 10-09 reset); about 1 day rented.",
+    "fastest_test": "Pre-register the gold gate against round 1's 0.913. Make each fold also save last.pt and the per-window embeddings for its held-out fold and for gold."
+   },
+   {
+    "title": "Dense-slice TTA for Stage B models",
+    "mechanism": "Add a 'c7-dense' spec: the same 7 slots with about 1.5\u00d7 the slices each, built from DICOMs at inference. window_meta's relative depth keeps the slot and depth embedding meaningful, and the attention pool accepts any count. It mainly fills in the coronal and axial slots (Stage B keeps 16 of ~30 coronal and 14 of ~32 axial slices, DATA \u00a710b).",
+    "evidence_for": "The window curve was still rising from 36 to 54 windows (+0.0017). The stack's core gains +0.005 from \u226496 slices plus a reversed pass on the same weights.",
+    "evidence_against": "Sagittal is already nearly complete at Stage B. Inference is decode-bound, so decode grows about 1.5\u00d7 (~45 min). The depth embedding was learned on fixed slot sizes.",
+    "expected_lb_gain": "+0.001\u20130.004",
+    "cost": "About 20 lines (a new SPECS entry plus a load_meta bypass); about 0.7 session-hours to read on the 691 from DICOMs.",
+    "time_to_first_signal": "About 1 day.",
+    "fastest_test": "infer_windows on the 691 with r1 weights, spec c7 vs c7-dense. Paired with score_oof (fixed model and targets, so the 691 is a valid judge)."
+   },
+   {
+    "title": "EMA of weights in every run",
+    "mechanism": "Keep an exponential moving average of the weights (decay \u2248 0.999 per optimizer step, about a 2-epoch horizon) and evaluate and ship the EMA weights. For Ortho, hold it on the CPU and update every 4\u20138 steps: peak GPU memory is 14.5 of 15 GB (runs_ortho_student_r1 bench.json). CoAtNet and the CNNs can hold it on the GPU.",
+    "evidence_for": "Fine-tuning on noisy labels usually gains from weight averaging. The public core ships a gold-picked top-3 SWA. Our avg3 (last 3 epochs at near-zero LR) is a weak proxy that still read +0.000 to +0.0024.",
+    "evidence_against": "OneCycle's anneal already averages somewhat; the gain may sit below seed noise.",
+    "expected_lb_gain": "+0.001\u20130.004",
+    "cost": "About 30 lines; ~1\u20132% step time for Ortho.",
+    "time_to_first_signal": "Overnight on the Mac.",
+    "fastest_test": "B\u2032 recipe \u00b1 EMA on the Mac, 2 seeds each, paired on the 691. Then make it the default for every later run."
+   },
+   {
+    "title": "Build the fast CNN family properly at 384 (the forum's 0.94+ recipe in our input)",
+    "mechanism": "One Mac sweep, two seeds per arm:\n- BatchNorm fix: micro \u22658 studies (ResNet34 peaks at only 0.86 GB at micro 2) or frozen BatchNorm;\n- antialiased resize, or native 336/384;\n- simple GeM or mean+max pooling vs the attention head;\n- k \u226524;\n- in21k-pretrained EfficientNetV2-S or ConvNeXt-S;\n- EMA;\n- confidence-weighted loss vs plain BCE.\nThe winner trains on Stage B at 384 as 3\u20135 seeds. Each costs about 3.5 T4-hours (\u224812 ms/window, estimated), two per session.",
+    "evidence_for": "Forum 0.94+ (REFERENCE \u00a73.1b). R +0.0089 and Z +0.0159 show the CNN was resolution-starved. CNN-specific defects in our setup: BatchNorm over 2 knees per micro-batch, train_windows.py:374 without antialias. RSNA 2024 lumbar found ConvNeXt-S/EffNetV2-S beat ViTs (REFERENCE \u00a74.5). Diversity: the CNN's rank correlation with Ortho is 0.80.",
+    "evidence_against": "The affine arm was null; 'the ceiling is what the features can see' (archive :367); the archive's 9e saw five encoders in one band; a CNN at 384 is about 6\u00d7 ResNet34@224 per window.",
+    "expected_lb_gain": "Single about 0.925\u20130.935; as a third family in final B, +0.003\u20130.008.",
+    "cost": "Mac sweep free over 2\u20133 days; then about 9 session-hours for 5 seeds at 384.",
+    "time_to_first_signal": "2\u20133 days.",
+    "fastest_test": "Mac, Stage A: B\u2032 vs B\u2032 with --micro 8 vs B\u2032 with a GeM/mean+max head vs B\u2032 at 336 with antialias, 2 seeds each, paired on the 691."
+   },
+   {
+    "title": "Per-finding spatial attention (dense MIL) for the cartilage findings",
+    "mechanism": "Replace the in-window global average (CoAtNet's 12\u00d712 or ResNet's 11\u00d711 final map) with per-finding attention over window \u00d7 spatial cells. For Ortho, use patch tokens instead of the CLS token only. A 2\u20133 mm cartilage defect is 1 of ~144 cells and is diluted by an average pool. Pair it with a zoomed view (the centre 94 mm) for the joint-line findings.",
+    "evidence_for": "Owner Q&A 09-28 (archive :249) already named it as 'a small head change'. Lateral OA moved +0.042 with zoom on the CNN, and conv features beat ViT on Lateral OA and PF OA. Lateral OA and PF OA are 2 of the gold weak four.",
+    "evidence_against": "Never measured. Deep features have large receptive fields, so dilution may already be learned around. The public core uses avg pooling and reads 0.928. Attention can collapse onto artifacts.",
+    "expected_lb_gain": "+0.002\u20130.008 macro, mostly Lateral OA and PF OA.",
+    "cost": "About 40 lines; one Mac arm (ResNet34@336 \u2248 3 h); a CoAtNet port of about 4.5 session-hours if it passes.",
+    "time_to_first_signal": "About 1 day on the Mac.",
+    "fastest_test": "R (ResNet34@336, 0.8218) vs R with a dense per-finding attention head, 2 seeds, paired on the 691, reading Lateral OA and PF OA."
+   },
+   {
+    "title": "Mirror-swap augmentation for the lateral findings (unconventional)",
+    "mechanism": "On canonical Stage B, randomly mirror a study: reverse the sagittal slice order and depth, flip coronal and axial columns. Then swap the Medial\u2194Lateral Meniscus and Medial\u2194Lateral OA targets, and mask the MCL loss (no LCL label). The lateral heads gain the far more common medial positives as extra examples.",
+    "evidence_for": "Lateral Meniscus and Lateral OA are both in the gold weak four. Their medial twins are strong (691 r1: Medial Meniscus 0.909 vs Lateral 0.869; Medial OA 0.868 vs Lateral 0.803). No flip has ever been used here, because a flip without the label swap breaks laterality.",
+    "evidence_against": "The knee is not mirror-symmetric (O-shaped lateral meniscus, popliteus hiatus, fibula), so a mirrored medial knee is a synthetic 'lateral' knee and may teach artifacts. The depth embedding semantics change.",
+    "expected_lb_gain": "\u22120.002 to +0.004 macro; high variance.",
+    "cost": "About 30 lines; a CNN test needs the Stage B cache locally (62 GB) or about 2 T4-hours.",
+    "time_to_first_signal": "2 days.",
+    "fastest_test": "Fast CNN at Stage B, mirror p=0.3 vs off, 2 seeds, reading Lateral Meniscus and Lateral OA on the 691."
+   }
+  ],
+  "winner_would": [
+   "Treat compute as the binding constraint. Rent an A100/H100 for training (about $100 covers folds, seeds and k=36) and spend Kaggle quota on commit runs. At minimum, never leave a T4 or the Mac idle, and add resume so schedules are not capped at 12 h.",
+   "Screen the training recipe on a cheap proxy (the CNN on the Mac or a T4) with 2 seeds per arm, then port only the winners (bag size, head, EMA, augmentation) to Ortho and CoAtNet. Today the main model's recipe is copied, not tuned.",
+   "Train on (near-)full bags, or go two-stage: fine-tune the encoder, then train the aggregator, with sequence context and per-finding attention, on every window's embedding.",
+   "Run 5 folds of the main recipe once and use them three ways: OOF teacher targets for round 2, leak-free embeddings for the stage-2 head, and a fold ensemble at test.",
+   "Make final B 2\u20133 strong, diverse families (Ortho ViT-L, a Stage B CoAtNet, a fixed fast CNN) \u00d7 3\u20135 seeds or folds at equal rank, using the full 9 h. Never add a weaker member at 1/3 to someone else's stack.",
+   "Ship EMA weights. Measure dense-slice TTA once on the 691. Run any Stage A CoAtNet through the stack's dense + reversed core code (+0.005).",
+   "Measure seed noise once (two seeds of one recipe) and refuse to close a lever whose effect is smaller than that noise.",
+   "Put gold-58 into the final all-data training (\u00d73\u20135), finals only: they are the only labels drawn the way the test is graded.",
+   "Aim architecture work at the gold weak four: local pooling or a zoom view for cartilage (Lateral OA, PF OA), canonical depth plus a sequence head for Lateral Meniscus, a stronger image teacher for Synovitis. Stop spending runs on findings already at 0.93\u20130.99."
+  ],
+  "questions_for_owner": [
+   "Will you rent GPU time (about $50\u2013150 of A100/H100 on RunPod, Lambda or vast)? The rules allow off-Kaggle training, and it would turn the ~64 remaining T4\u00d72 session-hours into the equivalent of several hundred.",
+   "Can the Mac run CNN and head experiments around the clock from tonight (on power, lid open)? Is there disk for the Stage B cache (62 GB) next to Stage A's 32 GB?",
+   "Can about 1.7 h of this week's remaining ~4 h go to extracting r1's every-window embeddings (3,502 + 691 + gold), so full-bag heads, a sequence head and the slot/attention diagnostic can be tested on the Mac?",
+   "For final B, are you willing to drop the public stack entirely and use the whole 9 h for 3\u20135 Ortho + 4\u20135 CoAtNet/CNN models plus TTA?",
+   "Will you accept gold-58 (\u00d73) inside the final training runs, giving up the gold diagnostic for the finals?",
+   "If the CNN test shows larger bags help, will you change k in the main recipe even though it departs from the public recipe and doubles the cost per epoch?",
+   "Can you confirm on your Kaggle quota page that a T4\u00d72 session is billed per session-hour? That decides whether two arms per session doubles our throughput."
+  ]
+ },
+ {
+  "lens": "THE LABELS: how to get training targets closer to the radiologists' image grades",
+  "headline": "The teacher-to-student gate measured the wrong thing. On gold-58, \"report + image teacher\" (+0.026) is an ensemble that includes the report, and test studies have no report. A teacher trained on the same report labels can only teach E[report | image], which a student learns anyway. That is why the students read flat both on gold (Ortho student 0.911 vs dread 0.912, even with Stage B added; CoAtNet 0.9192 vs 0.9187) and on the LB (0.931 vs 0.933; 0.927 vs about 0.930 if the levers added). The one label change that moved the LB (+0.015, dread_soft) added new information about where the graders draw the line. Its stronger version, a frontier LLM reading all 4,407 reports against the official criteria (~$60\u2013150), was planned on 09-06 and never run. Recommendation: move label effort from GPU-hours on same-label teachers to API dollars on grader-side information. Bundle the fixes into one target set and judge it with free Mac-trained students on the LB.",
+  "what_went_wrong": [
+   {
+    "title": "The label gate scored a report-plus-image ensemble that cannot exist at test time",
+    "evidence": "build_student_targets.py:13-18 and :137: the target is the mean of the report level and the teacher (mapped onto the base). The gate (docs/archive/RUNBOOK-2026-09-28.md:542) scored those TARGETS as predictors on gold: 0.8873 -> 0.9132, P 0.994. The students trained on them read flat. From fusion/runs_*/summary.json gold_macro_report_only: c6 (Stage A, steven_v2) 0.8777 -> c7 (Stage B, steven_v2) 0.8897, so Stage B alone is worth about +0.012 on gold. Yet dread (Stage A, dread_soft) 0.9121 -> Ortho student (Stage B + teacher targets) 0.9111, which puts the teacher at about -0.01 on gold. CoAtNet student 0.9192 vs public start 0.9187. On the LB: 0.931 vs 0.933, and 0.927 vs about 0.930 if the levers added (RUNBOOK.md:63). Gold-58 does work as an instrument when it scores a STUDENT: c6 -> dread +0.034 on gold matched +0.015 on the LB. A gate of this shape cannot fail: every decent image teacher adds to the report as a predictor (pilkwang aside: +0.003).",
+    "cost": "~17 GPU-h (CoAtNet student 7.4 h, Ortho student ~10 h, part of it also bought Stage B and all-data value), 4.7 Mac-h of CNN teachers, ~5 days. Plan item (1) would spend ~20 more GPU-h (2/3 of a week) under the same gate, which will pass (report + Ortho OOF already reads 0.9216\u20130.927) and predicts nothing."
+   },
+   {
+    "title": "The frontier-LLM criteria read was planned, costed and never run; a 9B 4-bit local model was tested instead and the route was closed by analogy",
+    "evidence": "DATA.md \u00a76\u2013\u00a77: Opus batch $60\u2013150, Stage L scheduled Sep 7\u201315, with the official criteria verbatim, structured outputs and a mention mask. extractor/llm_extract.py still carries the older 5-state schema, never submitted. extractor/qwen_label.py:45 ran Qwen3.5-9B-MLX-4bit with no thinking, scored from next-token letters. Result (DATA.md:530-535): -0.0108 overall, frozen six -0.039, but Fracture +0.108. docs/archive/RUNBOOK-2026-09-28.md:519 says the route 'stays unrun: every reader reads the same text'. Two days later dread_soft, a better-graded reading of the same text, gave +0.015 LB.",
+    "cost": "The only label lever that costs dollars rather than GPU sat idle for ~4 weeks. Plausible LB left on the table: +0.003 to +0.010 single model."
+   },
+   {
+    "title": "The teacher was weaker than the student, the students were not noised, and the CoAtNet student was a short fine-tune from a converged SWA checkpoint",
+    "evidence": "CNN teacher mean of 4 folds on the 691: 0.832 (archive :542), vs the Ortho student's 0.853 (fusion/runs_ortho_student_r1/score_runs_ortho.txt). CoAtNet student summary.json: drop_path 0.0, aug_affine 0.0, 7 epochs, init = public SWA; relative weight change 0.024 (RUNBOOK). Ortho student: drop_path 0.1, aug_affine 0. Noisy Student / born-again gains need a teacher at least as strong as the student, a student trained with noise, and enough steps to leave the old basin. Round 1 met none of these.",
+    "cost": "Round 1 could not show a gain even if the mechanism works. So the null is uninformative about Ortho-strength teachers, and 20 GPU-h is being decided by forecast."
+   },
+   {
+    "title": "No control isolates the teacher's LB effect",
+    "evidence": "Stage B + dread_soft without a teacher was never trained. 0.927 (Stage B + teacher targets) is compared with an additive forecast of ~0.930 (RUNBOOK.md:63), with \u00b10.005\u20130.008 noise. The Mac could have run the equivalent ResNet34 pair for free.",
+    "cost": "The decision on the plan's most expensive item (Ortho k-fold, ~20 GPU-h) rests on inference, not measurement."
+   },
+   {
+    "title": "The label instrument's iteration tier was never built",
+    "evidence": "DATA.md \u00a73 designs two tiers: 303 hand-read studies for iteration, gold-58 as arbiter. labeling/model_labels.csv has 86 rows (L1 '217 of 303' never finished, DATA.md \u00a77). So every reader decision has had to spend gold-58 (\u22643 candidates) or an LB read.",
+    "cost": "No cheap way to iterate a prompt; this made the frontier read look riskier than it is."
+   },
+   {
+    "title": "The LB, the only large image-graded set, was barely used for labels",
+    "evidence": "5 submissions/day, about 95 left before 10-22. The hidden-test rerun is off-quota; only the ~6-minute commit run counts (RUNBOOK Open item 4). One LB read decided the biggest label question (dread_soft, +0.015). Mac students (free, about 1 h each) have never been submitted. The public LB is ~400 graded studies x 12 findings, about 7x gold-58.",
+    "cost": "Roughly 10\u201320 label reads that could have run since 09-28 at about 0.1 GPU-h each."
+   },
+   {
+    "title": "Fixes tested one at a time below the instrument's resolution",
+    "evidence": "DATA.md \u00a712 item 8: 'No instrument can confirm a one-finding fix: +0.03 on one finding is +0.0025 macro, and a paired LB read resolves \u00b10.005'. The Synovitis fix, the OA compartment fix and the extra report outputs are each a one-finding or few-finding change.",
+    "cost": "Each small but principled fix returns a null and never ships, even though their sum could be detectable."
+   },
+   {
+    "title": "The Synovitis silence fix was judged with a circular teacher",
+    "evidence": "DATA.md:662-672. In dread_soft, Synovitis is a fill derived from Effusion in 3,751 of 4,349 cells. The ResNet34 teacher that replaced those cells was itself trained on that fill, so it imputes 'effusion-ness'. Result 0.824 vs 0.833, recorded as NOT SUPPORTED.",
+    "cost": "A valid construct-confusion fix (synovitis is not effusion; graders couple them at 0.63/0.22, reports at 0.92/0.01) was closed."
+   },
+   {
+    "title": "Gold-58 spent on exploratory reads",
+    "evidence": "docs/archive/RUNBOOK-2026-09-28.md:634 (7-arm 'TEACHERS ON GOLD' table, not pre-registered), plus the Qwen, NYU, CNN-gate and synovitis reads. AUDIT.md open Q3 flags exactly this.",
+    "cost": "Every later gold number carries ~+0.003\u20130.005 of selection optimism (the project's own estimate for a 3-way pick); the arbiter is wearing out."
+   }
+  ],
+  "closed_too_early": [
+   {
+    "title": "Frontier LLM (Opus/Sonnet 5.5 class) graded read with the official criteria",
+    "why_reopen": "The closing argument (same text, LLM-to-LLM r 0.82, ~0.90 ceiling) was about mention-detectors. Two pieces of evidence point the other way. dread_soft, a better grading of the same text, gave +0.015 on the LB. A criteria-aware reader is a different reader (Qwen Spearman 0.72 with steven_v2), and it lost only where a 9B 4-bit model is weak (ACL/MCL). Gold-58 IS a valid paired instrument for a single reader (SD 0.0042); the ensemble artifact does not apply to a single text source. The hand read's reading-skill headroom is +0.055 [+0.005, +0.111] (DATA.md \u00a71). Cost is dollars and runs alongside GPU work.",
+    "evidence": "DATA.md:530-545; DATA.md \u00a71 and \u00a76; docs/archive/RUNBOOK-2026-09-28.md:296-301, 519; REFERENCE.md \u00a71.1 (commercial LLMs permitted); forum: 71st used API labels for under $5 as part of +0.011 (archive :1302-1304)."
+   },
+   {
+    "title": "Combining label sources into the training target",
+    "why_reopen": "It was closed on the targets-as-predictor instrument: equal rank-mean -0.0041 vs the best single on gold. That instrument also could not see dread_soft's win: it orders studies like steven_v2 (Spearman 0.84\u20130.94 on 9 of 12) yet trains +0.015 better. Two forum teams report LB gains from exactly this: 64th '+0.015 from combining labels' (small ResNet 224 -> 0.936); 71st 0.938 -> 0.949 from multi-source teachers. It needs a student-level test, not a target-level one.",
+    "evidence": "DECISIONS.md:65, :74; DATA.md:541-545; docs/archive/RUNBOOK-2026-09-28.md:1298-1308."
+   },
+   {
+    "title": "Synovitis decoupling from Effusion",
+    "why_reopen": "The test used a teacher trained on the same Effusion fill, so it was circular. A non-circular version is available without new code: mask the fill cells (train_windows --allow-missing-labels, train_windows.py:547/752), then impute them with a mention-masked teacher (CheXpert U-SelfTrained, REFERENCE.md \u00a74.1), or use a frontier read of synovitis-adjacent text (synovial thickening, Hoffa's fat-pad oedema, debris, plica).",
+    "evidence": "DATA.md:662-672; REFERENCE.md \u00a74.1; train_windows.py:547, 752."
+   },
+   {
+    "title": "Training on gold-58 in the finals",
+    "why_reopen": "It has never been tested. It went from 'the frontier did it' to 'no source' on 10-03 (RUNBOOK.md:198), and the trainer has no option for it (train_windows.py:521 says gold is 'never used'). It is the only image-graded supervision that exists, it is legal, and in the finals it costs nothing.",
+    "evidence": "RUNBOOK.md:198-210; train_windows.py:521; REFERENCE.md \u00a71.4 (graders' labels are authoritative)."
+   },
+   {
+    "title": "NYU pseudo-labelled knees",
+    "why_reopen": "Arm N used a weak teacher (4 ResNet34 folds, about 0.83 on the 691) and still read +0.0035 (P 0.75). The standard move uses the strongest teacher that never saw those knees: the public 0.933 core. It can label the existing 7,140-study NYU Stage A cache on the Mac. Reopen only if the fastMRI terms allow publishing a winning model under CC BY-NC.",
+    "evidence": "docs/archive/RUNBOOK-2026-09-28.md:426-439 (N design, CNN-mean pseudo-labels); docs/LOG.md 09-29 08:40 (N +0.0035 \u00b1 0.0051); REFERENCE.md \u00a71.3 (fastMRI redistribution terms unread)."
+   }
+  ],
+  "ideas": [
+   {
+    "title": "A label instrument that scores STUDENTS on image truth: Mac ResNet34 students to gold-58 and the LB, calibrated on the known +0.015",
+    "mechanism": "A label change only matters through the model trained on it. Train the cheap recipe-C ResNet34 (224 px, Stage A, 17 epochs, ~70 min on the M5) on each candidate target file. Score the STUDENT on gold-58 (paired, pre-registered) and on the LB through --ours-only (paired vs the same recipe on dread_soft, \u00b10.005). Calibrate first: steven_v2 vs dread_soft with this student should reproduce a clear gain (+0.008 or more LB) if the instrument transfers. infer_windows builds from meta['timm'] (infer_windows.py:120), so resnet34 should already be servable.",
+    "evidence_for": "Gold scoring students tracked the LB in all three measured cases: labels +0.034 gold / +0.015 LB; Stage B +0.012 / +0.014; teacher about -0.01 / about -0.003. B\u2032 on the Mac matched Kaggle's run of the same recipe (docs/LOG.md 09-28 21:35), so Mac students are trustworthy. Hidden reruns are off-quota. 22nd/85th place validate one change at a time this way.",
+    "evidence_against": "A weak student (~0.81 on the 691, LB maybe ~0.88\u20130.90) may react to labels differently from CoAtNet/Ortho. LB reads carry public-LB selection risk, controlled by pre-registered adopt-if-\u2265 rules. The --ours-only path has never served a ResNet.",
+    "expected_lb_gain": "0 directly; it is the precondition for every label decision below and could prevent ~20 wasted GPU-h",
+    "cost": "~2.5 Mac-h, 2 submissions (~0.2 GPU-h commit runs), \u22640.5 day to confirm the resnet34 serve path",
+    "time_to_first_signal": "Gold read tonight; LB read Sun 10-04",
+    "fastest_test": "Tonight: train recipe C on steven_v2 and on dread_soft (dread_soft may reuse B\u2032/C if the recipe matches exactly), score both students on gold-58, then submit both --ours-only on Sunday. Pre-register: the instrument is VALID iff the LB delta is \u2265 +0.008 with the sign of the Ortho result."
+   },
+   {
+    "title": "Frontier criteria-graded read of all 4,407 reports (Claude Opus 5.5 via Batch), DATA.md \u00a74 schema plus location and status fields",
+    "mechanism": "Give the reader the official cut-points verbatim, plus 'borderline = negative'. Per finding it returns: mentioned; the graded quantity the criterion names (effusion size; ACL fibre %; meniscus signal surface-contact vs intrasubstance, morphology; per-compartment cartilage depth and extent; MCL grade and ACUTE vs chronic; fracture acuity; per-lesion contusion vs fracture line; Baker's size); p_above; location (compartment, horn, condyle/plateau/patella); post-operative status (ACL graft, meniscectomy); a short evidence quote. Adaptive thinking at effort medium, structured outputs, read in the native language (61% non-English). Use: (i) as a second reader rank-averaged with dread_soft and mapped onto dread_soft's levels; (ii) as the source of severity, location and mention fields for the ideas below.",
+    "evidence_for": "dread_soft's threshold-step grading gave +0.015 LB, the largest label effect measured. Qwen-9B with the criteria read Fracture +0.108 better on gold (DATA.md:530-535). The hand read adds +0.055 [+0.005, +0.111] over shipped tables (DATA.md \u00a71). Turkish and Croatian public reads over-call 21\u201322% (DATA.md \u00a72), where a frontier multilingual reader is strongest. 71st place used an API reader. Commercial LLMs are permitted (REFERENCE.md \u00a71.1).",
+    "evidence_against": "Part of the report-vs-image gap is not in the text at all (DATA.md \u00a712: 'moderate effusion' read negative by graders). The frozen six (ACL 0.993 etc.) have no headroom. LLM readers correlate. It cannot be compared with dread_soft on gold (dread_soft has no gold rows). Qwen failed.",
+    "expected_lb_gain": "As a reader: gold +0.010 to +0.030 vs steven_v2. Student LB: +0.003 to +0.010 single model; ~0.4x that in the stack, and only if the core is re-fit on it",
+    "cost": "Opus 5.5 Batch ($2/$10 per Mtok at 50% off): 5.2M input tokens (~$11, system block cached) + ~7\u201313M output tokens (~$70\u2013130), so ~$80\u2013140. Sonnet 5.5 Batch about half. Pilot of 250 reports ~$5\u20138. ~1 day engineering (llm_extract.py exists, but its schema must become DATA.md \u00a74's).",
+    "time_to_first_signal": "Gold-58 reader read within ~24 h of starting; LB student read ~48 h",
+    "fastest_test": "Freeze the prompt using only the 86 hand-read and ~100 random NON-gold reports. Run it on the 58 gold reports (~$2). Pre-registered gate: frontier p_above vs steven_v2, paired on gold-58, \u2265 +0.010 with CI > 0 and no finding more than 0.02 down (DATA.md \u00a73 Stage L gate, one candidate). On a pass, run the full batch and feed it into idea 4's bundle."
+   },
+   {
+    "title": "Decisive equal-strength self-distillation test on the Mac BEFORE any Ortho k-fold",
+    "mechanism": "Round 1 paired a weak teacher with a strong student. The CNN round-1 targets come from ResNet34 recipe-C folds, so a ResNet34 recipe-C student on targets_round1_cnn.csv is exactly teacher = student strength. Compare it with the same student on dread_soft. Add a Noisy-Student arm: --aug-affine 1 plus drop_path, and teacher-only targets instead of the 50/50 mean. If equal-strength self-distillation does not move a ResNet on gold-students and the LB, an Ortho round 2 will not move Ortho.",
+    "evidence_for": "Born-again / Noisy Student theory needs teacher \u2265 student and a noised student; round 1 had neither. 36th place said 'my OOF predictions were already closer to the radiologists than the extracted labels' and used them. 71st gained +0.011 with multi-source teachers.",
+    "evidence_against": "A teacher trained on the same labels converges to E[report | image]; the only gain is variance reduction. Round 1 on Ortho read ~0 on gold and on the LB.",
+    "expected_lb_gain": "Decides the plan's ~20 GPU-h item. If it is positive (\u2265 +0.008 LB on the ResNet), round 2 is worth +0.003 to +0.008 on Ortho; otherwise those GPU-h go to finals",
+    "cost": "~2.5 Mac-h (2 arms; the dread_soft control is shared with idea 1), 1\u20132 submissions",
+    "time_to_first_signal": "Gold tonight, LB Sun\u2013Mon",
+    "fastest_test": "Recipe C on targets_round1_cnn.csv (sha 75757be8) vs recipe C on dread_soft, same 3,502, seed 42. Pre-register: the teacher family continues iff the LB paired delta is \u2265 +0.008 (or gold-student \u2265 +0.015 with P \u2265 0.95)."
+   },
+   {
+    "title": "targets_v2 as ONE bundle: multi-reader rank-mean, gold-calibrated levels, mention-masked U-SelfTrained for low-mention findings",
+    "mechanism": "Effects of +0.002\u20130.004 each sit below the \u00b10.005 resolution, so ship them together and test once. (a) Per finding, the rank-mean of dread_soft, the frontier read, steven_v2/v4 and jev_text, mapped onto dread_soft's levels so the threshold step is kept; this averages reader-specific misreads. (b) Levels set to P(grader positive | reader grade), estimated on gold-58 with a few shared parameters (monotone, pooled across findings). This is AUC-invariant within a finding, so it does not spend gold's ranking power. It only changes where BCE spends its effort, which is the hypothesised reason dread_soft won. (c) For cells the report never mentions (Synovitis 87.6%, Fracture ~55%, Contusion ~21% per the Qwen/frontier mention mask), drop the fill. Impute from a teacher trained with those cells masked (--allow-missing-labels), so it is not circular.",
+    "evidence_for": "Forum LB evidence: 64th '+0.015 from combining labels', 71st +0.011. dread_soft's step at the threshold. CheXpert: U-SelfTrained works, U-Ignore does not (REFERENCE.md \u00a74.1). Synovitis is an Effusion fill in 3,751 of 4,349 cells. The weakest findings (Synovitis, PF OA, Lateral OA, Lateral Meniscus 0.81\u20130.87 on gold) are where construct confusions live; +0.05 on those four = +0.017 macro (RUNBOOK.md:191-197).",
+    "evidence_against": "The public readers are near-duplicates (r 0.87\u20130.95). Gold-fitted levels use 58 studies (noisy, some selection). OA severity is often simply absent from the text (DATA.md \u00a712 item 8b), which no reader fixes.",
+    "expected_lb_gain": "+0.003 to +0.012 single model; +0.001 to +0.005 in the stack if the core is re-fit",
+    "cost": "$0 beyond idea 2; ~1 day to build; ~5 Mac-h if (c) needs 4 masked ResNet teacher folds; 1\u20132 submissions",
+    "time_to_first_signal": "~3 days (after idea 2 lands)",
+    "fastest_test": "Build targets_v2 = (a)+(b)+(c) and freeze it. One recipe-C student vs the dread_soft student, paired on the LB. Pre-register adopt iff \u2265 +0.008; gold-student reported only."
+   },
+   {
+    "title": "LLM-adjudicated confident learning: the image model flags, the LLM re-reads",
+    "mechanism": "Stop averaging every cell toward a weaker teacher. Take the ~5% of cells per finding where the OOF image model disagrees most with dread_soft (the .audit.csv build_student_targets already writes). Ask the frontier model a targeted question per report and finding: does the text support this level under the official criterion (trace? chronic? intrasubstance? lateral patellar facet vs lateral compartment?). If it is a reading error, fix the level from the text. If the report is clear and the image model disagrees (report \u2260 image), set ~0.5. Otherwise keep the base. This changes about 5% of the cells instead of all 52k.",
+    "evidence_for": "Confident learning (cleanlab) changes only confident disagreements (REFERENCE.md \u00a74.5). Averaging injects teacher noise into the ~85% of cells where the report was right. The project's own OA review found Qwen confusing the lateral patellar facet, a reading error a targeted re-read catches (DATA.md:673-680).",
+    "evidence_against": "With a teacher trained on the same labels, the flagged cells are partly teacher errors. The effect is small and concentrated, so it needs bundling.",
+    "expected_lb_gain": "+0.000 to +0.005",
+    "cost": "~2,600 targeted calls, ~$10\u201325; half a day",
+    "time_to_first_signal": "2\u20133 days",
+    "fastest_test": "Fold it into targets_v2 as component (d). Report the share of flagged cells the LLM calls a 'reading error' vs 'report \u2260 image'; if under 20% are reading errors, drop it."
+   },
+   {
+    "title": "Put gold-58 into the final training (weight 3\u20135), pre-registered by prior",
+    "mechanism": "These are the only labels drawn by the graders on the images. At weight w they are 58w of about 4,349 + 58w effective examples. They teach the graders' thresholds on exactly the borderline cases where reports disagree (FP 25 vs FN 17 in the forum audit, REFERENCE.md \u00a71.4). Finals already use fixed epochs and last/avg3 weights, so no gold-based selection is lost.",
+    "evidence_for": "Host: the image label is authoritative and readers are stricter (REFERENCE.md \u00a71.4). Gold Fracture prevalence is 18/58, while the reports' 'meets' is about 3%: the graders see what reports do not say. Free in compute.",
+    "evidence_against": "58 studies, so the expected effect is small and cannot be measured at LB resolution (\u00b10.005). Overfitting at high weight. The finals lose gold as a sanity read.",
+    "expected_lb_gain": "+0.000 to +0.004",
+    "cost": "~0.5 day: a --train-gold-weight flag, and relaxing the train\u2229gold refusal for finals only; 0 extra GPU",
+    "time_to_first_signal": "Only at the final (unmeasurable earlier)",
+    "fastest_test": "Decide now by prior, w = 3. Check on the Mac that a recipe-C student with gold at w = 3 does not degrade the 691 (a fixed-target sanity check), then apply it to every final run."
+   },
+   {
+    "title": "Training-only auxiliary outputs from the same frontier pass: where, post-op status, extra findings",
+    "mechanism": "Add heads for compartment and horn location, ACL graft present, prior meniscectomy, PCL, LCL, per-compartment cartilage grade, osteophytes, and degenerative vs traumatic marrow oedema. Ignore them at test. They separate constructs the 12 labels mix: a post-meniscectomy truncated meniscus can be grader-positive by morphology while the report says 'post-surgical'; subchondral degenerative oedema is not a contusion; lateral facet is not lateral compartment.",
+    "evidence_for": "86\u2013100% of positive English reports name a sub-location (DATA.md \u00a712 item 5). The main targets stay fixed, so the 691 CAN judge it (rule 3). Lateral OA and MCL are vision-and-locale gaps (zoom MCL +0.052).",
+    "evidence_against": "Study-level aux heads do not force spatial attention. Aux-task gains in medical imaging are usually small. Needs trainer changes.",
+    "expected_lb_gain": "+0.000 to +0.006",
+    "cost": "~1 day trainer work; 1 Mac run (~1.2 h) judged on the 691",
+    "time_to_first_signal": "~3 days after idea 2",
+    "fastest_test": "Recipe C plus aux heads vs recipe C, same dread_soft main targets. The 691 paired gain must be \u2265 0 at P \u2265 0.95 (the 691 is valid because the main targets are fixed)."
+   },
+   {
+    "title": "Strong-teacher pseudo-labels on the 7,140 NYU knees: the public core labels them on the Mac",
+    "mechanism": "Distillation with a teacher that never saw these knees and is far stronger than the ResNet that made arm N's labels. The NYU Stage A cache already exists. Run the public maxspan-v5 CoAtNet (+ reversed pass) over it on MPS, then train a student on the 4,349 + 7,140 knees.",
+    "evidence_for": "N with a weak teacher was +0.0035 (P 0.75), positive. More real knees gave +0.010 (3,200 -> 4,349). The ensemble-distillation-on-unlabelled-data recipe is standard.",
+    "evidence_against": "It teaches E[report | image] at most, not the graders' thresholds. Students cost 2.6x the compute. fastMRI's redistribution terms for a CC BY-NC winner are unread (REFERENCE.md \u00a71.3).",
+    "expected_lb_gain": "+0.000 to +0.006",
+    "cost": "~3\u20135 Mac-h to label (estimate); 1 recipe-C student on the Mac (~3 h); a license check",
+    "time_to_first_signal": "2 days",
+    "fastest_test": "Re-run arm N with the public-core pseudo-labels in place of the CNN mean, same rule (691 paired vs B\u2032, P \u2265 0.95). Only do this if the owner clears the license question."
+   },
+   {
+    "title": "Reconstruct dread_soft's gold rows",
+    "mechanism": "dread_soft has no gold rows, so no new reader can be compared with the incumbent on gold. If its generation pipeline (model, prompt, level map) is public, running it on the 58 gold reports gives a paired gold read of the incumbent.",
+    "evidence_for": "bench_public_labels.py already runs the paired machinery. AUDIT.md open Q1 asks whether dread_soft was tuned on gold.",
+    "evidence_against": "The pipeline may be private or depend on a model we cannot run.",
+    "expected_lb_gain": "0 directly; makes idea 2's gate 'beats the incumbent' rather than 'beats steven_v2'",
+    "cost": "~1 h plus cents if public",
+    "time_to_first_signal": "Same day",
+    "fastest_test": "Owner checks dreaddevelopment's label notebook or dataset page for the prompt."
+   },
+   {
+    "title": "Ortho k-fold round 2 (plan item 1), only if idea 3 is positive; then treat it as a 5-fold ensemble",
+    "mechanism": "Equal-strength OOF for every study, then round-2 targets. The 5 fold models double as an ensemble for final B.",
+    "evidence_for": "Report + Ortho OOF reads 0.9216 on gold vs 0.913 for round 1 (archive :634).",
+    "evidence_against": "That gate is the ensemble artifact. Round 1 students were flat. ~20 GPU-h is ~2/3 of a week, competing with all-data finals and with re-fitting the core.",
+    "expected_lb_gain": "+0.000 to +0.005 from the labels (more if the ensemble ships)",
+    "cost": "~20 GPU-h",
+    "time_to_first_signal": "About a week",
+    "fastest_test": "Do not start it until idea 3 reads. The gate must be a student-on-gold or LB read, not report + teacher."
+   },
+   {
+    "title": "Absorb report bias with a site/language term during training and drop it at test (unconventional)",
+    "mechanism": "The training logit is z(image) + b[site or language, finding]; the test logit is z(image). The bias term soaks up systematic report tendencies (Turkish and Croatian over-call 21\u201322%; site-specific report styles), so the image head z is not pushed to learn site cues as findings. The test is graded by the same strict readers for every site.",
+    "evidence_for": "Language agreement ranges 0.78\u20130.93 (DATA.md \u00a72). Site leakage probe 0.053. Annotator-noise layers are standard in crowd-label learning.",
+    "evidence_against": "The site prior died (-0.0057) and ComBat hurt (-0.013 to -0.032): sites differ in real case mix, and the bias term can absorb real prevalence too.",
+    "expected_lb_gain": "+0.000 to +0.005 (speculative)",
+    "cost": "~0.5 day; 1 Mac run; 1 submission",
+    "time_to_first_signal": "2 days",
+    "fastest_test": "Recipe C with a per-(language, finding) bias in training only (12 x 9 parameters) vs recipe C, paired on the LB; adopt iff \u2265 +0.008."
+   }
+  ],
+  "winner_would": [
+   "Judge every label change by a STUDENT on image truth (gold-58 student reads plus paired LB reads), never by scoring the targets themselves as predictors.",
+   "Keep one free, cheap student pipeline (Mac ResNet34) whose only job is label A/Bs on the LB, and spend 2\u20133 of the 5 daily submissions on it. About 95 remain; hidden reruns are free.",
+   "Spend API dollars before GPU-hours. In the first days, run a frontier multilingual reader with the official criteria verbatim and structured graded fields (size, acuity, surface contact, compartment, mention, post-op), and rank-average it with dread_soft instead of replacing it.",
+   "Bundle small principled fixes (multi-reader average, gold-calibrated levels, mention-masked imputation for Synovitis/Fracture/Contusion, LLM-adjudicated flips) into one targets_v2. Test it once; ship it if it is +0.008 or more paired.",
+   "Use self-distillation only with teacher \u2265 student, a noised student, and enough steps. Test that on the cheap model before buying Ortho k-fold.",
+   "Re-fit the strongest architecture (the CoAtNet core) on the final labels hard enough that the labels actually change it. A 7-epoch, lr 3e-5 fine-tune from a converged SWA checkpoint moved weights only 2.4%, and the stack rides on that core.",
+   "Put gold-58 into every final training run at modest weight; it is the only grader-drawn signal.",
+   "Fix the dates now: label decisions by Thu 10-08, so the 10-09 and 10-16 GPU weeks train only on frozen final targets. Labels add maybe +0.005\u20130.015 single model, so the rest of 0.965 must come from the model and ensemble lenses."
+  ],
+  "questions_for_owner": [
+   "Is dread_soft's generation pipeline (LLM, prompt, level mapping) public on dreaddevelopment's notebook or dataset page? If so we can produce its gold-58 rows and compare any new reader against the incumbent.",
+   "Do you have an Anthropic (or OpenAI/Google) API key, and is ~$80\u2013140 for an Opus 5.5 Batch read of 4,407 reports acceptable? Sonnet 5.5 would be about half. Should a second provider be added for a two-reader ensemble?",
+   "May label probes use 2\u20133 LB submissions per day, each with a pre-registered adopt-if-\u2265 rule, from Mac-trained ResNet34 students?",
+   "Has a ResNet34 checkpoint ever gone through build_submit_kernel --ours-only? Its gate checks were written for Ortho. Are the 4 CNN teacher fold weights, the Stage A cache and the NYU Stage A cache still on the Mac?",
+   "Are you willing to train gold-58 into the finals (weight ~3), giving up gold as a sanity read for those models?",
+   "If a better label set appears, will you fund re-fitting the CoAtNet core on it (~7\u201311 GPU-h for more epochs or a higher LR from the public init)? Without that, label gains reach the stack only at ~0.2x.",
+   "Will you accept the fastMRI terms risk (a winner must publish weights under CC BY-NC) if NYU pseudo-knees helped? If not, idea 8 stays closed.",
+   "Can you re-read the 36th, 54th, 64th and 71st place self-reports for exact label details: which API model, OOF or in-fold pseudo-labels, how sources were combined?"
+  ]
+ },
+ {
+  "lens": "Compute, operating cadence and rules (the resource side of winning)",
+  "headline": "Compute is the binding constraint, and the limit is one the project set itself. On Kaggle alone there is exactly one more label iteration before 10-22: the 4-fold Ortho teacher by itself takes ~20 of next week's 30 quota-hours. The same work costs ~$5\u201325 on one rented H100, and a winner-scale program (~400\u2013600 T4-hours) costs ~$50\u2013200. No rule forbids training off Kaggle. The leaderboard is the only instrument that scores against the radiologists' image labels, and its scoring rerun does not use quota. The project has used it ~13 times in ~55 days because of a stale belief that each submission costs ~2 GPU-hours. A winner would keep every machine busy around the clock and make 3\u20135 pre-registered leaderboard reads a day.",
+  "what_went_wrong": [
+   {
+    "title": "Half the hardware sat idle in three long single-GPU runs",
+    "evidence": "Kaggle charges quota per session-hour, not per GPU. At 08:25 on 10-03, 12 h 50 min were left (RUNBOOK.md:72) after the CoAtNet student (wall 456 min on one T4, fusion/runs_coatnet_student_r1_all/runs_coatnet/summary.json: world 1, 63.8 min/epoch) and the Ortho student (wall 546 min on two T4s, fusion/runs_ortho_student_r1/runs_ortho/summary.json). That is ~17.2 h used. Charging per GPU would have meant ~33 h, which is more than the 30 h quota. So every session already buys two T4s. Yet step 5 (c6), the 09-26 dread retrain (fusion/runs_dread_ortho/bench.json: world 1, 79.4 min/epoch) and the 10-02 CoAtNet student all ran on one GPU. AUDIT.md:255-257 flagged it on 09-26, and the CoAtNet student still ran on one GPU a week later.",
+    "cost": "~14 quota-hours (half of ~11 + 10.5 + 7.6 h), about half a week, or 1.5 big runs."
+   },
+   {
+    "title": "A stale submission-cost belief starved the leaderboard",
+    "evidence": "DECISIONS.md:87 still reads 'A submission costs ~2 h, not 74 s. ~15/week against a 30 h quota. Batch them.' The source is IMPROVEMENTS \u00a73e (docs/archive/IMPROVEMENTS.md:2461-2470). On 10-02 (a66e3d7, RUNBOOK.md:244) it was found that the hidden-test rerun is not charged to quota. Only the ~6-minute commit run is. The repo records 13 submissions in total. None are recorded between 55608011 (08-18, docs/archive/README-2026-08-17.md:35) and 56573153 (09-26, docs/archive/RUNBOOK-2026-09-28.md:954). At 5 a day, that is ~5% of the available reads.",
+    "cost": "Dozens of image-truth reads forgone, during exactly the weeks when the label lever (dread_soft +0.015 LB) and the input lever (Stage B +0.014) were found locally and had to wait for Friday GPU windows."
+   },
+   {
+    "title": "All compute went dark for ~3 days in the endgame",
+    "evidence": "RUNBOOK.md:46: 'the Mac is idle since R finished at 11:39 on 09-29'. Kaggle quota ran out in the 09-25 week, so nothing ran on Kaggle until the 10-02 pushes at 18:07 and 20:36 (RUNBOOK.md:140-148). git log has no commits between 09-29 14:xx and 10-02 10:xx. docs/LOG.md:36-40 already says 'each week is one iteration and a lost Friday costs a third of what is left'.",
+    "cost": "~3.3 days of zero training on both machines, ~15% of the time left at that point. Small-CNN throughput alone forgone: ~20 Mac runs at ~1\u20133 h each."
+   },
+   {
+    "title": "Unattended operations kept failing on the critical path",
+    "evidence": "The scheduled task stalled on a permission prompt for 7 h around 09-25/26 (docs/archive/RUNBOOK-2026-09-28.md:166). On 10-02 it stalled again and was pushed by hand at 18:07 instead of 17:20 (RUNBOOK.md:137-140). The CoAtNet v2 run died 8 minutes in, at a log line that runs only on GPU, which put the push back to 20:36 (RUNBOOK.md:141-149; rule 11). The Mac slept on battery, so the Saturday steps planned for ~04:15/05:20 ran at 06:50-07:12 (RUNBOOK.md:159). An app update killed a run on 09-28 (rule 9). A watcher died silently (docs/archive/RUNBOOK-2026-09-28.md:338).",
+    "cost": "~13 h of critical-path calendar in 10 days, each delay pushing a weekly pulse back. Rules 9-12 (RUNBOOK.md:305-310) are patches. The fix is to run orchestration from an always-on machine."
+   },
+   {
+    "title": "Cloud GPUs were declined after a cheap estimate",
+    "evidence": "Asked 09-24: 'rent cloud GPUs (~100 A100-h \u2248 $150\u2013250; training anywhere is allowed, only inference must run on Kaggle)?' (docs/archive/RUNBOOK-2026-09-28.md:1218). Answered 09-27: 'no cloud GPUs' (ibid.:131-132). The quota had already run out on 09-24 at 15:00 with Submission B built and not run (ibid.:1019-1021).",
+    "cost": "About one iteration per week for the rest of the competition. In particular the round-2 teacher moves from ~10-04 (cloud) to ~10-10 (Kaggle)."
+   },
+   {
+    "title": "Every recipe question was asked of the most expensive model",
+    "evidence": "Ortho ViT-L Stage B costs 0.105 s per window per T4 (summary.json bench), ~9 quota-h per run and ~3 decisive runs a week. ResNet34 costs 0.0026 s per window (fusion/runs_r34v2_B/bench.json), 40\u00d7 less, with 1.8-2.6 min epochs on a T4 and ~3.4 min on the Mac. The forum reports 'small CNNs 0.94+' (REFERENCE.md \u00a73.1b). Our ResNet34 was cut as a main model on our own recipe (RUNBOOK.md:282). Using the 691\u2192LB calibration below, B\u2032 at 0.8129 is worth ~0.883 on the LB and R at 0.8218 ~0.893, so a ~0.05 recipe gap to the forum was never chased on the cheap model.",
+    "cost": "Weeks of iteration speed. Recipe search (pooling, resolution, augmentation, labels) on a 1-hour model would have allowed 10-20 trials a day instead of 3 a week."
+   },
+   {
+    "title": "The stack's runtime was never profiled",
+    "evidence": "RUNBOOK.md:242-248 (Open item 4): the stack 'already takes ~8\u20139 h of 9'. (C) 'waits for the owner on runtime' (RUNBOOK.md:164-165), because Stage B's cost inside the stack 'has never been timed'. build_submit_kernel.py:33-35: 'The commit run cannot price the hidden run'.",
+    "cost": "Final A cannot add an Ortho family without risking a run over 9 h. This decision has been blocked since 09-28."
+   }
+  ],
+  "closed_too_early": [
+   {
+    "title": "'No cloud GPUs' (owner, 09-27)",
+    "why_reopen": "The price is tiny compared with what the quota costs in calendar time. Ortho Stage B costs ~1.26 T4-seconds per study-epoch (0.105 s/window \u00d7 12 windows). So the 4-fold teacher is ~36.5 T4-hours and an all-data student ~16.7 T4-hours. AUDIT.md:258 measures ~10 TFLOPS achieved per T4. An H100 should give at least 12-25\u00d7 per GPU on bf16 ViT-L without gradient checkpointing (assumption: well under its peak ratio). That puts the teacher at ~1.5-3 H100-hours (~$3-12) and a student at ~$1.5-6. Prices quoted Oct 2026: RunPod H100 PCIe $1.99 (community) / $2.89 (secure); A100 $1.19-1.59; L40S $0.79-1.09; 4090 $0.34-0.74; Lambda H100 SXM $3.99-4.29 and A100 SXM $2.79; Vast verified H100 ~$1.50-2.27. Rules: nothing restricts where training happens. \u00a72.8 (COMPETITION_RULES.txt:110) only asks for training code plus 'a description of the required computational environment'. \u00a72.4.b (:78-80) asks for 'reasonable and suitable measures' against unauthorised access. The host's ruling (REFERENCE.md:24-47) says sending Competition Data to an external service for computational processing is 'not, by itself, ... prohibited PRIVATE SHARING'. Use a datacenter or secure-cloud VM with a private encrypted disk, not peer-to-peer community hosts, and delete the data at the end.",
+    "evidence": "docs/archive/RUNBOOK-2026-09-28.md:131-132 and :1218. RUNBOOK.md:255 (30 h/week). Bench files in fusion/runs_*/."
+   },
+   {
+    "title": "Kaggle TPU and Colab: 'skipped: a TPU port is invention, and Colab re-downloads 32 GB per session'",
+    "why_reopen": "If renting is refused, Colab Pro+ (~$50 for ~500-600 compute units; an A100 at roughly 11-15 units/hour gives ~40 A100-hours) is the no-new-vendor fallback. The re-download objection is minutes at datacenter speed, not hours: the Stage B shards are 8 \u00d7 7.8 GB (DATA.md:430). The Kaggle TPU's separate ~20 h/week, a v5e-8 at ~1.5 PFLOPS peak, would be worth several weeks of GPU quota per week if a static-shape torch_xla port works. That is 2-3 days of engineering, so it is only a fallback.",
+    "evidence": "docs/archive/RUNBOOK-2026-09-28.md:670"
+   },
+   {
+    "title": "The efficiency track ('do not matter', 09-27)",
+    "why_reopen": "$18k across 3 places. Only the two selected finals count, GPU notebooks are allowed, and the score is (maxAUC\u2212AUC)/(maxAUC\u22120.5) + runtime/32400 (docs/archive/RUNBOOK-2026-09-28.md:104-106). The stack's 8-9 h puts it out of the race by construction (REFERENCE.md:357). Final B is 'our own blend'. Built lean with a shared decode (Ortho inference is ~15 min of decode overlapped with ~17 min of T4 per GPU, build_submit_kernel.py:33), it could be both a main-track shot and an efficiency entry without training anything extra. A 0.945 own blend in ~60 min scores ~0.043 + 0.11 \u2248 0.15. The host publishes a daily efficiency leaderboard notebook (ranks only) that tells you whether that places.",
+    "evidence": "DECISIONS.md:27; RUNBOOK.md:17; REFERENCE.md:62"
+   },
+   {
+    "title": "Rule 3: 'the 691 cannot judge labels or teachers'",
+    "why_reopen": "For the Ortho family it has tracked the LB across two label changes and the teacher change. The scale is reference labels_llm_gpt56sol.csv, held out (fusion/runs_*/score_runs_ortho.txt). c6 0.8298\u21920.901, c7 0.8410\u21920.915, dread 0.8440\u21920.916, student r1 0.8534\u21920.927. The fit is LB \u2248 1.091 \u00d7 691 \u2212 0.004, r = 0.996, residuals at most 0.0014, which is tighter than the LB's own \u00b10.005 paired error. The fit says a 691 of ~0.874 is needed for 0.95 and ~0.884 for 0.96. Four points is thin, and CoAtNet models started from the public weights are excluded because that init trained on the 691. Even so, it is a minutes-after-training proxy that frees leaderboard slots for questions the 691 cannot answer.",
+    "evidence": "RUNBOOK.md:298; fusion/runs_c6_ortho/score_vs_ab_ortho.txt; fusion/runs_c7_ortho/score_runs_ortho.txt; fusion/runs_dread_ortho/score_runs_ortho.txt; fusion/runs_ortho_student_r1/score_runs_ortho.txt"
+   },
+   {
+    "title": "'A submission costs ~2 h' is retracted in RUNBOOK but still stands in DECISIONS",
+    "why_reopen": "A fresh session that reads DECISIONS.md 'Standing cautions' will ration submissions again. The cost is ~6 minutes of commit run, less with a fast path for the rerun.",
+    "evidence": "DECISIONS.md:87 vs RUNBOOK.md:244"
+   },
+   {
+    "title": "Team merger, declined 'I want that Kaggle master' (deadline 10-15)",
+    "why_reopen": "From the compute side, a merger is the only free way to multiply quota (30 h per member) and add diverse finished models. Kaggle's progression rules count medals won as a team toward Competitions Master; a solo gold matters only for Grandmaster. The owner's reason may rest on that point. The decision remains the owner's.",
+    "evidence": "RUNBOOK.md:249; docs/LOG.md:40 ('A team merger by 10-15 is the one lever that adds GPU quota')"
+   },
+   {
+    "title": "The small CNN as a main or ensemble family",
+    "why_reopen": "It was closed on our recipe (attention-MIL, Stage A, 224 px) at \u22120.036 against Ortho on the 691. The forum's recipe (simple pooling, 224/288 px, '0.94+') was never run. A small CNN is the only family where 5-fold \u00d7 multi-seed ensembles are affordable even on Kaggle quota.",
+    "evidence": "RUNBOOK.md:282; REFERENCE.md \u00a73.1b"
+   }
+  ],
+  "ideas": [
+   {
+    "title": "Rent datacenter GPUs for all training; keep Kaggle GPU for inference and commit runs only",
+    "mechanism": "Move train_windows.py runs (already a plain script with DDP, compile, bf16-capable autocast and fused SDPA) to a VM with 1-4 H100 or A100 80 GB GPUs. Pull the Stage B shards (62 GB) and Stage A (32 GB) with the kaggle CLI. Push weights back as a private Kaggle dataset. With 80 GB, drop gradient checkpointing, which removes ~25-33% recompute (AUDIT.md:260), and raise the micro-batch. The weekly loop becomes a same-day loop.",
+    "evidence_for": "Measured cost: 0.105 s per window per T4 for Ortho Stage B 384, i.e. 36.5 T4-hours for the 4-fold teacher and 16.7 T4-hours for an all-data student. Achieved throughput is only ~10 TFLOPS per T4 (AUDIT.md:258). Inference is unaffected: weights are plain state dicts, and the existing core cell and parity fixture check sha, key sets and shapes. No rule restricts where training happens (see closed_too_early).",
+    "evidence_against": "Owner declined on 09-27. Setup takes ~0.5 day. Library versions can drift, though the trainer's own checks catch it. The teacher route's measured LB transfer is small (~0 to +0.005; (B) read \u22120.002, RUNBOOK.md:267-268), so compute amplifies a lever that may itself be weak. fastMRI-derived data must not go to cloud without reading its agreement (REFERENCE.md ~:133).",
+    "expected_lb_gain": "Indirect: +0.003 to +0.010 on the finals compared with Kaggle-only. Typical gains are 5-seed or 5-fold ensembles of each family (+0.003-0.006), plus a second or third label round and a 448-512 px arm that become testable at all.",
+    "cost": "$3-12 for the 4-fold Ortho teacher; $1.5-6 per all-data Ortho student; ~$1-2 per CoAtNet student; ~$50-200 for the whole 19-day program (20-50 H100-hours). Cap at $300-500. ~0.5 engineering day.",
+    "time_to_first_signal": "~2 h to a measured s/window on H100; ~4-6 h to the first fold teacher's OOF.",
+    "fastest_test": "One H100 for one hour (~$3). Pull stage-b-s0of8, run the speed-bench recipe (40 Ortho Stage B micro-steps, notebooks/build_speed_bench_kernel.py), record s/window against the T4's 0.105, then train 1 epoch on 300 studies and compare its loss trace with r1's within 0.02."
+   },
+   {
+    "title": "Use the quota-free scoring rerun as free compute: experiments trained inside the submission notebook",
+    "mechanism": "The hidden rerun (up to 9 h on 2\u00d7T4) is not charged to quota (RUNBOOK.md:244). A builder mode that checks KAGGLE_IS_COMPETITION_RERUN would skip training in the commit run and, in the rerun, train a small or medium model on the attached Stage A/B caches before predicting the hidden test. At 5 a day that is up to ~45 free 2\u00d7T4 session-hours a day. The only readout is the leaderboard score; weights and OOF are not visible. It is therefore right for recipe A/B tests and wrong for teachers.",
+    "evidence_for": "ResNet34 runs at 1.8-2.6 min/epoch on a T4 (fusion/runs_r34v2_B/bench.json), so 5 folds \u00d7 15 epochs on 2 T4s is ~1.5 h plus ~30 min of decode. A DDP CoAtNet fine-tune is ~7 \u00d7 ~32 min \u2248 4 h plus inference, which fits under 9 h. Our own models' scoring is fast: the Ortho-alone read came back in 39 min and (B) in 79 (RUNBOOK.md:178-180). In-notebook training is a known pattern here (the prvsiyan lineage, docs/archive/IMPROVEMENTS.md \u00a73c).",
+    "evidence_against": "A 9-h timeout burns a daily slot. Seed noise (~0.002-0.003) adds to the \u00b10.005 paired leaderboard error. Nothing comes back to inspect, so the finals still need a normal retrain. It has not been checked that the competition train files and attached caches are mounted in the rerun (they normally are).",
+    "expected_lb_gain": "Indirect, 0 to +0.010. It is the cheapest way to judge on image truth the CoAtNet-family label and recipe changes that the 691 cannot judge.",
+    "cost": "1 submission per experiment; ~0.5 day to build the rerun-aware mode; ~1-2 min of commit quota with the fast path.",
+    "time_to_first_signal": "Same day (2-5 h scoring).",
+    "fastest_test": "A ResNet34 Stage A, 1 fold, 5 epochs, trained in the rerun. Check the quota page before and after: expect only the commit minutes charged. The score should land near the 691-calibrated value for that recipe (~0.88)."
+   },
+   {
+    "title": "Treat the leaderboard as the main instrument on a budget, with per-finding probes",
+    "mechanism": "~97 submissions remain (2 today before 17:00 PDT, when they expire, plus 19 \u00d7 5). Allocate them roughly: ~12 per-finding probes, ~30 paired structural reads, ~20 in-rerun recipe reads, ~10 confirmations of final candidates, ~15 slack. Per-finding probe: submit a fast model's predictions for one finding with the other 11 columns at a constant 0.5, so that finding's public AUC = 12 \u00d7 LB \u2212 5.5. With 3-decimal rounding that is accurate to \u00b10.006, against a sampling error of ~0.02-0.03 at n\u2248400. Gold-58 per finding has SE 0.03-0.09. Decision rules: model vs model only if |\u0394| \u2265 0.010; a blend change only if \u2265 0.004; never choose among more than 3 near-equal variants on the public set (the best of 4 at SE 0.005 is inflated by ~+0.005, the best of 10 by ~+0.008); keep a ledger of every submission.",
+    "evidence_for": "The leaderboard is the only image-truth instrument (REFERENCE.md \u00a71.4, \u00a72). The rerun is quota-free. Our own models score in under 1.5 h, so 4-5 sequential reads a day are possible. No probing is used anywhere in the repo (grep finds no constant-column or probe code). The four weak findings (Synovitis, PF OA, Lateral OA, Lateral Meniscus at 0.81-0.87 on gold-58, RUNBOOK.md:189-193) need image-truth diagnosis that gold-58 cannot give.",
+    "evidence_against": "The public 30% is not the private 70%. A probe must direct effort, never pick per finding (DECISIONS: per-finding picking is closed). Each stack read takes 8-9 h, so only ~2 stack reads a day are possible.",
+    "expected_lb_gain": "0 directly. It concentrates compute and label work on the findings where the image graders actually differ, worth more than any one A/B if it finds a +0.05 finding (+0.004 macro each).",
+    "cost": "~12 submissions over 3-4 days, a few minutes of commit quota each.",
+    "time_to_first_signal": "~1 h per probe with the Ortho-alone notebook.",
+    "fastest_test": "Today, with one expiring submission: the Ortho student r1 with only Synovitis live and 11 constant columns. Compare 12 \u00d7 LB \u2212 5.5 with its gold-58 Synovitis value (~0.82)."
+   },
+   {
+    "title": "Use the 691 (GPT-5.6 reference) as the calibrated leaderboard proxy for the Ortho family",
+    "mechanism": "LB \u2248 1.091 \u00d7 691 \u2212 0.004 across four Ortho models (residuals \u2264 0.0014). Predict the leaderboard of every held-out Ortho run (and later CNN runs, once calibrated with two leaderboard points) from its 691 score within minutes. Spend a submission only to confirm a predicted structural jump or to judge what the 691 cannot see: CoAtNet started from the public init, and blends with the stack.",
+    "evidence_for": "fusion/runs_*/score_runs_ortho.txt give 0.8298/0.8410/0.8440/0.8534 against LB 0.901/0.915/0.916/0.927. The fit holds across Stage A\u2192B and steven_v2 \u2192 dread_soft \u2192 teacher targets.",
+    "evidence_against": "Only 4 points, all from one family. Rule 3's concern (the reference is an LLM read of reports) could bite on a change that moves predictions toward image truth. All-data runs have no 691.",
+    "expected_lb_gain": "0 directly. It saves ~1 submission per Ortho run and gives same-hour decisions.",
+    "cost": "None; the scorer already exists (fusion/score_oof.py).",
+    "time_to_first_signal": "Immediate for any run that keeps the 691 holdout.",
+    "fastest_test": "Pre-register now: the next held-out Ortho run's leaderboard must fall within \u00b10.004 of 1.091 \u00d7 691 \u2212 0.004. If it does, adopt the proxy for that family."
+   },
+   {
+    "title": "A fast small-CNN loop: run the forum recipe on the Mac around the clock and on cheap GPUs",
+    "mechanism": "Rerun the forum's '0.94+' small-CNN recipe (ResNet34 / EfficientNet-B0, 224-288 px, simple pooling, no attention) as a queue. On the Mac it runs under launchd with caffeinate, on power. On cloud, use 4090s at $0.34-0.74/h, where a ResNet34 5-fold run is ~1 h, roughly $0.5. Judge on the 691 at fixed targets and calibrate with one leaderboard read. If it reaches \u22650.93, it is the only family where 5-fold \u00d7 3-seed ensembles are cheap, and a third strong, different family for both finals.",
+    "evidence_for": "REFERENCE.md \u00a73.1b: 22nd and 85th place report 0.94+ from small CNNs at 224 px. Ours is ~0.883-0.893 LB-equivalent by the calibration, so the gap lies in the recipe, not the backbone. Mac ResNet34 runs at ~3.4 min/epoch, and the teacher folds took 70 min each (docs/archive/RUNBOOK-2026-09-28.md:542). The Mac has been idle since 09-29 (RUNBOOK.md:46).",
+    "evidence_against": "Forum self-reports may describe ensembles or extra data. Stage A at 224 may be the limit. The Mac's data wait is 7-12% (docs/LOG.md:118-121).",
+    "expected_lb_gain": "+0.003 to +0.010 to own blends if a \u22650.93 CNN family appears; 0 if the recipe does not reproduce.",
+    "cost": "Free on the Mac; ~$5-20 on 4090s for a 20-run sweep.",
+    "time_to_first_signal": "~2-3 h for the first Mac run's 691 score.",
+    "fastest_test": "Plan item (4) tonight: the forum's exact recipe (mean/max pool over slices, 224 px, ImageNet ResNet34, dread_soft), 1 fold, 691 score against B\u2032 0.8129. Above ~0.835 predicts \u22650.907 LB and earns a leaderboard read."
+   },
+   {
+    "title": "Run orchestration from an always-on machine",
+    "mechanism": "Move the push \u2192 poll \u2192 gate-check \u2192 submit loop off the Mac desktop app (permission prompts, sleep on battery, app updates) to an always-on box: the rented GPU VM itself, or a ~$5/month CPU VM holding the Kaggle token, running pre-approved scripts, with notifications on completion or failure. Keep a queue so that a finished run triggers the next (folds 1+2 \u2192 folds 3+4) without a human.",
+    "evidence_for": "~13 h of critical-path delay in 10 days came from prompts, sleep, crashes and a dead watcher (RUNBOOK.md:137-159, 305-310; docs/archive/RUNBOOK-2026-09-28.md:166, :338). Kaggle allows only 2 concurrent sessions, so an unattended handoff at 22:00 is worth a half-day per round.",
+    "evidence_against": "The Kaggle token lives on a second machine (low risk; it is the owner's own VM). Some engineering is needed.",
+    "expected_lb_gain": "0 directly. It recovers ~0.5-1 day per week, worth ~0.15-0.3 iterations over the remaining 19 days.",
+    "cost": "~2-4 h engineering; $0-5.",
+    "time_to_first_signal": "The next Kaggle handoff.",
+    "fastest_test": "Put the Ortho all-data download and the --ours-only build and push (RUNBOOK.md:85-88) on a VM tonight, with the gate-line check scripted."
+   },
+   {
+    "title": "Profile the stack per cell this week with the ~4 h of quota left",
+    "mechanism": "Final A's composition depends on how much of the 9 h is free. Time every public cell on ~100 training studies in one 2\u00d7T4 session (~1-2 quota-hours), scale to 1,322, and price (a) the DINOv2 branch's hours (~5% of the vote), (b) Stage B Ortho inside the stack, and (c) shared decode. This unblocks (C) and the final A design.",
+    "evidence_for": "RUNBOOK.md:242-248 and :164-165 say (C) is blocked on exactly this. build_submit_kernel.py:33-35 says the commit run cannot price the hidden run.",
+    "evidence_against": "Training-set timing only approximates the hidden set (series counts may differ). It uses ~half of this week's remaining quota.",
+    "expected_lb_gain": "+0.002 to +0.004 by letting final A carry an extra strong family by the measured 0.2\u00d7 exchange rate. Mainly it protects against a run over 9 h that would score nothing.",
+    "cost": "1-2 quota-hours.",
+    "time_to_first_signal": "~3 h.",
+    "fastest_test": "Wrap each public cell with time.perf_counter logging on 100 training studies, run in a GPU session, and extrapolate \u00d7 13.2."
+   },
+   {
+    "title": "An own-blend notebook that decodes once, used for final B (and the efficiency track)",
+    "mechanism": "Decode the hidden test once into a shared uint8 cache (~14 MB per study at Stage B, ~18.5 GB for 1,322 studies, which fits on local disk or in RAM). Then run every own family over it: 5 folds or seeds of Ortho at ~16 min of T4 per GPU each, CoAtNets at 0.55 s/study, CNNs at 0.06 s/study. Within 9 h this fits ~10-15 ViT-L passes plus all CoAtNets and CNNs. A lean variant (\u2264 ~1 h) doubles as the efficiency entry.",
+    "evidence_for": "Ortho Stage B eval 2.9 s/study (fusion/runs_c7_ortho/bench.json); CoAtNet 0.55 (runs_ab_coatnet); ResNet34 0.061 (runs_r34v2_B). The submission is decode-bound (AUDIT.md:266-267: ~21 min of decode against ~14 min of T4).",
+    "evidence_against": "Building it takes engineering time. Its value depends on having several strong families; with two members it is just the cut 'blend of our own two models' (RUNBOOK.md:288).",
+    "expected_lb_gain": "+0.003 to +0.006 for final B over a 2-model blend, once seeds/folds exist (they need the cloud).",
+    "cost": "~1 day engineering; quota-free to score.",
+    "time_to_first_signal": "First leaderboard read ~1-2 h after the build.",
+    "fastest_test": "Extend --ours-only to take N weight files that share one decode pass. Time it on the 3 visible studies \u00d7 400 copies on CPU, then on GPU."
+   },
+   {
+    "title": "Build higher-resolution caches on Kaggle CPU (quota-free) for cloud training",
+    "mechanism": "Resolution has been the most reliable input lever: R \u2212 B\u2032 = +0.0089 at 224\u2192336 (docs/LOG.md:113), and Stage B (384 px, 96 slices) gave +0.014 on the LB. 448-512 px ViT-L is unaffordable on T4 quota, since token count roughly doubles. Build a 'Stage C' cache in 8 CPU shards as Stage B was built (pipeline/slots96.py, build_slots64.py --spec), then train on cloud.",
+    "evidence_for": "The Stage B shard pattern exists (DATA.md:430). CPU sessions are not charged to quota. Zoom's gain was mostly resolution (RUNBOOK settled, R read).",
+    "evidence_against": "Returns diminish past 384. Inference cost roughly doubles for Ortho (~30 \u2192 ~60 min), which is fine in final B and tight in final A. The local DICOMs are deleted, so the build must run on Kaggle.",
+    "expected_lb_gain": "+0.002 to +0.006, speculative.",
+    "cost": "~8 CPU sessions (free) plus ~62-110 GB of output; a ~$5-15 cloud run.",
+    "time_to_first_signal": "~1 day.",
+    "fastest_test": "One shard at 448 px, then a 1-fold ResNet34 on the 691 at 336 vs 448 on the Mac or a 4090."
+   },
+   {
+    "title": "No-spend compute fallbacks: Colab Pro+, then a Kaggle TPU port",
+    "mechanism": "If renting stays off: Colab Pro+ (~$50 for ~40 A100-hours, with 62 GB pulled per session at datacenter speed). The separate Kaggle TPU quota (~20 h/week, v5e-8) needs a static-shape torch_xla port of the window MIL (fixed k=12 windows per study is already static).",
+    "evidence_for": "docs/archive/RUNBOOK-2026-09-28.md:670 rejected both on cost-of-friction grounds that were not measured.",
+    "evidence_against": "The TPU port is 2-3 days of unknown risk with 19 days left. Colab sessions disconnect and cap.",
+    "expected_lb_gain": "Same as idea 1 at a smaller scale.",
+    "cost": "$50, or 2-3 engineering days.",
+    "time_to_first_signal": "Colab ~2 h; TPU ~2-3 days.",
+    "fastest_test": "A Colab A100: kaggle CLI pull of one Stage B shard, time the download and a 40-step bench."
+   },
+   {
+    "title": "Decide a team merger by 10-15 on the evidence (owner's call)",
+    "mechanism": "Each merged member adds 30 quota-hours a week and their trained, different models. Blending different strong models is the measured +0.015 lever (the stack over its best single model).",
+    "evidence_for": "docs/LOG.md:40. Team medals count toward Competitions Master.",
+    "evidence_against": "Owner declined. Merging requires combined submission counts within the limit, and coordination costs time.",
+    "expected_lb_gain": "+0.005 to +0.015 when merging with a complementary ~0.95 team (typical; unmeasured here).",
+    "cost": "Social and coordination; $0.",
+    "time_to_first_signal": "Days.",
+    "fastest_test": "Ask 2-3 teams near 0.950-0.954 whether they hold CNN or external-data families before 10-12."
+   }
+  ],
+  "winner_would": [
+   "Buy compute on day 1 of the endgame (cap ~$300-500, datacenter H100/A100 with a private encrypted disk), train everything off Kaggle, and keep Kaggle GPU for inference and commit runs only. 30 quota-hours a week is plenty for that.",
+   "Never run on one GPU when the session pays for two: on Kaggle always DDP or two models per session (the CoAtNet student's 7.6 h on one T4 should have been ~4 h).",
+   "Iterate the recipe on a model that trains in minutes (ResNet34 or EfficientNet-B0 at 224-336) and scale only what wins to Ortho or CoAtNet. Never ask a recipe question of a 9-quota-hour model.",
+   "Use 3-5 leaderboard reads a day, each pre-registered in a ledger. Decide model swaps only on |\u0394| \u2265 0.010 and blend changes on \u2265 0.004. Never pick the best of many near-equal variants on the public 30%. Spend ~12 reads early on per-finding probes to learn where the image graders differ.",
+   "Keep every machine busy around the clock from a queue on an always-on box, with no permission prompts in any unattended step.",
+   "Profile the 9-h inference budget in week 1 and design both finals against it: final A is the stack with an upgraded CoAtNet branch, and the DINOv2 hours go to stronger members only after a paired read; final B is a shared-decode own ensemble, lean enough to double as an efficiency entry.",
+   "Calendar, Sat 10-03 (today): by 12:00 set a cloud cap. 12:00-14:00: VM, Stage B pull, 40-step bench. ~14:00: start Ortho fold teachers 1-4 (\u22482 h in parallel on 4 GPUs, or \u22486-10 h sequentially on one H100). Before 17:00, spend the 2 submissions that expire (own blend v0 = equal rank-mean of Ortho r1 and the CoAtNet student, plus one per-finding probe). ~16:30: read (A). ~18:00: Ortho all-data done \u2192 submit alone. Mac starts the forum-recipe CNN queue on power.",
+   "Sun 10-04: round-2 targets and the pre-registered gold gate (vs round 1's 0.913) by noon; round-2 students on cloud (Ortho all-data ~1-1.5 H100-hours; CoAtNet for all three raptor slots ~0.5 h each); 4-5 reads (Ortho-all alone, probes).",
+   "Mon 10-05 \u2013 Thu 10-08: paired reads of round-2 students against round 1, and the stack with the round-2 core; the 1-2 quota-hour stack profiling run; build the shared-decode own-blend notebook; round 3 or a 448-px arm depending on the reads; ~4 reads a day; the Mac CNN sweep running throughout.",
+   "Must be true by Fri 10-09: (1) weights trained off Kaggle are served on Kaggle with the sha/key parity check, or the no-cloud decision is final; (2) the label route has a leaderboard go/no-go; (3) the stack's cell timings and final A's free runtime are known; (4) per-finding public AUCs for the core and Ortho are known; (5) the small-CNN recipe has a verdict; (6) \u2265 20 reads are logged with pre-registered rules. The quota reset at 17:00 goes to commit runs and in-rerun experiments.",
+   "10-10 \u2192 10-15: scale only what passed (5 seeds/folds of each winning student on all data; the CoAtNet branch rebuilt), assemble final A and final B and read each at least once, decide the merger by 10-15, freeze recipes at 10-15 23:59.",
+   "10-16 \u2192 10-21: no new ideas. Final retrains of frozen recipes, one confirming read each, and a buffer for failures (a stack read takes 8-9 h, so at most ~2 a day). Both finals scored by the night of 10-21. 10-22: choose the two finals by the pre-registered rule by ~12:00 and submit nothing after ~07:00 PDT.",
+   "Kaggle-only fallback, stated honestly: 10-09 17:00 push folds 1+2 (2 sessions, ~5 h each); folds 3+4 auto-pushed ~22:00; 10-10 ~09:00 round-2 Ortho student (8.6 h) \u2192 read the night of 10-10; the 10-16 week covers one DDP CoAtNet round-2 (~4 h) plus one Ortho seed (8.6 h) plus commit runs. That is one label iteration in total, which is why the cloud decision matters more than any single experiment."
+  ],
+  "questions_for_owner": [
+   "Was 'no cloud GPUs' (09-27) about money, principle or operations? Would a hard cap ($300-500, datacenter provider, private encrypted disk, data deleted at the end) be acceptable? At about $5-25 per round, the 4-fold teacher and round-2 students could land by Sunday instead of 10-10.",
+   "Medals won as a team count toward Competitions Master; a solo gold matters only for Grandmaster. Do you already hold the 2 silvers? Does a gold-zone target (\u2248 top 20 of 4,999, \u22480.957 public today) change the merger answer before 10-15?",
+   "May final B be lean (\u2264 ~1 h, shared decode) so it is both a main-track shot and an efficiency-track entry ($7k/$6k/$5k)? Will you check where a fast ~0.93-0.94 would rank in the host's daily efficiency leaderboard notebook?",
+   "After (A)'s 8-9 h scoring finishes today, does your quota page show only the ~6-minute commit run charged? That confirms the rerun is free compute, which both the in-rerun experiments and the probe budget depend on.",
+   "Does your submissions page show scores to 3 or 5 decimals? That sets the per-finding probe resolution (\u00b10.006 at 3 decimals).",
+   "Which M5 is it (GPU cores, RAM)? Can it stay on power with the lid open until 10-22, or should orchestration move to an always-on VM holding the Kaggle token?",
+   "Are leaderboard-only experiments trained inside the scoring rerun (no weights or OOF come back) acceptable to you as an instrument for CoAtNet-family recipe and label questions?",
+   "How many submissions can be scoring at once on your account? This caps how many 8-9 h stack reads fit in the last week."
+  ]
+ },
+ {
+  "lens": "THE ENDGAME: building the two final submissions that can win the PRIVATE leaderboard",
+  "headline": "Swapping members inside the public stack cannot win from here. I fitted a one-parameter correlation model to our two blend reads (rho about 0.89). It says a family added at 1/3 must score about 0.943 alone to add +0.004, and a model replacing the core about 0.947, so (A) has roughly a 1-3% chance of reaching 0.947, and today's members cap the endgame near 0.945-0.949 (silver range); the private winner will sit near 0.957-0.960 true, because the public 0.961s carry about +0.003-0.005 of selection on 397 studies. The levers that remain are: runtime (decode is I/O-latency-bound and each of the stack's 7-10 input pipelines pays it again); two structurally different finals (stack-plus, and an untuned blend of the full public CoAtNet branch with an Ortho family whose public score is unbiased); and the hidden rerun, which does not use GPU quota, so submission slots are the cheap resource. Only a 0.95-class new member or a merger before 10-15 can realistically win.",
+  "what_went_wrong": [
+   {
+    "title": "Runtime was never measured, though every addition to the stack runs into it",
+    "evidence": "RUNBOOK.md:242-247 (Open item 4, 'after timing its cells', open since 09-28); RUNBOOK.md:170-172 and 239-241 ((C) waits on an untimed Stage B cost); build_submit_kernel.py:34-37 ('the commit run cannot price the hidden run... the margin is the one real risk'). The evidence to size it has existed since August. FINDINGS.md:172-189: DICOMs are uncompressed, parsing takes 3.1 ms/slice, and per-file open latency dominates. archive RUNBOOK-2026-09-28.md:958: decode on Kaggle measured 2.6-5.5 s/study/worker. Ortho Stage A inference is about 35 min, of which decode is about 21 and GPU about 13 (archive:229).",
+    "cost": "About 5 days on the endgame critical path. (C) and any Stage B Ortho family in Final 1 are blocked. About 1 GPU-h would have answered it."
+   },
+   {
+    "title": "A two-point linear 'exchange rate' led to a core swap that by construction could not differ from the core",
+    "evidence": "The 0.2x rate (RUNBOOK.md:39-40) comes from Sub B 0.936 and Sub B-dread 0.939, each read to \u00b10.002. The same two points fit a probit/d' model with rho 0.885 and 0.904 (0.86-0.95 within noise). That model gives break-even at about 0.930 alone and a slope of about 0.27, not 0.936 and 0.2. The student was a 7-epoch, lr 3e-5 fine-tune of the converged CC0 core. Its train loss went 0.576 to 0.554 (fusion/runs_coatnet_student_r1_all/runs_coatnet/summary.json, hist) and its relative weight change was 0.0240 (RUNBOOK.md:177,184); (B) read -0.002 (RUNBOOK.md:260). Under the model, replacing the 29% core needs a core of about 0.947 alone for +0.004. P((A) >= 0.947) is about 1-3% (expected 0.942-0.943 \u00b1 0.002), not the forecast's 1 in 4 (RUNBOOK.md:65).",
+    "cost": "7.3 GPU-h, 3 submissions and the 10-02 weekend's critical path"
+   },
+   {
+    "title": "Submission slots and the off-quota hidden rerun were rationed as if they cost GPU-hours",
+    "evidence": "RUNBOOK.md:244-246: the hidden rerun is off-quota and only the ~6-min commit run counts. COMPETITION_RULES.txt:66 allows 5 per day, which leaves about 95 slots to 10-22. No decomposition, runtime or TTA read has been made. 'A submission costs ~2 h' (DECISIONS.md:87) predates the off-quota finding and still shapes behaviour: usually 1-3 submissions per day.",
+    "cost": "About 20-30 slots unused since 09-27. That is the information that prices every endgame choice."
+   },
+   {
+    "title": "Gates sized for single changes will throw away the small additive gains the endgame consists of",
+    "evidence": "(C) needs +0.004 (RUNBOOK.md:57-58). The fitted model expects +0.001 to +0.003 from a 0.933-0.937 Ortho family at 1/3, so a real +0.002 fails about 70% of the time at \u00b10.002. Failing (C) cuts Ortho 'from the finals', including the own-blend final, which needs a second family.",
+    "cost": "An estimated +0.002 to +0.005 of real private gain at risk"
+   },
+   {
+    "title": "Experiment builds degrade silently in the hidden run",
+    "evidence": "build_submit_kernel.py:561 refuses failed studies only when there are fewer than 100 (the commit run). Lines 525-531 neutral-fill failed studies. The stack guards itself at 8 h (archive:1044), and what happens when the guard fires is unread. Members added near the limit could neutral-fill hidden studies, and the lower score would be read as the member's quality.",
+    "cost": "A risk to every (C) or family read from now on, and to a final that times out (which scores nothing)"
+   },
+   {
+    "title": "The 0.943 bar is treated as unbiased, but it is a publicly tuned number",
+    "evidence": "REFERENCE.md:353 lists 0.52, 0.55, 0.500001, five per-finding overrides and a calibrator fitted on scan-protocol counts, with no out-of-fold instrument. About 10 knobs chosen on about 400 studies imply roughly +0.002 to +0.003 of selection (best of ~20 at a blend-tweak SD of 0.0014 is about +0.0026). archive:181-190 noted this, yet RUNBOOK.md:14-17 gates every candidate against 0.943/0.947 as if those numbers were unbiased.",
+    "cost": "Final selection is biased toward the stack-shaped candidate, worth about 0.002-0.003 of private expected value"
+   },
+   {
+    "title": "Plan item (3) builds 'our own blend' from the wrong CoAtNet piece",
+    "evidence": "The proposed own blend is Ortho-all + the CoAtNet student, and the student roughly equals the core (0.931 vs 0.933). The full CoAt branch (raptor v5/v5-rev/v8/v10 plus mattiaangeli's 4, about 70% of the vote, REFERENCE.md:340-345) is public. Back-solved from 0.943 with the chain at 0.915-0.935, it scores about 0.938-0.948 alone. Model at rho 0.85-0.9: Ortho 0.937 + student 0.931 gives 0.939-0.941; Ortho 0.937 + CoAt branch 0.943 gives 0.945-0.947.",
+    "cost": "About 0.006 on Final 2 if it is built as proposed"
+   },
+   {
+    "title": "The cheapest diverse families were left unexplained or shelved",
+    "evidence": "Forum small CNNs report 0.936-0.94+ (REFERENCE.md:313-319; archive:1299-1305). Our ResNet34 reads 0.8129 on the 691, about 0.88 on the LB by the Ortho 691-to-LB mapping (0.8298 -> 0.901, 0.844 -> 0.916, 0.8534 -> 0.927; slope about 1.1). That gap of about 0.05-0.06 was never diagnosed. The Qwen VLM was shelved because of a GPU-path gradient defect whose cause was never found (archive:929-946), not because of a negative result. 54th place self-reports 0.950 single with it, and its inference is about 1.0 s/study at 12 windows (fusion/runs_qwen35vl_e1/summary.json).",
+    "cost": "Final 2 has no credible third family; an estimated 0.002-0.005"
+   }
+  ],
+  "closed_too_early": [
+   {
+    "title": "Cut DINOv2 or the transformer chain 'only when (C) needs the room'",
+    "why_reopen": "(C) needs the room now, and the chain may be the weakest 30% of the vote. Back-solving the 0.7/0.3 mix: if the chain alone is about 0.925, putting a 0.937 Ortho family in its slot gives about 0.946 (+0.003), and 0.948 if the chain is 0.915. It also frees what is probably the largest block of runtime (20 DINOv2 + A5 + Rad, each with its own decode).",
+    "evidence": "RUNBOOK.md:242-247; REFERENCE.md:337-346 and 356 ('small, older models'); cell -2 reads the chain's ranks from `_pipeline_stage.csv` (build_submit_kernel.py:740), so swapping the chain is a clean seam."
+   },
+   {
+    "title": "'The blend of our own two models' (cut)",
+    "why_reopen": "The evidence for the cut was Ortho + ResNet34 at -0.006 on the 691, plus the two students' rank-mean on gold-58. Neither says anything about the full public CoAt branch + an Ortho family. Gold cannot select (rule 1), and the 691 is in-sample for every public CoAtNet. This blend is exactly Final 2.",
+    "evidence": "RUNBOOK.md:285 and 196; archive:65 (the CNN -0.006); the d' projection is 0.945-0.947 for CoAt 0.943 + Ortho 0.937."
+   },
+   {
+    "title": "Qwen VLM shelved by its learning-check rule",
+    "why_reopen": "The failure was a defect: predictions constant, vision blocks got no gradient on CUDA+DDP+checkpointing, cause unidentified. It was not evidence that the arm cannot learn. It would be the cheapest diverse family at inference (about 11 min on 2 T4s at 12 windows), and 54th place reports 0.950 single in about 3.5 h of training.",
+    "evidence": "archive RUNBOOK-2026-09-28.md:929-946 ('a ~15-min GPU run printing per-group gradient norms' was never scheduled); fusion/runs_qwen35vl_e1/summary.json (gold 0.495, eval 1.03 s/study, 131 min/epoch on T4x2)."
+   },
+   {
+    "title": "(C)'s rule: Ortho is 'cut from the finals' unless it lifts (A) by >= 0.004",
+    "why_reopen": "This 2-SE rule would remove the only strong non-CoAtNet family from both finals, while the fitted model expects +0.001 to +0.003 at 1/3. Final 2 needs that family regardless of (A).",
+    "evidence": "RUNBOOK.md:57-58 and 66-67"
+   },
+   {
+    "title": "Team merger declined ('I want that Kaggle master')",
+    "why_reopen": "As far as I know, team gold and silver medals count toward Competitions Master, and only Grandmaster needs a solo gold; please verify. A merger is the one move whose step size matches the gap: our ~0.946 + an independent ~0.953 team at rho 0.85 gives about 0.956, and two 0.953 pipelines give about 0.959. Deadline 10-15. The combined submission count must fit (COMPETITION_RULES.txt:63), and the merged final must still fit in 9 h, which again makes runtime the binding skill.",
+    "evidence": "RUNBOOK.md:249; docs/LOG.md:40; the correlation model above"
+   }
+  ],
+  "ideas": [
+   {
+    "title": "Decompose the stack on the LB before any more swaps (chain alone, CoAt branch alone, minus calibrator, minus DINOv2)",
+    "mechanism": "Four inference-only submissions:\n(a) Chain alone: public cells 0..-3, then publish `_pipeline_stage.csv`, which holds the chain's final ranks before cell -2 reads it.\n(b) CoAt branch alone: cell -2's Raptor runner with all four raptor arms plus mattiaangeli's four at the published 0.6/0.4, an extension of --core-alone.\n(c) The stack without its fitted calibrator.\n(d) The stack without DINOv2.\nWith the stack's 0.943 and the core's 0.933 already read, fit rho per component, then price each option: add at 1/3, replace the chain, replace mattiaangeli-4, or Final 2.",
+    "evidence_for": "The stage-file seam already exists and the builder checks it (build_submit_kernel.py:702, 740). --core-alone reuses cell -2's code verbatim and gave a clean paired read (0.933 vs 0.931). Each read costs about 6 GPU-min of commit run (RUNBOOK.md:244-246).",
+    "evidence_against": "An alone score is \u00b10.008 and a component-vs-stack difference \u00b10.003-0.005. The per-finding overrides make a two-component model approximate. It uses 4 slots.",
+    "expected_lb_gain": "0 directly. It decides between options worth +0.001 to +0.005 and prevents a wrong final.",
+    "cost": "(a) 1-2 h of build; (b) 0.5-1 day; about 0.4 GPU-h of commit runs; 4 slots",
+    "time_to_first_signal": "(a) can be submitted today before 17:00 PDT; its hidden run is only the chain's time",
+    "fastest_test": "Chain-alone build: the --core-alone seam checks, cells 0..-3, a cell that copies `_pipeline_stage.csv` through the public publish cell; submit."
+   },
+   {
+    "title": "Time the stack per phase, then add a bit-exact I/O read-ahead warmer (and shared decode where possible)",
+    "mechanism": "Parsing an uncompressed DICOM costs about 3.1 ms/slice, about 0.5 s for a ~159-file study. Kaggle measured 2.6-5.5 s/study/worker, so about 85% of decode is waiting on per-file I/O, and each of the stack's roughly 7-10 input pipelines re-reads about 210k hidden-test files. A background pool of 32-64 threads that reads the next N studies' files ahead of whichever branch is running (hooked on rsna_phase/rsna_deadline) turns that latency into page-cache hits; the outputs are identical by construction. If the timing shows decode dominating, the next step is study-major chunking: read each study once and run every branch on it.",
+    "evidence_for": "FINDINGS.md:172-189; docs/archive/PLAN.md:295-310 ('the lever is concurrency of opens'); archive:958 and 229. My rough split: decode passes about 2.5-3.7 h (22 min each at 4 workers), CoAtNet forwards about 1.5 h (8 passes x 0.986 s/study/T4, runs_coatnet_student_r1_all summary.json), with the rest DINOv2/A5/Rad/loading.",
+    "evidence_against": "The stack is the 'speedy raptors' and already prefetches windows (`_ke_prefetched_windows`). The real split is unmeasured, and the hidden-run mount may behave differently from a session's.",
+    "expected_lb_gain": "0 directly. An estimated 1-3 h freed is room for 2-4 Ortho-class members or a third family (+0.001 to +0.004 each in a final).",
+    "cost": "About 1 GPU-h for the stack on 100 train studies with the test root faked (x13 extrapolation), plus about 1 GPU-h with the warmer; 1-2 engineering days; a bit-exact parity check on 3 test + 20 train studies",
+    "time_to_first_signal": "Today or tomorrow, from the ~4 h of quota left this week",
+    "fastest_test": "Point find_test_root at a fake root holding 100 train studies; log the rsna_phase timestamps; rerun with the warmer; compare per-phase seconds per study."
+   },
+   {
+    "title": "Final 2 = the full public CoAt branch + an Ortho family at equal ranks, with nothing fitted (not Ortho + the student)",
+    "mechanism": "Rank-mean of two families:\n- CoAt family: raptor v5/v5-rev/v8/v10 + mattiaangeli 4, mixed as cell -2 mixes them.\n- Ortho family: mean of Ortho-all, r1 and any folds.\nNo chain, no calibrator, no per-finding overrides. Its public score is then an unbiased estimate of its private one, its errors differ from Final 1's, and its runtime is about 4-5 h.",
+    "evidence_for": "The d' model: CoAt 0.943 + Ortho 0.937 gives 0.945-0.947 at rho 0.9-0.85, versus 0.939-0.941 with the student. The stack's +0.015 over its best single (RUNBOOK.md:36) comes from exactly this kind of family diversity. archive:181-190 makes the shake-up argument.",
+    "evidence_against": "The CoAt branch's alone score is unread (it could be about 0.938), and Ortho-all is pending. Equal ranks may underweight a much stronger CoAt family. Rule 4: a weaker member costs.",
+    "expected_lb_gain": "Public -0.001 to +0.004 vs 0.943; private about +0.002 to +0.006 vs the stack's private",
+    "cost": "About 1 day of build (idea 1(b) + the BLEND cell at w 0.5); about 10 GPU-min; 1-2 slots",
+    "time_to_first_signal": "10-04/05, after Ortho-all's alone read tonight",
+    "fastest_test": "Once 1(b) exists, rank-mean it 1:1 with Ortho-all and submit."
+   },
+   {
+    "title": "Final 1: put the Ortho family in the chain's slot, decided by the chain-alone read",
+    "mechanism": "Skip cells 13-21. Write the Ortho family's ranks into `_pipeline_stage.csv` and run cell -2 as published, with its DINOv2 20/20 fingerprint gate satisfied or stripped and the cross-branch weights kept. This keeps a non-CoAtNet 30% and removes the slowest branches.",
+    "evidence_for": "Back-solving 0.943 = 0.7 CoAt + 0.3 chain (rho 0.85-0.9): chain 0.925 with Ortho 0.937 swapped in gives about 0.946; chain 0.915 gives about 0.948; chain 0.935 gives about 0.9436. The chain is 20 DINOv2-small (pilkwang lineage, about 0.89-0.91 alone), A5 and older Rad heads (REFERENCE.md:337-346, 356).",
+    "evidence_against": "The chain's alone score is unknown. The Lateral Meniscus override gives the CoAt branch 1.00 (REFERENCE.md:341), so Ortho has no say there unless the override goes. The chain may carry diversity from other label tables that Ortho lacks.",
+    "expected_lb_gain": "+0.001 to +0.005 (central +0.003), plus freed runtime",
+    "cost": "0.5 day of build; 1-2 slots",
+    "time_to_first_signal": "After the chain-alone read (10-04) and Ortho-all (tonight)",
+    "fastest_test": "Chain-alone read first. If it is <= 0.928, submit the slot swap; otherwise add Ortho at 1/3."
+   },
+   {
+    "title": "Verify off-quota hidden reruns, then turn submission slots into training compute",
+    "mechanism": "The scoring rerun does not count against quota (RUNBOOK.md:244-246) and gets 9 h on 2 T4s with every attached input (the Stage A/B caches are kernel outputs). A submission that trains in the hidden run only, with a 1-step smoke in the commit run, then predicts, returns an LB read of a new model at zero quota. Examples: a CoAtNet from the public init with a real learning rate on new targets (7 epochs is about 3.8 h with DDP), a small CNN 5-fold (about 2 h), or a VLM epoch.",
+    "evidence_for": "RUNBOOK.md:244. COMPETITION_RULES.txt only caps submissions per day and finals. A CoAtNet epoch is 63.8 min on one T4 (runs_coatnet_student_r1_all summary.json). Public and private scores come from the same run, so the read is the model.",
+    "evidence_against": "Hidden-run outputs are invisible: no weights, no OOF, and a crash returns only 'error'. The quota claim must be verified. Winner obligations need reproducible training and published weights afterwards. Some may see it as against the spirit; check the forum and host rulings first.",
+    "expected_lb_gain": "Indirect. It multiplies LB-judged single-model screens about 5-10x (labels, LR/epochs, recipes), the only way to search for a 0.945+ member in 19 days.",
+    "cost": "1 day for a train-then-infer wrapper (train_windows + infer_windows); 1 slot for the probe",
+    "time_to_first_signal": "1-2 days",
+    "fastest_test": "Submit Ortho r1 alone (known 0.927) plus a 60-min GPU load in the hidden run only. Compare the weekly quota meter before and after."
+   },
+   {
+    "title": "One decode, many Ortho models: multi-weight infer_windows, with Ortho folds as members",
+    "mechanism": "Load Ortho-all, r1 and any fold models in one process per GPU, and decode each study once. Stage B GPU is about 25 min per model on 2 T4s (about 2x Stage A's 13); decode is about 21-30 min once. Four more folds (about 5.7 GPU-h each at 8 epochs) double as round-2 OOF teachers and as a 5-fold member; fold-averaging is typically +0.003-0.006 alone.",
+    "evidence_for": "archive:229 (35 min = decode 21 + GPU 13). r1 vs dread Spearman 0.89 on the 691, 0.82-0.96 per finding (computed from fusion/runs_*/oof_all.csv), so they are distinct enough to average. Gold diagnostic: report + Ortho OOF 0.927 vs + ResNet34 0.913.",
+    "evidence_against": "Ortho is the weaker family (0.927 alone). 8-epoch folds on 80% of the data are weaker than r1. 23 GPU-h is the whole 10-09 week.",
+    "expected_lb_gain": "Ortho family alone +0.003 to +0.006 over Ortho-all; about +0.001 to +0.002 inside a final",
+    "cost": "0.5 day of code; 23 GPU-h for the folds",
+    "time_to_first_signal": "Code now; folds 10-09 to 10-12",
+    "fastest_test": "Read the Ortho-all + r1 two-model family alone (1 slot) against Ortho-all alone."
+   },
+   {
+    "title": "Fail-loud experiment builds, plus a hidden-runtime probe",
+    "mechanism": "Experiment builds raise in the hidden run on any raptor_neutral_fill, raptor_study_failed or deadline event, so a degraded run shows as 'error' and is never read as a model effect. Finals keep fill tolerance. Probe: set finding k to the constant 0.5 if and only if total elapsed > T0 + k x 10 min. The score then encodes the true hidden runtime to about \u00b110 min, at the cost of that submission's score.",
+    "evidence_for": "build_submit_kernel.py:525-531 and :561; the stack's 8-h guard (archive:1044); a timed-out final scores nothing",
+    "evidence_against": "An error burns a slot; the probe deliberately destroys its own score",
+    "expected_lb_gain": "0 directly; it protects every read and both finals",
+    "cost": "1-2 h; 1 slot for the probe",
+    "time_to_first_signal": "Today",
+    "fastest_test": "Add the hidden-run raise to the next experiment build."
+   },
+   {
+    "title": "Unshelve the Qwen3.5-2B VLM: a 15-minute gradient diagnostic, then 3-5 epochs",
+    "mechanism": "Print per-group gradient norms on the CUDA+autocast+DDP+checkpointing path to find why the vision blocks received no gradient. If fixed, it is a language-model-headed family with low expected error correlation to the CoAtNets and ViT-L, and cheap inference.",
+    "evidence_for": "archive:929-946 (a defect, not a result); 54th place reports 0.950 single in about 3.5 h; inference is about 1.03 s/study at 12 windows on one T4 (runs_qwen35vl_e1/summary.json)",
+    "evidence_against": "The cause is unknown; 131 min/epoch on T4x2; 5.2 GB of weights; a self-reported claim",
+    "expected_lb_gain": "+0.003 to +0.008 on Final 2 if it reaches about 0.94 alone at rho <= 0.85; P(works by 10-15) about 25%",
+    "cost": "0.25 GPU-h diagnostic; 6.5-11 GPU-h to train (or in a hidden run, idea 5)",
+    "time_to_first_signal": "1 day for the diagnostic",
+    "fastest_test": "20 steps on Kaggle with per-group grad-norm logging, with vs without checkpointing and DDP."
+   },
+   {
+    "title": "Close the small-CNN recipe gap on the Mac (forum recipe, 5-fold)",
+    "mechanism": "Replicate 'ResNet34/EffNet-B0, 224-288 px, simple pooling, no attention' exactly from the Stage A cache. 5 folds give a cheap, diverse member (decode-bound, about 25 min of inference) and an OOF teacher.",
+    "evidence_for": "Three self-reports at 0.936-0.94+ (REFERENCE.md:313-319; archive:1299-1305), against our ResNet34 at about 0.88 LB-equivalent; the Mac does about 3.4 min/epoch",
+    "evidence_against": "Self-reports may be fold ensembles with better labels; our B', R and Z all read 0.81-0.83 on the 691; rule 4",
+    "expected_lb_gain": "+0.002 to +0.005 on Final 2 if it reaches >= 0.930 alone with low rho; otherwise 0",
+    "cost": "6-8 Mac-hours per 5-fold run; 0 GPU-h",
+    "time_to_first_signal": "1-2 days",
+    "fastest_test": "One fold, mean/max pooling, 256 px, pre-registered bar of >= 0.835 on the 691 (about 0.925 LB by the Ortho mapping)."
+   },
+   {
+    "title": "A merger with an independent 0.950+ team before 10-15",
+    "mechanism": "Blend two independent pipelines whose residual errors are less correlated than any of our within-stack options.",
+    "evidence_for": "Correlation model: ours 0.946 + theirs 0.953 at rho 0.85 gives about 0.956; two 0.953 pipelines give about 0.959. Every other lever is +0.001 to +0.005.",
+    "evidence_against": "The owner prefers solo. The merged final must fit both pipelines into 9 h. The combined submission count must be within the cap (COMPETITION_RULES.txt:63).",
+    "expected_lb_gain": "+0.005 to +0.012 over our best realistic final",
+    "cost": "Negotiation; the runtime engineering we need anyway",
+    "time_to_first_signal": "Must be decided by 10-15",
+    "fastest_test": "Owner decision. Approach teams at 0.950-0.956 that have publicly described a non-stack pipeline."
+   },
+   {
+    "title": "Harvest other public 0.94x pipelines and re-pull the public list daily",
+    "mechanism": "Read the code of the other public 0.942-0.943 notebooks for distinct members, licences and runtime. Any distinct member is a free family; a newer public notebook at 0.946 or above would reset the base.",
+    "evidence_for": "archive:1286-1290 (romantamrazov rsna-knee-dinosaur-v5 0.943, andreluizpedroso tony-rank-ensemble 0.942), never decomposed; the free tier rose from 0.899 to 0.943 between 08-12 and 09-23 (REFERENCE.md:268-309)",
+    "evidence_against": "They are likely forks sharing members; their runtimes are likely also 8 h",
+    "expected_lb_gain": "+0.001 to +0.004 if a distinct family exists; a free base reset if a new public notebook appears",
+    "cost": "1-2 h of reading per notebook; 1 slot per alone read",
+    "time_to_first_signal": "Same day",
+    "fastest_test": "`kaggle kernels pull` each one; diff its members against REFERENCE.md \u00a73.2."
+   },
+   {
+    "title": "Free TTA on shared decodes (the core twin, reversed passes for the other arms); mirror TTA only for non-canonical members",
+    "mechanism": "Add GPU-only passes on windows already decoded: run the student core as a twin of the public core inside run_shared_maxspan, and add reversed passes for arms that lack them. A full mirror (coronal and axial flipped left-right plus sagittal order reversed) is anatomically valid with no label swap, but only for members trained on uncanonicalised input; the stack canonicalises laterality, so for its members the mirror would be out of distribution.",
+    "evidence_for": "The stack's own dense + reverse code lifts the core from 0.928 to 0.933 (RUNBOOK.md:27, 55-56); DATA.md:448",
+    "evidence_against": "About 11 min of GPU each for +0.000 to +0.001 in the stack; (B) says the student is noise-equal to the core",
+    "expected_lb_gain": "+0.000 to +0.002",
+    "cost": "0.5 day; 1-2 slots",
+    "time_to_first_signal": "2 days",
+    "fastest_test": "Paired --core-alone (public weights) with and without the twin pass."
+   }
+  ],
+  "winner_would": [
+   "Q1, shake-up. Aim at about 0.957-0.960 true, not at the public #1. Going from about 397 public studies to about 925 private shrinks one score's SE from \u00b10.008 to \u00b10.0052, an independent-model difference from \u00b10.005 to \u00b10.0033, and a blend tweak to \u00b10.0013. Picking the best of k on the public LB inflates scores by SD x E[max]: for blend tweaks (SD 0.0014) +0.0022/0.0029/0.0035 at k=10/30/100; for model swaps (SD 0.0035) +0.005 to +0.009. So the three 0.961s are about 0.955-0.958 true, and the private winner lands near 0.957-0.960 on the public scale, plus an unknown common shift. The top 10 (spread 0.003) is a coin toss among themselves. The 0.943-0.947 band of stack forks shares the stack's own +0.002-0.003 tuning and will reshuffle by hundreds of places. Gold (top ~20 of 4,999) needs about 0.954-0.955 private; silver (top 250) about 0.945-0.947 by 10-22; we are at about 0.938-0.940 true.",
+   "Q2, runtime. Measure first: about 1 GPU-h on 100 train studies with rsna_phase timestamps, or the elapsed-time-encoding probe on the real hidden run. Then buy runtime where it is spent: an I/O read-ahead warmer (bit-exact) and, if decode-bound, study-major shared decode. Next, drop the chain in its slot-swap form. Only after that consider fp16 or fewer windows. Keep at least 45 min of measured margin in at least one final, and make every experiment fail loudly on fills or deadlines.",
+   "Q3, how members enter. Use the arithmetic, not the 0.2x line:\n- add a family at 1/3: needs about 0.943 alone for +0.004 (rho 0.9; 0.936 at rho 0.85);\n- replace the 29% core: needs about 0.947 (0.941 if 0.05 less correlated);\n- replace a component of weight w: needs about its own alone score + 0.004/w;\n- swap a 0.937 Ortho family into the 30% chain: +0.003 if the chain is about 0.925.\nSo stop swapping the core. Read chain-alone and CoAt-branch-alone. Put Ortho where the chain is, or at 1/3 if the chain is strong. Build our own blend from the full CoAt branch + Ortho, not the student.",
+   "Q4, final selection. Write the rule before 10-16:\n- Final 1 = the best stack-plus candidate, with at most 4 candidates; within 0.002, prefer fewer changed knobs.\n- Final 2 = the best untuned family blend (no calibrator or overrides), at most 4 candidates.\n- Ignore public gaps under 0.004 between structurally different candidates, and discount stack-shaped ones by about 0.002-0.003 for the tuning they inherit.\n- Require measured hidden runtime with margin.\nTwo structurally different finals add about +0.001 to E[max] (0.4 x a private-difference SD of 0.0025), against about +0.0005 for two stack variants.",
+   "Q5, the blend that is realistic by 10-20 without a merger:\n- Final 1 = the public CoAt branch as published (70%) + an Ortho family (Ortho-all + r1 + folds, one shared decode) in the chain's slot or at 1/3, with the warmer for runtime: about 0.946-0.949 public.\n- Final 2 = equal-rank CoAt family + Ortho family, plus a third family only if it reads >= 0.930 alone: about 0.945-0.948 public, unbiased.\nA winning blend needs three families each about 0.948-0.951 alone at pairwise residual rho <= 0.85 (gives about 0.957). Ours are about 0.933-0.945, so win-level upside comes only from a 0.95-class member (multi-source teacher labels, the VLM, or the small-CNN recipe gap) or from a merger.",
+   "Operate like a winner:\n- spend all 5 slots per day on inference-only reads (decomposition, families, probes); they cost about 6 GPU-min each;\n- spend GPU-h only on members that also serve as teachers (Ortho folds);\n- keep the Mac on the cheapest diverse family;\n- re-pull the board and the public-notebook list daily (rule 8);\n- treat (A) at 0.942-0.943 as the expected read and pivot today, not after a second weekend."
+  ],
+  "questions_for_owner": [
+   "As far as I know, team medals count toward Competitions Master and only Grandmaster needs a solo gold; please check. If 'I want that Kaggle master' meant solo-only credit, would you reconsider a merger with an independent team at 0.950 or above before 10-15? Our ~0.946 + their ~0.953 projects to about 0.956.",
+   "Can you confirm on the quota page that a hidden rerun (e.g. Sub B-dread's ~8.5 h on 09-27) used no weekly GPU-h? If so, are you comfortable with submissions that train inside the hidden run for LB-judged screens?",
+   "What does the public stack's rsna_deadline do at its 8-h guard: raise (the submission errors) or neutral-fill the remaining studies (silent degradation)?",
+   "Do the commit-run logs of (A), (B) or Sub B-dread hold per-branch rsna_phase START/COMPLETE timestamps? Even on 3 studies they would separate model-load time from per-study cost.",
+   "Is the stack's linear calibrator fitted on training OOF or chosen by public-LB probing? That decides how much of 0.943 is public tuning.",
+   "What are the licences of mattiaangeli's four CoAtNet datasets and knee-mri-fold-weights? Can the full CoAt branch go into a final that is not the published notebook?",
+   "Will you accept a Final 2 of the full CoAt branch + an Ortho family (no chain, no calibrator) even if it reads 0.002-0.003 below Final 1 on public?",
+   "May I spend 4 slots this weekend on decomposition reads (chain alone, CoAt branch alone, minus calibrator, minus DINOv2), and about 1 GPU-h of the ~4 h left on a 100-train-study timing run?",
+   "For the 10-09 week, which do you prefer: 4 Ortho folds (members + OOF teacher, ~23 GPU-h), or a CoAtNet re-trained with a real learning rate on new targets (~17 GPU-h, or free in a hidden run if that is verified)?"
+  ]
+ }
+]
