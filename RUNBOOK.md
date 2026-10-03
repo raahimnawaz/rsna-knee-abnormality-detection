@@ -21,7 +21,7 @@ decision. **Entry and team merger 10-15; final 10-22 16:59 PDT.** Two finals; Ka
 
 | | LB | note |
 |---|--:|---|
-| #1 on the board | **0.961** | 10-03 07:45 (three teams at 0.961; 10th 0.958) |
+| #1 on the board | **0.961** | 10-03 07:45 (three teams at 0.961; 10th 0.958; 50th 0.954; 100th 0.950; 150th 0.947; 300th 0.944; 4,999 teams; we are 1,940th at 0.939, and 0.943 would be ~326th) |
 | free public stack (`mattiaangeli` bend-the-knee, Apache 2.0) | 0.943 | our base; ~8–9 h of the 9 h limit |
 | its core, public CoAtNet maxspan-v5 alone (CC0) | 0.928 | our CoAtNet student's start (the author's notebook) |
 | the same weights through the STACK's core code (`--core-alone`, ref `56779801`) | **0.933** | (B)'s paired baseline, 10-02 |
