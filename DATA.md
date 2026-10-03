@@ -658,6 +658,16 @@ Today "trace effusion" and "no effusion" reach the image model as the same kind 
    MCL). No board evidence. Cheapest test: embeddings from the trained `dread` model (~1.5 GPU-h), kNN distance to the 1,131
    per slot/depth, and whether it adds anything to the model's own OOF on the 691 — pre-register before. Ranked BELOW teacher
    → student. Variant: distil Ortho into the small CNN if the CNN falls short — at the cost of the CNN agreeing more with Ortho.
+8. **Owner Q 10-03 ("how do we fix the labels, are there features we are not considering") — candidates, NOT run:**
+   (a) **Synovitis by the `mentioned` flag:** where the report is silent (87.6%), take the image teacher's prediction as the
+   target instead of the effusion copy (`probs.jsonl` holds "not mentioned" for all 4,407). (b) **Compartment for the OA
+   findings**, with item 5(a)'s "where" outputs: Lateral OA fails on medial-vs-lateral attribution (§2), and the reports
+   name the place in 86–100% of positives. (c) **Other report findings as extra training outputs** (PCL, LCL, cartilage
+   grade, osteophytes, loose bodies): more supervision per knee, ignored at test; nowhere in this repo before today.
+   (d) **Sex / field strength / scanner as inputs** (old PLAN F3, never run): OA prevalence differs by scanner (FINDINGS
+   §7.1), but the site prior died (−0.0057), so low odds; no patient age exists. Judge any of them by a paired
+   `--core-alone` LB read against student r1, never on gold-58. On 10-03 the weak findings were Synovitis, PF OA, Lateral
+   OA and Lateral Meniscus for both students and the public core (`RUNBOOK.md`).
 4. **External expert image labels** — ⛔ *corrected 09-26: MRNet's released labels are report-extracted (only its hidden
    test set is image-read), so of these only OAI/MOAKS and fastMRI+ carry image supervision; `REFERENCE.md` §1.3 has
    the two permission questions and who can answer each.* MRNet (1,370 knee MRIs; ACL, meniscus, abnormal; expert-read test set),
