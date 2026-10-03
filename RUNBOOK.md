@@ -23,7 +23,8 @@ decision. **Entry and team merger 10-15; final 10-22 16:59 PDT.** Two finals; Ka
 |---|--:|---|
 | #1 on the board | **0.961** | 10-02 10:45 (10th 0.958; was 0.960 / 0.956 on 09-28) |
 | free public stack (`mattiaangeli` bend-the-knee, Apache 2.0) | 0.943 | our base; ~8–9 h of the 9 h limit |
-| its core, public CoAtNet maxspan-v5 alone (CC0) | 0.928 | our CoAtNet student's start |
+| its core, public CoAtNet maxspan-v5 alone (CC0) | 0.928 | our CoAtNet student's start (the author's notebook) |
+| the same weights through the STACK's core code (`--core-alone`, ref `56779801`) | **0.933** | (B)'s paired baseline, 10-02 |
 | **ours, best** — Sub B-dread (Ortho `dread` at 1/3 in the stack) | **0.939** | still below the free stack |
 | ours alone — `dread` (Ortho, Stage A, `dread_soft`) / `c7` (Ortho, Stage B, `steven_v2`) | 0.916 / 0.915 | Sub A (Ortho, Stage A, `steven_v2`) 0.901 |
 
@@ -50,7 +51,8 @@ its own gate. The first LB proof is the CoAtNet student, after Friday.
    - **(B)** CoAtNet student alone, reported (no gate). **Read (owner 10-02: "sure"): student-alone − public-alone,
      the same `--core-alone` notebook, only the weight file differs**, not vs 0.928 (the stack's core code samples up
      to 96 slices and adds a reversed pass, so 0.928 is another notebook's number). |Δ| < 0.010 is noise (2 × the
-     ±0.005 model-vs-model SE). The public-alone half is SUBMITTED: ref `56779801`, 10-02 11:10, from `3f15198`.
+     ±0.005 model-vs-model SE). **The public-alone half read 0.933** (ref `56779801`, from `3f15198`): the stack's
+     core code is worth +0.005 over the author's notebook, on the same weights.
    - **(C)** Ortho student: joins (A) as a family only if it lifts (A) by **≥ +0.004**. Otherwise Ortho is cut from
      the finals.
    - If (A) fails, the teacher route has not shown on the LB. Next are round 2, more knees and zoom, each screened
@@ -97,26 +99,40 @@ were test-built at ~13:40 09-29 (not pushed) and pass every flag check.
 
 **Rules:** see *Pending reads* item 1.
 
+**What happened 10-02** (the Mac slept on battery with the lid shut, so everything ran late):
+- The 17:20 scheduled task started 17:26, read the block, then sat on a permission prompt again and built nothing.
+  Stopped at 18:05; pushed by hand. Every flag check passed, sizes 692,175 / 689,467.
+- **⏳ PUSHED 10-02 18:07 PDT** raahimnawaz/rsna-knee-c7-train-ortho-student-r1 v3 (built from b5331ff). RUNNING.
+- **❌ PUSHED 10-02 18:07 PDT** raahimnawaz/rsna-knee-c6-train-coatnet-student-r1-all v2 (built from b90ab08): **ERROR**
+  8 min after its start. `train_windows.py:702` logged `len(model.encoder.blocks)`, and a CoAtNet (timm MaxxVit) has
+  `.stages`, no `.blocks`. GPU only: the CPU smoke never enters that branch (no amp). Everything before it was right
+  (targets `75757be8`, train 4,349, val = 58 gold, init strict 486 tensors).
+- **Fix `dc70f5c`:** the log line only; nothing that trains changed. Run locally past it and to the end (`--mps`,
+  `TW_FORCE_CKPT=1`, real Stage A, the public init, 2 epochs, gold, `--save-weights`, avg3): exit 0. Its `last.pt` +
+  `last_meta.json` meet the core cell's checks (meta equal, 486 tensors, key set and shapes = the public core's).
+- **⏳ PUSHED 10-02 20:36 PDT** raahimnawaz/rsna-knee-c6-train-coatnet-student-r1-all v3 (built from dc70f5c: entry 1's
+  command with `dc70f5c` for `b90ab08`; 692,987 bytes; the only code difference is that fix). Due ~Sat 04:15.
+
 ## 🗓 WEEKEND RUN SHEET (written 10-02 ~11:30; each step submits only if its check line is in the log)
 
 All builds run from `main` HEAD with no "uncommitted" warning. Check the public stack is unchanged first: `kaggle
 kernels pull mattiaangeli/bend-the-knee-to-speedy-raptors-the-original -m`, notebook sha256 starts `2fc5a420`. At most 2
-GPU sessions run at once, and the Ortho student holds one until ~Sat 03:30, so push the commit runs one at a time.
+GPU sessions run at once, and the Ortho student holds one until ~Sat 05:00, so push the commit runs one at a time.
+**The steps fire from the open desktop session: the Mac must be on power with the lid open.**
 
-1. **Fri 17:12: the Friday push list** (above), by hand from this session. The scheduled task at 17:20 is the fallback.
-   It skips any kernel already RUNNING or QUEUED.
-2. **Sat ~00:45, CoAtNet student COMPLETE →**
+1. ~~Fri 17:12: the Friday push list~~ **done late, see the push list:** Ortho 18:07, CoAtNet 20:36 after a fix.
+2. **Sat ~04:15, CoAtNet student COMPLETE →**
    1. `kaggle kernels output raahimnawaz/rsna-knee-c6-train-coatnet-student-r1-all -p fusion/runs_coatnet_student_r1_all
       --file-pattern 'runs_coatnet/(last\.pt|last_meta\.json|summary\.json|oof_gold\.csv)$'`, then `shasum -a 256` its `last.pt`.
    2. **(A):** Open item 2's build → push → submit only if the log has `[core] ... relative change` and `[core] ARMS:`.
    3. **(B):** `build_submit_kernel.py --public-dir data/public_notebooks/bend-the-knee-2fc5a420 --core-alone --core-kernel
       raahimnawaz/rsna-knee-c6-train-coatnet-student-r1-all --core-sha <sha> --tag student-r1 --out /tmp/alone` → push →
       submit only if the log has `[core]`, `[alone] ARMS: ... student` and `0 failed`.
-3. **Sat ~03:30, Ortho student COMPLETE →** download `runs_ortho/(last.pt|last_meta.json|oof_all.csv|summary.json)` the
+3. **Sat ~05:20, Ortho student COMPLETE →** download `runs_ortho/(last.pt|last_meta.json|oof_all.csv|summary.json)` the
    same way, and read its 691 score (`score_runs_ortho.txt`). **Ortho alone:** `build_submit_kernel.py --ours-only
    --weights-kernel raahimnawaz/rsna-knee-c7-train-ortho-student-r1 --weights-sha <sha> --tag student-r1 --out /tmp/suba-os`
    → push → submit only if the log has `GATE PASSED` and `[sub A] ARMS:`. Its LB is (C)'s `--alone-lb`.
-4. **Sat ~11:00, the reads** (`kaggle competitions submissions`): (A) vs 0.947; (B) student − public; Ortho alone. One line
+4. **Sat ~13:30, the reads** (`kaggle competitions submissions`): (A) vs 0.947; (B) student − public; Ortho alone. One line
    each under *Settled*. **(C) waits for the owner:** Stage B Ortho inside the 8–9 h stack has never been timed (Open
    item 4), and a run over 9 h fails.
 
@@ -213,3 +229,7 @@ submission run. Friday spends ~16. Small CNNs run free on the Mac (M5, `--mps`, 
 8. **A leaderboard number older than a few days is not evidence.** Re-pull the board.
 9. **Run long local jobs detached under `caffeinate -i`.** An app update killed a run on 09-28.
 10. **Commit and push after each substantive step.** Sessions restart; unpushed work is invisible to the next one.
+11. **A CPU smoke skips every GPU-only branch** (anything behind `amp` or CUDA). Before an architecture's first GPU run
+    on new trainer code, force those branches locally (`TW_FORCE_CKPT=1 --mps`, a few studies, to the end). 10-02: 2.5 h.
+12. **An unattended step needs the Mac on power with the lid open, and no permission prompt.** The scheduled task has
+    stalled on a prompt twice (09-25, 10-02); `caffeinate` does not survive a shut lid.
