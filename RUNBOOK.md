@@ -64,10 +64,10 @@ its own gate. The first LB proof is the CoAtNet student, after Friday.
   teacher's own LB gain reads ~0 to +0.005 (one score is ±0.008), not the +0.013 that gold priced.
 - (B) student − public: within ±0.005, i.e. noise. (A): 0.943–0.946; ≥ 0.947 about 1 in 4.
 - Ortho as a family, by the measured rate (0.2× at 1/3: 0.901 → 0.936, 0.916 → 0.939): 0.927 → ~0.941, still under the
-  stack's 0.943. Break-even needs ~0.936, so (C) is unlikely before an all-data + gold ×3 Ortho.
+  stack's 0.943. Break-even needs ~0.936, so (C) is unlikely before an all-data Ortho.
 - **All together:** final A (the stack + our students) ~0.945–0.948; final B (our own blend) ~0.940–0.945.
 - Why the levers do not sum: the stack already holds the label table (`dread_soft` is its core author's), dense input
-  (+0.005 at inference), blending and all-data + gold ×3. Only the teacher step is new to it.
+  (+0.005 at inference), blending, all data and epochs picked on gold. Only the teacher step is new to it.
 
 ## 🗓 FRIDAY 10-02 PUSH LIST — ✅ READY
 
@@ -158,7 +158,7 @@ GPU sessions run at once, and the Ortho student holds one until ~Sat 05:00, so p
 **The students** (small files in `fusion/runs_coatnet_student_r1_all/`, `fusion/runs_ortho_student_r1/`; weights local, git-ignored):
 - **CoAtNet student** v3 (`dc70f5c`): 7/7 epochs, 63.5 min each, train 4,349, targets `75757be8`, init `20d45e07`;
   `last.pt` sha256 `d8418f9970479d129cff6ed90877bf7646497b3ca2cf129e09e1a2d76e2ad038`; relative change vs the public
-  weights 0.0240; gold-58 0.9192, report only (the public start read 0.9187 in our pipeline, with gold in ITS training).
+  weights 0.0240; gold-58 0.9192, report only (the public start read 0.9187 in our pipeline; its epochs were PICKED on gold, see the correction below).
 - **Ortho student** v3 (`b5331ff`): 14/14 epochs, train 3,502; `last.pt` sha256
   `ce2099bd440c990d76b48c5a007d2942e43d16f428bd0534bc9016b480d808c8`; the 691: **0.8534** vs `c6_ortho` 0.8298 (paired
   +0.0236 ± 0.0037; c7, the same input on `steven_v2`, was 0.8410), avg3 0.8530; gold-58 0.9111. Report only: rule 3,
@@ -167,9 +167,20 @@ GPU sessions run at once, and the Ortho student holds one until ~Sat 05:00, so p
 **Where the students are weak (owner Q 10-03; gold-58 per finding, REPORT ONLY: 9–35 positives each, SE 0.03–0.09):**
 Synovitis 0.81–0.84 · PF OA 0.83–0.85 · Lateral OA 0.84–0.85 · Lateral Meniscus 0.84–0.87 · Contusion 0.89–0.91; the
 other seven are 0.93–0.99. The same four are the public core's weakest (0.80–0.90), so the stack shares them. Macro is a
-mean of 12: +0.05 on those four is +0.017, more than any lever measured. vs the public core (gold was in ITS training
-×3): the CoAtNet student is up on Synovitis / PF OA / Baker's / Fracture and down on MCL / both menisci; it trained
+mean of 12: +0.05 on those four is +0.017, more than any lever measured. vs the public core (its epochs were picked on
+gold): the CoAtNet student is up on Synovitis / PF OA / Baker's / Fracture and down on MCL / both menisci; it trained
 without gold. Rank-mean of the two students on gold: 0.9194 vs 0.9192 CoAtNet alone (no blend gain; never select on it).
+
+**⛔ CORRECTION 10-03 ~09:15 — "gold ×3" has NO source; the public core never trained on gold.** The phrase first
+appears in a RUNBOOK note of 09-26 (`0c8f7f5`) with no reference, and it spread from there (this page, the archive, today's
+answers). Read today: the author's training script (`dreaddevelopment/knee-mri-training-the-twelve-finding-model`) trains on
+the non-gold studies only (`train_ids = [... u not in goldset]`); gold is its VALIDATION set, and the three best epochs BY
+GOLD AUC are weight-averaged (`MODEL.md` §0 has this right: "best epoch on gold-58 + top-3 weight average"). Its inference
+notebook says the 58 "were never trained on". The label dataset's page does not mention gold. So:
+- the public core's gold-58 reads (0.9214 / 0.9187) are selected on gold, not trained on it;
+- **training on gold ×3 is OUR untested idea, not the frontier's recipe.** Nobody has measured it. The +0.010 the author
+  measured was ALL DATA (3,200 → 4,349), which the CoAtNet student already has and the Ortho student does not;
+- the trainer has no gold-in-training option, and none was built.
 
 ## Open — build or decide before it is needed
 
@@ -214,7 +225,7 @@ without gold. Rank-mean of the two students on gold: 0.9194 vs 0.9192 CoAtNet al
 6. **No team merger** (owner 09-28: "I want that Kaggle master"). Solo, on our own 30 GPU-h/week.
 7. **No "safe" final** (owner 09-28). Both finals aim to win. **(A)** is the upgraded stack: its structure, with our
    students in its CoAtNet slot. **(B)** is our own blend: equal-rank families, nothing fitted on the public LB, the
-   one most robust to the shake-up. Both are retrained on all data (3,502 + 691) with gold ×3, recipes fixed before,
+   one most robust to the shake-up. Both are retrained on all data (3,502 + 691), recipes fixed before (~~with gold ×3~~: see the 10-03 correction),
    and chosen by pre-registered evidence, never by a 0.001 public difference.
 
 **GPU:** 30 h/week, reset Fri 17:00 PDT on **10-02, 10-09 and 10-16**. At most 2 sessions at once, 12 h each, 9 h per
@@ -231,8 +242,8 @@ submission run. Friday spends ~16. Small CNNs run free on the Mac (M5, `--mps`, 
 - **Input:** Stage B → 691 +0.0112 (P 1.000); LB 0.915 vs 0.901. Speed: `--compile --ckpt-blocks 12` (−28.6% per step).
 - **CNN teachers** (4 folds, ResNet34, Mac): gold 0.8873 → 0.9132, +0.026, P 0.994 → PASS. Student targets
   `data/student/targets_round1_cnn.csv`, sha `75757be8`, per-file rank mapping (AUDIT 09-28).
-- **The public CoAtNet in our pipeline:** gold 0.9187 vs its recorded 0.9214 → a drop-in start (gold was in its
-  training, so the LB is its only judge).
+- **The public CoAtNet in our pipeline:** gold 0.9187 vs its recorded 0.9214 → a drop-in start (its epochs were picked on gold, so the LB is its
+  only judge).
 - **Z (zoom), 09-29 → HELPS** (pre-registered): 691 0.8129 → **0.8288**, paired **+0.0159 ± 0.0041** (3.8σ), 10/12
   up. Small structures: ACL +0.019, MCL +0.046, Med Men +0.011, Lat Men +0.015; also Lateral OA +0.042 and Fracture
   +0.026. Gold-58, reported only, points the other way: −0.017 ± 0.011. Cost ~2× compute. Zoom is a student
