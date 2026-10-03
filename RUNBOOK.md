@@ -59,6 +59,16 @@ its own gate. The first LB proof is the CoAtNet student, after Friday.
    - If (A) fails, the teacher route has not shown on the LB. Next are round 2, more knees and zoom, each screened
      first.
 
+**Forecast written 10-03 ~08:00, BEFORE (A) and (B) read (owner Q: "put it all together, what do we get?"). Estimates.**
+- Evidence: the Ortho student is 0.927. Labels (+0.015) and input (+0.014) alone would add to ~0.930 from 0.901, so the
+  teacher's own LB gain reads ~0 to +0.005 (one score is ±0.008), not the +0.013 that gold priced.
+- (B) student − public: within ±0.005, i.e. noise. (A): 0.943–0.946; ≥ 0.947 about 1 in 4.
+- Ortho as a family, by the measured rate (0.2× at 1/3: 0.901 → 0.936, 0.916 → 0.939): 0.927 → ~0.941, still under the
+  stack's 0.943. Break-even needs ~0.936, so (C) is unlikely before an all-data + gold ×3 Ortho.
+- **All together:** final A (the stack + our students) ~0.945–0.948; final B (our own blend) ~0.940–0.945.
+- Why the levers do not sum: the stack already holds the label table (`dread_soft` is its core author's), dense input
+  (+0.005 at inference), blending and all-data + gold ×3. Only the teacher step is new to it.
+
 ## 🗓 FRIDAY 10-02 PUSH LIST — ✅ READY
 
 The scheduled task `rsna-push-stage-b-dread` (Fri 17:20 PDT) pushes ONLY what this block lists. Kaggle runs two GPU
