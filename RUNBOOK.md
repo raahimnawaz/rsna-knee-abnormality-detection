@@ -69,6 +69,24 @@ its own gate. The first LB proof is the CoAtNet student, after Friday.
 - Why the levers do not sum: the stack already holds the label table (`dread_soft` is its core author's), dense input
   (+0.005 at inference), blending, all data and epochs picked on gold. Only the teacher step is new to it.
 
+## ▶ ORTHO, ALL DATA — pre-registered 10-03 ~09:30, before the build (owner: "yes do that"; quota 12 h 50 min by the owner's page)
+
+- **The run:** the Ortho student r1 recipe with ONE change: it trains on every non-gold study (4,349, was 3,502; the 691
+  is no longer held out). Same targets (`targets_round1_cnn.csv`, sha `75757be8`), same Stage B input, same PACKAGE and
+  SPEED flags, no gold in training. **11 epochs** = r1's optimiser steps as nearly as whole epochs allow (543 × 11 =
+  5,973 vs r1's 437 × 14 = 6,118, −2.4%). Kernel `raahimnawaz/rsna-knee-c7-train-ortho-student-r1-all`;
+  `--time-budget-h 11.0` so the epoch fit cannot drop below 11. Expected ~8.6 h (45 min/epoch × 11 + start + eval).
+- **Why this one:** all data is the one gain the author measured (+0.010, 3,200 → 4,349) that our Ortho has not had.
+  It is also the declared final recipe ("retrained on all data").
+- **THE READ, on the LB (nothing local can judge it: nothing is held out, and gold stays report-only):** the model alone
+  through the same `--ours-only` notebook as r1's 0.927. Model-vs-model on one notebook: |Δ| < 0.010 is noise.
+  - It is the Ortho final unless it reads ≥ 0.010 BELOW r1 (then r1 stays, and the run is examined for a fault).
+  - Its LB is (C)'s `--alone-lb`. (C)'s own rule is unchanged: Ortho joins (A) only if it lifts (A) by ≥ +0.004.
+  - Reported, no gate: ≥ 0.937 would be the +0.010 the author measured; by the measured exchange rate ~0.936 is where an
+    Ortho family stops costing the stack.
+- **Before the push:** a CPU smoke of this exact build, and rule 11 (the GPU-only branches forced locally on HEAD's
+  trainer with the Ortho arch).
+
 ## 🗓 FRIDAY 10-02 PUSH LIST — ✅ READY
 
 The scheduled task `rsna-push-stage-b-dread` (Fri 17:20 PDT) pushes ONLY what this block lists. Kaggle runs two GPU
