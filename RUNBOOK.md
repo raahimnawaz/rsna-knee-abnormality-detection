@@ -121,20 +121,37 @@ GPU sessions run at once, and the Ortho student holds one until ~Sat 05:00, so p
 **The steps fire from the open desktop session: the Mac must be on power with the lid open.**
 
 1. ~~Fri 17:12: the Friday push list~~ **done late, see the push list:** Ortho 18:07, CoAtNet 20:36 after a fix.
-2. **Sat ~04:15, CoAtNet student COMPLETE →**
+2. ✅ **DONE Sat 06:50–07:12** (late: the Mac slept on battery, lid shut, until 06:45). CoAtNet student COMPLETE →
    1. `kaggle kernels output raahimnawaz/rsna-knee-c6-train-coatnet-student-r1-all -p fusion/runs_coatnet_student_r1_all
       --file-pattern 'runs_coatnet/(last\.pt|last_meta\.json|summary\.json|oof_gold\.csv)$'`, then `shasum -a 256` its `last.pt`.
    2. **(A):** Open item 2's build → push → submit only if the log has `[core] ... relative change` and `[core] ARMS:`.
    3. **(B):** `build_submit_kernel.py --public-dir data/public_notebooks/bend-the-knee-2fc5a420 --core-alone --core-kernel
       raahimnawaz/rsna-knee-c6-train-coatnet-student-r1-all --core-sha <sha> --tag student-r1 --out /tmp/alone` → push →
       submit only if the log has `[core]`, `[alone] ARMS: ... student` and `0 failed`.
-3. **Sat ~05:20, Ortho student COMPLETE →** download `runs_ortho/(last.pt|last_meta.json|oof_all.csv|summary.json)` the
+3. ✅ **DONE Sat 07:06.** Ortho student COMPLETE → download `runs_ortho/(last.pt|last_meta.json|oof_all.csv|summary.json)` the
    same way, and read its 691 score (`score_runs_ortho.txt`). **Ortho alone:** `build_submit_kernel.py --ours-only
    --weights-kernel raahimnawaz/rsna-knee-c7-train-ortho-student-r1 --weights-sha <sha> --tag student-r1 --out /tmp/suba-os`
    → push → submit only if the log has `GATE PASSED` and `[sub A] ARMS:`. Its LB is (C)'s `--alone-lb`.
-4. **Sat ~13:30, the reads** (`kaggle competitions submissions`): (A) vs 0.947; (B) student − public; Ortho alone. One line
+4. **Sat ~12:07 ((B), Ortho alone) and ~16:22 ((A)), the reads** (`kaggle competitions submissions`): (A) vs 0.947; (B) student − public; Ortho alone. One line
    each under *Settled*. **(C) waits for the owner:** Stage B Ortho inside the 8–9 h stack has never been timed (Open
    item 4), and a run over 9 h fails.
+
+**SUBMITTED Sat 10-03, all from `697a93e`, each after its check lines were read in the commit-run log:**
+| | ref | submitted | what | check lines seen |
+|---|---|---|---|---|
+| **(A)** upgraded stack | `56799796` | 07:12 | the stack as published, core = the CoAtNet student | `[core]` relative change 0.0240; `[core] ARMS:` (ours 1×, public v5 never loaded); 3 rows |
+| **(B)** student alone | `56799378` | 06:50 | the stack's core code, student weights | `[core]`; `[alone] ARMS: ... student`, 2× at its sha; 0 failed |
+| (B) baseline | `56779801` | Fri 11:10 | the same, public weights | **read 0.933** |
+| Ortho student alone | `56799701` | 07:06 | Stage B Ortho on teacher targets | `GATE PASSED`; `[sub A] ARMS: ortho_stage_b only` |
+
+**The students** (small files in `fusion/runs_coatnet_student_r1_all/`, `fusion/runs_ortho_student_r1/`; weights local, git-ignored):
+- **CoAtNet student** v3 (`dc70f5c`): 7/7 epochs, 63.5 min each, train 4,349, targets `75757be8`, init `20d45e07`;
+  `last.pt` sha256 `d8418f9970479d129cff6ed90877bf7646497b3ca2cf129e09e1a2d76e2ad038`; relative change vs the public
+  weights 0.0240; gold-58 0.9192, report only (the public start read 0.9187 in our pipeline, with gold in ITS training).
+- **Ortho student** v3 (`b5331ff`): 14/14 epochs, train 3,502; `last.pt` sha256
+  `ce2099bd440c990d76b48c5a007d2942e43d16f428bd0534bc9016b480d808c8`; the 691: **0.8534** vs `c6_ortho` 0.8298 (paired
+  +0.0236 ± 0.0037; c7, the same input on `steven_v2`, was 0.8410), avg3 0.8530; gold-58 0.9111. Report only: rule 3,
+  the 691 cannot judge a label change.
 
 ## Open — build or decide before it is needed
 
