@@ -688,8 +688,13 @@ def main() -> None:
             _tl.set_reentrant_ckpt(False)
         elif world > 1:
             raise SystemExit("this timm cannot switch off re-entrant checkpointing; DDP would break")
+        # A ViT has `.blocks`; a CoAtNet (timm MaxxVit) has `.stages` and none. The 10-02 CoAtNet student died on the
+        # log line below for that, on GPU only: the CPU smoke never enters this branch (no amp).
+        n_blk = len(model.encoder.blocks) if hasattr(model.encoder, "blocks") else None
         if a.ckpt_blocks < 0:
             model.encoder.set_grad_checkpointing(True)
+        elif n_blk is None:
+            raise SystemExit(f"--ckpt-blocks {a.ckpt_blocks}: {a.arch}'s encoder has no .blocks; use -1 (all)")
         else:
             # Checkpoint only the first N blocks: peak memory was 6.9 / 8.5 GB of 15 with all 24 (AUDIT 09-26
             # pass 4), and every checkpointed block costs its forward twice. The forward is overridden per
@@ -699,7 +704,7 @@ def main() -> None:
             for blk in list(model.encoder.blocks)[: a.ckpt_blocks]:
                 blk.forward = (lambda x, _f=blk.forward, **kw: _cp.checkpoint(_f, x, use_reentrant=False, **kw))
         log(f"gradient checkpointing: {'all' if a.ckpt_blocks < 0 else a.ckpt_blocks} of "
-            f"{len(model.encoder.blocks)} encoder blocks")
+            f"{n_blk if n_blk is not None else 'the'} encoder blocks")
     if a.compile and not is_qwen:
         model.encoder.compile()          # in place: keys stay `encoder.*`, unlike torch.compile(module)
         log("encoder compiled (torch.compile, in place)")
