@@ -658,16 +658,28 @@ Today "trace effusion" and "no effusion" reach the image model as the same kind 
    MCL). No board evidence. Cheapest test: embeddings from the trained `dread` model (~1.5 GPU-h), kNN distance to the 1,131
    per slot/depth, and whether it adds anything to the model's own OOF on the 691 — pre-register before. Ranked BELOW teacher
    → student. Variant: distil Ortho into the small CNN if the CNN falls short — at the cost of the CNN agreeing more with Ortho.
-8. **Owner Q 10-03 ("how do we fix the labels, are there features we are not considering") — candidates, NOT run:**
-   (a) **Synovitis by the `mentioned` flag:** where the report is silent (87.6%), take the image teacher's prediction as the
-   target instead of the effusion copy (`probs.jsonl` holds "not mentioned" for all 4,407). (b) **Compartment for the OA
-   findings**, with item 5(a)'s "where" outputs: Lateral OA fails on medial-vs-lateral attribution (§2), and the reports
-   name the place in 86–100% of positives. (c) **Other report findings as extra training outputs** (PCL, LCL, cartilage
-   grade, osteophytes, loose bodies): more supervision per knee, ignored at test; nowhere in this repo before today.
-   (d) **Sex / field strength / scanner as inputs** (old PLAN F3, never run): OA prevalence differs by scanner (FINDINGS
-   §7.1), but the site prior died (−0.0057), so low odds; no patient age exists. Judge any of them by a paired
-   `--core-alone` LB read against student r1, never on gold-58. On 10-03 the weak findings were Synovitis, PF OA, Lateral
-   OA and Lateral Meniscus for both students and the public core (`RUNBOOK.md`).
+8. **Owner Q 10-03 ("how do we fix the labels, are there features we are not considering") — (a), (b) MEASURED 10-03:**
+   (a) **Synovitis by silence — BUILT, NOT SUPPORTED.** In `dread_soft`, 3,751 of 4,349 Synovitis cells are a fill: exactly
+   0.35 / 0.76 / 0.82 for Effusion 0.05–0.20 / 0.85 / 0.95; only 598 cells (0.05, 0.30, 0.80, 0.95) are readings.
+   `build_student_targets.py --base-silent Synovitis=0.35,0.76,0.82` gives those cells the teacher's value alone →
+   `data/student/targets_round1_cnn_synfix.csv` (sha256 `75479a8745f8b9bc`; only Synovitis differs, 1,044 cells; without the
+   flag the builder still writes `75757be8`). It moves the coupling toward the graders': P(target > 0.5 | effusion high / low)
+   base 0.92 / 0.01, round 1 **0.97** / 0.09, fix 0.77 / 0.09, gold 0.63 / 0.22. But on gold-58 Synovitis (report only; 27
+   positives; `steven_v2` base, Qwen's P(F) as the silence mask, 20 of 58): label 0.790, round-1 recipe 0.833, **fix
+   0.824**, teacher alone 0.799. The ResNet34 teacher is barely better than the label on Synovitis, so dropping the fill
+   loses real signal (effusion does predict the graders' synovitis, only less strongly). Not worth a GPU run. What
+   Synovitis needs is a better teacher FOR it.
+   (b) **OA compartment — NOT a fault of `dread_soft`.** The 09-06 "cannot separate medial from lateral" was the old glossary.
+   Read on English reports: where `dread_soft` is negative and Qwen says "meets" (35), Qwen has mistaken the lateral
+   patellar facet / lateral trochlea (patellofemoral) for the lateral compartment; `dread_soft` is right. Where
+   `dread_soft` is positive and Qwen says "below threshold" (319), the report is generic ("OA of all three compartments",
+   "chondromalacia of all three compartments", no severity): `dread_soft` gives all three 0.80. The severity is not in the
+   text, so no reader can fix it; only image labels or a teacher can.
+   (c) **Other report findings as extra training outputs** (PCL, LCL, cartilage grade, osteophytes, loose bodies): more
+   supervision per knee, ignored at test; NOT run. (d) **Sex / field strength / scanner as inputs** (old PLAN F3): NOT run;
+   the site prior died (−0.0057), so low odds; no patient age exists. (e) Item 5(a)'s "where" outputs: NOT run; needs a
+   location pass over the reports and auxiliary outputs in the trainer.
+   **No instrument can confirm a one-finding fix:** +0.03 on one finding is +0.0025 macro, and a paired LB read resolves ±0.005.
 4. **External expert image labels** — ⛔ *corrected 09-26: MRNet's released labels are report-extracted (only its hidden
    test set is image-read), so of these only OAI/MOAKS and fastMRI+ carry image supervision; `REFERENCE.md` §1.3 has
    the two permission questions and who can answer each.* MRNet (1,370 knee MRIs; ACL, meniscus, abnormal; expert-read test set),

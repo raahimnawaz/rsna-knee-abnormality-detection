@@ -22,6 +22,13 @@ WHY a teacher must not have seen the study: a model scoring studies it trained o
 Each file is mapped onto the base on ITS OWN studies before the folds are joined (AUDIT 09-28): the folds are
 different models on site-grouped studies, and one ranking over their pooled raw scores moves whole sites.
 
+WHERE THE BASE SAYS NOTHING (`--base-silent FINDING=level,level`, 10-03). A report table fills a finding the report
+never discusses. `dread_soft` fills Synovitis from its own Effusion level: 3,751 of its 4,349 Synovitis cells are
+0.35 / 0.76 / 0.82, a fixed function of Effusion 0.05-0.20 / 0.85 / 0.95 (the reports couple the two at 0.92 / 0.01,
+the graders at 0.63 / 0.22). Such a cell carries no reading of the finding, so averaging it in counts the Effusion
+REPORT twice. For the levels named, a study a teacher covers takes the teachers' value alone (still on the base's
+scale); a study no teacher covers keeps its base value, as everywhere else. Without the flag nothing changes.
+
 Also writes <out>.audit.csv: per finding, the studies whose level moved furthest (the confident-learning idea:
 where independent image models disagree most with the report). With --gold, scores base vs combined on the
 fully-labelled studies of train.csv (gold-58): report label alone vs report + teachers.
@@ -86,7 +93,23 @@ def on_base(tt: pd.Series, b: pd.Series) -> pd.Series:
     return pd.Series(v, index=tt.index)
 
 
-def combine(base: pd.DataFrame, teachers: list[tuple[str, list[pd.DataFrame], list[str]]]) -> tuple[pd.DataFrame, dict]:
+def parse_silent(specs: list[str], base: pd.DataFrame) -> dict[str, list[float]]:
+    out = {}
+    for spec in specs:
+        lab, _, levels = spec.partition("=")
+        if lab not in LABELS or not levels:
+            raise SystemExit(f"--base-silent {spec!r}: want FINDING=level,level")
+        vals = [float(x) for x in levels.split(",")]
+        have = set(base[lab].dropna().round(4))
+        missing = [v for v in vals if round(v, 4) not in have]
+        if missing:
+            raise SystemExit(f"--base-silent {lab}: the base has no level {missing} (it has {sorted(have)})")
+        out[lab] = vals
+    return out
+
+
+def combine(base: pd.DataFrame, teachers: list[tuple[str, list[pd.DataFrame], list[str]]],
+            silent: dict[str, list[float]] | None = None) -> tuple[pd.DataFrame, dict]:
     out, info = base.copy(), {}
     for lab in LABELS:
         b = base[lab].dropna()
@@ -105,10 +128,17 @@ def combine(base: pd.DataFrame, teachers: list[tuple[str, list[pd.DataFrame], li
             continue
         stack = pd.concat([b] + ests, axis=1)
         covered = stack.iloc[:, 1:].notna().any(axis=1)
+        dropped = 0
+        if silent and lab in silent:
+            # the base value here is a fill, not a reading: the teachers' value stands alone (on the base's scale)
+            fill = b.round(4).isin([round(v, 4) for v in silent[lab]]) & covered
+            stack.loc[fill[fill].index, stack.columns[0]] = np.nan
+            dropped = int(fill.sum())
         student = stack.mean(axis=1, skipna=True)
         out.loc[covered[covered].index, lab] = student[covered]
         info[lab] = {"studies": int(len(b)), "with_a_teacher": int(covered.sum()),
-                     "level_changed": int(((out.loc[b.index, lab] - b).abs() > 1e-9).sum())}
+                     "level_changed": int(((out.loc[b.index, lab] - b).abs() > 1e-9).sum()),
+                     **({"base_silent_levels": silent[lab], "teacher_alone": dropped} if silent and lab in silent else {})}
     return out, info
 
 
@@ -124,9 +154,13 @@ def main() -> None:
     ap.add_argument("--out", type=Path, required=True)
     ap.add_argument("--gold", type=Path, help="train.csv: score base vs combined on its fully labelled rows")
     ap.add_argument("--audit-top", type=int, default=30, help="per finding, how many biggest moves to list")
+    ap.add_argument("--base-silent", action="append", default=[],
+                    help="FINDING=level,level: base levels that are a FILL, not a reading; a covered study takes the "
+                         "teachers' value alone there")
     a = ap.parse_args()
 
     base = read_table(a.base)
+    silent = parse_silent(a.base_silent, base)
     teachers = []
     for spec in a.teacher:
         name, pattern, labs = parse_teacher(spec)
@@ -135,7 +169,7 @@ def main() -> None:
         ids = pd.Index(sorted(set().union(*[set(p.index) for p in parts])))
         print(f"teacher {name}: {len(parts)} file(s), {len(ids)} studies ({len(ids.intersection(base.index))} in the base), "
               f"findings {labs if len(labs) < 12 else 'all 12'}")
-    comb, info = combine(base, teachers)
+    comb, info = combine(base, teachers, silent)
     a.out.parent.mkdir(parents=True, exist_ok=True)
     comb.reset_index().rename(columns={"index": "StudyInstanceUID"}).to_csv(a.out, index=False)
 
@@ -157,7 +191,9 @@ def main() -> None:
     a.out.with_suffix(".json").write_text(json.dumps(report, indent=1))
     for lab, v in info.items():
         print(f"  {lab:17s} {v['with_a_teacher']:5d} of {v['studies']} studies have a teacher; "
-              f"{v['level_changed']} change level")
+              f"{v['level_changed']} change level"
+              + (f"; {v['teacher_alone']} take the teacher alone (base levels {v['base_silent_levels']} are a fill)"
+                 if "teacher_alone" in v else ""))
     print(f"wrote {a.out}, {a.out.with_suffix('.audit.csv').name}, {a.out.with_suffix('.json').name}")
 
 

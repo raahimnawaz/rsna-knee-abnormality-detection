@@ -151,7 +151,7 @@ GPU sessions run at once, and the Ortho student holds one until ~Sat 05:00, so p
 | | ref | submitted | what | check lines seen |
 |---|---|---|---|---|
 | **(A)** upgraded stack | `56799796` | 07:12 | the stack as published, core = the CoAtNet student | `[core]` relative change 0.0240; `[core] ARMS:` (ours 1×, public v5 never loaded); 3 rows |
-| **(B)** student alone | `56799378` | 06:50 | the stack's core code, student weights | `[core]`; `[alone] ARMS: ... student`, 2× at its sha; 0 failed |
+| **(B)** student alone | `56799378` | 06:50 | the stack's core code, student weights | `[core]`; `[alone] ARMS: ... student`, 2× at its sha; 0 failed . **Read 0.931** (08:09): student − public = **−0.002, noise** by the rule |
 | (B) baseline | `56779801` | Fri 11:10 | the same, public weights | **read 0.933** |
 | Ortho student alone | `56799701` | 07:06 | Stage B Ortho on teacher targets | `GATE PASSED`; `[sub A] ARMS: ortho_stage_b only`. **Read 0.927** (07:45) = (C)'s `--alone-lb` |
 
@@ -222,6 +222,11 @@ submission run. Friday spends ~16. Small CNNs run free on the Mac (M5, `--mps`, 
 
 ## Settled — one line each (detail in the archive, `DECISIONS.md`, `DATA.md`)
 
+- **(B), 10-03 → NOISE:** the CoAtNet student alone 0.931 vs the public weights 0.933 through the same code (−0.002;
+  the rule: |Δ| < 0.010). A 7-epoch fine-tune on CNN-teacher targets, without gold, does not improve the stack's core.
+- **Ortho student alone, 10-03: 0.927** (`dread` 0.916, c7 0.915). Our best own model; still under the core's 0.933.
+- **Label fixes, 10-03 (`DATA.md` §12 item 8):** the Synovitis silence fix is built and NOT supported (gold 0.824 vs
+  0.833 for the round-1 recipe, report only); the OA compartment fault is not in `dread_soft`.
 - **Labels:** `dread_soft` (sha `8cec477f`) → LB 0.916 vs 0.901, PASS 09-27. It is the base target of every run.
 - **Input:** Stage B → 691 +0.0112 (P 1.000); LB 0.915 vs 0.901. Speed: `--compile --ckpt-blocks 12` (−28.6% per step).
 - **CNN teachers** (4 folds, ResNet34, Mac): gold 0.8873 → 0.9132, +0.026, P 0.994 → PASS. Student targets
