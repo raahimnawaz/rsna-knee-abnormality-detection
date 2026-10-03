@@ -164,6 +164,13 @@ GPU sessions run at once, and the Ortho student holds one until ~Sat 05:00, so p
   +0.0236 ± 0.0037; c7, the same input on `steven_v2`, was 0.8410), avg3 0.8530; gold-58 0.9111. Report only: rule 3,
   the 691 cannot judge a label change.
 
+**Where the students are weak (owner Q 10-03; gold-58 per finding, REPORT ONLY: 9–35 positives each, SE 0.03–0.09):**
+Synovitis 0.81–0.84 · PF OA 0.83–0.85 · Lateral OA 0.84–0.85 · Lateral Meniscus 0.84–0.87 · Contusion 0.89–0.91; the
+other seven are 0.93–0.99. The same four are the public core's weakest (0.80–0.90), so the stack shares them. Macro is a
+mean of 12: +0.05 on those four is +0.017, more than any lever measured. vs the public core (gold was in ITS training
+×3): the CoAtNet student is up on Synovitis / PF OA / Baker's / Fracture and down on MCL / both menisci; it trained
+without gold. Rank-mean of the two students on gold: 0.9194 vs 0.9192 CoAtNet alone (no blend gain; never select on it).
+
 ## Open — build or decide before it is needed
 
 1. **Friday 17:20:** the list is READY; be at the Mac with the app open (the task runs only then), or push by hand.
