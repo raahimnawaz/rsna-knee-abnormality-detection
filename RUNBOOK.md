@@ -21,11 +21,12 @@ decision. **Entry and team merger 10-15; final 10-22 16:59 PDT.** Two finals; Ka
 
 | | LB | note |
 |---|--:|---|
-| #1 on the board | **0.961** | 10-02 10:45 (10th 0.958; was 0.960 / 0.956 on 09-28) |
+| #1 on the board | **0.961** | 10-03 07:45 (three teams at 0.961; 10th 0.958) |
 | free public stack (`mattiaangeli` bend-the-knee, Apache 2.0) | 0.943 | our base; ~8–9 h of the 9 h limit |
 | its core, public CoAtNet maxspan-v5 alone (CC0) | 0.928 | our CoAtNet student's start (the author's notebook) |
 | the same weights through the STACK's core code (`--core-alone`, ref `56779801`) | **0.933** | (B)'s paired baseline, 10-02 |
 | **ours, best** — Sub B-dread (Ortho `dread` at 1/3 in the stack) | **0.939** | still below the free stack |
+| **ours alone, best** — the Ortho student r1 (Stage B input + CNN-teacher targets) | **0.927** | 10-03, ref `56799701`; +0.011 over `dread` 0.916, the first model with two levers combined |
 | ours alone — `dread` (Ortho, Stage A, `dread_soft`) / `c7` (Ortho, Stage B, `steven_v2`) | 0.916 / 0.915 | Sub A (Ortho, Stage A, `steven_v2`) 0.901 |
 
 **Measured levers, never yet combined in one model:**
@@ -142,7 +143,7 @@ GPU sessions run at once, and the Ortho student holds one until ~Sat 05:00, so p
 | **(A)** upgraded stack | `56799796` | 07:12 | the stack as published, core = the CoAtNet student | `[core]` relative change 0.0240; `[core] ARMS:` (ours 1×, public v5 never loaded); 3 rows |
 | **(B)** student alone | `56799378` | 06:50 | the stack's core code, student weights | `[core]`; `[alone] ARMS: ... student`, 2× at its sha; 0 failed |
 | (B) baseline | `56779801` | Fri 11:10 | the same, public weights | **read 0.933** |
-| Ortho student alone | `56799701` | 07:06 | Stage B Ortho on teacher targets | `GATE PASSED`; `[sub A] ARMS: ortho_stage_b only` |
+| Ortho student alone | `56799701` | 07:06 | Stage B Ortho on teacher targets | `GATE PASSED`; `[sub A] ARMS: ortho_stage_b only`. **Read 0.927** (07:45) = (C)'s `--alone-lb` |
 
 **The students** (small files in `fusion/runs_coatnet_student_r1_all/`, `fusion/runs_ortho_student_r1/`; weights local, git-ignored):
 - **CoAtNet student** v3 (`dc70f5c`): 7/7 epochs, 63.5 min each, train 4,349, targets `75757be8`, init `20d45e07`;
