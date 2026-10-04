@@ -178,3 +178,23 @@ already measured here, or cannot be fitted honestly:
 - **What would reopen it:** a few thousand image-graded labels, or a K-fold family with a label source independent of
   the reports. Neither exists. The blend stays an unfitted equal rank-mean; the measured lever is seeds plus the
   reversed pass (`docs/REVIEW-2026-10-04.md` §2.1, +0.003–0.006 per family).
+
+**2026-10-03 ~21:10 — owner Q after T1 read 0.929: "do we even have any real plan forward?"** Answer given; PROPOSED,
+not approved, nothing built.
+- **The verdict:** the review's fix list is a plan to ~0.955 (its own central sum), not to 0.965. Today's three reads
+  ((A) 0.943, (B) −0.002, T1 +0.002) all landed at the low end: polishing the current recipe does not move it. 0.965
+  needs ONE own model near 0.95 alone (ours: 0.929); then seeds (+0.003–0.006) and the public families (the stack is
+  +0.010–0.015 over its best single model) carry it.
+- **Three bets on the single model, each with a line written before its read:**
+  1. Inference: a reversed-slice pass on T1 (the stack's pass gave its core +0.005 on the same weights; Ortho already
+     scores every window, so expect less). PASS iff ≥ 0.933 (+0.004, the blend-change rule). One submission.
+  2. Recipe: T2 = `dread_soft`, the public core's loss (no confidence weight), all data. Evidence: a larger backbone
+     with denser input only ties the public CoAtNet, three deviations from its recipe were never tested, and all data
+     gave +0.002. PASS iff T2 alone ≥ 0.939 (T1 + 0.010, the model-vs-model rule). A free Mac arm reads first.
+  3. Labels for the weak four (Synovitis, PF OA, Lateral OA, Lateral Meniscus: 0.81–0.87 on gold, the other seven
+     0.93–0.99; +0.05 on the four = +0.017 macro). First what produced `dread_soft` (free), then a $3–10 pilot.
+- **Kill line:** if bets 2 and 3 both read flat, the Ortho route is capped near 0.95 and the remaining route is a new
+  family (the VLM diagnostic, REVIEW §2.10).
+- **Why cloud GPUs decide the pace:** on Kaggle alone T2 trains Fri 10-09 and reads 10-10, which leaves one recipe
+  experiment before the final training week (10-16). Rented GPUs read T2 by ~10-07 and fit two or three more.
+- **Dropped tonight:** the stack + T1 at 1/3 (forecast ~0.942, under the stack; its only value was the 9 h timing).
