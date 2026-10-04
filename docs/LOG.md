@@ -198,3 +198,24 @@ not approved, nothing built.
 - **Why cloud GPUs decide the pace:** on Kaggle alone T2 trains Fri 10-09 and reads 10-10, which leaves one recipe
   experiment before the final training week (10-16). Rented GPUs read T2 by ~10-07 and fit two or three more.
 - **Dropped tonight:** the stack + T1 at 1/3 (forecast ~0.942, under the stack; its only value was the 9 h timing).
+
+**2026-10-03 ~21:25 — owner Q: "why not a different family right now, what are our options?"** Answer given; PROPOSED,
+nothing built.
+- **Why a new backbone alone is not the fix:** three backbones land in one place or in reverse order of size. Public
+  CoAtNet 0.928–0.933; our Ortho ViT-L 0.929; forum ResNet34 / EffNet-B0 "0.94+" (two self-reports, `REFERENCE.md`
+  §3.1b). Our own ResNet34, in the ViT harness, reads 0.813 on the 691 (4-fold mean 0.832). Same backbone, ~0.04–0.06
+  apart: the gap is the recipe, and a new family trained through the same trainer on the same labels inherits it.
+- **The options, ranked:**
+  1. Small CNN, forum recipe (224–288 px, mean/max pooling, no attention head, BatchNorm over a real batch). Free on
+     the Mac, one night. It is a third family AND the 1-hour test bench for recipe and label changes. START HERE.
+  2. VLM (Qwen3.5-2B): one self-report of 0.950 alone; ours is broken (no gradient to the vision tower). Run the
+     15-minute gradient diagnostic before any training spend. ~10 GPU-h and a new serve path if it lives.
+  3. ConvNeXt / EfficientNetV2 2.5D with a sequence head: untried here; close to what the public CoAtNets already
+     are, so little new for the blend; ~7 GPU-h a run.
+  4. CoAtNet from ImageNet in our trainer: the same architecture as 8 stack members; useful only as an exact-copy
+     control of the trainer (the author's reads 0.928).
+  5. 3D / video models: not proposed (4,349 studies, no knee-MRI pretraining in hand).
+- **Not a family, but named by the 22nd-place team as a large lever:** external data. The host question (MRNet) is
+  still unasked by us (`REFERENCE.md` §1.3); the entry deadline is 10-15.
+- **Lines (REVIEW §2.5, unchanged):** forum arm − mean(B′ seeds) ≥ +0.010 on the 691 → build a 5-fold family; it joins
+  a final only at LB ≥ 0.930.
