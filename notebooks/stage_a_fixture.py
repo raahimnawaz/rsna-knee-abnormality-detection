@@ -1,22 +1,8 @@
-"""Synthetic DICOM studies WITH PIXELS and known answers, to check `pipeline/build_slots64.py` off Kaggle.
+r"""Synthetic DICOM studies with known answers, to test `pipeline/build_slots64.py` offline.
 
     python notebooks/stage_a_fixture.py
     python pipeline/build_slots64.py --root /tmp/safix/input/competitions/rsna-knee-abnormality-detection \
         --out /tmp/safix/out --check
-
-WHY. Stage 0's fixture checks arithmetic on headers. A cache can fail in ways no header shows and
-no crash reports: slices in the wrong order, a crop in pixels rather than millimetres, a small scan
-stretched to fill the box, the wrong series in a slot. Each of those trains perfectly and scores
-wrongly (§9h). So every slice here draws, in PHYSICAL units about the image centre:
-
-  * an 80 mm bright square -- must come out 192 px on both axes whatever the pixel spacing;
-  * a thin stripe whose x position encodes the slice's TRUE position along the normal -- must move
-    left to right through every slot. Filenames are shuffled UIDs and InstanceNumber is shuffled
-    too, so a reader that trusts either one fails. (A first version ran InstanceNumber backwards
-    and positions along +x; for the sagittal IOP the normal is -x, so the two agreed and the trap
-    tested nothing -- the geometry-correct reader "failed" the check instead.)
-  * dark corners (4% of the area) so the 2-98th percentile window keeps the background above 0,
-    which is what lets padding be told apart from a stretched image.
 """
 import json
 import random
@@ -50,7 +36,7 @@ SPEC = {
     "F3": [("Sagittal", 1, 10, 512, 512, 0.3125, 0.3125, "MONOCHROME2"),  # shorter than the slot
            ("Axial", 1, 40, 512, 512, 0.3125, 0.3125, "MONOCHROME2")],
 }
-TRUTH = {  # slot -> None (empty) or the series it must take, by slice count
+TRUTH = {
     "F1": {"sag_1": {"n": 30, "kind": "normal"}, "sag_2": {"n": 24, "kind": "normal"},
            "cor_1": {"n": 20, "kind": "normal"}, "cor_2": {"n": 28, "kind": "normal"},
            "ax": {"n": 18, "kind": "normal"}},

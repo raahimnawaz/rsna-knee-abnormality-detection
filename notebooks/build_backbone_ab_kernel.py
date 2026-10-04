@@ -1,61 +1,8 @@
-"""The backbone A/B: one encoder per kernel, on the frontier's public corpus and recipe.
+"""Build a Kaggle GPU training kernel for one encoder: pinned inputs, embedded sources, paired scoring.
 
-    python notebooks/build_backbone_ab_kernel.py --arch ortho --out /tmp/ab --smoke   # CPU, wiring
-    python notebooks/build_backbone_ab_kernel.py --arch ortho --out /tmp/ab --bench   # T4, 1 epoch
-    python notebooks/build_backbone_ab_kernel.py --arch ortho --out /tmp/ab --epochs N
+    python notebooks/build_backbone_ab_kernel.py --arch ortho --out /tmp/ab --smoke    # CPU wiring check
+    python notebooks/build_backbone_ab_kernel.py --arch ortho --corpus stage_b --epochs 14 --out /tmp/ab
     python -m kaggle kernels push -p /tmp/ab
-
-THE QUESTION. OrthoFoundation was only ever tested FROZEN, at 160 mm, on the old 6-tile cache (C-5,
-0.7710 -- still the best number any encoder trained here has produced). This is its first fair
-test: fully fine-tuned, in the recipe behind the public 0.924-0.928 single model (`MODEL.md` §0),
-on the corpus that recipe trained on, with everything but the encoder held fixed:
-
-    ortho     OrthoFoundation-L                        the arm
-    dinov3l   stock DINOv3-L, Ortho's own architecture  ortho - dinov3l = what knee pretraining is worth
-    coatnet   the frontier's encoder                    ortho - coatnet = whether Ortho is the best encoder here
-
-HELD FIXED ACROSS ARMS: the corpus (`dreaddevelopment/knee-raptor-corpus` + `-ext`, CC0, 44 slices,
-140 mm, 15-85% -- their STARTING geometry, not the 0.928 one, and the same for every arm); the
-training studies (a seeded draw of 2,871, the count `runs_port_repro` and the sampling test used,
-from fold != 0, not gold, complete `steven_v2` targets); `steven_v2` targets; the recipe in
-`fusion/train_windows.py`; and the validation set -- the SAME 691 fold-0 studies `runs_port_repro`
-(0.7597), pilkwang (0.8453) and the sampling test are scored on, by the same `score_oof.py`. The
-site-grouped partition is held to `provenance/inputs.json`, so a changed upstream stops the run.
-
-THE RULE, PRE-REGISTERED HERE BEFORE ANY ARM HAS A NUMBER (one seed each; the paired SD on this
-instrument has been ~0.009):
-    knee pretraining pays        ortho - dinov3l > 0 paired, P(delta>0) >= 0.95
-    Ortho is the encoder to use  ortho - coatnet > 0 paired, P(delta>0) >= 0.95
-    a null is a result           neither -> record it as a null, not a refutation (§3 rule 4)
-The primary read is the LAST epoch. `avg3/` (mean of the last three epochs' weights) is secondary,
-fixed in advance, and is not a second chance to pass.
-
---bench runs ONE full epoch on the T4 and scores it. That prices the full run from a measurement
-(PREMORTEM §1's rule) and gives a first, weak number. It is not the A/B.
-
-STAGE B (`--corpus stage_b`, 2026-09-25). One package run against step 5's model (`c6_ortho`, 0.8298):
-the Stage B cache (96 slices, 384 px, canonical orientation, two extra series slots -- `DATA.md` §10b)
-AND the model changes (layer-wise LR decay 0.8, drop-path 0.1, a slot + depth embedding per window,
-both T4s under DDP, epochs fitted to the session). Same 3,502 training studies, same `steven_v2`
-targets, same 691 validation studies. It launches under torchrun on every visible GPU (two gloo
-processes on CPU for --smoke, so the DDP path is exercised before any GPU hour is spent).
-THE RULE, PRE-REGISTERED 2026-09-25 BEFORE THE RUN: the package pays if `c7_ortho - c6_ortho > 0`
-paired on the same 691, P(delta>0) >= 0.95, primary = last epoch; `avg3/` is secondary and not a
-second chance. A pass says the PACKAGE works, not which part of it; a loss ships nothing from it.
-
-ALL DATA (`--all-data`, 2026-09-29). Train on EVERY non-gold study with complete targets: the 3,502 pool,
-the 691 and the rest of fold 0, 4,349 in all. Nothing is held out. It is for a model whose start already
-trained on those studies (the public CoAtNet, `--init`, which saw all 4,349 plus gold x3), so its 691
-read was never a clean check and the LB is its only judge. The val list is the gold studies: train_windows
-needs one disjoint from train, and gold is never trained on. No score_oof pairing. Slug suffix `-all`.
-
-QWEN (`--arch qwen35vl --corpus stage_a`, 2026-09-26). Qwen3.5-2B as a VLM study reader
-(`fusion/qwen_vlm.py`): the vision encoder fine-tuned, LoRA on the language model, every window of a
-study one image in one sequence. Same Stage A cache, the same 3,502 training studies as step 5
-(`--n-train 0` is the default for this arch), `steven_v2` targets, the same 691, both T4s under DDP.
-`--bench` here is SHORT -- 40 optimiser steps and 60 validation studies at every window -- because it
-answers cost and fp16 finiteness on a real T4, not accuracy. Its full run's rule is in the RUNBOOK,
-written before that run.
 """
 from __future__ import annotations
 
@@ -78,8 +25,8 @@ EMBED = [
     "pipeline/provenance.py",
     "extractor/metrics.py",
     "provenance/inputs.json",
-    "fusion/runs_port_repro/oof_all.csv",      # the control: 691 fold-0 studies, 0.7597
-    "fusion/runs_c6_ortho/oof_all.csv",        # Stage B's rule is scored against step 5's model, 0.8298
+    "fusion/runs_port_repro/oof_all.csv",
+    "fusion/runs_c6_ortho/oof_all.csv",
 ]
 DATASETS = ["dreaddevelopment/knee-raptor-corpus",           # 3,200 studies, CC0
             "dreaddevelopment/knee-raptor-corpus-ext",       # 1,207 studies, CC0
@@ -88,21 +35,9 @@ DATASETS = ["dreaddevelopment/knee-raptor-corpus",           # 3,200 studies, CC
 KERNELS = ["zhukovoleksiy/rsna-metadata-probe"]              # headers.parquet -> site folds
 STAGE_A_SHARDS = [f"{OWNER}/rsna-knee-stage-a-s{i}of4" for i in range(4)]   # build_stage_a_kernel.py
 STAGE_B_SHARDS = [f"{OWNER}/rsna-knee-stage-b-s{i}of8" for i in range(8)]   # ... --stage b
-# Stage B's package: the model half of the run. The data half is the cache itself.
-# Layer-wise decay REDISTRIBUTES the learning rate toward the top blocks; it must not cut it. Step 5 ran a
-# flat 3e-5 on all 24 blocks (sum 7.2e-4). With decay 0.9, block i of 24 gets top * 0.9^(25 - i), which sums
-# to top * 8.28, so top = 9e-5 keeps the same total (7.5e-4): upper blocks ~8e-5, the middle ~2.3e-5, the
-# patch embedding ~6e-6. (0.8 on a 3e-5 top, as first written, cut the total 6x and left the embedding at
-# 1.1e-7 -- read off the 09-25 smoke log, before any result.)
 PACKAGE = ["--res", "384", "--drop-path", "0.1", "--llrd", "0.9", "--bb-lr", "9e-5", "--pos-emb", "--fit-budget"]
-# Speed, adopted 09-27 by the pre-registered bench (RUNBOOK, speed bench v2; fusion/runs_speed_bench_v2): the TRAINING
-# step compiled (eval stays eager) and the first 12 of 24 blocks checkpointed -- -28.6% per step on T4x2 DDP,
-# loss unchanged, 13.3 GB peak. Fallback if a long run ever OOMs: drop "--ckpt-blocks", "12" (7.0 GB, -19%).
 SPEED = ["--compile", "--ckpt-blocks", "12"]
 N_TRAIN, DRAW_SEED = 2871, 20260923
-# The VLM: every visible GPU, the epoch count fitted to the session, and the short bench.
-# It trains on 12-image sequences, so it is read on 12 evenly spaced windows, not every window: a
-# language model's length generalisation from 12 images to ~50 is a train/eval skew (AUDIT.md, 09-26).
 QWEN_EXTRA = ["--fit-budget", "--k", "12", "--eval-windows", "12"]
 # The versions this arch was built and tested against locally; the image may carry neither.
 QWEN_TRANSFORMERS = "5.17.0"
@@ -134,9 +69,6 @@ def log(msg):
 
 import torch, timm
 if ARCH.startswith("qwen"):
-    # Qwen3.5 needs a transformers that knows `qwen3_5`; the image may predate it. Internet is on here.
-    # Checked in a FRESH interpreter: training runs in a subprocess, and a package upgraded under this
-    # notebook's own process cannot be re-imported here (the 09-26 smoke: pip succeeded, reload did not).
     _probe = [sys.executable, "-c", "import transformers as t; from transformers import Qwen3_5Model; print(t.__version__)"]
     _r = subprocess.run(_probe, capture_output=True, text=True)
     if _r.returncode:
@@ -180,8 +112,6 @@ log(f"competition root: {ROOT}")
 '''
 
 
-# The sampling test's PREP, verbatim in what it computes: the same targets, reference, site folds,
-# provenance checks and partition check, so the two runs sit on one partition.
 PREP = r'''
 # ============================================================================ #
 # Labels, site folds, the partition check, then the train/val lists.
@@ -218,9 +148,6 @@ _v2 = (pd.read_csv(FOUND["llm_labels_v2.csv"][0])
        .drop_duplicates("StudyInstanceUID").set_index("StudyInstanceUID"))
 _v2.reindex(_tr.StudyInstanceUID)[L].reset_index().to_csv(D / "targets.csv", index=False)
 if __TARGETS_SHA__:
-    # A different label table than steven_v2 (built with --targets): gzip-embedded, or -- too big for a
-    # notebook -- read from an attached Kaggle dataset by name. Either way held to the hash the builder
-    # computed locally and recorded in provenance.json: the run's ONLY change when judged against step 5.
     if __TARGETS_B64__:
         import gzip as _gz
         (D / "targets_run.csv").write_bytes(_gz.decompress(base64.b64decode(__TARGETS_B64__)))
@@ -239,9 +166,6 @@ if __TARGETS_SHA__:
     if _sha(D / "targets_run.csv") != __TARGETS_SHA__:
         sys.exit("targets do not match their hash")
     log(f"targets: {__TARGETS_NAME__} ({_how}, sha256 {__TARGETS_SHA__[:16]}) -- NOT steven_v2")
-# ⛔ targets.csv stays steven_v2: folds.py STRATIFIES on it, so it defines the partition every 691 read shares.
-# The 09-26 dread run overwrote it, the rebuilt fold file hashed differently, and provenance stopped the run.
-# The run's own labels go to targets_run.csv and reach nothing but the trainer and the pool filter.
 LABELS_CSV = D / ("targets_run.csv" if __TARGETS_SHA__ else "targets.csv")
 TARGETS_DF = pd.read_csv(LABELS_CSV).set_index("StudyInstanceUID")
 if TARGETS_DF.index.duplicated().any() or not set(L) <= set(TARGETS_DF.columns):
@@ -280,19 +204,15 @@ TEACHER_FOLD = __TEACHER_FOLD__
 PREDICT_ALL = __PREDICT_ALL__
 ALL_DATA = __ALL_DATA__
 if ALL_DATA:
-    # nothing held out: every non-gold study, fold 0 included. Val = gold (never trained on; disjoint from train).
     TRAIN = sorted(u for u in FOLDS.loc[~FOLDS.is_gold, "StudyInstanceUID"]
                    if u in CORPUS_IDS and u in TARGETS_DF.index and TARGETS_DF.loc[u, L].notna().all())
     VAL = sorted(u for u in FOLDS.loc[FOLDS.is_gold, "StudyInstanceUID"] if u in CORPUS_IDS)
     if set(TRAIN) & set(VAL) or len(VAL) < 50:
         sys.exit(f"all-data: train/gold overlap or only {len(VAL)} gold studies in the corpus")
 elif PREDICT_ALL:
-    # an outside teacher (e.g. trained on fastMRI+, loaded with --init, --epochs 0): label EVERY training study and the
-    # 691; it never saw any of them. Gold is scored by --gold as always.
     VAL = sorted(set(_pool) | set(VAL))
     TRAIN = _pool[:2]                                      # train_windows needs a train list; 0 epochs never use it
 elif TEACHER_FOLD:
-    # teacher -> student: train on the other three training folds, label this one -- a study it never saw
     _fk = set(FOLDS.loc[FOLDS.fold == TEACHER_FOLD, "StudyInstanceUID"])
     VAL = [u for u in _pool if u in _fk]
     TRAIN = [u for u in _pool if u not in _fk]
@@ -321,8 +241,6 @@ TRAIN = r'''
 # ============================================================================ #
 # Train: fusion/train_windows.py, the only place an arm differs is --arch.
 # ============================================================================ #
-# The VLM's CPU smoke is ONE process: two fp32 copies of a 2B model do not fit a CPU session's RAM, and
-# its DDP path is exercised by the GPU bench's first steps instead.
 NPROC = ((torch.cuda.device_count() if torch.cuda.is_available() else (1 if ARCH.startswith("qwen") else 2))
          if LAYOUT == "stage_b" or ARCH.startswith("qwen") else 1)
 _launch = ([sys.executable, "-m", "torch.distributed.run", "--nnodes", "1", "--node_rank", "0",
@@ -334,12 +252,8 @@ if NPROC > 1:
         os.environ["TW_FORCE_CKPT"] = "1"
         os.environ["OMP_NUM_THREADS"] = str(max(1, (os.cpu_count() or 4) // NPROC))
 if not torch.cuda.is_available():
-    # EVERY CPU smoke takes the gradient-checkpointing branch the GPU run takes. 10-02: the CoAtNet student (Stage A,
-    # one process, so the flag above was never set) died 8 min into its GPU run on a line only that branch reaches.
     os.environ["TW_FORCE_CKPT"] = "1"
 if ARCH.startswith("qwen") and not torch.cuda.is_available():
-    # The VLM's CPU smoke: checkpoint as the GPU run does (without it, activations of a 2B model on one
-    # CPU process were SIGKILLed after the first step, smoke v3), with one loader worker.
     os.environ["TW_FORCE_CKPT"] = "1"
     os.environ["TW_WORKERS"] = "1"
 log(f"launch: {NPROC} process(es), {os.environ.get('TW_WORKERS', '4')} loader workers each")
@@ -444,9 +358,6 @@ def main() -> None:
         raise SystemExit("--all-data trains on everything: not with --predict-all, --teacher-fold, a --n-train draw "
                          "(pass --n-train 0) or --bench")
     if a.predict_all:
-        # An outside teacher labels studies with the weights it brings: nothing may train here, in any mode.
-        # (train_windows lets the train list overlap val only at --epochs 0, and skips --fit-budget there.)
-        # Read it on the corpus it trained on: --corpus stage_b adds PACKAGE, whose --res 384 sets the eval size.
         if "--init" not in extra:
             raise SystemExit("--predict-all needs the teacher's weights: --train-args '--init <file>' "
                              "(and --extra-datasets for the dataset that holds it)")
@@ -508,8 +419,6 @@ def main() -> None:
           "nbformat": 4, "nbformat_minor": 5}
     body = json.dumps(nb, indent=1)
     if len(body.encode()) > 1_000_000:
-        # Kaggle answers a bare "400 Bad Request" to a notebook over ~1 MB (09-26 at 2.1 MB; 09-28 at 1.06 MB, when
-        # embedded student targets pushed an ~0.87 MB notebook over). Fail here, with the way out.
         raise SystemExit(f"notebook {len(body.encode()) / 1e6:.2f} MB > 1 MB: Kaggle refuses it with a 400"
                          + (" -- attach the targets with --targets-from <dataset>" if t_b64 else ""))
     a.out.mkdir(parents=True, exist_ok=True)
@@ -522,7 +431,7 @@ def main() -> None:
             "enable_internet": True, "keywords": [],
             "dataset_sources": datasets, "kernel_sources": kernels,
             "competition_sources": ["rsna-knee-abnormality-detection"], "model_sources": []}
-    if mode != "smoke" and not a.cpu:          # a machine_shape makes Kaggle count it as a GPU session, even with enable_gpu off
+    if mode != "smoke" and not a.cpu:
         meta["machine_shape"] = "NvidiaTeslaT4"
     (a.out / "kernel-metadata.json").write_text(json.dumps(meta, indent=2), encoding="utf-8")
     print(f"built {a.out / (slug + '.ipynb')}  arch={a.arch} corpus={a.corpus} "

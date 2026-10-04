@@ -1,32 +1,4 @@
-"""Qwen3.5 VLM as a study reader: every window of a study is one image in ONE sequence, the language
-model (LoRA) reads them in anatomical order, and each finding is read off its own name's position.
-
-    arch qwen35vl    Qwen/Qwen3.5-2B (Apache-2.0): vision encoder fully fine-tuned, LoRA on every linear of
-                     the language model, 384 px, 144 tokens per window -- the board's 54th-place recipe
-                     (RUNBOOK, 09-25 board read: 0.950 self-reported), rebuilt, not copied
-    arch qwentiny    the same classes at a toy size with random weights -- wiring only, runs on a CPU
-
-WHY INSIDE train_windows.py AND NOT BESIDE IT. `QwenStudy.forward` has WindowMIL's signature -- uint8
-windows [B,K,3,H,W], mask, gain, slot, pos -> 12 logits -- so the corpus, the splits, the loss, the
-eval, the gold-58 report, `score_oof.py` and the 691 all apply unchanged, and an arm can differ from
-Ortho in the model and nothing else.
-
-THE SEQUENCE, per study (built from token ids, no processor at train time):
-
-    <|im_start|>user\\n Knee MRI.
-      Sagittal, fluid-sensitive: <vision_start> <image_pad> x144 <vision_end> <vision_start> ... <vision_end>
-      Sagittal, other: ...                     (one header per slot, windows sorted by depth)
-    Findings?<|im_end|>\\n<|im_start|>assistant\\n ACL, MCL, medial meniscus, ..., fracture
-                                                   ^ each finding's LAST token is read: 12 hidden states,
-                                                     LayerNorm, one weight vector per finding (WindowMIL's head)
-
-`patchify` reproduces `Qwen2VLImageProcessor.patchify` exactly (an image is its own frame twice, the
-merge-block order), and is checked against it in `test_patchify`. Normalisation is Qwen's (0.5, 0.5).
-M-RoPE positions come from the model's own `get_rope_index` via `mm_token_type_ids`.
-
-On a T4 (no bf16) the frozen language model is held in fp16 and autocast runs fp16 -- Qwen3.5 was
-trained in bf16, so `finite_check` is run on real weights before any GPU hour is priced on it.
-"""
+"""Qwen3.5 VLM as a study reader (experimental): each window is one image in a single sequence, and each finding is read at its own name's position."""
 from __future__ import annotations
 
 import math
@@ -42,7 +14,6 @@ NAMES = ["ACL", "MCL", "medial meniscus", "lateral meniscus", "medial osteoarthr
          "lateral osteoarthritis", "patellofemoral osteoarthritis", "effusion", "synovitis",
          "Baker's cyst", "bone contusion", "fracture"]
 HF_ID = {"qwen35vl": "Qwen/Qwen3.5-2B"}
-# Pinned: the checkpoint this arch was checked against (fp16 finiteness, patchify, tokenizer), 2026-09-26.
 HF_REVISION = {"qwen35vl": "15852e8c16360a2fea060d615a32b45270f8a8fc"}
 QWEN_MEAN, QWEN_STD = (0.5, 0.5, 0.5), (0.5, 0.5, 0.5)
 PATCH, MERGE, TEMPORAL = 16, 2, 2
@@ -242,16 +213,13 @@ def build(arch: str, weights_dir, res: int, slot_meta: list[dict] | None, n_slot
     cfg._attn_implementation = "sdpa"
     cfg.vision_config._attn_implementation = "sdpa"
     cfg.text_config._attn_implementation = "sdpa"
-    # On a GPU the frozen language model is held in fp16 anyway, so load everything in fp16 (4.6 GB, not
-    # 9.2 GB of host RAM per rank -- the 09-26 CPU smoke was SIGKILLed holding two fp32 copies) and lift
-    # only what trains back to fp32: the vision tower here, LoRA and the head as they are created.
     load_dtype = torch.float16 if fp16_frozen else torch.float32
     if src is not None:
         qwen = Qwen3_5Model.from_pretrained(src, config=cfg, dtype=load_dtype)
     else:
         qwen = Qwen3_5Model(cfg).to(load_dtype)
     qwen.visual.float()
-    for name, prm in qwen.named_parameters():      # the delta rule's decay: tiny, and exp() of it in fp16 is lossy
+    for name, prm in qwen.named_parameters():
         if name.endswith(("A_log", "dt_bias")):
             prm.data = prm.data.float()
     tok_src = tokenizer_dir or src or HF_ID.get(arch, "Qwen/Qwen3.5-2B")

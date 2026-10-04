@@ -1,22 +1,7 @@
-"""The efficiency curve: the same checkpoint scored at fewer windows per study, with its T4 cost.
+r"""Score one checkpoint at fewer windows per study and report its GPU cost (accuracy against runtime).
 
-    python fusion/window_curve.py --corpus /kaggle/input --weights runs_ortho/last.pt \
-        --val runs_ortho/val_studies.csv --out curve --n 54 27 12      # one process per GPU
-    python fusion/score_oof.py curve/n54 curve/n18                     # locally: paired, same 691
-
-WHY. The efficiency track scores (maxAUC - AUC)/(maxAUC - 0.5) + runtime_s/32400; at maxAUC ~0.96,
-0.001 AUC is worth ~70 s of runtime over the hidden 1,322 studies. The model reads every window
-a study holds (54 on a full study, 1.53 s/study on a T4), and nothing has measured what fewer
-cost. This does, at no training cost: same weights, same 691 studies, only the window set shrinks.
-
-THINNING. Per slot, `window_centres` is kept as it is, then k = max(1, round(m * n / 54)) of the
-slot's m centres are taken at evenly spaced positions, so each slot keeps its share and its span.
-`--n 54` keeps every window and must reproduce `runs_ortho/oof_all.csv` -- the run checks that
-before anything else, so a curve is never read off a path that differs from the scored one.
-
-TIMING. Per study, the forward alone (CUDA-synchronised) and the whole step including the read
-from the cache. The DICOM decode is not in either: it does not depend on n (all 64 slices are
-decoded either way) and it overlaps the GPU in `infer_windows.py`.
+    python fusion/window_curve.py --corpus <cache> --weights runs_ortho/last.pt \
+        --val runs_ortho/val_studies.csv --out curve --n 54 27 12
 """
 from __future__ import annotations
 

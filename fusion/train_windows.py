@@ -1,47 +1,8 @@
-"""Train one encoder on 2.5D windows of a fixed slice stack -- the frontier's recipe, as a harness.
+r"""Train one encoder on 2.5D windows of a fixed slice stack, with a per-finding attention-MIL head.
 
-    python fusion/train_windows.py --arch ortho   --corpus /kaggle/input --train train.csv \
-        --val val.csv --labels targets.csv --out runs_ortho --epochs 10
-    python fusion/train_windows.py --arch tiny --synthetic 24 --out /tmp/tw --epochs 1   # wiring
-
-WHY THIS EXISTS. `MODEL.md` §0: the public frontier (dreaddevelopment, LB 0.928 single model)
-publishes its training recipe, and C6 copied its input but not its training. This file
-re-implements that recipe as a harness in which the ENCODER is the only thing an arm changes:
-
-    ortho     OrthoFoundation-L, loaded strict with its own RoPE periods (orthofoundation_model.py)
-    dinov3l   stock `vit_large_patch16_dinov3.lvd1689m` -- Ortho's architecture without the knee
-              corpus, so ortho - dinov3l is what knee pretraining is worth (Stage C's C1 - C0)
-    coatnet   `coatnet_rmlp_2_rw_384.sw_in12k_ft_in1k` -- the frontier's own encoder, at 384
-    tiny      `vit_tiny_patch16_224` without weights -- wiring checks only
-
-THE RECIPE, read from their script (not its description), and where this differs:
-
-  * A window is three consecutive slices as the three channels. Train: `--k` windows drawn per
-    study per step. Eval: EVERY window the study holds.
-  * Encoder fully fine-tuned, AdamW, lr 3e-5 encoder / 1e-3 head, wd 0.02, OneCycle with a 15%
-    warm-up, grad-norm clip 3.0. Augmentation is a per-study intensity gain of +-10% and nothing
-    else: no flips, laterality is signal.
-  * Head: per-finding attention MIL. LayerNorm, then Linear(F,256)-Tanh-Dropout(0.2)-Linear(256,12)
-    gives each finding its own softmax over windows; a per-finding linear reads its pooled vector.
-  * Loss: BCE with pos_weight = clip((1-p)/p, 1, 10), p = clip(train prevalence, 0.03, 0.7).
-  DIFFERENCES, each deliberate:
-  * Windows never straddle a slot boundary. Their `_centers` ranges over the whole stack, so a
-    window can put the last sagittal slice beside the first coronal one. Here a window's three
-    slices come from one series. 44 = 12+10+8+6+8 gives at most 34 windows per study.
-  * The confidence weight `0.25 + 0.75|2y-1|` multiplies the loss, because `steven_v2`'s 0.5
-    means "the report does not say", not "hedged" (train_port.py:173). Their labels differ.
-  * NO epoch is selected. They keep the best epoch on gold-58, which is `RUNBOOK.md` §3 rule 1.
-    Primary is the LAST epoch; secondary, fixed in advance, is the weight average of the last
-    three. Gold-58 is scored and written, never used.
-  * fp16 + GradScaler on CUDA: a T4 has no bf16. `--mps` (a Mac, no CUDA): Apple's GPU under bf16 autocast, which
-    needs no scaler -- for the free CNN teachers and tests (2026-09-28); the CUDA path is unchanged.
-
-Normalisation is ImageNet's for every arm, and for Ortho that is not an assumption: its own
-pretraining code applies exactly these constants (`PREMORTEM.md` §9, resolved 2026-09-23).
-
-Outputs in --out: `oof_all.csv` (the --val studies, what `score_oof.py` reads), `avg3/oof_all.csv`
-(so `score_oof.py <out>/avg3` scores the secondary the same way), `oof_gold.csv`, `summary.json` with timings, and `bench.json` -- the per-step cost of THIS encoder
-on THIS machine, which is what the full run is priced from (PREMORTEM §1: bench, never extrapolate).
+    python fusion/train_windows.py --arch ortho --corpus <cache> --train train.csv --val val.csv \
+        --labels targets.csv --out runs_ortho --epochs 10
+    python fusion/train_windows.py --arch tiny --synthetic 24 --out /tmp/tw --epochs 1    # wiring check
 """
 from __future__ import annotations
 
@@ -67,15 +28,13 @@ sys.path.insert(0, str(HERE.parent / "extractor"))
 
 LABELS = ["ACL", "MCL", "Medial Meniscus", "Lateral Meniscus", "Medial OA", "Lateral OA",
           "PF OA", "Effusion", "Synovitis", "Baker's", "Contusion", "Fracture"]
-SLOT_SIZES = (12, 10, 8, 6, 8)          # the corpus's 44: SAG-fluid, SAG-other, COR-fluid, COR-2, AX
+SLOT_SIZES = (12, 10, 8, 6, 8)
 MEAN = (0.485, 0.456, 0.406)
 STD = (0.229, 0.224, 0.225)
 ARCHS = {
     "ortho":   dict(res=336, pool="token"),
     "dinov3l": dict(res=336, pool="token", timm="vit_large_patch16_dinov3.lvd1689m"),
     "coatnet": dict(res=384, pool="avg", timm="coatnet_rmlp_2_rw_384.sw_in12k_ft_in1k"),
-    # The board's "small CNN at 224 px scores 0.94+" (REFERENCE 3.1b), tested in our pipeline 09-27. 21.8M params:
-    # no gradient checkpointing (nothing to save), and no `.blocks` for --ckpt-blocks to walk.
     "resnet34": dict(res=224, pool="avg", timm="resnet34.a1_in1k", ckpt=False),
     "tiny":    dict(res=224, pool="token", timm="vit_tiny_patch16_224"),
     # wiring only, random weights: Ortho's own architecture family (Eva, RoPE, registers) at 22M params,
@@ -99,21 +58,14 @@ def log(msg: str) -> None:
 # ----------------------------------------------------------------------------- corpus
 class Corpus:
     """Row-ordered parts as one (N, D, 336, 336) uint8 view. ROW ORDER IS THE CONTRACT: within a
-    part, ids[i] names vols[i] and masks[i]; nothing here sorts any of the three.
-
-    Three layouts, found by what is attached:
-      raptor44  dreaddevelopment's CC0 corpus, two parts, D = 44 = 12+10+8+6+8 (15-85%)
-      stage_a   our `pipeline/build_slots64.py` shards, D = 64 = 18+14+12+8+12, span in the manifest.
-      stage_b   `build_slots64.py --spec c7 --canon`: D = 96 over seven slots, 384 px, canonical.
-                Every shard of one build must be present, or the run refuses.
-    """
+    part, ids[i] names vols[i] and masks[i]; nothing here sorts any of the three."""
 
     RAPTOR_PARTS = (("all_vols.npy", "all_masks.npy", "all_ids.npy"),
                     ("extra_vols.npy", "extra_masks.npy", "extra_ids.npy"))
     SPECS = {"stage_a": "c6-64slice", "stage_b": "c7-96slice-384"}
 
     def __init__(self, root: Path, layout: str = "auto", extra: tuple = ()):
-        """`extra`: more roots of the SAME layout (e.g. the NYU clinical parts beside our Stage A shards). Each root must be
+        """`extra`: more roots of the SAME layout (e.g. an external corpus beside the Stage A shards). Each root must be
         complete on its own; spans, orientation and slot sizes must match; ids must not repeat across roots."""
         found, shards = {}, {k: [] for k in self.SPECS}
         for d, dirs, fs in os.walk(root):
@@ -325,7 +277,7 @@ def build_encoder(arch: str, weights_dir: Path, res: int | None = None, drop_pat
         m, periods = om.build(dst, img=spec["res"], global_pool=spec["pool"],
                               **({"drop_path_rate": drop_path} if drop_path else {}))
         if not torch.equal(m.rope.periods.float(), periods.float()):
-            raise SystemExit("RoPE periods were not applied -- the §9h trap")
+            raise SystemExit("RoPE periods were not applied")
         log(f"ortho: strict load, sha256 ok, RoPE periods = theirs | img {spec['res']} | drop_path {drop_path}")
         return m
     kw = dict(pretrained=arch not in UNTRAINED, num_classes=0, global_pool=spec["pool"])
@@ -343,8 +295,8 @@ class WindowMIL(nn.Module):
                  n_slots: int = 0):
         super().__init__()
         self.encoder, self.res, self.n_slots = encoder, res, n_slots
-        self.affine = 0.0            # --aug-affine; a plain attribute, so state_dict and last.pt are unchanged
-        self.zoom = 0.0              # --zoom; the same kind of attribute (train AND eval, unlike the affine)
+        self.affine = 0.0
+        self.zoom = 0.0
         f = encoder.num_features
         self.norm = nn.LayerNorm(f)
         self.att = nn.Sequential(nn.Linear(f, 256), nn.Tanh(), nn.Dropout(drop), nn.Linear(256, n))
@@ -373,7 +325,6 @@ class WindowMIL(nn.Module):
         if x.shape[-1] != self.res:
             x = F.interpolate(x, size=(self.res, self.res), mode="bilinear", align_corners=False)
         if self.affine and self.training and gain is not None:
-            # per-window mild affine at strength 1: rotate +-10 deg, zoom +-10%, shift +-5%; never a flip (laterality)
             n, dev, s = x.shape[0], x.device, self.affine
             u = lambda: torch.rand(n, device=dev) * 2 - 1                        # noqa: E731
             th, sc, tx, ty = u() * s * math.pi / 18, 1 + u() * 0.1 * s, u() * 0.05 * s, u() * 0.05 * s
@@ -385,8 +336,6 @@ class WindowMIL(nn.Module):
 
     def forward(self, x, mask=None, gain=None, slot=None, pos=None):
         if self.zoom:
-            # Every window again as its centre crop (e.g. 0.6714 = the middle 94 mm of the 140 mm field), resized back to
-            # the window's size, so both views share one attention bag and one prep (RUNBOOK "CNN TEST", arm Z).
             h_ = x.shape[-1]
             c = int(round(h_ * self.zoom))
             o = (h_ - c) // 2
@@ -430,8 +379,6 @@ def predict(model, ds, dev, amp, bs) -> np.ndarray:
     dl = torch.utils.data.DataLoader(ds, batch_size=bs, shuffle=False, num_workers=ds_workers(),
                                      collate_fn=pad_collate)
     out = []
-    # `--compile` compiles the TRAINING step only. Eval feeds a new window count per study (42-62), each a new
-    # shape to compile, and on 12 studies the 09-26 bench's eval ran 1.4-2.3x slower -- so eval runs eager.
     with torch.compiler.set_stance("force_eager"):
         for x, m, sl, ps, _ in dl:
             with autocast(dev, amp):
@@ -536,7 +483,6 @@ def main() -> None:
     ap.add_argument("--time-budget-h", type=float, default=10.5)
     ap.add_argument("--save-weights", action="store_true")
     ap.add_argument("--seed", type=int, default=42)
-    # Stage B's package (RUNBOOK); every one of these defaults to the behaviour before it existed
     ap.add_argument("--res", type=int, default=0, help="encoder input size; 0 = the arch's own (ortho 336)")
     ap.add_argument("--drop-path", type=float, default=0.0, help="stochastic depth rate")
     ap.add_argument("--init", type=Path, help="start from these weights instead of the backbone's pretraining: our "
@@ -609,8 +555,6 @@ def main() -> None:
             g = pd.read_csv(a.gold).dropna(subset=LABELS)
             gold_ids = [u for u in g.StudyInstanceUID.astype(str) if u in corpus.row]
             gtab = g.set_index("StudyInstanceUID")
-        # --epochs 0 trains nothing (an --init teacher labelling studies, e.g. --predict-all), so only there may the
-        # train list overlap val. It never may overlap gold.
         if set(tr) & set(gold_ids) or (a.epochs > 0 and set(tr) & set(va)):
             raise SystemExit("train overlaps val or gold -- refusing")
     miss_tr = [u for u in tr if u not in corpus.row]
@@ -643,8 +587,6 @@ def main() -> None:
                                   len(corpus.slot_sizes), lora_r=a.lora_r, fp16_frozen=amp,
                                   grad_ckpt=bool(amp or os.environ.get("TW_FORCE_CKPT")),
                                   tokenizer_dir=os.environ.get("TW_QWEN_TOKENIZER"))
-        # Each rank moves its copy to its device BEFORE the next rank loads: two host copies at once is how
-        # the 09-26 CPU smoke was killed.
         model = make().to(dev) if rank == 0 else None
         barrier(world)
         if rank != 0:
@@ -681,24 +623,17 @@ def main() -> None:
         log(f"zoom: every window also as its centre {a.zoom:.4f} of the field, both views in one bag (train and eval)")
     if (not is_qwen and ARCHS[a.arch].get("ckpt", True) and hasattr(model.encoder, "set_grad_checkpointing")
             and (amp or os.environ.get("TW_FORCE_CKPT"))):
-        # NON-reentrant checkpointing: re-entrant checkpoints and DDP's gradient hooks do not mix
-        # (DDP then needs static_graph, which cannot start under no_sync -- measured locally 09-25).
         import timm.layers as _tl
         if hasattr(_tl, "set_reentrant_ckpt"):
             _tl.set_reentrant_ckpt(False)
         elif world > 1:
             raise SystemExit("this timm cannot switch off re-entrant checkpointing; DDP would break")
-        # A ViT has `.blocks`; a CoAtNet (timm MaxxVit) has `.stages` and none. The 10-02 CoAtNet student died on the
-        # log line below for that, on GPU only: the CPU smoke never enters this branch (no amp).
         n_blk = len(model.encoder.blocks) if hasattr(model.encoder, "blocks") else None
         if a.ckpt_blocks < 0:
             model.encoder.set_grad_checkpointing(True)
         elif n_blk is None:
             raise SystemExit(f"--ckpt-blocks {a.ckpt_blocks}: {a.arch}'s encoder has no .blocks; use -1 (all)")
         else:
-            # Checkpoint only the first N blocks: peak memory was 6.9 / 8.5 GB of 15 with all 24 (AUDIT 09-26
-            # pass 4), and every checkpointed block costs its forward twice. The forward is overridden per
-            # INSTANCE, so state_dict keys -- and last.pt -- are unchanged.
             import torch.utils.checkpoint as _cp
             model.encoder.set_grad_checkpointing(False)
             for blk in list(model.encoder.blocks)[: a.ckpt_blocks]:
@@ -706,7 +641,7 @@ def main() -> None:
         log(f"gradient checkpointing: {'all' if a.ckpt_blocks < 0 else a.ckpt_blocks} of "
             f"{n_blk if n_blk is not None else 'the'} encoder blocks")
     if a.compile and not is_qwen:
-        model.encoder.compile()          # in place: keys stay `encoder.*`, unlike torch.compile(module)
+        model.encoder.compile()
         log("encoder compiled (torch.compile, in place)")
     n_enc = sum(p.numel() for p in model.encoder.parameters())
     n_trn = sum(p.numel() for p in model.parameters() if p.requires_grad)
@@ -714,7 +649,6 @@ def main() -> None:
     log(f"encoder {n_enc / 1e6:.1f}M params, num_features {model.encoder.num_features} | res {res} | "
         f"drop_path {a.drop_path} | llrd {a.llrd} | pos_emb {a.pos_emb}")
 
-    # a finding with NO known target has no prevalence: 0.5 gives pos_weight 1 (a NaN there would poison the masked loss)
     prev = np.clip(np.nan_to_num(np.nanmean(np.where(np.isfinite(ytr), ytr, np.nan), 0), nan=0.5)
                    if a.allow_missing_labels else ytr.mean(0), 0.03, 0.7)
     pos_w = torch.tensor(np.clip((1 - prev) / prev, 1, 10), dtype=torch.float32, device=dev)
@@ -732,8 +666,6 @@ def main() -> None:
                                         drop_last=True, num_workers=ds_workers(), worker_init_fn=seed_worker,
                                         persistent_workers=ds_workers() > 0)
     if world > 1:
-        # gradient_as_bucket_view: the gradients live inside DDP's all-reduce buckets instead of beside them,
-        # one fewer full copy per rank (~1.2 GB for ViT-L). The 09-25 CPU smoke was OOM-killed at step 2.
         net = torch.nn.parallel.DistributedDataParallel(model, device_ids=[local] if amp else None,
                                                         gradient_as_bucket_view=True)
     else:
@@ -769,7 +701,7 @@ def main() -> None:
 
     # ---- how many epochs fit: time real micro-steps (data loading included), never extrapolate
     epochs, probe = a.epochs, None
-    if a.fit_budget and a.epochs > 0:           # its floor is 1 epoch: an eval-only run would train on its train list
+    if a.fit_budget and a.epochs > 0:
         net.train()
         if sampler is not None:
             sampler.set_epoch(0)
@@ -784,9 +716,6 @@ def main() -> None:
         opt.zero_grad(set_to_none=True)
         del it
         probe = float(np.median(ts[2:]))
-        # x1.35, not the +10% first written: Stage B's probe read 2.79 s per micro-step and the run measured 3.52
-        # (+26%: the probe's 8 steps miss the optimiser, the all-reduce and loader contention). It planned 13
-        # epochs and stopped at 11.2 -- the schedule cut at ~86% (RUNBOOK, Stage B, 09-26).
         epoch_s = probe * steps_per_epoch * accum * 1.35
         avail = a.time_budget_h * 3600 - (time.time() - t_start) - a.eval_reserve_h * 3600
         fit = int(max(1, min(a.epochs, avail // epoch_s)))
@@ -806,7 +735,7 @@ def main() -> None:
 
     # ---- train
     hist, last3, step_times, recent = [], [], [], []
-    waits, loss_trace, t_end = [], [], None       # data wait between micro-steps; the first losses, for A/B equality
+    waits, loss_trace, t_end = [], [], None
     stopped_early, gnorm = None, float("nan")
     for ep in range(epochs):
         if sampler is not None:
@@ -862,8 +791,6 @@ def main() -> None:
         # DDP's invariant, checked rather than assumed: every rank must end with the SAME weights. A
         # mis-synchronised accumulation step would let them drift, and only rank 0's copy is saved.
         import torch.distributed as dist
-        # Only trainable weights can drift between ranks. Summing the VLM's frozen 2B in fp64 would allocate
-        # ~4 GB for the embedding alone, after a full session of training (AUDIT.md, 09-26).
         chk = torch.tensor([sum(float(p.detach().double().sum()) for p in model.parameters() if p.requires_grad)],
                            device=dev, dtype=torch.float64)
         both = [torch.zeros_like(chk) for _ in range(world)]
@@ -900,17 +827,13 @@ def main() -> None:
     if a.save_weights and rank == 0:
         torch.save({k: v.half() if v.is_floating_point() else v for k, v in model.state_dict().items()},
                    a.out / "last.pt")
-        # ⛔ What the state dict does NOT carry. timm holds `rope.periods` as a NON-PERSISTENT buffer,
-        # so an inference kernel that rebuilds the encoder and loads last.pt gets timm's periods, not
-        # the ones this model trained with (§9h). Written here so nothing downstream has to know that --
-        # and, since Stage B, how to rebuild the model at all: its size, its slots, its embeddings.
         rope = getattr(model.encoder, "rope", None)
         (a.out / "last_meta.json").write_text(json.dumps({
             "arch": a.arch, "res": res, "pool": ARCHS[a.arch]["pool"],
             "timm": ARCHS[a.arch].get("timm", "vit_large_patch16_dinov3"),
             "layout": corpus.layout, "slot_sizes": list(corpus.slot_sizes), "img": getattr(corpus, "img", 336),
             "pos_emb": bool(a.pos_emb), "n_slots": model.n_slots, "llrd": a.llrd, "drop_path": a.drop_path,
-            "zoom": a.zoom,  # infer_windows does NOT apply it yet: a zoom model is not servable until it does
+            "zoom": a.zoom,
             "rope_periods": rope.periods.float().tolist() if rope is not None and hasattr(rope, "periods") else None,
             "mean": MEAN, "std": STD,
             **({"hf": ARCHS[a.arch].get("hf"), "qwen_config": model.qwen.config.to_dict(), "qwen_ids": model.ids,
@@ -950,7 +873,7 @@ def main() -> None:
         (a.out / "summary.json").write_text(json.dumps(summary, indent=2))
         (a.out / "bench.json").write_text(json.dumps(bench, indent=2))
         log(f"BENCH {json.dumps(bench)}")
-        log(f"gold-58 macro {gold_auc} -- REPORTED ONLY, never selected on (RUNBOOK §3 rule 1)")
+        log(f"gold-58 macro {gold_auc} -- reported only, never selected on")
         log(f"done in {summary['wall_min']:.1f} min -> {a.out}")
     if world > 1:
         import torch.distributed as dist

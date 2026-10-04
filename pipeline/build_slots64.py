@@ -1,31 +1,7 @@
-"""Stage A: build the 64-slice C6 cache from the competition DICOMs. `slots64.py` is the spec.
+"""Build the fixed-slot slice cache (Stage A or Stage B) from the competition DICOMs.
 
     python pipeline/build_slots64.py --root <competition dir> --out <dir> --shard 0 --n-shards 4
-    python pipeline/build_slots64.py --root /tmp/safix/input/... --out /tmp/safix/out --check  # fixture
-
-WHAT A STUDY BECOMES. One (64, 336, 336) uint8 stack plus a (64,) mask, five slots in fixed order
-(`slots64.SLOTS`: sag 18 / sag 14 / cor 12 / cor 8 / ax 12). Per slot, one series is chosen by
-`slots64.assign_series` (plane is never substituted; fluid preference is a sort key); its slices
-are ordered by position along the slice normal; `n_want` of them are taken evenly across
-`--span` of the stack; each is intensity-windowed, cropped to a physical 140 mm box and resized.
-A slot with no series stays zeros with its mask cleared. This is the frontier's geometry
-(`MODEL.md` §0) built here, from DICOMs, with three things done differently on purpose:
-
-  * Span 2-98% by default: their 0.928 corpus ("maxspan"). Their 64-slice 6-94% model read 0.924.
-  * The crop is PHYSICAL both ways. They clamp the box to the image when the field of view is
-    under 140 mm, which silently changes mm-per-pixel for exactly those scans; here the box is
-    padded instead, so every slice is 140 mm across (6.2% of series are under 140 mm, `DATA.md`
-    §10), and anisotropic PixelSpacing is honoured (0 of 20,792 series have any, so that one is moot).
-  * Upsampling uses bilinear, not INTER_AREA (which is nearest-neighbour when enlarging).
-
-Everything else follows their reader: IPP projected on IOP's normal for order (InstanceNumber only
-when geometry is absent, and that is counted), modality LUT, MONOCHROME1 inverted, and a 2-98th
-percentile window over the slices taken from each series.
-
-OUTPUT per shard: `vols.npy` (n, 64, 336, 336) uint8, `masks.npy` (n, 64), `ids.npy`, `slots.csv`
-(one row per study x slot: series, n_available, source_step, spacing, how it was ordered, decode
-failures), `manifest.json`, and for GATE A `render_edges.png` -- the first and last slice of every
-slot for 20 studies, to confirm the span's ends are anatomy and not wrap or air.
+    python pipeline/build_slots64.py --root <fixture root> --out <dir> --check
 """
 from __future__ import annotations
 
@@ -47,10 +23,6 @@ import slots96  # noqa: E402
 SPECS = {"c6": S, "c7": slots96}        # --spec: Stage A (64 x 336) or Stage B (96 x 384)
 SPAN = (0.02, 0.98)
 PCT = (2.0, 98.0)
-# Right knees sit near x = -150 in the scanner frame and left ones near +14, so the two modes
-# straddle -62, not 0: 97.3% +- 0.7% against the Laterality tag, cross-validated (FINDINGS §6.2,
-# the rule `pipeline/preprocess.py` carried). The statistic is the median IPP x over the first
-# three files of every series, which is what that threshold was calibrated on.
 LATERALITY_X_THRESHOLD = -62.0
 
 
@@ -92,18 +64,7 @@ def study_side(study_dir: Path, series_uids: list[str]) -> tuple[str | None, str
 
 
 def canon_ops(iop, side: str | None) -> dict:
-    """How to bring one series into the canonical frame, from its orientation and the knee's side.
-
-    LPS patient frame: +x patient-left, +y posterior, +z superior. m is the MEDIAL direction: +x on a
-    right knee, -x on a left one (an unknown side is treated as right and counted). Canonical, for
-    every knee and every scanner convention:
-      sagittal  slices lateral -> medial; columns anterior -> posterior; rows superior -> inferior
-      coronal   slices anterior -> posterior; columns lateral -> medial; rows superior -> inferior
-      axial     slices superior -> inferior; columns lateral -> medial; rows anterior -> posterior
-    So a left knee comes out as its mirror image -- a right knee -- and a scanner that stores rows or
-    columns the other way round is undone by the same rule. Applied BEFORE the centre crop, so an
-    odd margin cannot shift the mirror by a pixel.
-    """
+    """How to bring one series into the canonical frame, from its orientation and the knee's side."""
     r, c = np.asarray(iop[:3], float), np.asarray(iop[3:], float)
     n = np.cross(r, c)
     m = np.array([-1.0, 0, 0]) if side == "L" else np.array([1.0, 0, 0])
@@ -164,7 +125,7 @@ def order_series(series_dir: Path) -> tuple[list[tuple[Path, float, float]], str
             continue
         try:
             h = pydicom.dcmread(f, stop_before_pixels=True)
-        except Exception:                                   # noqa: BLE001 -- unreadable header
+        except Exception:                                   # noqa: BLE001
             continue
         iop, ipp = getattr(h, "ImageOrientationPatient", None), getattr(h, "ImagePositionPatient", None)
         ps = getattr(h, "PixelSpacing", None)
@@ -212,12 +173,7 @@ def crop_mm(a: np.ndarray, row_mm: float, col_mm: float, fov_mm: float = S.FOV_M
 
 def build_study(study_dir: Path, series: list[dict], span=SPAN, spec: str = "c6",
                 canon: bool = False) -> tuple[np.ndarray, np.ndarray, list[dict]]:
-    """One study -> (vol (N,img,img) uint8, mask (N,) uint8, one meta dict per slot).
-
-    `series`: dicts with SeriesInstanceUID, plane, fluid. n_slices is counted here from disk.
-    spec "c6" is Stage A (64 x 336, `slots64`), "c7" Stage B (96 x 384, `slots96`). `canon` puts every
-    series in the canonical frame (`canon_ops`); off, a series is read as stored -- Stage A's bytes.
-    """
+    """One study -> (vol (N,img,img) uint8, mask (N,) uint8, one meta dict per slot)."""
     Sp = SPECS[spec]
     for s in series:
         d = study_dir / s["SeriesInstanceUID"]
@@ -254,7 +210,7 @@ def build_study(study_dir: Path, series: list[dict], span=SPAN, spec: str = "c6"
         for p in sorted(set(picks.tolist())):
             try:
                 arrs[p] = apply_ops(decode(files[p][0]), ops)
-            except Exception:                               # noqa: BLE001 -- counted, slot survives
+            except Exception:                               # noqa: BLE001
                 row["decode_fail"] += 1
         if arrs:
             vals = np.concatenate([x.ravel() for x in arrs.values()])
@@ -285,7 +241,7 @@ def _one(args):
     try:
         vol, mask, meta = build_study(Path(study_dir), series, span, spec, canon)
         err = None
-    except Exception as e:                                  # noqa: BLE001 -- a study never kills the shard
+    except Exception as e:                                  # noqa: BLE001
         vol, mask, meta, err = (np.zeros((Sp.N_SLICES, Sp.IMG, Sp.IMG), np.uint8),
                                 np.zeros(Sp.N_SLICES, np.uint8), [], f"{type(e).__name__}: {e}")
     return uid, vol, mask, meta, err, time.time() - t
@@ -293,7 +249,7 @@ def _one(args):
 
 def render_edges(vols: np.ndarray, masks: np.ndarray, ids, out: Path, n: int = 20, tile: int = 112,
                  Sp=S) -> None:
-    """GATE A: first and last slice of each slot, for `n` studies -- anatomy, not wrap or air."""
+    """First and last slice of each slot, for `n` studies: a visual check for anatomy, not wrap or air."""
     import cv2
     offs = Sp.slot_offsets()
     rows = []
@@ -374,9 +330,6 @@ def main() -> None:
         render_edges(vols, masks, mine, a.out, Sp=Sp)
 
     fill = {s.name: float(masks[:, x:y].any(1).mean()) for (x, y), s in zip(Sp.slot_offsets(), Sp.SLOTS)}
-    # GATE A, measured over the whole shard rather than eyeballed: the share of pixels that are
-    # tissue (> 25/255) on each slot's first, middle and last slice. The 09-23 smoke read the
-    # sagittal edges at ~0.43 of pixels against ~0.82 mid-stack, and the anterior coronal at ~0.21.
     edge = {}
     for (x, y), s in zip(Sp.slot_offsets(), Sp.SLOTS):
         ok = np.flatnonzero(masks[:, x])[:300]

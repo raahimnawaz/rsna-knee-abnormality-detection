@@ -1,22 +1,8 @@
-"""Score studies straight from DICOMs with a `train_windows.py` checkpoint -- the submission path.
+r"""Score studies straight from DICOMs with a `train_windows.py` checkpoint: the submission path.
 
-    python fusion/infer_windows.py --root <competition dir> --split test --weights last.pt \
-        --out preds.csv                                   # every study in test.csv
-    python fusion/infer_windows.py --root <competition dir> --split train --weights last.pt \
-        --uids check.csv --out check.csv --check-against runs_ortho/oof_all.csv     # the gate
-
-WHY IT IS BUILT FROM THE TRAINER'S OWN PARTS. The model scored 0.8298 on the 691 through
-`train_windows.Windows` over a Stage A cache that `pipeline/build_slots64.build_study` wrote. This
-file imports those same functions -- `build_study` for the stack, `window_centres` for which
-windows, `WindowMIL` for the model -- so the only new code is the loop. `--check-against` then
-proves it: studies the OOF already scored are rebuilt here from their DICOMs, in THIS environment,
-and must reproduce the OOF probabilities. That one comparison covers the decode, the crop, the
-series choice, the window set, the weights, the normalisation and the RoPE periods at once; any
-of them wrong runs cleanly and scores wrongly (§9h), which is why it is a gate and not a log line.
-
-A study that fails to build becomes an all-zero stack scored at the stack's middle -- what
-`build_slots64._one` wrote into the cache for the same failure. More than --max-error-frac of
-them stops the run: that is a systematic fault, and its output would only look like a model.
+    python fusion/infer_windows.py --root <competition dir> --split test --weights last.pt --out preds.csv
+    python fusion/infer_windows.py --root <competition dir> --split train --weights last.pt --uids check.csv \
+        --out check.csv --check-against runs_ortho/oof_all.csv    # parity gate against the scored OOF
 """
 from __future__ import annotations
 
@@ -39,8 +25,6 @@ import slots64 as S  # noqa: E402
 from train_windows import LABELS, WindowMIL, thin_windows, window_centres, window_meta  # noqa: E402
 
 SLOT_SIZES = tuple(s.n_slices for s in S.SLOTS)            # Stage A's; a checkpoint's last_meta.json overrides
-# Ortho's own RoPE periods: timm's geometric series rounded to bf16 (read off the checkpoint
-# 2026-09-24). `rope.periods` is a non-persistent buffer, so last.pt does not carry them.
 ORTHO_PERIODS = [1.0, 1.335938, 1.78125, 2.375, 3.15625, 4.21875, 5.625, 7.5,
                  10.0, 13.3125, 17.75, 23.75, 31.625, 42.25, 56.25, 75.0]
 
@@ -58,9 +42,8 @@ def series_by_study(root: Path, split: str) -> dict[str, list[dict]]:
 
 
 def load_meta(weights: Path) -> dict:
-    """How the checkpoint was trained, read from the `last_meta.json` train_windows writes beside last.pt
-    (since 09-24). Step 5's run predates it: absent, this is Stage A -- 64 x 336 as stored, no slot
-    embedding, Ortho's own periods -- exactly what Submissions A and B ran and passed their gate on."""
+    """How the checkpoint was trained, read from the `last_meta.json` beside last.pt.
+    Absent, the layout is Stage A: 64 slices at 336 px, no slot embedding."""
     p = Path(weights).parent / "last_meta.json"
     m = json.loads(p.read_text()) if p.exists() else {}
     layout = str(m.get("layout", "stage_a"))
@@ -96,7 +79,7 @@ class DicomStudies(torch.utils.data.Dataset):
             vol, mask, _ = B.build_study(self.img_dir / uid, [dict(s) for s in self.by_study.get(uid, [])],
                                          spec=self.spec, canon=self.canon)
             err = ""
-        except Exception as e:                              # noqa: BLE001 -- as build_slots64._one
+        except Exception as e:                              # noqa: BLE001
             vol = np.zeros((Sp.N_SLICES, Sp.IMG, Sp.IMG), np.uint8)
             mask = np.zeros(Sp.N_SLICES, np.uint8)
             err = f"{type(e).__name__}: {e}"
@@ -112,8 +95,6 @@ class DicomStudies(torch.utils.data.Dataset):
 def build_model(weights: Path, dev: str, meta: dict | None = None) -> WindowMIL:
     import timm
     meta = meta or load_meta(weights)
-    # As train_windows.build_encoder builds it: only the ViTs take img_size (their RoPE / patch grid is sized by it);
-    # a CNN rejects it, and CoAtNet is built at its own 384.
     kw = dict(pretrained=False, num_classes=0, global_pool=meta["pool"])
     if meta["pool"] == "token":
         kw["img_size"] = meta["res"]
@@ -125,7 +106,6 @@ def build_model(weights: Path, dev: str, meta: dict | None = None) -> WindowMIL:
         if meta["rope_periods"]:
             raise SystemExit(f"{weights}: trained with RoPE periods, but {meta['timm']} has no RoPE -- wrong encoder")
         return m.to(dev).eval()
-    # ⛔ RoPE periods are a NON-persistent buffer: last.pt does not carry them (§9h).
     want = meta["rope_periods"] or ORTHO_PERIODS
     with torch.no_grad():
         if meta["rope_periods"]:
@@ -134,7 +114,7 @@ def build_model(weights: Path, dev: str, meta: dict | None = None) -> WindowMIL:
             rope.periods.copy_(rope.periods.bfloat16().float())
     got = rope.periods.float().tolist()
     if len(got) != len(want) or max(abs(a - b) for a, b in zip(got, want)) > 1e-5:
-        raise SystemExit(f"RoPE periods {got[:4]}... are not the trained ones {want[:4]}... -- the §9h trap")
+        raise SystemExit(f"RoPE periods {got[:4]}... are not the trained ones {want[:4]}... (the checkpoint's RoPE buffer was not restored)")
     return m.to(dev).eval()
 
 

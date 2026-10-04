@@ -1,37 +1,7 @@
-"""Teacher -> student targets: the report label, re-ordered by image teachers that never saw the study.
+r"""Build student targets: report labels re-ordered by out-of-fold image-teacher predictions.
 
-    python labeling/build_student_targets.py \
-        --base data/public_llm_labels/dreaddevelopment_rsna-knee-labels/labels_llm_soft.csv \
-        --teacher cnn='runs_teacher_t*/oof_all.csv' \
-        --teacher nyu='runs_nyu_teacher/oof_all.csv@ACL,Effusion,Contusion' \
-        --out data/student/targets_round1.csv
-    # the gate before any GPU is spent on a student (RUNBOOK, TARGET SYSTEM):
-    python labeling/build_student_targets.py --base <report table WITH gold rows, e.g. steven_v2> \
-        --teacher nyu='runs_nyu_teacher/oof_gold.csv@ACL,Effusion,Contusion' --gold data/train.csv --out /tmp/g.csv
-
-HOW, per finding. A teacher's scores are first put on the base's scale: within the studies that teacher covers, its
-ranks are mapped onto the base's own sorted values there (same levels, same prevalence -- AUC only sees order, and the
-sources are on different scales). The student target is then the MEAN of the base value and each covering teacher's
-value: agreement keeps the level, a clear conflict (report 0.95, teacher at the bottom) lands near 0.5 -- uncertain,
-not flipped. A study no teacher covers keeps its base value EXACTLY. Nothing is fitted; every source counts once.
-(09-27: the first version re-ranked everything onto the base's marginal; it moved uncovered studies at tied level
-boundaries and flipped conflicts outright -- caught by this file's own invariant test.)
-
-WHY a teacher must not have seen the study: a model scoring studies it trained on mostly repeats their labels
-(DATA.md §12 item 7). Pass OOF files -- one per teacher fold, globbed together -- never a model's training-set output.
-Each file is mapped onto the base on ITS OWN studies before the folds are joined (AUDIT 09-28): the folds are
-different models on site-grouped studies, and one ranking over their pooled raw scores moves whole sites.
-
-WHERE THE BASE SAYS NOTHING (`--base-silent FINDING=level,level`, 10-03). A report table fills a finding the report
-never discusses. `dread_soft` fills Synovitis from its own Effusion level: 3,751 of its 4,349 Synovitis cells are
-0.35 / 0.76 / 0.82, a fixed function of Effusion 0.05-0.20 / 0.85 / 0.95 (the reports couple the two at 0.92 / 0.01,
-the graders at 0.63 / 0.22). Such a cell carries no reading of the finding, so averaging it in counts the Effusion
-REPORT twice. For the levels named, a study a teacher covers takes the teachers' value alone (still on the base's
-scale); a study no teacher covers keeps its base value, as everywhere else. Without the flag nothing changes.
-
-Also writes <out>.audit.csv: per finding, the studies whose level moved furthest (the confident-learning idea:
-where independent image models disagree most with the report). With --gold, scores base vs combined on the
-fully-labelled studies of train.csv (gold-58): report label alone vs report + teachers.
+    python labeling/build_student_targets.py --base <report label table> \
+        --teacher cnn='fusion/runs_teacher_cnn/fold*/oof_all.csv' --out data/student/targets.csv
 """
 from __future__ import annotations
 
@@ -58,9 +28,8 @@ def read_table(pattern: str) -> pd.DataFrame:
 
 
 def read_parts(pattern: str) -> list[pd.DataFrame]:
-    """A teacher's files kept APART: each is one fold model, with its own calibration. Pooling their raw scores
-    before ranking lifts whole site-grouped folds (AUDIT 09-28, MEDIUM; measured on the CNN folds: up to 0.11
-    of a percentile per fold), so each file is mapped onto the base on its own studies in `combine`."""
+    """A teacher's files, kept apart: each is one fold model with its own calibration, so each is
+    rank-mapped onto the base on its own studies in `combine`."""
     files = sorted(glob.glob(pattern))
     if not files:
         raise SystemExit(f"{pattern}: no files")
@@ -117,8 +86,6 @@ def combine(base: pd.DataFrame, teachers: list[tuple[str, list[pd.DataFrame], li
         for name, parts, labs in teachers:
             if lab not in labs:
                 continue
-            # one fold file at a time onto the base, then the teacher's value per study = the mean over the files that
-            # scored it (one for a fold's own studies; all of them for the 691 / gold). The teacher still counts once.
             per = [on_base(tt, b) for t in parts if lab in t.columns
                    for tt in [t.loc[t.index.intersection(b.index), lab].dropna()] if len(tt) >= 2]
             if per:
@@ -130,7 +97,6 @@ def combine(base: pd.DataFrame, teachers: list[tuple[str, list[pd.DataFrame], li
         covered = stack.iloc[:, 1:].notna().any(axis=1)
         dropped = 0
         if silent and lab in silent:
-            # the base value here is a fill, not a reading: the teachers' value stands alone (on the base's scale)
             fill = b.round(4).isin([round(v, 4) for v in silent[lab]]) & covered
             stack.loc[fill[fill].index, stack.columns[0]] = np.nan
             dropped = int(fill.sum())

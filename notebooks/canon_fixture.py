@@ -1,21 +1,6 @@
-"""Synthetic DICOM knees, left and right, stored every which way: `build_slots64.py --canon`'s proof.
+"""Synthetic left and right knees in every storage orientation, to test `build_slots64.py --canon`.
 
-    python notebooks/canon_fixture.py --out <dir>            # writes <dir>/input, builds, checks
-
-WHY. Canonical orientation (Stage B, `DATA.md` §10b) mirrors left knees onto right ones and undoes
-scanner sign conventions. Get one axis wrong and the cache still builds, the model still trains,
-and Medial/Lateral labels quietly become noise on part of the corpus (§9h). So this renders ONE 3D
-phantom -- defined in knee-local coordinates (medial, anterior-posterior, superior-inferior) with a
-gradient that breaks every symmetry and two markers -- as four studies:
-
-    R_tag    right knee at x = -150, standard orientation, Laterality tag "R"
-    L_tag    the same knee mirrored (a left knee) at x = +80, standard orientation, tag "L"
-    R_geo    right knee, NO tag, rows and columns stored reversed        (side from geometry)
-    L_geo    left knee, NO tag, reversed and an axial stored TRANSPOSED  (side from geometry)
-
-and asserts: (1) the side is read right, from the right source; (2) all four canonical volumes are
-identical; (3) every axis runs where `canon_ops` documents -- read off the phantom's intensity gradient,
-which rises medially, posteriorly and superiorly. (4) Without --canon, R_tag and L_tag must DIFFER -- or the test could not fail.
+    python notebooks/canon_fixture.py --out <dir>
 """
 from __future__ import annotations
 
@@ -139,14 +124,11 @@ def check(root: Path, out: Path, truth: dict) -> None:
         diff = np.abs(vols[i].astype(int) - ref.astype(int)).max()
         assert diff <= 1, f"{name}: canonical volume differs from R_tag by up to {diff}"
         n += 1
-    # (3) the axes point where canon_ops documents. The phantom's intensity rises MEDIALLY (x2),
-    #     POSTERIORLY (x1) and SUPERIORLY (x0.5), so the sign of each axis's correlation with intensity
-    #     says which way that axis runs. Background and saturated pixels are excluded.
     def trend(v):
         z, y, x = np.nonzero((v > 5) & (v < 250))
         val = v[z, y, x].astype(float)
         return {k: float(np.corrcoef(val, idx)[0, 1]) for k, idx in (("slice", z), ("row", y), ("col", x))}
-    want = {  # slot -> sign of corr(intensity, index) along slice / row / column
+    want = {
         "sag_1": {"slice": +1, "col": +1, "row": -1},   # lateral->medial, anterior->posterior, superior->inferior
         "cor_1": {"slice": +1, "col": +1, "row": -1},   # anterior->posterior, lateral->medial, superior->inferior
         "ax_1":  {"slice": -1, "col": +1, "row": +1},   # superior->inferior, lateral->medial, anterior->posterior

@@ -1,81 +1,11 @@
-"""Submission B: our Stage A OrthoFoundation-L model rank-meaned into the public 0.943 stack.
+r"""Build the Kaggle submission kernel: our model alone, blended into the public ensemble, or as its core.
 
-    python -m kaggle kernels pull mattiaangeli/bend-the-knee-to-speedy-raptors-the-original -p <pub> -m
-    python notebooks/build_submit_kernel.py --public-dir <pub> --out /tmp/subb
-    python -m kaggle kernels push -p /tmp/subb          # commit run on the 3 visible test studies
-    # then, only if the commit log shows CHECK PASSED and the ARMS line:
-    python -m kaggle competitions submit rsna-knee-abnormality-detection -k raahimnawaz/<slug> -v <n> \
-        -f submission.csv -m "..."
-    python notebooks/build_submit_kernel.py --ours-only --n-windows 18 --out /tmp/suba   # Submission A
-
-SUBMISSION A (`--ours-only`) is step 1 alone plus a cell that writes our predictions as submission.csv:
-the model's own leaderboard number, and an efficiency-track entry. There the gate runs only in the
-commit run (test.csv under 100 studies) -- the scored rerun is the same code in the same image, and
-the gate's minute is runtime the efficiency score charges for.
-
-WHAT IT RUNS, IN ORDER (Submission B).
-  1. OURS. `fusion/infer_windows.py` in subprocesses, so the notebook process never imports torch
-     before the public cells set their thread environment, and the GPUs are empty when they start.
-     First the GATE: 8 of the 691 fold-0 studies are rebuilt from their train DICOMs and must
-     reproduce `runs_ortho/oof_all.csv` (the predictions that scored 0.8298). A failure stops the
-     notebook, so no submission.csv exists and nothing can be submitted by mistake. Then every
-     test study, one process per T4.
-  2. THE PUBLIC STACK, cells 0-22 of `mattiaangeli/bend-the-knee-to-speedy-raptors-the-original`
-     (Apache 2.0) unmodified. Its last cell leaves its final ranks in `_pipeline_stage.csv`.
-  3. THE BLEND. Our model joins as a third FAMILY. The public stack is two families by its own
-     accounting (transformer and CoAtNet, `family_mix=[.5, .5]`, outer weights tuned by its author);
-     §5.4's rule is an equal rank-mean over families with nothing fitted, so ours is 1/3 and the
-     public output, internal weights untouched, is 2/3. `--w-ours` exists to record a different
-     choice, not to tune one: there is no instrument here to tune it on.
-  4. THE PUBLIC PUBLISH CELL, unmodified: its validation, then submission.csv.
-
-ORDER AND TIME. Ours runs first so a fault surfaces in minutes, not after the public stack's hours.
-The public stack describes itself as "comfortably in less than 9 hrs" on the hidden 1,322 and
-guards 8 h from its own start; ours is ~15 min of decode overlapped with ~17 min of T4 per GPU.
-The commit run cannot price the hidden run (3 studies), so the margin is the one real risk here.
-
-THE UPGRADED STACK (`--core-kernel K --core-sha S`, RUNBOOK "Pending reads" (A)): our CoAtNet student
-REPLACES the stack's core instead of joining as a family.
-
-    python notebooks/build_submit_kernel.py --public-dir <pub> --core-kernel raahimnawaz/<student kernel> \
-        --core-sha <sha256 of its runs_coatnet/last.pt> --tag student-r1 --out /tmp/subcore
-
-The core is `maxspan-v5` (w 0.60) and `maxspan-v5-reverse` (w 0.10, the slice-reversed pass). Both load
-ONE file, `raptor_ft_coatnet_v5_full_swa.pt`, and `run_shared_maxspan` requires that they share it. The
-student is that model, started from that file (`train_windows --init`, CC0) and fine-tuned on teacher
-labels, so it drops into the slot at zero extra runtime. Three changes to what runs, nothing else:
-  1. a cell after the public cell that defines `ASSET_ROOTS`, CPU only. It finds our `last.pt` by
-     sha256, checks `last_meta.json` against the slot's preprocessing (CoAtNet, Stage A, 64 slices over
-     2-98%, 336 px, no slot embedding, no zoom), and renames the keys back to the public names
-     (`encoder.` -> `backbone.`, `w` -> `clsW`, `b` -> `clsb`). The key set must equal the public file's
-     exactly. Each tensor is cast to the public file's dtype. It is written under a NEW name, and its
-     folder is added to `ASSET_ROOTS`;
-  2. in the public ARMS, those two entries' `file` is that new name. A new name, so a missing file
-     fails the lookup (`_asset_find_asset` wants exactly one hit) instead of loading the public
-     weights;
-  3. a cell before the publish cell. The stack logs `raptor_checkpoint` (file, sha256) for every load.
-     The cell refuses the run, so no submission.csv exists, unless the core loaded our file at its
-     sha256 and the public v5 file was never loaded. Then it prints the ARMS line.
-Every other member, weight, calibrator and the publish cell run as published. `--add-family` also adds
-a `--weights-kernel` model as a family at 1/3, as Submission B does (RUNBOOK rule (C): the Ortho
-student joins only at >= +0.004 over (A)). Without it, nothing of ours runs outside the core slot.
-Tested off Kaggle by `notebooks/core_swap_fixture.py`.
-
-THE CORE ALONE (`--core-alone`, RUNBOOK "Pending reads" (B)): only the stack's core, scored by itself.
-
-    python notebooks/build_submit_kernel.py --public-dir <pub> --core-alone --core-kernel raahimnawaz/<student kernel> \
-        --core-sha <sha256 of its runs_coatnet/last.pt> --tag student-r1 --out /tmp/alone   # our student
-    python notebooks/build_submit_kernel.py --public-dir <pub> --core-alone --out /tmp/alone-pub  # the public weights
-
-Both run the SAME code: public cells 1-3 (assets, dense sampling, the rsna_* audit, unmodified), the core
-cell above for the student, then public cell -2's own Raptor code (verbatim, less its DINOv2 gate, its
-read of the stage file and its four-arm runner) with ONLY maxspan-v5 and maxspan-v5-reverse, on both
-T4s, studies split by index. Their probability blend at the core's own weights (0.60 : 0.10 = 6:1),
-ranked, is the submission. This is not the 0.928 notebook: the stack samples up to 96 slices per study
-(capacity-aware) and adds the reversed pass. So the public-weights build is the student's paired
-baseline, the same inference with only the file changed. A last cell refuses the run unless the load
-log shows that one file, once per GPU, at its sha256, and nothing else; in the commit run it also
-refuses any failed study. Tested off Kaggle by `notebooks/core_alone_fixture.py`.
+    python notebooks/build_submit_kernel.py --ours-only --out /tmp/sub                 # our model alone
+    python notebooks/build_submit_kernel.py --public-dir <pub> --out /tmp/sub          # + the public ensemble, ours at 1/3
+    python notebooks/build_submit_kernel.py --public-dir <pub> --core-kernel <kernel> \
+        --core-sha <sha256> --tag <name> --out /tmp/sub                                # ours as the ensemble's core
+    python notebooks/build_submit_kernel.py --public-dir <pub> --core-alone --out /tmp/sub   # the public core alone
+    python -m kaggle kernels push -p /tmp/sub
 """
 from __future__ import annotations
 
@@ -93,12 +23,11 @@ SLUG = "rsna-knee-sub-b-ortho-blend"
 PUBLIC = "mattiaangeli/bend-the-knee-to-speedy-raptors-the-original"
 WEIGHTS_KERNEL = f"{OWNER}/rsna-knee-c6-train-ortho"
 WEIGHTS_SHA256 = "1fe51be2ff4deaae4dfd5fafd2354f3b9bbeb0c26cda3fd918a00699fd481b98"   # runs_ortho/last.pt
-# the public stack's pinned image (torch 2.10.0+cu128); Submission A uses it too, so A and B run one environment
 DOCKER_IMAGE = "gcr.io/kaggle-private-byod/python@sha256:37c64f7dd9c54116ecd1bcc88817c5469b88387388fade02bfa8bf3fc647d461"
 EMBED = ["fusion/infer_windows.py", "fusion/train_windows.py", "fusion/window_curve.py",
          "pipeline/build_slots64.py", "pipeline/slots64.py", "pipeline/slots96.py",
          "fusion/orthofoundation_model.py", "extractor/metrics.py",
-         "fusion/qwen_vlm.py"]   # build_slots64 imports slots96; train_windows imports qwen_vlm (qwen archs only)
+         "fusion/qwen_vlm.py"]
 LABELS = ["ACL", "MCL", "Medial Meniscus", "Lateral Meniscus", "Medial OA", "Lateral OA",
           "PF OA", "Effusion", "Synovitis", "Baker's", "Contusion", "Fracture"]
 
@@ -150,7 +79,6 @@ for _d, _dirs, _fs in _oos.walk("/kaggle/input"):
     _dirs[:] = [x for x in _dirs if x not in _SKIP]
     if _O_ROOT is None and {"test.csv", "test_series.csv", "train_series.csv"} <= set(_fs):
         _O_ROOT = _OPath(_d)
-    # any train_windows run dir (runs_ortho, runs_coatnet, ...): the sha256 is what identifies the checkpoint
     if "last.pt" in _fs and "oof_all.csv" in _fs and _OPath(_d).name.startswith("runs_"):
         _c = _OPath(_d) / "last.pt"
         if _ohash.sha256(_c.read_bytes()).hexdigest() == "__WEIGHTS_SHA256__":
@@ -159,7 +87,6 @@ if _O_ROOT is None:
     raise RuntimeError("competition root not found under /kaggle/input")
 if _O_CKPT is None:
     raise RuntimeError("runs_*/last.pt with the recorded sha256 not found -- is __WEIGHTS_KERNEL__ attached?")
-# The arm's name for the ARMS line, from how it was trained. Step 5's run predates last_meta.json: Ortho, Stage A.
 _O_ARM = "ortho_stage_a"
 if (_O_CKPT.parent / "last_meta.json").exists():
     _om = _ojson.loads((_O_CKPT.parent / "last_meta.json").read_text())
@@ -248,7 +175,7 @@ _olog(f"OURS DONE: {len(_rows)} test studies in {_O_MIN:.1f} min on {_O_NGPU} GP
 BLEND = r'''
 # ============================================================================ #
 # Submission B, part 3 -- our model joins the public stack as a THIRD FAMILY.
-# Equal rank-mean over families, nothing fitted (RUNBOOK §5.4): ours 1/3, the
+# Equal rank-mean over families, nothing fitted: ours 1/3, the
 # public output (its own two families, internal weights untouched) 2/3.
 # ============================================================================ #
 import numpy as _bnp
@@ -333,7 +260,6 @@ _C_FILE = "__CORE_FILE__"           # a NEW name: a miss fails the stack's looku
 _C_PUBLIC = "__CORE_PUBLIC__"
 _C_INPUT = _CPath("/kaggle/input")
 _C_DIR = _CPath("/tmp/student_core")
-# the maxspan-v5 slot's model and preprocessing, as our Stage A cache + eval reproduced it (gold 0.9187 vs 0.9214)
 _C_META = {"arch": "coatnet", "timm": "coatnet_rmlp_2_rw_384.sw_in12k_ft_in1k", "res": 384, "pool": "avg",
            "layout": "stage_a span [0.02, 0.98] img 336 canon False", "img": 336,
            "slot_sizes": [18, 14, 12, 8, 12], "pos_emb": False, "n_slots": 0}
@@ -362,8 +288,6 @@ if _c_bad:
     raise RuntimeError(f"{_c_src} is not a model for the maxspan-v5 slot (got, want): {_c_bad}")
 _C_ARM = f"{_c_meta['arch']}_{_c_meta['layout'].split()[0]}"
 
-# The key set must equal the public file's EXACTLY; each tensor takes the public file's dtype
-# (ours are fp16, `train_windows` saves them so; the cast up to fp32 is exact).
 _c_ref = _ctorch.load(_asset_find_asset(_C_PUBLIC), map_location="cpu", weights_only=False)
 _c_rsd = _c_ref["model"]
 _c_ren = {"w": "clsW", "b": "clsb"}
@@ -377,7 +301,6 @@ if _c_miss or _c_extra or _c_shape:
 _c_out = {k: _c_out[k].to(_c_rsd[k].dtype) for k in _c_rsd}
 if not all(bool(t.isfinite().all()) for t in _c_out.values() if t.is_floating_point()):
     raise RuntimeError("student checkpoint has non-finite weights")
-# how far training moved it from the public start (fp16 storage alone reads ~1e-4); logged, not gated
 _c_num = sum(float((_c_out[k].double() - _c_rsd[k].double()).pow(2).sum()) for k in _c_rsd if _c_rsd[k].is_floating_point())
 _c_den = sum(float(_c_rsd[k].double().pow(2).sum()) for k in _c_rsd if _c_rsd[k].is_floating_point())
 _C_MOVED = (_c_num / _c_den) ** 0.5
@@ -388,9 +311,6 @@ _ctorch.save({"model": _c_out, "arch": _c_ref["arch"], "res": _c_ref["res"],
               "source_kernel": _C_KERNEL, "source_sha256": _C_SHA}, _c_path)
 _C_OUT_SHA = _csha(_c_path)
 ASSET_ROOTS.append(str(_C_DIR))
-# Public cell 1 catalogues ASSET_ROOTS ONCE (`_speed_asset_catalogue`) and never walks it again, so a
-# folder added after the first lookup is invisible -- and our lookup of the public file above made it.
-# Drop the catalogue; the next lookup walks every root, ours included.
 with _speed_asset_lock:
     _speed_asset_catalogue = None
 if _CPath(_asset_find_asset(_C_FILE)).resolve() != _c_path.resolve():
@@ -594,8 +514,7 @@ refuses the run unless the stack's own load log shows our file at its sha256. Bu
 
 
 def _check_import_closure(embed: list[str]) -> None:
-    """Refuse to build if an embedded file imports a repo module that is not embedded. 2026-09-25:
-    build_slots64 grew an import of slots96 and this kernel would have died at its gate on Kaggle."""
+    """Refuse to build if an embedded file imports a repo module that is not embedded."""
     import re
     have = {Path(r).stem for r in embed if r.endswith(".py")}
     local = {p.stem for d in ("fusion", "pipeline", "extractor") for p in (PROJ / d).glob("*.py")}
@@ -626,16 +545,13 @@ def main() -> None:
     ap.add_argument("--n-windows", type=int, default=0, help="thin to ~n windows per study; 0 = all (as scored)")
     ap.add_argument("--w-ours", type=float, default=1 / 3, help="the rule gives 1/3; see docstring")
     ap.add_argument("--n-check", type=int, default=8)
-    # A different checkpoint: the kernel whose output holds runs_ortho/{last.pt, oof_all.csv, last_meta.json},
-    # and last.pt's sha256. infer_windows reads the spec (Stage A/B, canon, 384, slot/depth) from last_meta.json,
-    # and the gate checks against THAT run's oof_all.csv. Defaults: step 5's model, as submitted 09-26.
     ap.add_argument("--weights-kernel", default=WEIGHTS_KERNEL)
     ap.add_argument("--weights-sha", default=WEIGHTS_SHA256)
     ap.add_argument("--tag", default="", help="slug suffix for a submission on another checkpoint")
     ap.add_argument("--alone-lb", type=float, default=None,
                     help="another checkpoint in Submission B: its own LB number, alone -- the guard's precondition")
     ap.add_argument("--desc", default="", help="one line for the notebook's intro: what this checkpoint is")
-    # The upgraded stack: a CoAtNet student REPLACES the public core (see the docstring).
+    # Core swap: a CoAtNet student replaces the public core.
     ap.add_argument("--core-kernel", default=None, help="the student's training kernel (holds runs_*/last.pt)")
     ap.add_argument("--core-sha", default=None, help="sha256 of that last.pt, all 64 hex digits")
     ap.add_argument("--add-family", action="store_true",
@@ -660,10 +576,10 @@ def main() -> None:
     if (a.weights_kernel != WEIGHTS_KERNEL) != (a.weights_sha != WEIGHTS_SHA256):
         raise SystemExit("--weights-kernel and --weights-sha move together: a new checkpoint needs both")
     if a.weights_kernel != WEIGHTS_KERNEL and not a.tag:
-        raise SystemExit("another checkpoint needs a --tag, so its notebook does not overwrite step 5's")
+        raise SystemExit("another checkpoint needs a --tag, so its notebook does not overwrite the default one")
     if a.weights_kernel != WEIGHTS_KERNEL and not a.ours_only and a.alone_lb is None:
         raise SystemExit("another checkpoint: build it as --ours-only first and pass its own LB as --alone-lb "
-                         "before it joins any blend (RUNBOOK 09-26: blending a weaker member costs)")
+                         "before it joins any blend (blending a weaker member costs)")
     if not a.ours_only and not a.public_dir:
         raise SystemExit("Submission B needs --public-dir (or pass --ours-only for Submission A)")
 
@@ -850,7 +766,7 @@ def main() -> None:
                       f"last.pt sha256 `{a.weights_sha[:16]}`.")
         new = [md(intro), code(ours)] + body[:-1] + [code(blend), body[-1]]
         sources = {"dataset_sources": pmeta["dataset_sources"],
-                   "kernel_sources": pmeta["kernel_sources"] + [a.weights_kernel],     # was the constant: a latent bug
+                   "kernel_sources": pmeta["kernel_sources"] + [a.weights_kernel],
                    "model_sources": pmeta["model_sources"], "docker_image": pmeta["docker_image"]}
     nb = dict(pub, cells=new)
     a.out.mkdir(parents=True, exist_ok=True)

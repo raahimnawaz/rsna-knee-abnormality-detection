@@ -1,11 +1,6 @@
-"""CNN teachers on the Mac: 4 folds of recipe C, each predicting the training fold it never saw (+ the 691 and gold-58).
+"""Train the CNN teachers locally: four folds, each predicting the studies it never saw.
 
-    HF_HUB_OFFLINE=1 .venv/bin/python fusion/local_teacher_folds.py --corpus data/stage_a --out fusion/runs_teacher_cnn
-
-Pre-registered in RUNBOOK ("CNN TEACHERS — 4 folds on the Mac", 2026-09-28) before any fold ran. The pool is the Kaggle
-launcher's (`build_backbone_ab_kernel.py`): folds_site training folds 1-4, not gold, all 12 targets known -- and it must
-equal `runs_dread_ortho/train_studies.csv` exactly, or nothing runs. A fold whose `summary.json` exists is skipped, so an
-interrupted night resumes where it stopped.
+    HF_HUB_OFFLINE=1 python fusion/local_teacher_folds.py --corpus data/stage_a --out fusion/runs_teacher_cnn
 """
 from __future__ import annotations
 
@@ -48,7 +43,7 @@ def main() -> None:
         run.mkdir(parents=True, exist_ok=True)
         fk = set(F.loc[F.fold == k, "StudyInstanceUID"])
         train = [u for u in pool if u not in fk]
-        val = [u for u in pool if u in fk] + val691            # its own unseen fold, then the 691 (never trained on)
+        val = [u for u in pool if u in fk] + val691            # its own unseen fold, then the held-out set
         pd.Series(train, name="StudyInstanceUID").to_csv(run / "train_list.csv", index=False)
         pd.Series(val, name="StudyInstanceUID").to_csv(run / "val_list.csv", index=False)
         print(f"fold {k}: train {len(train)} | predict {len(val) - len(val691)} unseen + {len(val691)} held-out", flush=True)
@@ -56,8 +51,6 @@ def main() -> None:
                "--corpus", str(a.corpus), "--layout", "stage_a", "--labels", str(TARGETS),
                "--train", str(run / "train_list.csv"), "--val", str(run / "val_list.csv"),
                "--gold", str(PROJ / "data/train.csv"), "--out", str(run), "--weights-dir", "/tmp"]
-        # macOS spawns DataLoader workers and pickles the dataset into each: np.memmap pickles as a full copy, so 4 workers
-        # asked for 4 x 32 GB and fold 1 was killed (09-28 07:45). Load in the main process: a step reads a few MB.
         env = {**os.environ, "TW_WORKERS": os.environ.get("TW_WORKERS", "0")}
         with open(run / "train.log", "w") as log:
             rc = subprocess.run(cmd, stdout=log, stderr=subprocess.STDOUT, env=env).returncode

@@ -1,20 +1,4 @@
-"""The Stage B cache spec: seven slots, 96 slices, 384 px, orientation-canonical. `DATA.md` §10b.
-
-WHAT CHANGES FROM `slots64.py` AND THE MEASUREMENT BEHIND EACH (all from DATA.md §10b, 2026-09-24):
-
-| | Stage A (`slots64`) | here | measured gap it closes |
-|---|---|---|---|
-| slices / study | 64 | **96** | a series holds a median 30; Stage A kept 27-60% of each |
-| image size | 336 px (0.417 mm/px) | **384** (0.365 mm/px) | native is a median 437 px across 140 mm; 76% of series were downsampled |
-| series | 2 sag, 2 cor, 1 ax | **+ a third sagittal, + a second axial** | 15% of series (44% of studies) were never used |
-| orientation | as stored | **canonical**: left knees mirrored onto right, scanner sign conventions undone | Stage A never canonicalised; the public stack does |
-
-Orientation is done by the builder (`build_slots64.py --canon`), not here: this module is only the
-layout. 384 = 24 x 16, so patch-16 encoders tile it exactly (576 tokens against 336's 441).
-
-At 96 x 384 x 384 bytes a study is 14.2 MB, 62 GB for 4,407 studies: EIGHT shards keep each under
-Kaggle's 20 GB per-kernel output cap with room (~7.8 GB).
-"""
+"""Stage B slice layout: seven series slots, 96 slices at 384 px, orientation-canonical."""
 from __future__ import annotations
 
 from dataclasses import asdict
@@ -22,7 +6,7 @@ from dataclasses import asdict
 import numpy as np
 
 import slots64 as _A
-from slots64 import FOV_MM, GROUP, Slot, pick_depths, source_step  # noqa: F401 -- re-exported
+from slots64 import FOV_MM, GROUP, Slot, pick_depths, source_step  # noqa: F401
 
 SPEC = "c7-96slice-384"
 IMG = 384

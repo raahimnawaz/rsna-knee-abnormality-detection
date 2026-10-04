@@ -1,13 +1,8 @@
-# Competition data — licensed by RSNA/Kaggle, not ours to redistribute.
-# Re-fetch with:  python -m kaggle competitions download -c rsna-knee-abnormality-detection -f train.csv -p data
-data/
+# Competition data, caches and weights: licensed or large, never committed
+data
+fusion/runs*/
 
-# Contains verbatim radiology report text (303 reports inlined / one per row).
-# Regenerate with: python labeling/sample_for_labeling.py && python labeling/build_labeler.py
-labeling/labeling_sample.csv
-labeling/labeler.html
-
-# Credentials must never land here (they live in ~/.kaggle/access_token)
+# Credentials
 *access_token*
 kaggle.json
 
@@ -15,21 +10,3 @@ kaggle.json
 __pycache__/
 *.pyc
 .DS_Store
-Thumbs.db
-
-# Feature cache (~2.4 GB) and trained heads. Rebuilt by notebooks/kaggle_02 on Kaggle and
-# fusion/train.py here; neither belongs in git.
-data/features/
-data/features_224/
-data/nifti/
-fusion/runs*/
-
-# nnU-Net Gate 1 (PLAN C-4) -- separate env, nnunetv2 pulls its own deps
-.venv_nnunet/
-data/_nnunet/
-
-# OrthoFoundation weights (PLAN C-5) -- 1.21 GB, licence is the authors email
-data/_orthofoundation/
-
-# OrthoFoundation feature cache (PLAN C-5) -- ~2.6 GB when complete
-data/_of_features/

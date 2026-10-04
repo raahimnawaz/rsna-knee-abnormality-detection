@@ -1,30 +1,7 @@
-"""Stage A / Stage B on Kaggle: one CPU kernel per shard of a slot cache. `pipeline/build_slots64.py`.
+"""Build the Kaggle CPU kernels that produce the slice cache, one kernel per shard.
 
-    python notebooks/build_stage_a_kernel.py --stage b --out /tmp/sb --shard 0 --limit 20       # Stage B smoke
-    python notebooks/build_stage_a_kernel.py --stage b --out /tmp/sb0 --shard 0                 # a Stage B shard
-
-Stage B (`DATA.md` §10b) is `--spec c7 --canon`: 96 slices x 384 px, orientation-canonical, 14.2 MB a
-study, so EIGHT shards (~7.8 GB each) by default. Its smoke also has to show the `canonical:` line --
-side from tag vs geometry near 50/50, and which flips the real scanners needed.
-
-    python notebooks/build_stage_a_kernel.py --out /tmp/sa --shard 0 --n-shards 4 --limit 20   # smoke
-    python notebooks/build_stage_a_kernel.py --out /tmp/sa0 --shard 0 --n-shards 4             # a shard
-    python -m kaggle kernels push -p /tmp/sa
-
-CPU only, so no GPU quota and no two-session GPU cap. Four shards keep each output (~8 GB of
-`vols.npy`) inside a kernel's ~20 GB `/kaggle/working`. Training attaches the four shard kernels as
-`kernel_sources`; `train_windows.Corpus` reads them as one row-ordered view.
-
-⛔ Smoke first (`--limit 20`) and read, before pushing any full shard:
-  * `decode failures 0` -- the corpus mixes uncompressed, JPEG Lossless and JPEG 2000; a missing
-    decoder shows up here, not as a crash;
-  * `ordered_by {'normal': ...}` with no `instance_number` -- geometry, not a file-order guess;
-  * `slot fill` near Stage 0's prediction (`DATA.md` §9): sag_1 ~1.0, sag_2 ~0.97, cor_1 ~1.0,
-    cor_2 ~0.75, ax ~1.0 -- on 20 studies, roughly;
-  * `render_edges.png` -- GATE A: the first and last slice of every slot is knee, not wrap or air.
-The local fixture (`notebooks/stage_a_fixture.py`, `--check`) already proves order, 140 mm scale on
-both axes, padding and masking, and was mutation-tested: filename ordering and the frontier's
-clamped crop both fail it.
+    python notebooks/build_stage_a_kernel.py --stage b --out /tmp/sb0 --shard 0
+    python -m kaggle kernels push -p /tmp/sb0
 """
 from __future__ import annotations
 

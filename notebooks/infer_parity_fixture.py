@@ -1,15 +1,7 @@
-"""Stage B's inference path against its training cache, on synthetic DICOMs -- window for window.
+"""Test that the inference path reproduces the training cache window for window, on synthetic DICOMs.
 
-    python notebooks/canon_fixture.py --out <dir>          # the four knees, and their Stage B cache
+    python notebooks/canon_fixture.py --out <dir>
     python notebooks/infer_parity_fixture.py --fixture <dir>
-
-WHY AT THE TENSOR LEVEL. `infer_windows.py --check-against` compares PREDICTIONS, which is the right gate
-on Kaggle, where the model is the trained one. Off Kaggle there is no trained model, and a random-weight
-ViT is almost blind to pixels: on 2026-09-26 a random Stage B model reproduced its OOF to 0.00000 even
-with canonical orientation switched OFF -- the check passed a broken path. So here the comparison is
-the thing a model would see: every uint8 window, its slot and its depth, from `infer_windows.DicomStudies`
-(DICOMs -> `build_study`) against `train_windows.Windows` over the cache `build_slots64 --canon` wrote.
-The control rebuilds without --canon and must DIFFER, or the test could not fail.
 """
 from __future__ import annotations
 

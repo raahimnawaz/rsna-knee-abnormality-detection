@@ -1,56 +1,17 @@
-"""The C6 cache spec: five slots, 64 slices, 6-94% of each stack, 140 mm. `MODEL.md` §2-3.
-
-WHAT THIS CHANGES AND WHY EACH ONE IS A MEASURED DEFECT, NOT A PREFERENCE.
-
-| | tiles336* (what shipped) | here | evidence |
-|---|---|---|---|
-| slices / study | 18 | **64** | `MODEL.md` §1, frontier takes 64 |
-| where in the stack | **every slot `depth 0.5`** | **6-94%** | D2. Lat. Meniscus 0.6422, MCL 0.6433 vs midline ACL 0.8689 |
-| crop | 160 mm -> 0.476 mm/px | **140 mm** | §R, +0.0268 at 4.1sigma; the CONFOUNDED-160 confound itself |
-| built from | third-party NIfTI repackaging | **competition DICOMs** | D3, costs **0.085** at 14.1sigma |
-
-D3 is the largest single defect this project measured and it is upstream of everything else, so
-this spec is only ever built on Kaggle where the DICOMs mount directly. A cache built from any
-repackaging -- ours or a public one -- reintroduces it. That is not a throughput argument; 0.085
-is larger than every architecture delta in the record combined.
-
-⛔ AMENDED 2026-09-23 (`DECISIONS.md` D3). "A repackaging reintroduces it" is not supported: the fork's
-own weights score the same on our NIfTI files as on their DICOMs (§3m). What the port lacked is the
-row above this one, coverage: it trained on ONE window per series at depth 0.5. Building on Kaggle
-stands because the local corpus is gone. `RUNBOOK.md` §2b tests whether coverage is the 0.085.
-
-⛔ THE SLICE AXIS IS THE POINT. On a sagittal stack the slice axis IS medial-lateral, so the outer
-20% that `tiles336*` never sampled is exactly where Lateral Meniscus and the collateral ligaments
-live. §3z pre-registered this before the first cache and it was never built. 6-94% rather than
-0-100% because the end slices of an MR stack are routinely partial-volume or wrap, and the
-frontier's own published range is 6-94%.
-
-WHY 64 SLICES AND NOT 64 WINDOWS ARE CACHED. A window is three CONSECUTIVE SAMPLED slices (§3):
-neighbours in this cache, but 0-3 slices apart in the source stack depending on its depth (see
-`source_step`). So consecutive windows share two of their three cache slices, and caching windows
-would store every slice three times -- 21.6 MB/study instead of 7.2 MB, 95 GB instead of 32 GB --
-for no extra information. (Triples of TRUE stack neighbours around each centre would be extra
-information and would cost exactly that 3x; `MODEL.md` §3 records why they were not chosen.)
-Windows are assembled in the Dataset. This is the only reason the cache fits inside Kaggle's 20 GB per-kernel
-output cap when sharded eight ways.
-"""
+"""Stage A slice layout: five series slots, 64 slices, 140 mm field of view."""
 from __future__ import annotations
 
 from dataclasses import dataclass, asdict
 
 import numpy as np
 
-# --- geometry -----------------------------------------------------------------------------
-# Crop in millimetres, never pixels: a knee then occupies the same fraction of frame at 0.3 and
-# 0.5 mm/px, and the model is never asked to learn a scale difference carrying no medical
-# information. `MODEL.md` §2.
 FOV_MM = 140.0
 TARGET_MM = 0.35
-IMG = 336              # patch 16 divides 336 exactly (21x21); 518 does not (32.375)
+IMG = 336
 
 # --- sampling -----------------------------------------------------------------------------
 DEPTH_LO, DEPTH_HI = 0.06, 0.94
-GROUP = 3              # 2.5D: three adjacent slices become the three channels of one window
+GROUP = 3
 
 
 @dataclass(frozen=True)
@@ -66,9 +27,6 @@ class Slot:
         return max(self.n_slices - 2, 0)
 
 
-# Fluid-sensitive sequences show effusion, synovitis and acute injury; T1/PD show anatomy and
-# cartilage. The twelve findings split across both, so mixing the preference is deliberate --
-# do NOT make all five fluid-sensitive. `MODEL.md` §2.
 SLOTS: tuple[Slot, ...] = (
     Slot("sag_1", "Sagittal", 18, 1),
     Slot("sag_2", "Sagittal", 14, 0),
@@ -84,17 +42,7 @@ SLOT_INDEX = {s.name: i for i, s in enumerate(SLOTS)}
 
 def pick_depths(n_available: int, n_want: int,
                 lo_frac: float = DEPTH_LO, hi_frac: float = DEPTH_HI) -> np.ndarray:
-    """Evenly across 6-94% of the stack (or `lo_frac`-`hi_frac`). NOT the middle -- D2's fix.
-
-    ⛔ 2026-09-23: the Stage A builder passes 2-98% -- the frontier's 0.928 corpus ("maxspan");
-    its 64-slice 6-94% model read 0.924 (`MODEL.md` §0). The default here stays the spec as
-    Stage 0 validated it; the span actually used is stamped into every cache manifest.
-
-    Returns `n_want` indices, with repeats when the series is shorter than the slot asks for.
-    Repeats are deliberate: the slot's shape is fixed so the batch is rectangular, and a repeated
-    slice is honest about there being no more anatomy to show. Dropping to a shorter slot instead
-    would make the window count vary per study and break the fixed `(slot, position)` embedding.
-    """
+    """Evenly across 6-94% of the stack (or `lo_frac`-`hi_frac`), not only its middle."""
     if n_available <= 0:
         return np.zeros(n_want, dtype=int)
     if n_available == 1:
@@ -106,25 +54,13 @@ def pick_depths(n_available: int, n_want: int,
 
 def source_step(n_available: int, n_want: int,
                 lo_frac: float = DEPTH_LO, hi_frac: float = DEPTH_HI) -> float:
-    """Mean distance, in SOURCE slices, between consecutive sampled slices of one series.
-
-    What a window's three channels span: ~1 on a stack about 1.1x the slot's slice count (true
-    neighbours), 2-3 on a deep one, below 1 on a short one (channels repeat). It varies per series,
-    so the Stage A builder records it per (study, slot) beside `n_available` -- decided 2026-09-23,
-    when the spec was found to describe neighbours while the code sampled (AUDIT.md).
-    """
+    """Mean distance, in SOURCE slices, between consecutive sampled slices of one series."""
     d = pick_depths(n_available, n_want, lo_frac, hi_frac)
     return float(np.diff(d).mean()) if len(d) > 1 else 0.0
 
 
 def window_ids(slots: tuple[Slot, ...] | None = None) -> tuple[np.ndarray, np.ndarray, np.ndarray]:
-    """Fixed (slot_id, position_id, centre-slice index) for all 54 windows, same for every study.
-
-    `centre` indexes the 64-slice cache row. The head's `(slot, position)` embedding is looked up
-    by these, so they must not depend on the study -- a study-dependent layout would mean the
-    embedding indexes different anatomy for different patients, which is §9h's wrong-table bug
-    running perfectly and scoring wrongly.
-    """
+    """Fixed (slot_id, position_id, centre-slice index) for all 54 windows, same for every study."""
     slot_id, pos_id, centre = [], [], []
     base = 0
     for si, s in enumerate(slots or SLOTS):
@@ -148,13 +84,7 @@ def slot_offsets(slots: tuple[Slot, ...] | None = None) -> list[tuple[int, int]]
 
 
 def assign_series(series: list[dict], slots: tuple[Slot, ...] | None = None) -> dict[str, dict | None]:
-    """Map each slot to a series, or None when the study has nothing suitable.
-
-    `series` entries need `plane` ('Axial'|'Coronal'|'Sagittal'), `fluid` (0/1) and `n_slices`.
-    A slot with no candidate returns None -> the cache writes zeros and clears the mask bit for
-    every window in that slot. NEVER substitute a different plane: §9h's rule is that feeding a
-    slot its neighbour runs perfectly and scores wrongly.
-    """
+    """Map each slot to a series, or None when the study has nothing suitable."""
     out: dict[str, dict | None] = {}
     used: set[int] = set()
     for s in slots or SLOTS:
@@ -163,18 +93,11 @@ def assign_series(series: list[dict], slots: tuple[Slot, ...] | None = None) -> 
         if not cands:
             out[s.name] = None
             continue
-        # Preference is a sort key, not a filter: a study with only non-fluid sagittals should
-        # still fill sag_1 rather than leave 18 slices of zeros. Ties break on slice count, since
-        # a longer stack samples 6-94% more finely.
         def key(ic):
             i, c = ic
             miss = 0 if s.fluid is None else int(c.get("fluid", 0) != s.fluid)
             return (miss, -int(c.get("n_slices", 0)))
         cands.sort(key=key)
-        # The best REMAINING candidate. A slot never needs a rank of its own: `used` already
-        # removed every series an earlier slot took, so the head of this list IS "next best".
-        # A `rank` field used to index into it as well, which skipped one series twice -- with
-        # coronals of 30, 28 and 12 slices, cor_2 got the 12 (AUDIT.md, fixed 2026-09-23).
         pick = cands[0]
         used.add(pick[0])
         out[s.name] = pick[1]
@@ -186,8 +109,6 @@ def manifest(depth_range: tuple[float, float] = (DEPTH_LO, DEPTH_HI)) -> dict:
     return {"spec": "c6-64slice", "fov_mm": FOV_MM, "target_mm": TARGET_MM, "img": IMG,
             "depth_range": list(depth_range), "group": GROUP,
             "n_slices": N_SLICES, "n_windows": N_WINDOWS,
-            # MODEL.md §3: consecutive SAMPLED slices, the fork's convention, not stack neighbours.
-            # The builder must add `n_available` and `source_step` per (study, slot).
             "window": "consecutive sampled slices",
             "per_series": ["n_available", "source_step"],
             "slots": [asdict(s) for s in SLOTS]}
@@ -200,14 +121,12 @@ def _self_test() -> None:
     sid, pid, ctr = window_ids()
     assert len(sid) == len(pid) == len(ctr) == 54
     assert ctr.max() < N_SLICES, "a window centre points past the cache row"
-    # Every centre must sit strictly inside its own slot, or the triple straddles two slots and
-    # silently mixes planes -- the §9h failure this layout exists to prevent.
     for (a, b), s in zip(slot_offsets(), SLOTS):
         own = ctr[(ctr >= a) & (ctr < b)]
         assert len(own) == s.n_windows, (s.name, len(own), s.n_windows)
         assert own.min() > a and own.max() < b - 1, f"{s.name}: window triple leaves the slot"
 
-    # Depth sampling reaches the outer thirds -- the entire point of D2.
+    # Depth sampling reaches the outer thirds.
     d = pick_depths(100, 18)
     assert d.min() <= 6 and d.max() >= 93, f"depths do not span 6-94%: {d.min()}..{d.max()}"
     assert len(d) == 18 and (np.diff(d) >= 0).all()
@@ -228,8 +147,7 @@ def _self_test() -> None:
     assert a["sag_2"]["fluid"] == 0, "sag_2 should take the non-fluid sagittal"
     assert a["cor_1"] is None and a["cor_2"] is None, "no coronal -> masked, never substituted"
     assert a["ax"] is not None
-    # Three coronals: cor_1 takes the fluid one, cor_2 the LONGER of the other two. The old
-    # `rank` indexing handed cor_2 the 12-slice stack here; two coronals could never show it.
+    # Three coronals: cor_1 takes the fluid one, cor_2 the longer of the other two.
     a3 = assign_series([{"plane": "Coronal", "fluid": 1, "n_slices": 30, "id": "A"},
                         {"plane": "Coronal", "fluid": 0, "n_slices": 28, "id": "B"},
                         {"plane": "Coronal", "fluid": 0, "n_slices": 12, "id": "C"}])

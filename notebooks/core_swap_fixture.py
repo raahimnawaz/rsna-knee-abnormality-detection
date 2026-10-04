@@ -1,33 +1,6 @@
-"""The upgraded stack's core swap, off Kaggle: a student last.pt through the builder's own cells and
-into the PUBLIC stack's own loading code, output for output.
+"""Offline test of the core swap: a student checkpoint through the builder's cells into the public stack's own loading code.
 
-    .venv/bin/python notebooks/core_swap_fixture.py [--work <dir>]
-
-Needs the pinned public notebook (`data/public_notebooks/bend-the-knee-2fc5a420/`) and the public core
-weights (`data/external/raptor/raptor_ft_coatnet_v5_full_swa.pt`, CC0). No GPU, no network (timm
-builds the CoAtNet without pretrained weights). ~1 min on the M5.
-
-WHAT IT CHECKS, IN ORDER, AND HOW EACH PART COULD FAIL.
-  1. A student last.pt, made as `train_windows --init <public v5>` saves one: our key names,
-     loaded STRICTLY into WindowMIL, then fp16. Then perturbed, because a trained student is not the
-     public weights, and step 5 must be able to tell the two apart.
-  2. `build_submit_kernel.py --core-*` builds from the pinned public notebook. The swap must land
-     on exactly the two core ARMS entries. The new cells sit right after the ASSET_ROOTS cell and
-     right before the publish cell, and nothing of ours runs without --add-family.
-  3. The builder's CORE cell runs as built (only /kaggle/input, /tmp/student_core and /kaggle/working
-     are pointed at the work dir), with public cell 1's own `_asset_walk` / `_asset_find_asset`.
-     It also refuses a Stage B checkpoint.
-  4. Public cell -2's own ARMS, build_backbone, RaptorClassifier, load_model and find_weight_file,
-     with cell 3's rsna_strict_load, load the core as `run_shared_maxspan` does. The file must be
-     ours, loaded strictly, and shared by the forward and reverse arms. Without our folder in
-     ASSET_ROOTS, the lookup must FAIL rather than fall back.
-  5. Output parity: the public RaptorClassifier on the converted file vs our WindowMIL on the
-     student's last.pt, on the same random windows, must agree to float tolerance. The CONTROL: the
-     public weights must give different outputs, or step 5 could pass on the public file.
-  6. The CORE_CHECK cell passes on the load log step 4 wrote. It must refuse a load of the public
-     v5 file, a log with no load of ours, and our file name with a different sha256.
-  7. The builder refuses the misuses: no --public-dir, --ours-only, a short sha, and --add-family
-     without --core-*.
+    python notebooks/core_swap_fixture.py [--work <dir>]
 """
 from __future__ import annotations
 
@@ -153,7 +126,6 @@ def main() -> None:
 
     # ---- 3. the CORE cell, as built, against public cell 1's own asset lookup
     ns: dict = {"ASSET_ROOTS": [str(work / "public_assets")]}
-    # cell 1's lookup AS IT RUNS: the plain walk, then its once-only catalogue and memo wrapped around it
     exec(defs(srcs[i_roots], {"_asset_walk", "_asset_find_asset", "_speed_original_asset_walk",
                               "_speed_original_find_asset", "_speed_asset_lock", "_speed_asset_catalogue",
                               "_speed_asset_hits"}, imports=True), ns)
@@ -193,7 +165,7 @@ def main() -> None:
     assert ev["kind"] == "raptor_checkpoint" and ev["sha256"] == ns["_C_OUT_SHA"], ev
     print(f"4. the public load_model: {Path(wpath).name}, strict, res {res}; logged sha256 {ev['sha256'][:16]} = "
           f"the core cell's; maxspan-v5 and its reverse share it")
-    events_ok = list(audit["events"])                        # before step 5 loads the public file too
+    events_ok = list(audit["events"])
     # a fresh lookup (cell 1's catalogue and memo empty) without our folder must FAIL, not fall back
     roots, hits = list(ns["ASSET_ROOTS"]), ns["_speed_asset_hits"]
     ns["ASSET_ROOTS"][:] = [r for r in roots if not r.endswith("student_core")]

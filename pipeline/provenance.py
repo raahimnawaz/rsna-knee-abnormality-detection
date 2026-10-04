@@ -1,22 +1,4 @@
-"""SHA-256 of the inputs this project cannot regenerate, so a changed upstream fails LOUDLY.
-
-WHY. The training targets (`steven_v2`), the scoring reference (`lixin_gpt56`) and the scanner
-headers behind the site folds are all third-party Kaggle downloads, fetched at whatever version is
-current. `data/` is gitignored and was deleted on 2026-09-07, so the next rebuild takes whatever is
-upstream that day -- and a new version silently changes the targets, the reference and every fold,
-while every bar in `RUNBOOK.md` was measured on the old ones (AUDIT.md). This records what the
-project measured on, and refuses to go on quietly when a rebuild gets something else.
-
-    provenance/inputs.json      {"files": {name: {"sha256", "source", "recorded"}}}
-    provenance/<fold file>      a committed copy of each fold partition, so it can be restored
-
-First sight of a file records it: commit `provenance/` afterwards. A mismatch exits and names both
-hashes. `--accept-new` on the calling script moves the record, and should be used only when moving
-to the new input is the point -- every number measured on the old one then stops applying.
-
-To get an OLD version back after upstream moved, pin it where the download happens
-(`bench_public_labels.PINNED_VERSIONS`); the Kaggle CLI takes `owner/dataset/versions/N`.
-"""
+"""SHA-256 record of the external inputs that cannot be regenerated, so a changed upstream fails loudly."""
 from __future__ import annotations
 
 import datetime as _dt
@@ -40,11 +22,7 @@ def sha256(path: Path) -> str:
 
 
 def check(path: Path, source: str, accept_new: bool = False, keep_copy: bool = False) -> str:
-    """Hash `path` and hold it to the record for its file name. Returns the hash.
-
-    `keep_copy` also stores the file itself under `provenance/` (fold partitions: small, derived,
-    and the one thing a gate bar cannot be re-measured without).
-    """
+    """Hash `path` and hold it to the record for its file name. Returns the hash."""
     path = Path(path)
     rec = json.loads(RECORD.read_text()) if RECORD.exists() else {"files": {}}
     h = sha256(path)

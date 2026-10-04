@@ -1,29 +1,6 @@
-"""(B) the core alone, off Kaggle: both builds, run AS BUILT on CPU over synthetic DICOM studies.
+"""Offline test of the core-alone build: both variants run as built on CPU over synthetic DICOM studies.
 
-    .venv/bin/python notebooks/core_alone_fixture.py [--work <dir>]
-
-Needs the pinned public notebook (`data/public_notebooks/bend-the-knee-2fc5a420/`) and the public core
-weights (`data/external/raptor/raptor_ft_coatnet_v5_full_swa.pt`, CC0). No GPU, no network, no competition
-DICOMs (the studies are synthetic: this tests the plumbing, not the anatomy). A few minutes on the M5.
-
-WHAT IT CHECKS, IN ORDER, AND HOW EACH PART COULD FAIL.
-  1. Both builds (`--core-alone` with a student, and without: the public weights). The cells are the intro,
-     public cells 1-3 verbatim, the core cell (student only), the core-alone cell and its check. Public
-     cell -2's Raptor code sits in the core-alone cell verbatim. No DINOv2 / A5 / Rad / publish cell rides
-     along. The only sources are the public core's dataset and, for the student, its kernel.
-  2. A synthetic competition root: four studies of small DICOM series written in shuffled file order, one
-     study without a second coronal series. test.csv, test_series.csv and sample_submission.csv carry the
-     competition's columns.
-  3. The student build runs as built. Only the /kaggle paths, the competition root and the two T4s (two CPU
-     devices here, in two threads, as on Kaggle) are swapped. It must give a submission.csv with every study
-     in test.csv order and ranks in [0, 1], and its check must pass.
-  4. Index parity: every study is re-scored one at a time on one device by the same public functions,
-     forward and reversed, blended 6:1 and ranked. The result must equal the submission. A mis-split, where
-     study i's scores land on study j, fails here.
-  5. The public build runs the same way and loads the public file at its pinned sha256. The CONTROL: it must
-     score differently from the student, or step 4 could pass on the wrong weights.
-  6. The check refuses a load of another file, a missing load, another sha256, and a failed study in a
-     commit-sized run.
+    python notebooks/core_alone_fixture.py [--work <dir>]
 """
 from __future__ import annotations
 
@@ -164,7 +141,7 @@ def run_build(built: Path, work: Path, root: Path, tag: str) -> tuple[dict, list
             buf = io.StringIO()
             with contextlib.redirect_stdout(buf):
                 exec(compile(cells[name], f"<{tag}:{name}>", "exec"), ns)
-            if name == "assets":                  # the attachments, before any lookup (the core cell appends its own)
+            if name == "assets":
                 ns["ASSET_ROOTS"][:] = [str(work / "public_assets")]
             if name in ("core", "alone", "check"):
                 print("   " + "\n   ".join(l for l in buf.getvalue().splitlines() if l.startswith(("[core]", "[alone]"))))
@@ -184,7 +161,6 @@ def main() -> None:
     work.mkdir(parents=True)
     torch.manual_seed(0)
 
-    # ---- a student last.pt as train_windows saves one (our key names, fp16), moved off the public weights
     pub = torch.load(PUB_V5, map_location="cpu", weights_only=False)
     ren = {"clsW": "w", "clsb": "b"}
     sd = {("encoder." + k[len("backbone."):]) if k.startswith("backbone.") else ren.get(k, k): v.clone()
@@ -242,11 +218,11 @@ def main() -> None:
     loads = [e for e in ns["_RSNA_AUDIT"]["events"] if e["kind"] == "raptor_checkpoint"]
     assert [Path(e["file"]).name for e in loads] == [f"student_core_fixture_{s_sha[:12]}.pt"] * 2, loads
     assert not [e for e in ns["_RSNA_AUDIT"]["events"] if e["kind"] == "raptor_study_failed"]
-    events = list(ns["_RSNA_AUDIT"]["events"])    # the run's own log, before step 4 loads the model again
+    events = list(ns["_RSNA_AUDIT"]["events"])
 
     # ---- 4. index parity: one study at a time, one device, the same public functions
     ke, arm = ns["_KE_NS"], ns["_al_arms"][0]
-    ns["_ke_input_ids"].clear()                   # the public preparer refuses a second preparation of a study
+    ns["_ke_input_ids"].clear()
     model, _ = ke["load_model"](ke["find_weight_file"](arm["file"]), arm["arch"], arm["res"], torch.device("cpu"))
     reader = ke["_make_reader"]()
     raw = np.zeros((2, len(ids), 12), np.float32)
