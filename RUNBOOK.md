@@ -17,18 +17,19 @@ blend change ±0.002. So valid = **≥ 0.947 for a blend change on the stack** a
 model**. The prize line and the efficiency track do not matter. Only necessary work: every run must change a
 decision. **Entry and team merger 10-15; final 10-22 16:59 PDT.** Two finals; Kaggle ranks a team by the better one.
 
-**▶ 10-04 review: [`docs/REVIEW-2026-10-04.md`](docs/REVIEW-2026-10-04.md).** It holds the owner's direction (0.965, solo), nine verified mistakes with fixes, and the proposed next steps (not yet approved). T1, the all-data Ortho, is recorded below: COMPLETE, and submitted alone 10-03 19:07 (ref `56811647`); its LB read is pending.
+**▶ 10-04 review: [`docs/REVIEW-2026-10-04.md`](docs/REVIEW-2026-10-04.md).** It holds the owner's direction (0.965, solo), nine verified mistakes with fixes, and the proposed next steps (not yet approved). T1, the all-data Ortho, is recorded below: COMPLETE, and submitted alone 10-03 19:07 (ref `56811647`); **read 0.929** (r1 0.927): it is the Ortho final by its rule.
 
 ## Scoreboard
 
 | | LB | note |
 |---|--:|---|
-| #1 on the board | **0.963** | 10-03 16:22 (2nd–3rd 0.961; 10th 0.958). The full board at 07:48: 50th 0.954; 100th 0.950; 150th 0.947; 300th 0.944; 4,999 teams; 899 at exactly 0.943 |
+| #1 on the board | **0.963** | 10-03 20:59 (2nd 0.962; 3rd–4th 0.961; 5th–9th 0.959; 10th 0.958). The full board at 07:48: 50th 0.954; 100th 0.950; 150th 0.947; 300th 0.944; 4,999 teams; 899 at exactly 0.943 |
 | free public stack (`mattiaangeli` bend-the-knee, Apache 2.0) | 0.943 | our base; ~8–9 h of the 9 h limit |
 | its core, public CoAtNet maxspan-v5 alone (CC0) | 0.928 | our CoAtNet student's start (the author's notebook) |
 | the same weights through the STACK's core code (`--core-alone`, ref `56779801`) | **0.933** | (B)'s paired baseline, 10-02 |
 | **ours, best** — (A): the stack with our CoAtNet student as its core | **0.943** | 10-03, ref `56799796`; EQUAL to the free stack, so (A) FAILED its ≥ 0.947 rule. Before it: Sub B-dread 0.939 |
-| **ours alone, best** — the Ortho student r1 (Stage B input + CNN-teacher targets) | **0.927** | 10-03, ref `56799701`; +0.011 over `dread` 0.916, the first model with two levers combined |
+| **ours alone, best** — the Ortho student on ALL DATA (T1: r1's recipe, 4,349 studies) | **0.929** | 10-03, ref `56811647`; +0.002 over r1 = noise; under the public core's 0.933 |
+| ours alone — the Ortho student r1 (Stage B input + CNN-teacher targets, 3,502 studies) | 0.927 | 10-03, ref `56799701`; +0.011 over `dread` 0.916, the first model with two levers combined |
 | ours alone — `dread` (Ortho, Stage A, `dread_soft`) / `c7` (Ortho, Stage B, `steven_v2`) | 0.916 / 0.915 | Sub A (Ortho, Stage A, `steven_v2`) 0.901 |
 
 **Measured levers, never yet combined in one model:**
@@ -95,12 +96,15 @@ its own gate. The first LB proof is the CoAtNet student, after Friday.
   09:05; 693,072 bytes). 11/11 epochs, 44.0–44.4 min each, 8.3 h in all; 2 processes, 543 steps/epoch; train 4,349, val =
   the 58 gold; targets `75757be8`; `gradient checkpointing: 12 of 24`; loss 0.728 → 0.565; 0 tracebacks. Downloaded 18:05
   to `fusion/runs_ortho_student_r1_all/`.
-- **⏳ SUBMITTED 10-03 19:07 PDT, ref `56811647`** — the model alone, `--ours-only`, kernel
+- **SUBMITTED 10-03 19:07 PDT, ref `56811647`** — the model alone, `--ours-only`, kernel
   `raahimnawaz/rsna-knee-sub-a-ortho-student-r1-all-nall` v1 (built from `06afcfa`, pushed 18:06, 261,850 bytes). Both
   check lines were read in its commit log before the submit: `GATE PASSED` (8 studies rebuilt from DICOMs, max |dp|
   0.00029, mean 0.00006; limits 0.03 / 0.005) and `[sub A] ARMS: ortho_stage_b only, windows all; 3 studies`; weights
-  `sha256 ok`; errors 0. **Read it against r1's 0.927 by the rule above** (r1 took 39 min to score). 4 slots left in the
-  UTC day that began 17:00 PDT.
+  `sha256 ok`; errors 0. 4 slots left in the UTC day that began 17:00 PDT.
+- **READ (seen 20:59): 0.929.** r1 0.927, so +0.002: noise by the rule (|Δ| < 0.010). **It is the Ortho final** (the
+  rule: unless ≥ 0.010 below r1). Reported, no gate: the author's +0.010 for all data (≥ 0.937) did NOT show for Ortho,
+  and 0.929 is under the ~0.936 where an Ortho family stops costing the stack. (C)'s `--alone-lb` is now 0.929; by the
+  measured exchange rate the stack + T1 at 1/3 forecasts ~0.942, under the stack's 0.943.
 
 ## 🗓 FRIDAY 10-02 PUSH LIST — ✅ READY
 
@@ -187,7 +191,7 @@ GPU sessions run at once, and the Ortho student holds one until ~Sat 05:00, so p
 | **(B)** student alone | `56799378` | 06:50 | the stack's core code, student weights | `[core]`; `[alone] ARMS: ... student`, 2× at its sha; 0 failed . **Read 0.931** (08:09): student − public = **−0.002, noise** by the rule |
 | (B) baseline | `56779801` | Fri 11:10 | the same, public weights | **read 0.933** |
 | Ortho student alone | `56799701` | 07:06 | Stage B Ortho on teacher targets | `GATE PASSED`; `[sub A] ARMS: ortho_stage_b only`. **Read 0.927** (07:45) = (C)'s `--alone-lb` |
-| Ortho student, ALL DATA, alone | `56811647` | 19:07 (from `06afcfa`) | the same recipe on all 4,349 non-gold studies, 11 ep | `GATE PASSED`; `[sub A] ARMS: ortho_stage_b only`. **⏳ PENDING** |
+| Ortho student, ALL DATA, alone | `56811647` | 19:07 (from `06afcfa`) | the same recipe on all 4,349 non-gold studies, 11 ep | `GATE PASSED`; `[sub A] ARMS: ortho_stage_b only`. **Read 0.929** (seen 20:59): +0.002 vs r1, noise; the Ortho final by its rule |
 
 **The students** (small files in `fusion/runs_coatnet_student_r1_all/`, `fusion/runs_ortho_student_r1/`; weights local, git-ignored):
 - **CoAtNet student** v3 (`dc70f5c`): 7/7 epochs, 63.5 min each, train 4,349, targets `75757be8`, init `20d45e07`;
@@ -272,6 +276,9 @@ before it; the run took 8.3 h; the page is the truth). Small CNNs run free on th
 
 ## Settled — one line each (detail in the archive, `DECISIONS.md`, `DATA.md`)
 
+- **Ortho on ALL DATA (T1), 10-03 → 0.929, the Ortho final (pre-registered: unless ≥ 0.010 below r1):** +0.002 over
+  r1's 0.927 is noise. All data did not give Ortho the +0.010 the public author measured. Our best own model is still
+  under the public core alone (0.933), so no final can lean on a single Ortho.
 - **(A), 10-03 → FAIL (pre-registered, PASS iff ≥ 0.947):** the stack with our CoAtNet student as its core reads
   **0.943**, the free stack's own score. With (B) (student alone 0.931 vs public alone 0.933) the diagnosis is the
   student, not the blend: the teacher route has not shown on the LB for a fine-tune of the public core. By the rule the
