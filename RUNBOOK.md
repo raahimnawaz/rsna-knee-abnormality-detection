@@ -17,7 +17,7 @@ blend change ±0.002. So valid = **≥ 0.947 for a blend change on the stack** a
 model**. The prize line and the efficiency track do not matter. Only necessary work: every run must change a
 decision. **Entry and team merger 10-15; final 10-22 16:59 PDT.** Two finals; Kaggle ranks a team by the better one.
 
-**▶ 10-04 review: [`docs/REVIEW-2026-10-04.md`](docs/REVIEW-2026-10-04.md).** It holds the owner's direction (0.965, solo), nine verified mistakes with fixes, and the proposed next steps (not yet approved). T1, the all-data Ortho pushed 10-03 09:05, has no result recorded yet: recording it is the first job.
+**▶ 10-04 review: [`docs/REVIEW-2026-10-04.md`](docs/REVIEW-2026-10-04.md).** It holds the owner's direction (0.965, solo), nine verified mistakes with fixes, and the proposed next steps (not yet approved). T1, the all-data Ortho, is recorded below: COMPLETE, and submitted alone 10-03 19:07 (ref `56811647`); its LB read is pending.
 
 ## Scoreboard
 
@@ -91,10 +91,16 @@ its own gate. The first LB proof is the CoAtNet student, after Friday.
   partition 691/691, `ALL DATA: train 4349 ... val = the 58 gold`, 2 processes, Ortho strict load, **`gradient
   checkpointing: 12 of 24 encoder blocks`** (a Stage B smoke forces that branch, so it IS rule 11 on HEAD's trainer),
   compiled, epoch 0 ran, DDP checksums identical, 0 tracebacks.
-- **⏳ PUSHED 10-03 09:05 PDT** raahimnawaz/rsna-knee-c7-train-ortho-student-r1-all v2 (built from `c3c612c`; mode full,
-  epochs 11, time budget 11.0 h, 693,072 bytes). Due ~18:00–18:30. Then: download `runs_ortho/`, sha256 `last.pt`,
-  `build_submit_kernel.py --ours-only --weights-kernel raahimnawaz/rsna-knee-c7-train-ortho-student-r1-all --weights-sha
-  <sha> --tag student-r1-all --out /tmp/suba-osa` → push → submit only on `GATE PASSED` and `[sub A] ARMS:`.
+- **✅ COMPLETE 10-03 ~17:40 PDT** raahimnawaz/rsna-knee-c7-train-ortho-student-r1-all v2 (built from `c3c612c`; pushed
+  09:05; 693,072 bytes). 11/11 epochs, 44.0–44.4 min each, 8.3 h in all; 2 processes, 543 steps/epoch; train 4,349, val =
+  the 58 gold; targets `75757be8`; `gradient checkpointing: 12 of 24`; loss 0.728 → 0.565; 0 tracebacks. Downloaded 18:05
+  to `fusion/runs_ortho_student_r1_all/`.
+- **⏳ SUBMITTED 10-03 19:07 PDT, ref `56811647`** — the model alone, `--ours-only`, kernel
+  `raahimnawaz/rsna-knee-sub-a-ortho-student-r1-all-nall` v1 (built from `06afcfa`, pushed 18:06, 261,850 bytes). Both
+  check lines were read in its commit log before the submit: `GATE PASSED` (8 studies rebuilt from DICOMs, max |dp|
+  0.00029, mean 0.00006; limits 0.03 / 0.005) and `[sub A] ARMS: ortho_stage_b only, windows all; 3 studies`; weights
+  `sha256 ok`; errors 0. **Read it against r1's 0.927 by the rule above** (r1 took 39 min to score). 4 slots left in the
+  UTC day that began 17:00 PDT.
 
 ## 🗓 FRIDAY 10-02 PUSH LIST — ✅ READY
 
@@ -181,6 +187,7 @@ GPU sessions run at once, and the Ortho student holds one until ~Sat 05:00, so p
 | **(B)** student alone | `56799378` | 06:50 | the stack's core code, student weights | `[core]`; `[alone] ARMS: ... student`, 2× at its sha; 0 failed . **Read 0.931** (08:09): student − public = **−0.002, noise** by the rule |
 | (B) baseline | `56779801` | Fri 11:10 | the same, public weights | **read 0.933** |
 | Ortho student alone | `56799701` | 07:06 | Stage B Ortho on teacher targets | `GATE PASSED`; `[sub A] ARMS: ortho_stage_b only`. **Read 0.927** (07:45) = (C)'s `--alone-lb` |
+| Ortho student, ALL DATA, alone | `56811647` | 19:07 (from `06afcfa`) | the same recipe on all 4,349 non-gold studies, 11 ep | `GATE PASSED`; `[sub A] ARMS: ortho_stage_b only`. **⏳ PENDING** |
 
 **The students** (small files in `fusion/runs_coatnet_student_r1_all/`, `fusion/runs_ortho_student_r1/`; weights local, git-ignored):
 - **CoAtNet student** v3 (`dc70f5c`): 7/7 epochs, 63.5 min each, train 4,349, targets `75757be8`, init `20d45e07`;
@@ -190,6 +197,10 @@ GPU sessions run at once, and the Ortho student holds one until ~Sat 05:00, so p
   `ce2099bd440c990d76b48c5a007d2942e43d16f428bd0534bc9016b480d808c8`; the 691: **0.8534** vs `c6_ortho` 0.8298 (paired
   +0.0236 ± 0.0037; c7, the same input on `steven_v2`, was 0.8410), avg3 0.8530; gold-58 0.9111. Report only: rule 3,
   the 691 cannot judge a label change.
+- **Ortho student, ALL DATA** v2 (`c3c612c`; small files in `fusion/runs_ortho_student_r1_all/`): 11/11 epochs, train
+  4,349, seed 42; `last.pt` sha256 `e8cf62a21d4c9efdd1ff37dd05657f2386179eea2e6043b07565e1c8c2b8991c`; gold-58 0.9131,
+  report only (r1 0.9111). No 691 score: nothing is held out, so the LB is its only judge. The avg3 weights were scored
+  (`avg3/oof_all.csv`) but not saved (Open item 5).
 
 **Where the students are weak (owner Q 10-03; gold-58 per finding, REPORT ONLY: 9–35 positives each, SE 0.03–0.09):**
 Synovitis 0.81–0.84 · PF OA 0.83–0.85 · Lateral OA 0.84–0.85 · Lateral Meniscus 0.84–0.87 · Contusion 0.89–0.91; the
@@ -256,7 +267,8 @@ notebook says the 58 "were never trained on". The label dataset's page does not 
    and chosen by pre-registered evidence, never by a 0.001 public difference.
 
 **GPU:** 30 h/week, reset Fri 17:00 PDT on **10-02, 10-09 and 10-16**. At most 2 sessions at once, 12 h each, 9 h per
-submission run. Friday spends ~16. Small CNNs run free on the Mac (M5, `--mps`, ResNet34 ~3.4 min/epoch alone).
+submission run. Friday spends ~16. **Left this week after T1: ~4.5 h by arithmetic** (the owner's page said 12 h 50 min
+before it; the run took 8.3 h; the page is the truth). Small CNNs run free on the Mac (M5, `--mps`, ResNet34 ~3.4 min/epoch alone).
 
 ## Settled — one line each (detail in the archive, `DECISIONS.md`, `DATA.md`)
 
