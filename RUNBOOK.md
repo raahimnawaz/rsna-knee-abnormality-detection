@@ -118,6 +118,11 @@ its own gate. The first LB proof is the CoAtNet student, after Friday.
 - **Timing:** the first Stage B Ortho inside the stack's 8–9 h. No score (a timeout) means it does not fit the 9 h, and
   Open item 4 (cut the DINOv2 members) comes before any Ortho family joins the stack. Record submit-to-score.
 - **Submit only if** the commit log shows `GATE PASSED` and `[blend] ARMS:` naming 3 families.
+- **⏳ SUBMITTED 10-03 21:21 PDT, ref `56813945`** — kernel `raahimnawaz/rsna-knee-sub-b-ortho-blend-student-r1-all` v1
+  (built from `ead7cff`, pushed 21:10, 502,755 bytes; commit run 6 min). Read in its log before the submit: `GATE
+  PASSED` (max |dp| 0.00029, mean 0.00006), weights `sha256 ok`, `[blend] ARMS: public stack (2 families, as published) +
+  ortho_stage_b = 3 families; w_ours 0.3333`, `COMPLETE`, 0 tracebacks. Due by ~06:30 Sun 10-04 if it fits the 9 h. 3
+  slots left in the UTC day.
 
 ## 🗓 FRIDAY 10-02 PUSH LIST — ✅ READY
 
@@ -205,6 +210,7 @@ GPU sessions run at once, and the Ortho student holds one until ~Sat 05:00, so p
 | (B) baseline | `56779801` | Fri 11:10 | the same, public weights | **read 0.933** |
 | Ortho student alone | `56799701` | 07:06 | Stage B Ortho on teacher targets | `GATE PASSED`; `[sub A] ARMS: ortho_stage_b only`. **Read 0.927** (07:45) = (C)'s `--alone-lb` |
 | Ortho student, ALL DATA, alone | `56811647` | 19:07 (from `06afcfa`) | the same recipe on all 4,349 non-gold studies, 11 ep | `GATE PASSED`; `[sub A] ARMS: ortho_stage_b only`. **Read 0.929** (seen 20:59): +0.002 vs r1, noise; the Ortho final by its rule |
+| Stack + T1 at 1/3 | `56813945` | 21:21 (from `ead7cff`) | the public stack as published + the all-data Ortho as a third family | `GATE PASSED`; `[blend] ARMS: ... = 3 families`. **⏳ PENDING** (rule: PASS iff ≥ 0.947) |
 
 **The students** (small files in `fusion/runs_coatnet_student_r1_all/`, `fusion/runs_ortho_student_r1/`; weights local, git-ignored):
 - **CoAtNet student** v3 (`dc70f5c`): 7/7 epochs, 63.5 min each, train 4,349, targets `75757be8`, init `20d45e07`;
