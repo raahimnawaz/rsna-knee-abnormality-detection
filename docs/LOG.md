@@ -158,3 +158,23 @@ unsure.** Unsure = max over findings of p(1 − p) under B′, fixed in advance,
   holdout. Both were test-built ~13:40 and pass every flag check.
 - **Cost:** ~7.3 GPU-h (was ~6), done ~Sat 00:40. (A)'s core is now the `-all` kernel. The Ortho student keeps the 691
   because for it the 691 is still clean.
+
+**2026-10-03 ~19:15 — owner Q: "could XGBoost help us?"** No. Estimated LB gain ~0, with real downside; nothing built.
+XGBoost (boosted decision trees) learns from a table of columns, so the question is which columns. All three were
+already measured here, or cannot be fitted honestly:
+- **Metadata columns** (series types, scanner): `eda_04_metadata_baseline.py` used sklearn's boosted trees and read
+  **0.471** macro on gold-58, i.e. chance. The site prior read **−0.0057** in the only shippable setup (archive
+  IMPROVEMENTS §3u).
+- **The models' 12 outputs as columns (a stacker):** a fitted cross-finding stacker (logistic, 5-fold on the 4,407)
+  read **+0.0033 on report labels and −0.0132 on gold**, positive in 1% of draws (archive IMPROVEMENTS §3r, 08-13). It
+  learns the reports' co-occurrence (effusion mentioned → synovitis mentioned), not the images'. Trees fit that
+  artifact harder than a logistic does. Closed in `DECISIONS.md`; this does not reopen it.
+- **Deep features as columns** (trees in place of the attention head): the features are in-sample for every study the
+  model trained on, and trees are weak on dense 1,024-dim embeddings. Not measured; expected ≤ 0.
+- **Why it cannot be fixed by tuning:** a stacker needs (a) labels graded from images and (b) out-of-fold predictions.
+  We have 58 image-graded knees (9–35 positives per finding), and the stack's members were trained on all data, so
+  they have no out-of-fold predictions. AUROC is also rank-only per finding, so a stacker gains only by reordering
+  knees with information the models lack, and the metadata has none.
+- **What would reopen it:** a few thousand image-graded labels, or a K-fold family with a label source independent of
+  the reports. Neither exists. The blend stays an unfitted equal rank-mean; the measured lever is seeds plus the
+  reversed pass (`docs/REVIEW-2026-10-04.md` §2.1, +0.003–0.006 per family).
