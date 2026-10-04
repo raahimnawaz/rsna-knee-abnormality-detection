@@ -106,6 +106,19 @@ its own gate. The first LB proof is the CoAtNet student, after Friday.
   and 0.929 is under the ~0.936 where an Ortho family stops costing the stack. (C)'s `--alone-lb` is now 0.929; by the
   measured exchange rate the stack + T1 at 1/3 forecasts ~0.942, under the stack's 0.943.
 
+## ▶ THE STACK + T1 AT 1/3 — pre-registered 10-03 21:12, before the build (owner: "just submit that")
+
+- **The run:** Submission B's mode. The public stack as published (notebook sha `2fc5a420`, unchanged upstream at
+  21:09), plus the all-data Ortho (T1, `last.pt` `e8cf62a2`, alone 0.929) as a third family at 1/3. Nothing fitted.
+- **Why:** the owner asked what today's two finals would be: (A) 0.943, and this one, the same expected score with a
+  third of its vote from our own model. It is submitted so that it is scored and selectable.
+- **Forecast, written before the read:** ~0.942 by the measured exchange rate (0.901 → 0.936, 0.916 → 0.939).
+- **THE READ:** PASS iff **≥ 0.947** (a blend change on the stack, +0.004; (C)'s rule, on the public core since (A)
+  equals it) → an Ortho family has earned its place in the stack. Otherwise reported only: a third exchange-rate point.
+- **Timing:** the first Stage B Ortho inside the stack's 8–9 h. No score (a timeout) means it does not fit the 9 h, and
+  Open item 4 (cut the DINOv2 members) comes before any Ortho family joins the stack. Record submit-to-score.
+- **Submit only if** the commit log shows `GATE PASSED` and `[blend] ARMS:` naming 3 families.
+
 ## 🗓 FRIDAY 10-02 PUSH LIST — ✅ READY
 
 The scheduled task `rsna-push-stage-b-dread` (Fri 17:20 PDT) pushes ONLY what this block lists. Kaggle runs two GPU

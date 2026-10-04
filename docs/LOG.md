@@ -179,7 +179,7 @@ already measured here, or cannot be fitted honestly:
   the reports. Neither exists. The blend stays an unfitted equal rank-mean; the measured lever is seeds plus the
   reversed pass (`docs/REVIEW-2026-10-04.md` §2.1, +0.003–0.006 per family).
 
-**2026-10-03 ~21:10 — owner Q after T1 read 0.929: "do we even have any real plan forward?"** Answer given; PROPOSED,
+**2026-10-03 ~21:03 — owner Q after T1 read 0.929: "do we even have any real plan forward?"** Answer given; PROPOSED,
 not approved, nothing built.
 - **The verdict:** the review's fix list is a plan to ~0.955 (its own central sum), not to 0.965. Today's three reads
   ((A) 0.943, (B) −0.002, T1 +0.002) all landed at the low end: polishing the current recipe does not move it. 0.965
@@ -199,7 +199,7 @@ not approved, nothing built.
   experiment before the final training week (10-16). Rented GPUs read T2 by ~10-07 and fit two or three more.
 - **Dropped tonight:** the stack + T1 at 1/3 (forecast ~0.942, under the stack; its only value was the 9 h timing).
 
-**2026-10-03 ~21:25 — owner Q: "why not a different family right now, what are our options?"** Answer given; PROPOSED,
+**2026-10-03 ~21:05 — owner Q: "why not a different family right now, what are our options?"** Answer given; PROPOSED,
 nothing built.
 - **Why a new backbone alone is not the fix:** three backbones land in one place or in reverse order of size. Public
   CoAtNet 0.928–0.933; our Ortho ViT-L 0.929; forum ResNet34 / EffNet-B0 "0.94+" (two self-reports, `REFERENCE.md`
