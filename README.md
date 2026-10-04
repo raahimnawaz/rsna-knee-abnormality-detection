@@ -18,6 +18,7 @@ CNNs train on the Mac (`--mps`) from the Stage A cache pulled back into `data/st
 |---|---|
 | **`RUNBOOK.md`** | state, the next command, and what to do with its answer |
 | `docs/LOG.md` | the detail behind the RUNBOOK since 09-28: read results, diagnoses, owner Q&A (append-only) |
+| `docs/REVIEW-2026-10-04.md` | **read after the RUNBOOK:** owner direction (0.965, solo), the latest run data, the nine verified mistakes with evidence and fixes, the proposed next steps |
 | `docs/WIN-PLAN-2026-10-03.md` | the 10-03 strategy review: what went wrong, the gap to a winner, the plan to 10-22, and the questions only the owner can answer |
 | `DECISIONS.md` | what is settled and what is closed. **Consult it, do not extend it** |
 | `MODEL.md` | the architecture; §0 is the public frontier's recipe, read from its code |

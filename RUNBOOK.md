@@ -17,6 +17,8 @@ blend change ±0.002. So valid = **≥ 0.947 for a blend change on the stack** a
 model**. The prize line and the efficiency track do not matter. Only necessary work: every run must change a
 decision. **Entry and team merger 10-15; final 10-22 16:59 PDT.** Two finals; Kaggle ranks a team by the better one.
 
+**▶ 10-04 review: [`docs/REVIEW-2026-10-04.md`](docs/REVIEW-2026-10-04.md).** It holds the owner's direction (0.965, solo), nine verified mistakes with fixes, and the proposed next steps (not yet approved). T1, the all-data Ortho pushed 10-03 09:05, has no result recorded yet: recording it is the first job.
+
 ## Scoreboard
 
 | | LB | note |
