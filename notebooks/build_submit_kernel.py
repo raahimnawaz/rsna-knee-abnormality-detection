@@ -237,7 +237,16 @@ _a_src = _APath("/tmp/ortho_sub/ortho_preds.csv")
 _a_hdr = _a_src.read_text().splitlines()[0].split(",")
 if _a_hdr[0] != "StudyInstanceUID" or len(_a_hdr) != 13:
     raise RuntimeError(f"ortho predictions header {_a_hdr}")
-_APath("/kaggle/working/submission.csv").write_text(_a_src.read_text())
+_A_PROBE = __PROBE__      # one finding: every other column is constant, so the public score = (5.5 + its AUROC) / 12
+if _A_PROBE:
+    _a_rows = [l.split(",") for l in _a_src.read_text().splitlines()]
+    _a_j = _a_hdr.index(_A_PROBE)
+    _APath("/kaggle/working/submission.csv").write_text("\n".join(
+        [",".join(_a_hdr)] + [",".join([r[0]] + [r[k] if k == _a_j else "0.5" for k in range(1, 13)])
+                              for r in _a_rows[1:]]) + "\n")
+    print(f"[sub A] PROBE: only {_A_PROBE} is the model's; the other 11 columns are 0.5", flush=True)
+else:
+    _APath("/kaggle/working/submission.csv").write_text(_a_src.read_text())
 print(f"[sub A] ARMS: {_O_ARM} only, windows {_O_N_WINDOWS or 'all'}; {len(_test_ids)} studies; "
       f"ours {_O_MIN:.1f} min of the run", flush=True)
 '''
@@ -560,6 +569,9 @@ def main() -> None:
     ap.add_argument("--alone-lb", type=float, default=None,
                     help="another checkpoint in Submission B: its own LB number, alone -- the guard's precondition")
     ap.add_argument("--desc", default="", help="one line for the notebook's intro: what this checkpoint is")
+    ap.add_argument("--probe", default="", choices=[""] + LABELS,
+                    help="with --ours-only: submit this one finding and hold the other eleven at 0.5, so the public "
+                         "score reads its AUROC alone: (5.5 + AUROC) / 12, one leaderboard tick = 0.012")
     # Core swap: a CoAtNet student replaces the public core.
     ap.add_argument("--core-kernel", default=None, help="the student's training kernel (holds runs_*/last.pt)")
     ap.add_argument("--core-sha", default=None, help="sha256 of that last.pt, all 64 hex digits")
@@ -636,16 +648,20 @@ def main() -> None:
                 .replace("__N_WINDOWS__", str(a.n_windows)).replace("__CHECK_ALWAYS__", str(not a.ours_only))
                 .replace("__WEIGHTS_SHAS__", repr(shas)).replace("__WEIGHTS_KERNEL__", a.weights_kernel))
     blend = BLEND.replace("__LABELS__", repr(LABELS)).replace("__BUILT_FROM__", built_from)
-    for k, c in enumerate([ours, blend, SUB_A]):
+    if a.probe and not a.ours_only:
+        raise SystemExit("--probe reads one finding of our model alone: pass --ours-only")
+    sub_a = SUB_A.replace("__PROBE__", repr(a.probe))
+    for k, c in enumerate([ours, blend, sub_a]):
         compile(c, f"ours{k}", "exec")                  # fail here, not after the queue wait
 
     if a.ours_only:
-        slug = f"rsna-knee-sub-a-ortho{'-' + a.tag if a.tag else ''}-n{a.n_windows or 'all'}"
+        slug = (f"rsna-knee-sub-a-ortho{'-' + a.tag if a.tag else ''}-n{a.n_windows or 'all'}"
+                + (f"-p-{re.sub('[^a-z]+', '-', a.probe.lower()).strip('-')}" if a.probe else ""))
         intro = INTRO_A.replace("__WINDOWS__", str(a.n_windows or "all")).replace("__BUILT_FROM__", built_from)
         if a.desc:
             intro += (f"\n\n**This build:** {a.desc} Weights: `{a.weights_kernel}`, last.pt sha256 "
                       + ", ".join(f"`{h[:16]}`" for h in shas) + ".")
-        new = [md(intro), code(ours), code(SUB_A)]
+        new = [md(intro), code(ours), code(sub_a)]
         sources = {"dataset_sources": [], "kernel_sources": wkernels, "model_sources": [],
                    "docker_image": DOCKER_IMAGE}
     elif a.core_alone:
