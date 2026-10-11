@@ -36,6 +36,9 @@ ARCHS = {
     "dinov3l": dict(res=336, pool="token", timm="vit_large_patch16_dinov3.lvd1689m"),
     "coatnet": dict(res=384, pool="avg", timm="coatnet_rmlp_2_rw_384.sw_in12k_ft_in1k"),
     "resnet34": dict(res=224, pool="avg", timm="resnet34.a1_in1k", ckpt=False),
+    # small conv backbones: LayerNorm only (a 2-study micro-batch is safe), ~7-14x fewer FLOPs than the ViT-L
+    "convnext_tiny": dict(res=384, pool="avg", timm="convnext_tiny.in12k_ft_in1k_384", ckpt=False),
+    "convnext_small": dict(res=384, pool="avg", timm="convnext_small.in12k_ft_in1k_384", ckpt=False),
     "tiny":    dict(res=224, pool="token", timm="vit_tiny_patch16_224"),
     # wiring only, random weights: Ortho's own architecture family (Eva, RoPE, registers) at 22M params,
     # so gradient checkpointing and DDP are exercised on the code path Ortho takes, on a CPU
@@ -512,6 +515,9 @@ def main() -> None:
     ap.add_argument("--zoom", type=float, default=0.0,
                     help="each window ALSO as its centre crop, this fraction of the field (0.6714 = the middle 94 mm of 140), "
                          "resized back; both views in one bag, train and eval (2x the windows). 0 = off")
+    ap.add_argument("--conf-weight", choices=["fork", "none"], default="fork",
+                    help="fork: loss x (0.25 + 0.75|2y-1|), built for a table where 0.5 means 'not stated'; none: plain "
+                         "BCE, for graded tables whose mid levels are readings (and for masked targets)")
     ap.add_argument("--eval-windows", type=int, default=0,
                     help="score an evenly spaced ~N windows per study (thin_windows); 0 = every window")
     a = ap.parse_args()
@@ -684,11 +690,11 @@ def main() -> None:
             if a.allow_missing_labels:                  # an unknown target carries no loss (e.g. fastMRI+)
                 known = torch.isfinite(y)
                 y0 = torch.where(known, y, torch.zeros_like(y))
-                w = (0.25 + 0.75 * (2 * y0 - 1).abs()) * known
+                w = ((0.25 + 0.75 * (2 * y0 - 1).abs()) if a.conf_weight == "fork" else 1.0) * known
                 loss = ((F.binary_cross_entropy_with_logits(logits.float(), y0, pos_weight=pos_w, reduction="none")
                          * w).sum() / known.sum().clamp_min(1))
             else:
-                w = 0.25 + 0.75 * (2 * y - 1).abs()
+                w = (0.25 + 0.75 * (2 * y - 1).abs()) if a.conf_weight == "fork" else 1.0
                 loss = (F.binary_cross_entropy_with_logits(logits.float(), y, pos_weight=pos_w,
                                                            reduction="none") * w).mean()
             if not torch.isfinite(loss):
@@ -846,10 +852,18 @@ def main() -> None:
         if is_qwen and missing.unexpected_keys:
             raise SystemExit(f"avg3: unexpected keys {missing.unexpected_keys[:3]}")
         pa = predict_sharded(model, corpus, va, dev, amp, a.eval_bs, world, rank, a.eval_windows)
+        pga = (predict_sharded(model, corpus, gold_ids, dev, amp, a.eval_bs, world, rank, a.eval_windows)
+               if gold_ids else None)
         if rank == 0:
             d3 = a.out / "avg3"
             d3.mkdir(exist_ok=True)
             pd.DataFrame(pa, columns=LABELS).assign(StudyInstanceUID=va).to_csv(d3 / "oof_all.csv", index=False)
+            if pga is not None:
+                pd.DataFrame(pga, columns=LABELS).assign(StudyInstanceUID=gold_ids).to_csv(d3 / "oof_gold.csv", index=False)
+            if a.save_weights and not is_qwen:      # served like last.pt: its meta sits beside it
+                torch.save({k: v.half() if v.is_floating_point() else v for k, v in model.state_dict().items()},
+                           d3 / "last.pt")
+                (d3 / "last_meta.json").write_text((a.out / "last_meta.json").read_text())
 
     if rank == 0:
         gold_auc = None
@@ -862,7 +876,7 @@ def main() -> None:
                    "n_train": len(tr), "n_val": len(va), "n_gold": len(gold_ids), "k": a.k, "bs": a.bs,
                    "bb_lr": a.bb_lr, "head_lr": a.head_lr, "wd": a.wd, "seed": a.seed, "res": res,
                    "drop_path": a.drop_path, "llrd": a.llrd, "pos_emb": a.pos_emb, "eval_windows": a.eval_windows,
-                   "aug_affine": a.aug_affine, "zoom": a.zoom, "init": str(a.init) if a.init else None, "slots": a.slots or None,
+                   "aug_affine": a.aug_affine, "zoom": a.zoom, "conf_weight": a.conf_weight, "init": str(a.init) if a.init else None, "slots": a.slots or None,
                    "allow_missing_labels": a.allow_missing_labels,
                    "init_sha256": getattr(a, "init_sha256", None),
                    "labels_sha256": __import__("hashlib").sha256(Path(a.labels).read_bytes()).hexdigest()

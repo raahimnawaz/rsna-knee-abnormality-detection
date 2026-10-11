@@ -37,6 +37,10 @@ STAGE_A_SHARDS = [f"{OWNER}/rsna-knee-stage-a-s{i}of4" for i in range(4)]   # bu
 STAGE_B_SHARDS = [f"{OWNER}/rsna-knee-stage-b-s{i}of8" for i in range(8)]   # ... --stage b
 PACKAGE = ["--res", "384", "--drop-path", "0.1", "--llrd", "0.9", "--bb-lr", "9e-5", "--pos-emb", "--fit-budget"]
 SPEED = ["--compile", "--ckpt-blocks", "12"]
+# small conv backbones on Stage B: no checkpointing or compile needed; plain BCE (graded and masked targets)
+SMALL = ("convnext_tiny", "convnext_small")
+SMALL_PACKAGE = ["--res", "384", "--drop-path", "0.1", "--bb-lr", "1e-4", "--pos-emb", "--fit-budget",
+                 "--conf-weight", "none"]
 N_TRAIN, DRAW_SEED = 2871, 20260923
 QWEN_EXTRA = ["--fit-budget", "--k", "12", "--eval-windows", "12"]
 # The versions this arch was built and tested against locally; the image may carry neither.
@@ -59,6 +63,7 @@ MODE = __MODE__
 LAYOUT = __LAYOUT__
 EXTRA = __EXTRA__
 EPOCHS = __EPOCHS__
+FOLD_LIST = __FOLD_LIST__
 BUILT_FROM = __BUILT_FROM__
 T0 = time.time()
 
@@ -198,14 +203,16 @@ from train_windows import Corpus as _Corpus        # the trainer's own loader an
 CORPUS_IDS = set(_Corpus(Path("/kaggle/input"), LAYOUT).ids)
 log(f"corpus ({LAYOUT}) holds {len(CORPUS_IDS)} studies")
 VAL = [u for u in CTRL if u in CORPUS_IDS]
+MASKED = "--allow-missing-labels" in EXTRA               # NaN targets carry no loss: keep a study with any target
+_ok = TARGETS_DF[L].notna().any(axis=1) if MASKED else TARGETS_DF[L].notna().all(axis=1)
+HAS_TARGETS = set(_ok.index[_ok])
 _pool = sorted(u for u in FOLDS.loc[(FOLDS.fold != 0) & (~FOLDS.is_gold), "StudyInstanceUID"]
-               if u in CORPUS_IDS and u in TARGETS_DF.index and TARGETS_DF.loc[u, L].notna().all())
+               if u in CORPUS_IDS and u in HAS_TARGETS)
 TEACHER_FOLD = __TEACHER_FOLD__
 PREDICT_ALL = __PREDICT_ALL__
 ALL_DATA = __ALL_DATA__
 if ALL_DATA:
-    TRAIN = sorted(u for u in FOLDS.loc[~FOLDS.is_gold, "StudyInstanceUID"]
-                   if u in CORPUS_IDS and u in TARGETS_DF.index and TARGETS_DF.loc[u, L].notna().all())
+    TRAIN = sorted(u for u in FOLDS.loc[~FOLDS.is_gold, "StudyInstanceUID"] if u in CORPUS_IDS and u in HAS_TARGETS)
     VAL = sorted(u for u in FOLDS.loc[FOLDS.is_gold, "StudyInstanceUID"] if u in CORPUS_IDS)
     if set(TRAIN) & set(VAL) or len(VAL) < 50:
         sys.exit(f"all-data: train/gold overlap or only {len(VAL)} gold studies in the corpus")
@@ -228,12 +235,28 @@ else:
 RUN.mkdir(parents=True, exist_ok=True)
 pd.Series(TRAIN, name="StudyInstanceUID").to_csv(RUN / "train_studies.csv", index=False)
 pd.Series(VAL, name="StudyInstanceUID").to_csv(RUN / "val_studies.csv", index=False)
+# Fold CV: model k trains on every non-gold study outside fold k and predicts fold k. Gold is in no
+# training list; the trainer scores it per fold, report only.
+FOLD_RUNS = {}
+for _k in FOLD_LIST:
+    _fk = set(FOLDS.loc[FOLDS.fold == _k, "StudyInstanceUID"])
+    _nong = [u for u in FOLDS.loc[~FOLDS.is_gold, "StudyInstanceUID"] if u in CORPUS_IDS]
+    _tr = sorted(u for u in _nong if u not in _fk and u in HAS_TARGETS)
+    _va = sorted(u for u in _nong if u in _fk)
+    if set(_tr) & set(_va) or not _tr or not _va:
+        sys.exit(f"fold {_k}: train/val overlap or an empty list")
+    _d = RUN / f"fold{_k}"
+    _d.mkdir(parents=True, exist_ok=True)
+    pd.Series(_tr, name="StudyInstanceUID").to_csv(_d / "train_studies.csv", index=False)
+    pd.Series(_va, name="StudyInstanceUID").to_csv(_d / "val_studies.csv", index=False)
+    FOLD_RUNS[_k] = _d
+    log(f"fold {_k}: train {len(_tr)} | val {len(_va)}")
 (OUT / "provenance.json").write_text(json.dumps({
     "built_from": BUILT_FROM, "arch": ARCH, "mode": MODE,
     "inputs": {k: {"path": str(v[0]), "sha256": _sha(v[0])} for k, v in FOUND.items()},
     "folds_site_sha256": _sha(D / "folds_site.csv"), "targets_sha256": _sha(LABELS_CSV), "fold_targets_sha256": _sha(D / "targets.csv"),
     "n_train": len(TRAIN), "n_val": len(VAL), "draw_seed": __DRAW_SEED__, "teacher_fold": TEACHER_FOLD,
-    "predict_all": PREDICT_ALL, "all_data": ALL_DATA}, indent=2))
+    "predict_all": PREDICT_ALL, "all_data": ALL_DATA, "folds": FOLD_LIST, "masked_targets": MASKED}, indent=2))
 '''
 
 
@@ -257,23 +280,32 @@ if ARCH.startswith("qwen") and not torch.cuda.is_available():
     os.environ["TW_FORCE_CKPT"] = "1"
     os.environ["TW_WORKERS"] = "1"
 log(f"launch: {NPROC} process(es), {os.environ.get('TW_WORKERS', '4')} loader workers each")
-_cmd = _launch + [str(REPO / "fusion" / "train_windows.py"), "--arch", ARCH,
-        "--corpus", "/kaggle/input", "--layout", LAYOUT, "--train", str(RUN / "train_studies.csv"),
-        "--val", str(RUN / "val_studies.csv"), "--labels", str(LABELS_CSV),
-        "--out", str(RUN), "--weights-dir", str(SCRATCH), "--epochs", str(EPOCHS)]
-_cmd += EXTRA
-if MODE == "smoke":
-    _cmd += ["--limit-train", "16", "--limit-val", "2" if NPROC > 1 else "6", "--k", "2" if NPROC > 1 else "4",
-             "--bs", str(2 * NPROC), "--micro", "1",
-             "--eval-bs", "1"]
+def _train(run_dir):
+    _cmd = _launch + [str(REPO / "fusion" / "train_windows.py"), "--arch", ARCH,
+            "--corpus", "/kaggle/input", "--layout", LAYOUT, "--train", str(run_dir / "train_studies.csv"),
+            "--val", str(run_dir / "val_studies.csv"), "--labels", str(LABELS_CSV),
+            "--out", str(run_dir), "--weights-dir", str(SCRATCH), "--epochs", str(EPOCHS)]
+    _cmd += EXTRA
+    if MODE == "smoke":
+        _cmd += ["--limit-train", "16", "--limit-val", "2" if NPROC > 1 else "6", "--k", "2" if NPROC > 1 else "4",
+                 "--bs", str(2 * NPROC), "--micro", "1",
+                 "--eval-bs", "1"]
+    else:
+        _cmd += ["--gold", str(D / "train.csv")]
+    if MODE == "full":
+        _cmd += ["--save-weights"]
+    log("train: " + " ".join(_cmd))
+    _rc = subprocess.call(_cmd)
+    if _rc:
+        sys.exit(f"train_windows exited {_rc} ({run_dir.name})")
+
+
+if FOLD_RUNS:
+    for _k, _d in FOLD_RUNS.items():
+        log(f"===== fold {_k} of {sorted(FOLD_RUNS)} =====")
+        _train(_d)
 else:
-    _cmd += ["--gold", str(D / "train.csv")]
-if MODE == "full":
-    _cmd += ["--save-weights"]
-log("train: " + " ".join(_cmd))
-_rc = subprocess.call(_cmd)
-if _rc:
-    sys.exit(f"train_windows exited {_rc}")
+    _train(RUN)
 '''
 
 
@@ -283,6 +315,25 @@ SCORE = r'''
 # ============================================================================ #
 if MODE == "smoke":
     log("SMOKE: the whole path ran. No score -- 6 studies cannot carry one.")
+elif FOLD_RUNS:
+    # every fold alone, then all held-out predictions as one table; fold 0 also paired with the control on the 691
+    for _sub in ("", "avg3"):
+        _parts = [_d / _sub / "oof_all.csv" for _d in FOLD_RUNS.values()]
+        if not all(p.exists() for p in _parts):
+            continue
+        _all = RUN / ("cv_" + (_sub or "last"))
+        _all.mkdir(exist_ok=True)
+        pd.concat([pd.read_csv(p) for p in _parts]).to_csv(_all / "oof_all.csv", index=False)
+        _jobs = [[str(_all)]] + ([[str(REPO / "fusion" / "runs_c6_ortho"), str(FOLD_RUNS[0] / _sub)]] if 0 in FOLD_RUNS else [])
+        for _j in _jobs:
+            _res = subprocess.run([sys.executable, str(REPO / "fusion" / "score_oof.py")] + _j,
+                                  capture_output=True, text=True, cwd=str(REPO))
+            print(_res.stdout, _res.stderr)
+            with open(OUT / f"score_cv_{_sub or 'last'}.txt", "a") as _f:
+                _f.write(_res.stdout + _res.stderr)
+    _gold = [pd.read_csv(_d / "oof_gold.csv") for _d in FOLD_RUNS.values() if (_d / "oof_gold.csv").exists()]
+    if _gold:                                    # gold is in no fold's training list: the fold models' mean, report only
+        pd.concat(_gold).groupby("StudyInstanceUID", as_index=False)[L].mean().to_csv(RUN / "oof_gold_foldmean.csv", index=False)
 elif ALL_DATA:
     log("ALL DATA: nothing held out, so no 691 score; gold-58 is in summary.json (report only); the LB judges.")
 else:
@@ -310,7 +361,9 @@ def _git_head() -> str:
 
 def main() -> None:
     ap = argparse.ArgumentParser(description=__doc__.splitlines()[0])
-    ap.add_argument("--arch", choices=["ortho", "dinov3l", "coatnet", "resnet34", "qwen35vl"], required=True)
+    ap.add_argument("--arch", choices=["ortho", "dinov3l", "coatnet", "resnet34", "qwen35vl", *SMALL], required=True)
+    ap.add_argument("--folds", default="", help="fold CV in one kernel, e.g. 0,1,2,3,4: model k trains on the non-gold "
+                    "studies outside fold k and predicts fold k; outputs runs_<arch>/fold<k>/")
     ap.add_argument("--predict-all", action="store_true", help="eval-only (--epochs 0 with --init): predict every "
                     "training study and the 691 -- an outside teacher's labels")
     ap.add_argument("--teacher-fold", type=int, default=0, choices=[0, 1, 2, 3, 4],
@@ -350,10 +403,17 @@ def main() -> None:
             ["--time-budget-h", str(a.time_budget_h if mode == "full" else 0.6)]
         epochs = a.epochs if mode == "full" else 1
     elif a.corpus == "stage_b":
-        extra = PACKAGE + SPEED + ["--time-budget-h", str(a.time_budget_h if mode == "full" else 0.3)]
+        folds = [int(x) for x in a.folds.split(",") if x != ""]
+        budget = (a.time_budget_h / max(len(folds), 1)) if mode == "full" else 0.3
+        extra = (SMALL_PACKAGE if a.arch in SMALL else PACKAGE + SPEED) + ["--time-budget-h", str(round(budget, 3))]
     else:
         extra = []
     extra += a.train_args.split()
+    folds = [int(x) for x in a.folds.split(",") if x != ""]
+    if folds and (a.corpus != "stage_b" or a.all_data or a.predict_all or a.teacher_fold or a.n_train
+                  or sorted(set(folds)) != folds or not set(folds) <= set(range(5))):
+        raise SystemExit("--folds: an increasing list from 0..4, on --corpus stage_b with --n-train 0, and not with "
+                         "--all-data, --predict-all or --teacher-fold")
     if a.all_data and (a.predict_all or a.teacher_fold or a.n_train or a.bench):
         raise SystemExit("--all-data trains on everything: not with --predict-all, --teacher-fold, a --n-train draw "
                          "(pass --n-train 0) or --bench")
@@ -375,18 +435,23 @@ def main() -> None:
                   .replace("__LAYOUT__", repr(a.corpus))
                   .replace("__EXTRA__", repr(extra))
                   .replace("__EPOCHS__", str(epochs)).replace("__BUILT_FROM__", repr(built_from))
+                  .replace("__FOLD_LIST__", repr(folds))
                   .replace("__FILES_B64__", repr(blob)).replace("__QWEN_TF__", QWEN_TRANSFORMERS))
     if a.targets and not a.tag:
         raise SystemExit("--targets needs --tag: a run on other labels must not overwrite the steven_v2 run's slug")
     t_b64, t_sha, t_name = "", "", ""
     if a.targets:
+        import numpy as np
         import pandas as pd
         L = ["ACL", "MCL", "Medial Meniscus", "Lateral Meniscus", "Medial OA", "Lateral OA",
              "PF OA", "Effusion", "Synovitis", "Baker's", "Contusion", "Fracture"]
         t = pd.read_csv(a.targets)
-        bad = t[L].isna().any(axis=1).sum() + (~t[L].stack().between(0, 1)).sum()
+        v = t[L].to_numpy(float)
+        masked = "--allow-missing-labels" in extra          # NaN = a target that carries no loss
+        bad = int(((v < 0) | (v > 1)).sum()) + int(np.isnan(v).all(axis=1).sum() if masked else np.isnan(v).any(axis=1).sum())
         if t.StudyInstanceUID.duplicated().any() or bad:
-            raise SystemExit(f"{a.targets}: duplicate studies or {bad} missing/out-of-range cells")
+            raise SystemExit(f"{a.targets}: duplicate studies or {bad} missing/out-of-range cells"
+                             + ("" if masked else " (masked targets need --train-args '--allow-missing-labels')"))
         raw = a.targets.read_bytes()
         import gzip
         t_sha, t_name = hashlib.sha256(raw).hexdigest(), a.targets.name
@@ -405,10 +470,11 @@ def main() -> None:
         compile(c, f"cell{k}", "exec")              # fail here, not after the queue wait
 
     # the A/B keeps its slugs; a Stage A run is a different experiment and gets its own
-    slug = {"raptor44": f"rsna-knee-backbone-ab-{a.arch}", "stage_a": f"rsna-knee-c6-train-{a.arch}",
-            "stage_b": f"rsna-knee-c7-train-{a.arch}"}[a.corpus] + (f"-{a.tag}" if a.tag else "") \
+    name = a.arch.replace("_", "-")                     # a Kaggle slug has no underscore
+    slug = {"raptor44": f"rsna-knee-backbone-ab-{name}", "stage_a": f"rsna-knee-c6-train-{name}",
+            "stage_b": f"rsna-knee-c7-train-{name}"}[a.corpus] + (f"-{a.tag}" if a.tag else "") \
         + (f"-t{a.teacher_fold}" if a.teacher_fold else "") + ("-pa" if a.predict_all else "") \
-        + ("-all" if a.all_data else "")
+        + ("-all" if a.all_data else "") + ("-cv" if folds else "")
     datasets = ((DATASETS if a.corpus == "raptor44" else DATASETS[2:]) + ([a.targets_from] if a.targets_from else [])
                 + a.extra_datasets)
     kernels = KERNELS + {"raptor44": [], "stage_a": STAGE_A_SHARDS, "stage_b": STAGE_B_SHARDS}[a.corpus]
@@ -436,6 +502,7 @@ def main() -> None:
     (a.out / "kernel-metadata.json").write_text(json.dumps(meta, indent=2), encoding="utf-8")
     print(f"built {a.out / (slug + '.ipynb')}  arch={a.arch} corpus={a.corpus} "
           f"n_train={'ALL (4,349, nothing held out)' if a.all_data else a.n_train or 'pool'} "
+          + (f"folds={folds} " if folds else "") +
           f"mode={mode} epochs={epochs}  from {built_from}")
     if "uncommitted" in built_from:
         print("  ⚠️ embedded files differ from HEAD -- commit first so the run is reproducible")
