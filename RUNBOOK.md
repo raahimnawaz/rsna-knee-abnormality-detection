@@ -68,8 +68,18 @@ optimiser, k = 12, per-finding attention) **without** our confidence weight.
 
 ## Running now
 
-- CPU smoke of the fold kernel (`raahimnawaz/rsna-knee-c7-train-convnext-small-cons1-cv` v1, from `2b14835`): pushed
-  10-11 ~16:01 PDT. Then a one-epoch GPU bench to price a fold, then read 1.
+- **⏳ Read 1, PUSHED 10-11 16:21 PDT:** `raahimnawaz/rsna-knee-c7-train-convnext-small-cons2-cv` v1, built from
+  `defb204`. ConvNeXt-small, Stage B, `targets_consensus_v2` (`a1ed4034`), fold 0 only (train 3,502, val 847, of
+  which the 691), 12 epochs, k 12, bs 8, lr 1e-4 / 1e-3, drop-path 0.1, plain BCE, masked Synovitis, both T4s,
+  `--time-budget-h 3.0` (the fit-budget cuts epochs if 12 do not fit). Outputs `runs_convnext_small/fold0/`
+  (`last.pt`, `avg3/last.pt`, `oof_all.csv`, `oof_gold.csv`), `score_cv_last.txt`, `score_cv_avg3.txt`.
+  Read: the `PAIRED delta` block against `runs_c6_ortho` in `score_cv_last.txt`, by rule 1 above. Its `bench.json`
+  prices the five folds.
+- **CPU smoke: clean** (v1 of `...-cons1-cv`, from `2b14835`, 6.4 min): targets attached by sha, partition 691/691,
+  fold 0 train 3,502 / val 847, fold 1 train 3,528 / val 821, 2 processes, pretrained ConvNeXt-small loaded, masked
+  targets trained, DDP checksums identical on both folds, 0 tracebacks.
+- Fetch when COMPLETE: `kaggle kernels output raahimnawaz/rsna-knee-c7-train-convnext-small-cons2-cv -p
+  fusion/runs_cnxs_cons2_f0`.
 
 ## GPU
 
