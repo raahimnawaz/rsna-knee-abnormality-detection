@@ -6,6 +6,7 @@ Two changes against a single report-label table:
 
 1. Eleven findings: each reader's order is mapped onto the base table's own levels (ties share the
    mean of the levels they span) and averaged; the target is half the base, half that consensus.
+   The table `score_oof.py` scores against stays out of the readers.
 2. Synovitis: reports address it in about one study in eight, and the base fills the rest from
    Effusion. Here a study is supervised only where a reader actually read it, or where Effusion is
    read as absent (then Synovitis is absent). Every other Synovitis cell is NaN and carries no
@@ -45,7 +46,8 @@ def load_readers(root: Path) -> tuple[dict[str, pd.DataFrame], dict[str, pd.Data
 
     val["dread"] = _csv(root / "dreaddevelopment_rsna-knee-labels" / "labels_llm_soft.csv")[LABELS]
     val["steven_v2"] = _csv(root / "stevenleehans_rsna-knee-llm-report-labels" / "llm_labels_v2.csv")[LABELS]
-    val["lixin"] = _csv(root / "lixin73_rsna-knee-llm-report-labels-sol56" / "labels_llm_gpt56sol.csv")[LABELS]
+    # lixin73's table is NOT a reader here: score_oof.py scores held-out predictions against it, and a
+    # model trained toward it would agree with it more without being more right
     val["yunus"] = _csv(root / "yunusgmsoy_rsna-knee-llm-report-labels" / "yunus_llm_labels.csv")[LABELS]
     val["jev"] = _csv(root / "riadmohamed42_jev-knee-labels" / "FINAL2_labels_scores.csv")[LABELS]
     val["nartaa_raw"] = pd.read_parquet(root / "nartaa_rsna-knee-hpo-assets" / "labels_v0raw.parquet") \
@@ -108,7 +110,6 @@ def synovitis(val: dict[str, pd.DataFrame], adr: dict[str, pd.DataFrame], effusi
         "dread": base.where(~base.round(2).isin(BASE_SYN_FILLS)),
         "pilkwang": val["pilkwang"][SYN].reindex(ids),
         "vmohitrao": val["vmohitrao"][SYN].reindex(ids),
-        "lixin": val["lixin"][SYN].reindex(ids),
         "jev": val["jev"][SYN].reindex(ids),
         "nartaa_raw": val["nartaa_raw"][SYN].reindex(ids),
     }, axis=1)
