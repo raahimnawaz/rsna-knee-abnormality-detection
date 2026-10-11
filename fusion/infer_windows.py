@@ -3,6 +3,8 @@ r"""Score studies straight from DICOMs with a `train_windows.py` checkpoint: the
     python fusion/infer_windows.py --root <competition dir> --split test --weights last.pt --out preds.csv
     python fusion/infer_windows.py --root <competition dir> --split train --weights last.pt --uids check.csv \
         --out check.csv --check-against runs_ortho/oof_all.csv    # parity gate against the scored OOF
+    python fusion/infer_windows.py --root <competition dir> --weights fold0/last.pt fold1/last.pt --out preds.csv
+        # several checkpoints of one slice layout: each study is built once, the probabilities averaged
 """
 from __future__ import annotations
 
@@ -98,7 +100,7 @@ def build_model(weights: Path, dev: str, meta: dict | None = None) -> WindowMIL:
     kw = dict(pretrained=False, num_classes=0, global_pool=meta["pool"])
     if meta["pool"] == "token":
         kw["img_size"] = meta["res"]
-    enc = timm.create_model(meta["timm"], **kw)
+    enc = timm.create_model(meta["timm"].split(".")[0], **kw)      # the pretrained tag names weights, not the architecture
     m = WindowMIL(enc, meta["res"], n_slots=meta["n_slots"] if meta["pos_emb"] else 0)
     m.load_state_dict(torch.load(weights, map_location="cpu", weights_only=True), strict=True)
     rope = getattr(m.encoder, "rope", None)
@@ -125,7 +127,8 @@ def main() -> None:
     ap.add_argument("--uids", type=Path, help="csv with StudyInstanceUID; default: all of test.csv")
     ap.add_argument("--shard", type=int, default=0)
     ap.add_argument("--n-shards", type=int, default=1)
-    ap.add_argument("--weights", type=Path, required=True)
+    ap.add_argument("--weights", type=Path, nargs="+", required=True,
+                    help="one checkpoint, or several of the same slice layout (their probabilities are averaged)")
     ap.add_argument("--out", type=Path, required=True)
     ap.add_argument("--workers", type=int, default=2, help="DICOM decode processes feeding the GPU")
     ap.add_argument("--n-windows", type=int, default=0,
@@ -146,11 +149,20 @@ def main() -> None:
     log(f"{len(uids)} {a.split} studies (shard {a.shard}/{a.n_shards}) | device {dev}"
         + (f" {torch.cuda.get_device_name(0)}" if dev == "cuda" else "")
         + f" | torch {torch.__version__} | slots {SLOT_SIZES}")
-    meta = load_meta(a.weights)
-    model = build_model(a.weights, dev, meta)
-    log(f"model loaded strict from {a.weights} ({time.time() - t0:.0f} s) | spec {meta['spec']} canon {meta['canon']} "
-        f"res {meta['res']} slots {meta['slot_sizes']} pos_emb {meta['pos_emb']} | meta {meta['source']} | "
-        + ("RoPE periods = the trained ones" if getattr(model.encoder, "rope", None) is not None else "no RoPE"))
+    metas = [load_meta(w) for w in a.weights]
+    meta = metas[0]
+    same = ("spec", "canon", "slot_sizes", "img")
+    if any(tuple(m[k] for k in same) != tuple(meta[k] for k in same) for m in metas):
+        raise SystemExit(f"--weights: the checkpoints were trained on different slice layouts {[[m[k] for k in same] for m in metas]}")
+    if a.check_against and len(a.weights) > 1:
+        raise SystemExit("--check-against reproduces ONE model's OOF: pass one checkpoint")
+    models = []
+    for w, m in zip(a.weights, metas):
+        models.append(build_model(w, dev, m))
+        log(f"model loaded strict from {w} ({time.time() - t0:.0f} s) | {m['timm']} | spec {m['spec']} canon {m['canon']} "
+            f"res {m['res']} slots {m['slot_sizes']} pos_emb {m['pos_emb']} | meta {m['source']} | "
+            + ("RoPE periods = the trained ones" if getattr(models[-1].encoder, "rope", None) is not None else "no RoPE"))
+    log(f"{len(models)} checkpoint(s): probabilities averaged with equal weight")
     if a.n_windows and a.check_against:
         raise SystemExit("--check-against compares with the OOF, which read every window: drop --n-windows")
     ds = DicomStudies(a.root / f"{a.split}_series", uids, series_by_study(a.root, a.split), a.n_windows,
@@ -162,9 +174,9 @@ def main() -> None:
         for k, (uid, w, sl, ps, err, sec) in enumerate(dl):
             t = time.time()
             x = w[None].to(dev, non_blocking=True)
+            ones, sl_d, ps_d = torch.ones(x.shape[:2], dtype=torch.bool, device=dev), sl[None].to(dev), ps[None].to(dev)
             with torch.autocast("cuda", dtype=torch.float16, enabled=dev == "cuda"):
-                p = torch.sigmoid(model(x, torch.ones(x.shape[:2], dtype=torch.bool, device=dev),
-                                        slot=sl[None].to(dev), pos=ps[None].to(dev)).float())
+                p = torch.stack([torch.sigmoid(m(x, ones, slot=sl_d, pos=ps_d).float()) for m in models]).mean(0)
             rows.append([uid] + p[0].cpu().numpy().tolist())
             infer_s.append(time.time() - t)
             build_s.append(sec)
@@ -188,6 +200,7 @@ def main() -> None:
               "build_sec_per_study_per_worker": float(np.mean(build_s)) if build_s else None,
               "infer_sec_per_study": float(np.mean(infer_s)) if infer_s else None,
               "windows_median": float(np.median(nwin)) if nwin else None, "workers": a.workers,
+              "checkpoints": [str(w) for w in a.weights],
               "n_windows": a.n_windows or "all"}
     a.out.with_suffix(".timing.json").write_text(json.dumps(timing, indent=1))
     log(f"wrote {a.out}: {len(out)} studies in {timing['wall_min']:.1f} min")

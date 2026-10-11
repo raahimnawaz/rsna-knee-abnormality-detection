@@ -74,24 +74,30 @@ for _rel, (_b, _sha) in _ojson.loads(_ob64.b64decode(__FILES_B64__).decode()).it
 _olog(f"built from __BUILT_FROM__; repo files written, hashes match")
 
 _SKIP = {"train_series", "test_series", "train_images", "test_images"}
-_O_ROOT, _O_CKPT = None, None
+_O_SHAS = __WEIGHTS_SHAS__            # one checkpoint, or the members of an equal-weight ensemble
+_O_ROOT, _o_found = None, {}
 for _d, _dirs, _fs in _oos.walk("/kaggle/input"):
     _dirs[:] = [x for x in _dirs if x not in _SKIP]
     if _O_ROOT is None and {"test.csv", "test_series.csv", "train_series.csv"} <= set(_fs):
         _O_ROOT = _OPath(_d)
-    if "last.pt" in _fs and "oof_all.csv" in _fs and _OPath(_d).name.startswith("runs_"):
+    if "last.pt" in _fs and "oof_all.csv" in _fs:          # a run dir: weights beside the predictions they scored
         _c = _OPath(_d) / "last.pt"
-        if _ohash.sha256(_c.read_bytes()).hexdigest() == "__WEIGHTS_SHA256__":
-            _O_CKPT = _c
+        _h = _ohash.sha256(_c.read_bytes()).hexdigest()
+        if _h in _O_SHAS:
+            _o_found[_h] = _c
 if _O_ROOT is None:
     raise RuntimeError("competition root not found under /kaggle/input")
-if _O_CKPT is None:
-    raise RuntimeError("runs_*/last.pt with the recorded sha256 not found -- is __WEIGHTS_KERNEL__ attached?")
+if set(_o_found) != set(_O_SHAS):
+    raise RuntimeError(f"last.pt not found for sha256 {sorted(set(_O_SHAS) - set(_o_found))} -- is __WEIGHTS_KERNEL__ attached?")
+_O_CKPTS = [_o_found[_h] for _h in _O_SHAS]
+_O_CKPT = _O_CKPTS[0]
 _O_ARM = "ortho_stage_a"
 if (_O_CKPT.parent / "last_meta.json").exists():
-    _om = _ojson.loads((_O_CKPT.parent / "last_meta.json").read_text())
-    _O_ARM = f"{_om.get('arch', 'ortho')}_{str(_om.get('layout', 'stage_a')).split()[0]}"
-_olog(f"competition root {_O_ROOT} | weights {_O_CKPT} (sha256 ok) | arm {_O_ARM}")
+    _oms = [_ojson.loads((_c.parent / "last_meta.json").read_text()) for _c in _O_CKPTS]
+    _O_ARM = "+".join(sorted({f"{_m.get('arch', 'ortho')}_{str(_m.get('layout', 'stage_a')).split()[0]}" for _m in _oms}))
+if len(_O_CKPTS) > 1:
+    _O_ARM += f" x{len(_O_CKPTS)}"
+_olog(f"competition root {_O_ROOT} | {len(_O_CKPTS)} checkpoint(s), sha256 ok: {[str(_c) for _c in _O_CKPTS]} | arm {_O_ARM}")
 
 try:
     _O_NGPU = len([l for l in _osp.run(["nvidia-smi", "-L"], capture_output=True, text=True,
@@ -100,8 +106,8 @@ except Exception as _e:                                    # noqa: BLE001
     _olog(f"nvidia-smi failed ({_e}); assuming one GPU")
     _O_NGPU = 1
 _olog(f"GPUs: {_O_NGPU}")
-_O_PY = [_osys.executable, "-u", str(_O_REPO / "fusion" / "infer_windows.py"), "--root", str(_O_ROOT),
-         "--weights", str(_O_CKPT)]
+_O_PY = [_osys.executable, "-u", str(_O_REPO / "fusion" / "infer_windows.py"), "--root", str(_O_ROOT)]
+_O_ALL = ["--weights"] + [str(_c) for _c in _O_CKPTS]
 
 
 def _orun(args, gpu, tag):
@@ -125,25 +131,28 @@ def _owait(procs, what):
 
 # ---- 1. the gate: studies the OOF already scored, rebuilt here from DICOMs
 _O.mkdir(parents=True, exist_ok=True)
-_oof = _O_CKPT.parent / "oof_all.csv"
-with open(_oof) as _f:
-    _val = sorted({r["StudyInstanceUID"] for r in _ocsv.DictReader(_f)})
 with open(_O_ROOT / "test.csv") as _f:
     _test_ids = [r["StudyInstanceUID"] for r in _ocsv.DictReader(_f)]
 if (_O_ROOT / "train_series").is_dir() and (_O_CHECK_ALWAYS or len(_test_ids) < 100):
-    with open(_O / "check_uids.csv", "w") as _f:
-        _f.write("StudyInstanceUID\n" + "\n".join(_val[::max(len(_val) // _O_N_CHECK, 1)][:_O_N_CHECK]) + "\n")
-    _owait({"check": _orun(["--split", "train", "--uids", str(_O / "check_uids.csv"), "--out",
-                            str(_O / "check" / "check.csv"), "--check-against", str(_oof),
-                            "--workers", "4"], 0, "check")}, "the OOF reproduction check")
-    _olog("GATE PASSED: " + (_O / "check" / "check.check.json").read_text().split('"per_study_max"')[0])
+    _o_n = max(3, _O_N_CHECK // len(_O_CKPTS))             # every member reproduces ITS OWN held-out predictions
+    for _j, _c in enumerate(_O_CKPTS):
+        _oof = _c.parent / "oof_all.csv"
+        with open(_oof) as _f:
+            _val = sorted({r["StudyInstanceUID"] for r in _ocsv.DictReader(_f)})
+        with open(_O / f"check_uids_{_j}.csv", "w") as _f:
+            _f.write("StudyInstanceUID\n" + "\n".join(_val[::max(len(_val) // _o_n, 1)][:_o_n]) + "\n")
+        _owait({f"check{_j}": _orun(["--weights", str(_c), "--split", "train", "--uids", str(_O / f"check_uids_{_j}.csv"),
+                                     "--out", str(_O / f"check{_j}" / "check.csv"), "--check-against", str(_oof),
+                                     "--workers", "4"], _j % _O_NGPU, f"check{_j}")}, "the OOF reproduction check")
+        _olog(f"GATE PASSED ({_j + 1}/{len(_O_CKPTS)}): "
+              + (_O / f"check{_j}" / "check.check.json").read_text().split('"per_study_max"')[0])
 elif not (_O_ROOT / "train_series").is_dir():
     _olog("train DICOMs are not mounted in this run; the gate ran in the commit run on this code")
 else:
     _olog(f"{len(_test_ids)} test studies: the scored rerun -- the commit run carried the gate on this code")
 
 # ---- 2. every test study, one process per GPU
-_procs = {f"test{i}": _orun(["--split", "test", "--shard", str(i), "--n-shards", str(_O_NGPU),
+_procs = {f"test{i}": _orun(_O_ALL + ["--split", "test", "--shard", str(i), "--n-shards", str(_O_NGPU),
                              "--workers", "2" if _O_NGPU > 1 else "4",
                              "--out", str(_O / f"preds_{i}.csv")]
                             + (["--n-windows", str(_O_N_WINDOWS)] if _O_N_WINDOWS else []), i, f"test{i}")
@@ -573,6 +582,9 @@ def main() -> None:
             raise SystemExit("the upgraded stack needs a --tag (lowercase, digits, '-'): it names the slug and the core file")
     elif a.add_family:
         raise SystemExit("--add-family only means something with --core-kernel (Submission B always adds a family)")
+    shas, wkernels = a.weights_sha.split(","), a.weights_kernel.split(",")
+    if len(set(shas)) != len(shas) or not all(re.fullmatch(r"[0-9a-f]{64}", h) for h in shas):
+        raise SystemExit("--weights-sha: one full 64-hex sha256 of a last.pt, or several joined by commas (an ensemble)")
     if (a.weights_kernel != WEIGHTS_KERNEL) != (a.weights_sha != WEIGHTS_SHA256):
         raise SystemExit("--weights-kernel and --weights-sha move together: a new checkpoint needs both")
     if a.weights_kernel != WEIGHTS_KERNEL and not a.tag:
@@ -622,7 +634,7 @@ def main() -> None:
     ours = (OURS.replace("__FILES_B64__", repr(blob)).replace("__BUILT_FROM__", built_from)
                 .replace("__W_OURS__", repr(a.w_ours)).replace("__N_CHECK__", str(a.n_check))
                 .replace("__N_WINDOWS__", str(a.n_windows)).replace("__CHECK_ALWAYS__", str(not a.ours_only))
-                .replace("__WEIGHTS_SHA256__", a.weights_sha).replace("__WEIGHTS_KERNEL__", a.weights_kernel))
+                .replace("__WEIGHTS_SHAS__", repr(shas)).replace("__WEIGHTS_KERNEL__", a.weights_kernel))
     blend = BLEND.replace("__LABELS__", repr(LABELS)).replace("__BUILT_FROM__", built_from)
     for k, c in enumerate([ours, blend, SUB_A]):
         compile(c, f"ours{k}", "exec")                  # fail here, not after the queue wait
@@ -631,9 +643,10 @@ def main() -> None:
         slug = f"rsna-knee-sub-a-ortho{'-' + a.tag if a.tag else ''}-n{a.n_windows or 'all'}"
         intro = INTRO_A.replace("__WINDOWS__", str(a.n_windows or "all")).replace("__BUILT_FROM__", built_from)
         if a.desc:
-            intro += f"\n\n**This build:** {a.desc} Weights: `{a.weights_kernel}`, last.pt sha256 `{a.weights_sha[:16]}`."
+            intro += (f"\n\n**This build:** {a.desc} Weights: `{a.weights_kernel}`, last.pt sha256 "
+                      + ", ".join(f"`{h[:16]}`" for h in shas) + ".")
         new = [md(intro), code(ours), code(SUB_A)]
-        sources = {"dataset_sources": [], "kernel_sources": [a.weights_kernel], "model_sources": [],
+        sources = {"dataset_sources": [], "kernel_sources": wkernels, "model_sources": [],
                    "docker_image": DOCKER_IMAGE}
     elif a.core_alone:
         # the seams this build relies on -- refuse an upstream version that moved any of them
@@ -766,7 +779,7 @@ def main() -> None:
                       f"last.pt sha256 `{a.weights_sha[:16]}`.")
         new = [md(intro), code(ours)] + body[:-1] + [code(blend), body[-1]]
         sources = {"dataset_sources": pmeta["dataset_sources"],
-                   "kernel_sources": pmeta["kernel_sources"] + [a.weights_kernel],
+                   "kernel_sources": pmeta["kernel_sources"] + wkernels,
                    "model_sources": pmeta["model_sources"], "docker_image": pmeta["docker_image"]}
     nb = dict(pub, cells=new)
     a.out.mkdir(parents=True, exist_ok=True)
