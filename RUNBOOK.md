@@ -16,8 +16,8 @@ and not built on** (owner: "its useless"). Solo. Final 10-22 16:59 PDT; two fina
 | free public blend | 0.954 | 752 teams exactly there (ranks 216-967). `nartaa` CoAtNet (0.949 alone, 0.948 without its mirror pass) + `heliosli` ConvNeXt-small, 4 folds |
 | **ours, best** | **0.945** | 10-12: FIVE ConvNeXt-small folds alone, no public model in it (ref `57112913`); rank 1,629 |
 | ours, with the old public stack | 0.943 | 10-03: the old public stack with our CoAtNet student as its core |
-| ours, one model, `dread_soft` labels | 0.933 | 10-12: the 0.938 model's recipe with the targets changed only (ref `57117178`) |
 | ours, one model, best | 0.938 | 10-12: ONE ConvNeXt-small, Stage B, `targets_consensus_v2`, fold 0 held out (ref `57098827`) |
+| ours, one model, `dread_soft` labels | 0.933 | 10-12: the 0.938 model's recipe with the targets changed only (ref `57117178`) |
 | ours alone, before | 0.929 | Ortho ViT-L, Stage B, teacher targets, all data (ref `56811647`); r1 on 3,502 studies 0.927 |
 | stack + that Ortho at 1/3 | 0.941 | ref `56813945`, read 10-04: FAIL (rule ≥ 0.947) |
 
