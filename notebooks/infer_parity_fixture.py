@@ -1,7 +1,7 @@
 """Test that the inference path reproduces the training cache window for window, on synthetic DICOMs.
 
     python notebooks/canon_fixture.py --out <dir>
-    python notebooks/infer_parity_fixture.py --fixture <dir>
+    python notebooks/infer_parity_fixture.py --fixture <dir> [--spec c8]
 """
 from __future__ import annotations
 
@@ -22,16 +22,17 @@ import train_windows as TW  # noqa: E402
 def main() -> None:
     ap = argparse.ArgumentParser(description=__doc__.splitlines()[0])
     ap.add_argument("--fixture", type=Path, required=True, help="canon_fixture.py's --out")
+    ap.add_argument("--spec", choices=["c7", "c8"], default="c7", help="the spec canon_fixture.py built with")
     a = ap.parse_args()
     root = a.fixture / "input"
-    corpus = TW.Corpus(a.fixture / "canon", "stage_b")
+    corpus = TW.Corpus(a.fixture / "canon", {"c7": "stage_b", "c8": "stage_c"}[a.spec])
     uids = list(corpus.ids)
     truth = json.loads((root / "truth.json").read_text())
     tw = TW.Windows(corpus, uids, np.zeros((len(uids), 12), np.float32), k=None)
     by = IW.series_by_study(root, "train")
     fails = []
     for canon in (True, False):
-        ds = IW.DicomStudies(root / "train_series", uids, by, 0, spec="c7", canon=canon)
+        ds = IW.DicomStudies(root / "train_series", uids, by, 0, spec=a.spec, canon=canon)
         for i, u in enumerate(uids):
             w2, s2, p2, _ = tw[i]
             _, w1, s1, p1, err, _ = ds[i]

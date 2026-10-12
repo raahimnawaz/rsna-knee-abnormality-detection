@@ -1,6 +1,6 @@
 """Synthetic left and right knees in every storage orientation, to test `build_slots64.py --canon`.
 
-    python notebooks/canon_fixture.py --out <dir>
+    python notebooks/canon_fixture.py --out <dir> [--spec c8]
 """
 from __future__ import annotations
 
@@ -97,15 +97,16 @@ def write(root: Path) -> dict:
     return truth
 
 
-def build(root: Path, out: Path, canon: bool) -> None:
+def build(root: Path, out: Path, canon: bool, spec: str = "c7") -> None:
     cmd = [sys.executable, str(PROJ / "pipeline" / "build_slots64.py"), "--root", str(root), "--out", str(out),
-           "--spec", "c7", "--workers", "1"] + (["--canon"] if canon else [])
+           "--spec", spec, "--workers", "1"] + (["--canon"] if canon else [])
     subprocess.run(cmd, check=True, capture_output=True, text=True)
 
 
-def check(root: Path, out: Path, truth: dict) -> None:
+def check(root: Path, out: Path, truth: dict, spec: str = "c7") -> None:
     sys.path.insert(0, str(PROJ / "pipeline"))
-    import slots96 as S
+    import build_slots64
+    S = build_slots64.SPECS[spec]
     vols, masks = np.load(out / "vols.npy"), np.load(out / "masks.npy")
     ids = np.load(out / "ids.npy", allow_pickle=True).astype(str).tolist()
     meta = pd.read_csv(out / "slots.csv")
@@ -146,13 +147,14 @@ def check(root: Path, out: Path, truth: dict) -> None:
 def main() -> None:
     ap = argparse.ArgumentParser(description=__doc__.splitlines()[0])
     ap.add_argument("--out", type=Path, required=True)
+    ap.add_argument("--spec", choices=["c7", "c8"], default="c7", help="c7 = Stage B, c8 = Stage C")
     a = ap.parse_args()
     root = a.out / "input"
     truth = write(root)
-    build(root, a.out / "canon", canon=True)
-    check(root, a.out / "canon", truth)
+    build(root, a.out / "canon", canon=True, spec=a.spec)
+    check(root, a.out / "canon", truth, a.spec)
     # (4) the test can fail: without --canon, the left knee is not the right knee
-    build(root, a.out / "raw", canon=False)
+    build(root, a.out / "raw", canon=False, spec=a.spec)
     v = np.load(a.out / "raw" / "vols.npy")
     ids = np.load(a.out / "raw" / "ids.npy", allow_pickle=True).astype(str).tolist()
     by = {truth[u]["name"]: i for i, u in enumerate(ids)}

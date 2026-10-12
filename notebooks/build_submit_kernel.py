@@ -25,7 +25,7 @@ WEIGHTS_KERNEL = f"{OWNER}/rsna-knee-c6-train-ortho"
 WEIGHTS_SHA256 = "1fe51be2ff4deaae4dfd5fafd2354f3b9bbeb0c26cda3fd918a00699fd481b98"   # runs_ortho/last.pt
 DOCKER_IMAGE = "gcr.io/kaggle-private-byod/python@sha256:37c64f7dd9c54116ecd1bcc88817c5469b88387388fade02bfa8bf3fc647d461"
 EMBED = ["fusion/infer_windows.py", "fusion/train_windows.py", "fusion/window_curve.py",
-         "pipeline/build_slots64.py", "pipeline/slots64.py", "pipeline/slots96.py",
+         "pipeline/build_slots64.py", "pipeline/slots64.py", "pipeline/slots96.py", "pipeline/slots118.py",
          "fusion/orthofoundation_model.py", "extractor/metrics.py",
          "fusion/qwen_vlm.py"]
 LABELS = ["ACL", "MCL", "Medial Meniscus", "Lateral Meniscus", "Medial OA", "Lateral OA",

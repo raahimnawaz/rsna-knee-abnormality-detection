@@ -19,8 +19,9 @@ import pandas as pd
 sys.path.insert(0, str(Path(__file__).resolve().parent))
 import slots64 as S  # noqa: E402
 import slots96  # noqa: E402
+import slots118  # noqa: E402
 
-SPECS = {"c6": S, "c7": slots96}        # --spec: Stage A (64 x 336) or Stage B (96 x 384)
+SPECS = {"c6": S, "c7": slots96, "c8": slots118}   # --spec: Stage A (64 x 336), B (96 x 384), C (118 x 384)
 SPAN = (0.02, 0.98)
 PCT = (2.0, 98.0)
 LATERALITY_X_THRESHOLD = -62.0
@@ -276,7 +277,7 @@ def main() -> None:
     ap.add_argument("--span", type=float, nargs=2, default=SPAN)
     ap.add_argument("--workers", type=int, default=os.cpu_count() or 4)
     ap.add_argument("--check", action="store_true", help="assert the fixture's known answers")
-    ap.add_argument("--spec", choices=sorted(SPECS), default="c6", help="c6 = Stage A, c7 = Stage B")
+    ap.add_argument("--spec", choices=sorted(SPECS), default="c6", help="c6 = Stage A, c7 = Stage B, c8 = Stage C (dense coronal and axial)")
     ap.add_argument("--canon", action="store_true", help="canonical orientation (left knees mirrored)")
     a = ap.parse_args()
     Sp = SPECS[a.spec]

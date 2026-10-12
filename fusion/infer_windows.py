@@ -49,7 +49,7 @@ def load_meta(weights: Path) -> dict:
     p = Path(weights).parent / "last_meta.json"
     m = json.loads(p.read_text()) if p.exists() else {}
     layout = str(m.get("layout", "stage_a"))
-    spec = "c7" if layout.startswith("stage_b") else "c6"
+    spec = "c8" if layout.startswith("stage_c") else "c7" if layout.startswith("stage_b") else "c6"
     out = {"source": str(p) if p.exists() else "none (Stage A defaults)", "spec": spec,
            "canon": "canon True" in layout, "res": int(m.get("res", 336)), "img": int(m.get("img", 336)),
            "timm": m.get("timm", "vit_large_patch16_dinov3"), "pool": m.get("pool", "token"),

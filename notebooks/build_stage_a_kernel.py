@@ -14,9 +14,10 @@ from pathlib import Path
 
 PROJ = Path(__file__).resolve().parents[1]
 OWNER = "raahimnawaz"
-EMBED = ["pipeline/slots64.py", "pipeline/slots96.py", "pipeline/build_slots64.py"]
+EMBED = ["pipeline/slots64.py", "pipeline/slots96.py", "pipeline/slots118.py", "pipeline/build_slots64.py"]
 STAGES = {"a": {"out": "stage_a", "args": [], "shards": 4},
-          "b": {"out": "stage_b", "args": ["--spec", "c7", "--canon"], "shards": 8}}
+          "b": {"out": "stage_b", "args": ["--spec", "c7", "--canon"], "shards": 8},
+          "c": {"out": "stage_c", "args": ["--spec", "c8", "--canon"], "shards": 8}}
 
 CELL = r'''
 # ============================================================================ #

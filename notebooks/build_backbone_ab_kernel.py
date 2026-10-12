@@ -35,6 +35,7 @@ DATASETS = ["dreaddevelopment/knee-raptor-corpus",           # 3,200 studies, CC
 KERNELS = ["zhukovoleksiy/rsna-metadata-probe"]              # headers.parquet -> site folds
 STAGE_A_SHARDS = [f"{OWNER}/rsna-knee-stage-a-s{i}of4" for i in range(4)]   # build_stage_a_kernel.py
 STAGE_B_SHARDS = [f"{OWNER}/rsna-knee-stage-b-s{i}of8" for i in range(8)]   # ... --stage b
+STAGE_C_SHARDS = [f"{OWNER}/rsna-knee-stage-c-s{i}of8" for i in range(8)]   # ... --stage c: dense coronal and axial
 PACKAGE = ["--res", "384", "--drop-path", "0.1", "--llrd", "0.9", "--bb-lr", "9e-5", "--pos-emb", "--fit-budget"]
 SPEED = ["--compile", "--ckpt-blocks", "12"]
 # small conv backbones on Stage B: no checkpointing or compile needed; plain BCE (graded and masked targets)
@@ -265,7 +266,7 @@ TRAIN = r'''
 # Train: fusion/train_windows.py, the only place an arm differs is --arch.
 # ============================================================================ #
 NPROC = ((torch.cuda.device_count() if torch.cuda.is_available() else (1 if ARCH.startswith("qwen") else 2))
-         if LAYOUT == "stage_b" or ARCH.startswith("qwen") else 1)
+         if LAYOUT in ("stage_b", "stage_c") or ARCH.startswith("qwen") else 1)
 _launch = ([sys.executable, "-m", "torch.distributed.run", "--nnodes", "1", "--node_rank", "0",
             "--master_addr", "127.0.0.1", "--master_port", "29511", "--nproc_per_node", str(NPROC)]
            if NPROC > 1 else [sys.executable, "-u"])
@@ -338,7 +339,7 @@ elif ALL_DATA:
     log("ALL DATA: nothing held out, so no 691 score; gold-58 is in summary.json (report only); the LB judges.")
 else:
     for _arm in [RUN] + ([RUN / "avg3"] if (RUN / "avg3" / "oof_all.csv").exists() else []):
-        _ctrl = "runs_c6_ortho" if LAYOUT == "stage_b" or ARCH.startswith("qwen") else "runs_port_repro"
+        _ctrl = "runs_c6_ortho" if LAYOUT in ("stage_b", "stage_c") or ARCH.startswith("qwen") else "runs_port_repro"
         _pair = [] if TEACHER_FOLD or PREDICT_ALL else [str(REPO / "fusion" / _ctrl)]   # not the 691 alone
         _res = subprocess.run([sys.executable, str(REPO / "fusion" / "score_oof.py")] + _pair + [str(_arm)],
                               capture_output=True, text=True, cwd=str(REPO))
@@ -379,7 +380,7 @@ def main() -> None:
     g.add_argument("--bench", action="store_true", help="T4, ONE full epoch, scored. Prices the run.")
     ap.add_argument("--epochs", type=int, default=10, help="full run only")
     ap.add_argument("--time-budget-h", type=float, default=10.3, help="stage_b: training hours inside the 12 h session")
-    ap.add_argument("--corpus", choices=["raptor44", "stage_a", "stage_b"], default="raptor44",
+    ap.add_argument("--corpus", choices=["raptor44", "stage_a", "stage_b", "stage_c"], default="raptor44",
                     help="raptor44: the CC0 44-slice corpus (the A/B); stage_a: our 64-slice shards")
     ap.add_argument("--targets-from", default="", help="a Kaggle dataset holding --targets byte for byte: attach it "
                                                          "instead of embedding (notebooks over ~1 MB are refused)")
@@ -402,7 +403,7 @@ def main() -> None:
                  if mode == "smoke" else QWEN_EXTRA + (QWEN_BENCH if mode == "bench" else [])) + \
             ["--time-budget-h", str(a.time_budget_h if mode == "full" else 0.6)]
         epochs = a.epochs if mode == "full" else 1
-    elif a.corpus == "stage_b":
+    elif a.corpus in ("stage_b", "stage_c"):
         folds = [int(x) for x in a.folds.split(",") if x != ""]
         budget = (a.time_budget_h / max(len(folds), 1)) if mode == "full" else 0.3
         extra = (["--res", "384"] if a.predict_all else SMALL_PACKAGE if a.arch in SMALL else PACKAGE + SPEED) \
@@ -411,9 +412,9 @@ def main() -> None:
         extra = []
     extra += a.train_args.split()
     folds = [int(x) for x in a.folds.split(",") if x != ""]
-    if folds and (a.corpus != "stage_b" or a.all_data or a.predict_all or a.teacher_fold or a.n_train
+    if folds and (a.corpus not in ("stage_b", "stage_c") or a.all_data or a.predict_all or a.teacher_fold or a.n_train
                   or sorted(set(folds)) != folds or not set(folds) <= set(range(5))):
-        raise SystemExit("--folds: an increasing list from 0..4, on --corpus stage_b with --n-train 0, and not with "
+        raise SystemExit("--folds: an increasing list from 0..4, on --corpus stage_b / stage_c with --n-train 0, and not with "
                          "--all-data, --predict-all or --teacher-fold")
     if a.all_data and (a.predict_all or a.teacher_fold or a.n_train or a.bench):
         raise SystemExit("--all-data trains on everything: not with --predict-all, --teacher-fold, a --n-train draw "
@@ -473,12 +474,13 @@ def main() -> None:
     # the A/B keeps its slugs; a Stage A run is a different experiment and gets its own
     name = a.arch.replace("_", "-")                     # a Kaggle slug has no underscore
     slug = {"raptor44": f"rsna-knee-backbone-ab-{name}", "stage_a": f"rsna-knee-c6-train-{name}",
-            "stage_b": f"rsna-knee-c7-train-{name}"}[a.corpus] + (f"-{a.tag}" if a.tag else "") \
+            "stage_b": f"rsna-knee-c7-train-{name}", "stage_c": f"rsna-knee-c8-train-{name}"}[a.corpus] + (f"-{a.tag}" if a.tag else "") \
         + (f"-t{a.teacher_fold}" if a.teacher_fold else "") + ("-pa" if a.predict_all else "") \
         + ("-all" if a.all_data else "") + ("-cv" if folds else "")
     datasets = ((DATASETS if a.corpus == "raptor44" else DATASETS[2:]) + ([a.targets_from] if a.targets_from else [])
                 + a.extra_datasets)
-    kernels = KERNELS + {"raptor44": [], "stage_a": STAGE_A_SHARDS, "stage_b": STAGE_B_SHARDS}[a.corpus]
+    kernels = KERNELS + {"raptor44": [], "stage_a": STAGE_A_SHARDS, "stage_b": STAGE_B_SHARDS,
+                         "stage_c": STAGE_C_SHARDS}[a.corpus]
     nb = {"cells": [{"cell_type": "code", "execution_count": None, "metadata": {}, "outputs": [],
                      "source": c.strip("\n").splitlines(keepends=True)} for c in cells],
           "metadata": {"kernelspec": {"display_name": "Python 3", "language": "python", "name": "python3"},

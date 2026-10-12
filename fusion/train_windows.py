@@ -65,7 +65,7 @@ class Corpus:
 
     RAPTOR_PARTS = (("all_vols.npy", "all_masks.npy", "all_ids.npy"),
                     ("extra_vols.npy", "extra_masks.npy", "extra_ids.npy"))
-    SPECS = {"stage_a": "c6-64slice", "stage_b": "c7-96slice-384"}
+    SPECS = {"stage_a": "c6-64slice", "stage_b": "c7-96slice-384", "stage_c": "c8-118slice-384"}
 
     def __init__(self, root: Path, layout: str = "auto", extra: tuple = ()):
         """`extra`: more roots of the SAME layout (e.g. an external corpus beside the Stage A shards). Each root must be
@@ -115,7 +115,7 @@ class Corpus:
                 parts += sub.parts
         else:
             if extra:
-                raise SystemExit("--extra-corpus needs a stage_a / stage_b layout")
+                raise SystemExit("--extra-corpus needs a stage_a / stage_b / stage_c layout")
             self.slot_sizes = SLOT_SIZES
             self.layout = "raptor44"
             parts = []
@@ -470,7 +470,7 @@ def main() -> None:
     ap = argparse.ArgumentParser(description=__doc__.splitlines()[0])
     ap.add_argument("--arch", choices=sorted(ARCHS), required=True)
     ap.add_argument("--corpus", type=Path, default=Path("/kaggle/input"))
-    ap.add_argument("--layout", choices=["auto", "raptor44", "stage_a", "stage_b"], default="auto")
+    ap.add_argument("--layout", choices=["auto", "raptor44", "stage_a", "stage_b", "stage_c"], default="auto")
     ap.add_argument("--synthetic", type=int, default=0, help="N random studies instead of a corpus")
     ap.add_argument("--train", type=Path, help="csv with StudyInstanceUID")
     ap.add_argument("--val", type=Path, help="csv with StudyInstanceUID -- scored, never selected on")
@@ -587,7 +587,7 @@ def main() -> None:
                              a.eval_windows)) for u in va]
     log(f"val windows per study: median {int(np.median(nwin))}, min {min(nwin)}, max {max(nwin)}"
         + (f" (thinned to ~{a.eval_windows})" if a.eval_windows else ""))
-    if a.pos_emb and not str(getattr(corpus, "layout", "")).startswith("stage_b"):
+    if a.pos_emb and not str(getattr(corpus, "layout", "")).startswith(("stage_b", "stage_c")):
         log("⚠️ --pos-emb on a non-canonical corpus: a slot's depth means lateral on one knee, medial on another")
 
     # ---- model. Rank 0 fetches the encoder weights first; the others read the same file after it.
