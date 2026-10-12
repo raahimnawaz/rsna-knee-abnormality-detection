@@ -59,6 +59,14 @@ optimiser, k = 12, per-finding attention) **without** our confidence weight.
    0.8410, Ortho c6 0.8298. **≥ 0.840 → it is the workhorse** and the five folds are trained; **< 0.825 → the recipe
    is wrong** (learning rate first), fix it on fold 0 before any more folds. Between: train the folds, and bench
    ConvNeXt-tiny against it. A screen, not a verdict: the labels differ from every reference run's.
+   **✅ READ 10-11 (run complete 18:17 PDT): 0.8654 → the workhorse (rule: ≥ 0.840).** On the 681 scored studies of
+   the 691: ConvNeXt-small 0.8654 (avg3 0.8653) against c6 0.8298, paired **+0.0356 ± 0.0039**; Ortho r1 0.8534 and
+   c7 0.8410 on the same studies. 10 of 12 findings up on c6; Effusion down (0.824 vs 0.859: the reference is another
+   reader's Effusion, and the c6 labels sit closer to it). 12/12 epochs, **7.8 min/epoch** on both T4s (Ortho: 36–44),
+   104 min in all, peak 8.1 GB, 0 tracebacks. Gold-58, report only: 0.928 (Ortho r1 0.911, paired +0.0165 ± 0.0074;
+   Synovitis 0.810, unchanged by the mask). Equal rank-mean with Ortho r1 on the 691: 0.8649, no gain (rule 4).
+   The old fit LB = 1.091 × s691 − 0.004 would put this one model at ~0.940; it was fitted on other labels, so
+   read 2 decides.
 2. **The five-fold ensemble alone on the LB**, against Ortho all-data 0.929. Model against model on ~400 studies is
    ±0.005, so |Δ| < 0.010 is noise.
 3. **Labels on the LB:** the same recipe on `dread_soft` against `targets_consensus_v2`, each alone. Consensus is
@@ -66,20 +74,19 @@ optimiser, k = 12, per-finding attention) **without** our confidence weight.
 4. **The Synovitis mask**, by `--probe Synovitis`: masked against `_synbase`. Two ticks (0.024 on Synovitis) either
    way decides it; less is a tie and the mask stays (it removes a fill, it invents nothing).
 
-## Running now
+## Running now (written 10-11 23:50 PDT; the Mac was on battery at 38% and sleeping between steps)
 
-- **⏳ Read 1, PUSHED 10-11 16:21 PDT:** `raahimnawaz/rsna-knee-c7-train-convnext-small-cons2-cv` v1, built from
-  `defb204`. ConvNeXt-small, Stage B, `targets_consensus_v2` (`a1ed4034`), fold 0 only (train 3,502, val 847, of
-  which the 691), 12 epochs, k 12, bs 8, lr 1e-4 / 1e-3, drop-path 0.1, plain BCE, masked Synovitis, both T4s,
-  `--time-budget-h 3.0` (the fit-budget cuts epochs if 12 do not fit). Outputs `runs_convnext_small/fold0/`
-  (`last.pt`, `avg3/last.pt`, `oof_all.csv`, `oof_gold.csv`), `score_cv_last.txt`, `score_cv_avg3.txt`.
-  Read: the `PAIRED delta` block against `runs_c6_ortho` in `score_cv_last.txt`, by rule 1 above. Its `bench.json`
-  prices the five folds.
-- **CPU smoke: clean** (v1 of `...-cons1-cv`, from `2b14835`, 6.4 min): targets attached by sha, partition 691/691,
-  fold 0 train 3,502 / val 847, fold 1 train 3,528 / val 821, 2 processes, pretrained ConvNeXt-small loaded, masked
-  targets trained, DDP checksums identical on both folds, 0 tracebacks.
-- Fetch when COMPLETE: `kaggle kernels output raahimnawaz/rsna-knee-c7-train-convnext-small-cons2-cv -p
-  fusion/runs_cnxs_cons2_f0`.
+- **Fold 0 alone on the LB (read 2, first half):** commit-run kernel `raahimnawaz/rsna-knee-sub-a-ortho-cnxs-cons2-f0-nall`
+  (the slug says "ortho" for every `--ours-only` build). Weights `runs_convnext_small/fold0/last.pt`, sha256
+  `8fc45272b82839f4439f4f7a069d2b5754fc9191063a0cc2a3eae63a9c4e6e58` (avg3: `d08bc775d99864380267f468b505b7a2fb94cb5a058b2f47481e78797ddf8168`),
+  read on Kaggle by the CPU kernel `raahimnawaz/rsna-knee-weights-sha` because the CLI download of the 99 MB file
+  broke four times (BrokenPipe). **Submit only if its log shows `GATE PASSED` and `[sub A] ARMS:`**:
+  `kaggle competitions submit rsna-knee-abnormality-detection -k raahimnawaz/rsna-knee-sub-a-ortho-cnxs-cons2-f0-nall -v 1 -f submission.csv -m "<what it is>"`.
+  Compare with Ortho r1 0.927 (the same 3,502 training studies): |Δ| < 0.010 is noise.
+- **Folds 1 and 2:** `raahimnawaz/rsna-knee-c7-train-convnext-small-cons2-f12-cv` (its own slug, so fold 0's output
+  stays the latest version of its kernel). Same recipe, ~3.5 h. Folds 3 and 4 wait for the owner's word on the GPU
+  budget (shared with casmi26).
+- Build commands and push times: the commit log of this file.
 
 ## GPU
 
