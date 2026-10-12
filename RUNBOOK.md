@@ -15,7 +15,8 @@ and not built on** (owner: "its useless"). Solo. Final 10-22 16:59 PDT; two fina
 | #1 | 0.966 | 20th 0.961; 100th 0.956; 5,788 teams |
 | free public blend | 0.954 | 495 teams exactly there. `nartaa` CoAtNet (0.949 alone, 0.948 without its mirror pass) + `heliosli` ConvNeXt-small, 4 folds |
 | ours, best | 0.943 | 10-03: the old public stack with our CoAtNet student as its core |
-| ours alone, best | 0.929 | Ortho ViT-L, Stage B, teacher targets, all data (ref `56811647`) |
+| **ours alone, best** | **0.938** | 10-12: ONE ConvNeXt-small, Stage B, `targets_consensus_v2`, fold 0 held out (ref `57098827`) |
+| ours alone, before | 0.929 | Ortho ViT-L, Stage B, teacher targets, all data (ref `56811647`); r1 on 3,502 studies 0.927 |
 | stack + that Ortho at 1/3 | 0.941 | ref `56813945`, read 10-04: FAIL (rule ≥ 0.947) |
 
 The public CoAtNet went 0.933 → 0.948 on the same architecture as our CoAtNet student. Its README names what
@@ -69,36 +70,34 @@ optimiser, k = 12, per-finding attention) **without** our confidence weight.
    read 2 decides.
 2. **The five-fold ensemble alone on the LB**, against Ortho all-data 0.929. Model against model on ~400 studies is
    ±0.005, so |Δ| < 0.010 is noise.
+   **✅ First half READ 10-12 (seen 09:19 PDT): fold 0 alone = 0.938** (ref `57098827`). Against Ortho r1 0.927 on the
+   same 3,502 training studies: **+0.011, outside the ±0.010 noise band**, so a real gain by the rule, by one tick.
+   It is one model against one model, and it changed backbone AND labels at once: read 3 separates them. The old
+   691 fit forecast 0.940.
 3. **Labels on the LB:** the same recipe on `dread_soft` against `targets_consensus_v2`, each alone. Consensus is
    kept if it is not below `dread_soft` by ≥ 0.005; it has *shown* a gain only at ≥ +0.010.
 4. **The Synovitis mask**, by `--probe Synovitis`: masked against `_synbase`. Two ticks (0.024 on Synovitis) either
    way decides it; less is a tie and the mask stays (it removes a fill, it invents nothing).
 
-## Running now (written 10-11 23:57 PDT; the Mac was on battery at ~33% and sleeping between steps)
+## Running now (written 10-12 ~09:35 PDT)
 
-- **⏳ Fold 0 alone on the LB (read 2, first half): SUBMITTED 10-11 23:55 PDT, ref `57098827`, PENDING.** Kernel
-  `raahimnawaz/rsna-knee-sub-a-ortho-cnxs-cons2-f0-nall` v1 (built from `35a4c7a`; the slug says "ortho" for every
-  `--ours-only` build). Read in its commit log before the submit: weights `sha256 ok` (`fold0/last.pt`,
-  `8fc45272b82839f4439f4f7a069d2b5754fc9191063a0cc2a3eae63a9c4e6e58`), `GATE PASSED (1/1)` (8 studies rebuilt from
-  DICOMs, max |dp| 0.00052, mean 0.00008; limits 0.03 / 0.005), `[sub A] ARMS: convnext_small_stage_b only, windows
-  all; 3 studies`, 0 tracebacks. **Read:** against Ortho r1 0.927 (ref `56799701`, the same 3,502 training studies);
-  |Δ| < 0.010 is noise. `kaggle competitions submissions rsna-knee-abnormality-detection`. 4 slots left in the UTC
-  day that began 17:00 PDT.
-- **⏳ Folds 1 and 2:** `raahimnawaz/rsna-knee-c7-train-convnext-small-cons2-f12-cv` v1, PUSHED 23:50 from `35a4c7a`.
-- **⏳ Folds 3 and 4** (owner 10-11: "yes it can take it"): `raahimnawaz/rsna-knee-c7-train-convnext-small-cons2-f34-cv`
-  v1, PUSHED 23:55 from `d84d7ab`. Both fold kernels: fold 0's recipe, `--time-budget-h 5.0` (2.5 h a fold; fold 0
-  took 104 min), ~3.5 h each, due ~03:30 Mon 10-12.
-- **When the folds are COMPLETE:**
-  1. Small files: `kaggle kernels output <kernel> -p fusion/runs_cnxs_cons2_f12 --file-pattern '.*\.(txt|json|csv)$'`
-     (and `_f34`). The CLI download of a 99 MB `last.pt` broke four times (BrokenPipe); it is not needed.
-  2. Shas, read on Kaggle (CPU): `python notebooks/build_weights_sha_kernel.py --kernels <the three fold kernels>
-     --out /tmp/sha`, push, then `kaggle kernels output raahimnawaz/rsna-knee-weights-sha -p /tmp/sha_out` →
-     `weights_sha.json`.
-  3. The five-fold ensemble alone (read 2): `build_submit_kernel.py --ours-only --weights-kernel
-     raahimnawaz/rsna-knee-c7-train-convnext-small-cons2-cv,raahimnawaz/rsna-knee-c7-train-convnext-small-cons2-f12-cv,raahimnawaz/rsna-knee-c7-train-convnext-small-cons2-f34-cv
-     --weights-sha <five shas, comma-joined> --tag cnxs-cons2-cv5 --out /tmp/sub5`; push; submit only on
-     `GATE PASSED (5/5)` and `[sub A] ARMS: ... x5`.
-  4. Then reads 3 and 4 (the `dread_soft` arm; the Synovitis probe).
+- **All five folds COMPLETE** (fold 0: `...-cons2-cv`; 1-2: `...-cons2-f12-cv`; 3-4: `...-cons2-f34-cv`): 12/12
+  epochs each, no early stop, 7.5-8.6 min/epoch, 0 tracebacks. Held-out macro against the reference: fold 0 0.8667
+  (847), folds 1-2 0.8658 (1,739), folds 3-4 0.8644 (1,763). Gold-58 per fold, report only: 0.928 / 0.927 / 0.921 /
+  0.923 / 0.929. Small files in `fusion/runs_cnxs_cons2_{f0,f12,f34}/` (git-ignored).
+- **`last.pt` sha256, read on Kaggle** (`build_weights_sha_kernel.py`, v2 of `rsna-knee-weights-sha`):
+  - fold 0 `8fc45272b82839f4439f4f7a069d2b5754fc9191063a0cc2a3eae63a9c4e6e58`
+  - fold 1 `a3113be6535d7d6e8b6c441c9000ae66d62ea2cf86408eeece58575a4205e00d`
+  - fold 2 `d147aa3c816ad1ad2b23c8202b1f534112514c667660d4cf84b0e163c7ed08b3`
+  - fold 3 `eb3bb1627d24a5cfa7118ee6721b6b154e970431223f5b9820dd5deca6c7af7d`
+  - fold 4 `8b0768b0e78e80ecaa6cf8826102d44f8c9f79bc487863047da703aa364eecc8`
+  (`avg3/last.pt`: `d08bc775…`, `0edc69f2…`, `54f9bf76…`, `7863c8a8…`, `f3f05439…`.)
+- **Next, read 2: the five folds as one ensemble, alone.** `build_submit_kernel.py --ours-only --weights-kernel
+  <the three fold kernels, comma-joined> --weights-sha <the five shas above, comma-joined> --tag cnxs-cons2-cv5`.
+  Submit only on `GATE PASSED (5/5)` and `[sub A] ARMS: convnext_small_stage_b x5`. Against fold 0 alone 0.938:
+  one tick is ±0.001 and a blend change reads ±0.002, so +0.003 or more is the ensemble's gain.
+- Then reads 3 and 4. GPU used on 10-11/12 by this line: ~1.8 h (fold 0) + ~3.5 h + ~3.8 h (folds) + two short
+  commit runs ≈ 9.3 h.
 
 ## GPU
 
