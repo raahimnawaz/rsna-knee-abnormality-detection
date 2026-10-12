@@ -96,10 +96,10 @@ optimiser, k = 12, per-finding attention) **without** our confidence weight.
 
 ## The outside teacher (owner 10-12: "can we do OAI and the teacher") — rules written 10-12 ~09:50, before any result
 
-- **OAI itself stays closed** (commit `94e7b54`, 09-28; `9c23daf:REFERENCE.md` §1.3): the NDA help desk answered the
+- **OAI itself stays closed for the time left** (the host has since ruled conditionally: see the owner block of 10-12 below) (commit `94e7b54`, 09-28; `9c23daf:REFERENCE.md` §1.3): the NDA help desk answered the
   owner's email by restating the Data Use Certification (research use; sharing only with DUC-listed researchers;
   silent on publishing weights). DUC-gated data could not sit on Kaggle, our only GPU, and approval + download do not
-  fit before 10-22. Not re-checked: whether the host has ruled on OAI since 09-26.
+  fit before 10-22.
 - **The teacher is how OAI's signal reaches us:** `nartaa`'s public CoAtNet (0.949 alone; its README: 2,399 OAI knees,
   masked supervision; weights "for research and educational use, including the RSNA Knee competition"), run over
   our training studies by `--predict-all`. It is NOT the earlier teachers: the four ResNet34 fold teachers learned
@@ -246,7 +246,14 @@ optimiser, k = 12, per-finding attention) **without** our confidence weight.
 - **OAI itself (owner's question, 10-12):** unchanged, closed for this competition (`94e7b54`): the NDA's Data Use
   Certification allows research use and sharing only with DUC-listed researchers, so the data cannot sit on Kaggle
   (our only GPU), a winner could not warrant the licence, and approval + download do not fit before 10-22. What we
-  use is the public OAI-trained model as a teacher (read 6). Not re-checked: a host ruling since 09-26.
+  use is the public OAI-trained model as a teacher (read 6).
+  **Host ruling, re-read 10-12 16:05 (discussion 741819, host reply ~09-21; our 09-26 re-read missed it):** OAI "does
+  not violate" the rules IF it is accessible to all without an institutional review / sign-off or a legal team, and
+  free; the host does not speak for OAI's own terms. So the rules side now turns on one fact we have NOT verified:
+  whether the NDA request for OAI needs an institutional signing official (a web search says account-based, RAS /
+  Login.gov plus the OAI terms; the 09-28 help-desk reply read as institutional). Unchanged whatever the answer: the
+  images may not be re-shared, so they cannot go on Kaggle and training needs a GPU elsewhere; the access request is
+  the owner's to make; download + MOAKS label mapping + a Stage B conversion is more than the ten days left.
 
 ## GPU
 
