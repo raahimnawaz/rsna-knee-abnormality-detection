@@ -16,6 +16,7 @@ and not built on** (owner: "its useless"). Solo. Final 10-22 16:59 PDT; two fina
 | free public blend | 0.954 | 752 teams exactly there (ranks 216-967). `nartaa` CoAtNet (0.949 alone, 0.948 without its mirror pass) + `heliosli` ConvNeXt-small, 4 folds |
 | **ours, best** | **0.945** | 10-12: FIVE ConvNeXt-small folds alone, no public model in it (ref `57112913`); rank 1,629 |
 | ours, with the old public stack | 0.943 | 10-03: the old public stack with our CoAtNet student as its core |
+| ours, one model, `dread_soft` labels | 0.933 | 10-12: the 0.938 model's recipe with the targets changed only (ref `57117178`) |
 | ours, one model, best | 0.938 | 10-12: ONE ConvNeXt-small, Stage B, `targets_consensus_v2`, fold 0 held out (ref `57098827`) |
 | ours alone, before | 0.929 | Ortho ViT-L, Stage B, teacher targets, all data (ref `56811647`); r1 on 3,502 studies 0.927 |
 | stack + that Ortho at 1/3 | 0.941 | ref `56813945`, read 10-04: FAIL (rule ≥ 0.947) |
@@ -82,8 +83,11 @@ optimiser, k = 12, per-finding attention) **without** our confidence weight.
    free blend.
 3. **Labels on the LB:** the same recipe on `dread_soft` against `targets_consensus_v2`, each alone. Consensus is
    kept if it is not below `dread_soft` by ≥ 0.005; it has *shown* a gain only at ≥ +0.010.
+   **✅ READ 10-12: `dread_soft` 0.933 (ref `57117178`), consensus 0.938 → consensus KEPT, +0.005, a gain not shown.**
 4. **The Synovitis mask**, by `--probe Synovitis`: masked against `_synbase`. Two ticks (0.024 on Synovitis) either
    way decides it; less is a tie and the mask stays (it removes a fill, it invents nothing).
+   **✅ READ 10-12: masked 0.532 (Synovitis 0.884, ref `57117247`), filled 0.531 (0.872, ref `57117246`) → a TIE,
+   the mask stays.** Synovitis reads ~0.88 on the public test set, not gold's 0.81.
 
 ## The outside teacher (owner 10-12: "can we do OAI and the teacher") — rules written 10-12 ~09:50, before any result
 
@@ -187,6 +191,13 @@ optimiser, k = 12, per-finding attention) **without** our confidence weight.
     0.884 on the public LB** (0.878–0.890 from the board's rounding), ref `57117247`. Gold says 0.810 and the
     held-out reference 0.845 for the same model: on the public test set Synovitis is not the 0.81 finding gold
     shows. The `dread_soft` probe (`57117246`) decides read 4: ≤ 0.530 or ≥ 0.534 is two ticks.
+  - **✅ Read 4 READ 10-12 (seen 13:05 PDT): the `dread_soft` (filled) model's probe = 0.531 → Synovitis 0.872;
+    masked 0.532 → 0.884. One tick for the mask = A TIE by the rule (two ticks decide) → the mask stays.** The
+    `_synbase` table is not needed.
+  - **✅ Read 3 READ 10-12 (seen 13:05 PDT): the `dread_soft` model alone = 0.933** (ref `57117178`) against the
+    consensus model's 0.938: **consensus +0.005 → kept by the rule (not ≥ 0.005 below); a gain is NOT shown (needs
+    ≥ +0.010).** Same sign and size as the held-out +0.0049. So of fold 0's +0.011 over Ortho r1 (0.927), about half
+    sits with the labels and half with the backbone and plain BCE, neither half outside the noise alone.
 - GPU used on 10-11/12 by this line: ~1.8 h (fold 0) + ~3.5 h + ~3.8 h (folds) + three short commit runs ≈ 9.4 h.
 
 ## GPU
