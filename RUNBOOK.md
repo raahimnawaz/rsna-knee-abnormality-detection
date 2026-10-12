@@ -79,6 +79,31 @@ optimiser, k = 12, per-finding attention) **without** our confidence weight.
 4. **The Synovitis mask**, by `--probe Synovitis`: masked against `_synbase`. Two ticks (0.024 on Synovitis) either
    way decides it; less is a tie and the mask stays (it removes a fill, it invents nothing).
 
+## The outside teacher (owner 10-12: "can we do OAI and the teacher") — rules written 10-12 ~09:50, before any result
+
+- **OAI itself stays closed** (commit `94e7b54`, 09-28; `9c23daf:REFERENCE.md` §1.3): the NDA help desk answered the
+  owner's email by restating the Data Use Certification (research use; sharing only with DUC-listed researchers;
+  silent on publishing weights). DUC-gated data could not sit on Kaggle, our only GPU, and approval + download do not
+  fit before 10-22. Not re-checked: whether the host has ruled on OAI since 09-26.
+- **The teacher is how OAI's signal reaches us:** `nartaa`'s public CoAtNet (0.949 alone; its README: 2,399 OAI knees,
+  masked supervision; weights "for research and educational use, including the RSNA Knee competition"), run over
+  our training studies by `--predict-all`. It is NOT the earlier teachers: the four ResNet34 fold teachers learned
+  from the same reports (+0.026 gold, ~0 LB) and the fastMRI+ teacher failed its gold gate (P 0.21). **Caveat:** it
+  trained on all 4,349 training studies' report labels, so on them it partly repeats its own labels; what is new to
+  us is its OAI supervision and its reading of the cells its own table masked (half of Synovitis).
+- **5. Is it usable in OUR pipeline?** It runs on our Stage B cache (canonical orientation, our slots, 384 px whole
+  image), not on its own preprocessing (its own slots, a 320 px centre crop, both sides as scanned). Gold-58, report
+  only and optimistic for it (its epochs were picked on gold): **≥ 0.910 macro → use it; below → our input breaks
+  it**, and the faithful route is its own notebook's code on the training DICOMs (~5 GPU-h) before anything trains on it.
+- **6. The student, fold 0, on the LB.** The 0.938 model's recipe; targets = `targets_consensus_v2` with the teacher
+  at half of every supervised cell and alone on the Synovitis cells the reports left unread
+  (`build_consensus_targets.py --teacher ... --w-teacher 0.5`). (a) Alone against 0.938: a gain is shown at
+  ≥ +0.010; it is kept unless ≥ 0.005 below. (b) `--probe Synovitis` against the 0.938 model's probe: two ticks decide.
+- **Crops, for the record** (the owner had tried them): the millimetre FOV crop (+0.027, in every cache since 09-06);
+  an nnU-Net anatomy crop (gate failed, closed 09-07, `b3efe95`); the zoom arm Z (691 +0.0159, but crop-specific
+  +0.0070 at P 0.943 against the 336 px arm R → stopped 09-29, MCL the one crop-specific gain). Untried: an
+  anatomy-anchored crop, and evaluating on the teacher's 320 px centre crop.
+
 ## Running now (written 10-12 ~09:35 PDT)
 
 - **All five folds COMPLETE** (fold 0: `...-cons2-cv`; 1-2: `...-cons2-f12-cv`; 3-4: `...-cons2-f34-cv`): 12/12
