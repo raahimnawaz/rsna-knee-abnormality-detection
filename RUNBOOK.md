@@ -100,7 +100,9 @@ optimiser, k = 12, per-finding attention) **without** our confidence weight.
   +0.003 or more is the ensemble's gain. 3 slots left in the UTC day (to 17:00 PDT).
 - **Reads 3 and 4 on ONE model each, fold 0 (decided before the run, to spend 1.8 GPU-h instead of 9):** the same
   recipe on `dread_soft` (`8cec477f`), fold 0 held out, kernel `...-convnext-small-dread-cv`. It differs from the
-  0.938 model in the targets only.
+  0.938 model in the targets only. **⏳ PUSHED 10-12 09:29 PDT**, v1, built from `023dac7`, 12 epochs, 3 h cap; due
+  ~11:20. Then: its sha by `build_weights_sha_kernel.py`, `--ours-only` alone (read 3), and `--probe Synovitis` on
+  it and on fold 0 of `...-cons2-cv` (sha `8fc45272…`) (read 4): three submissions.
   - Read 3: its LB alone against 0.938. The rule above stands: consensus is kept unless it is ≥ 0.005 BELOW
     `dread_soft`; it has shown a gain only at ≥ +0.010.
   - Read 4: `--probe Synovitis` on both fold-0 models (the consensus one has the mask, the `dread_soft` one has the
