@@ -300,6 +300,7 @@ class WindowMIL(nn.Module):
         self.encoder, self.res, self.n_slots = encoder, res, n_slots
         self.affine = 0.0
         self.zoom = 0.0
+        self.enc_chunk = 0                                  # eval only: windows per encoder forward; 0 = all at once
         f = encoder.num_features
         self.norm = nn.LayerNorm(f)
         self.att = nn.Sequential(nn.Linear(f, 256), nn.Tanh(), nn.Dropout(drop), nn.Linear(256, n))
@@ -349,7 +350,12 @@ class WindowMIL(nn.Module):
             slot = None if slot is None else torch.cat([slot, slot], 1)
             pos = None if pos is None else torch.cat([pos, pos], 1)
         b, k = x.shape[:2]
-        h = self.norm(self.encoder(self.prep(x, gain)).view(b, k, -1).float())
+        xp = self.prep(x, gain)
+        if self.enc_chunk and not self.training:            # bound memory; the head still sees every window together
+            f = torch.cat([self.encoder(c) for c in xp.split(self.enc_chunk)])
+        else:
+            f = self.encoder(xp)
+        h = self.norm(f.view(b, k, -1).float())
         if self.n_slots:
             if slot is None or pos is None:
                 raise ValueError("this model was built with slot/depth embeddings: pass slot and pos")
@@ -515,6 +521,8 @@ def main() -> None:
     ap.add_argument("--zoom", type=float, default=0.0,
                     help="each window ALSO as its centre crop, this fraction of the field (0.6714 = the middle 94 mm of 140), "
                          "resized back; both views in one bag, train and eval (2x the windows). 0 = off")
+    ap.add_argument("--enc-chunk", type=int, default=0,
+                    help="evaluation only: encode this many windows per forward (a large encoder on ~80 windows); 0 = all")
     ap.add_argument("--conf-weight", choices=["fork", "none"], default="fork",
                     help="fork: loss x (0.25 + 0.75|2y-1|), built for a table where 0.5 means 'not stated'; none: plain "
                          "BCE, for graded tables whose mid levels are readings (and for masked targets)")
@@ -624,6 +632,9 @@ def main() -> None:
     if a.aug_affine and not is_qwen:
         model.affine = a.aug_affine
         log(f"augmentation: per-window affine at strength {a.aug_affine} (training only), plus the intensity gain")
+    if a.enc_chunk and not is_qwen:
+        model.enc_chunk = a.enc_chunk
+        log(f"evaluation encodes {a.enc_chunk} windows per forward")
     if a.zoom:
         model.zoom = a.zoom
         log(f"zoom: every window also as its centre {a.zoom:.4f} of the field, both views in one bag (train and eval)")
