@@ -222,6 +222,32 @@ optimiser, k = 12, per-finding attention) **without** our confidence weight.
     sits with the labels and half with the backbone and plain BCE, neither half outside the noise alone.
 - GPU used on 10-11/12 by this line: ~1.8 h (fold 0) + ~3.5 h + ~3.8 h (folds) + three short commit runs ≈ 9.4 h.
 
+## Owner 10-12 ~15:55: "yes do 1-2" (tonight's slots; the two cheapest review arms; the student's folds if it confirms)
+
+- **Tonight's five slots (reset 17:00 PDT):** read 6a (the student alone, kernel ready above) + four single-finding
+  probes on the FIVE-FOLD model: Lateral OA, PF OA, Lateral Meniscus, MCL. Kernels
+  `raahimnawaz/rsna-knee-sub-a-ortho-cv5-nall-p-{lateral-oa,pf-oa,lateral-meniscus,mcl}` v1, built from `cbfc5af`
+  (tag `cv5`: the longer tag breaks the 50-character slug). Each scores (5.5 + AUROC) / 12; no rule, they replace
+  gold's table (`docs/REVIEW-2026-10-12.md` §2.1). Read 6b (the student's Synovitis probe) waits for tomorrow's slots.
+- **Dense coronal / axial arm (review §5 #1), rule written before the run:** Stage C cache (`pipeline/slots118.py`,
+  spec `c8-118slice-384`: cor_1 16 → 26, ax_1 14 → 26, everything else Stage B), the 0.938 model's recipe and targets
+  (`a1ed4034`), fold 0. Judged on the 847 held-out, paired against the 0.938 model's own held-out predictions
+  (`score_oof.py`; fixed labels, so rule 3 allows it): **macro ≥ +0.004, OR the mean of Lateral OA, PF OA and MCL
+  ≥ +0.015 → Stage C is the finals' cache; otherwise Stage B stays.** Cache kernels
+  `raahimnawaz/rsna-knee-stage-c-s{0..7}of8`, built from `f7b5ec4`, pushed from 16:04 PDT (five CPU sessions at
+  most at once). GATE C before any training: 8 manifests, one spec, canonical, 4,407 studies exactly once, 0 errors,
+  slot fill equal to Stage B's (sag_2 0.973, cor_2 0.745, sag_3 0.218, ax_2 0.248). Then a CPU smoke, then the run
+  with `--enc-chunk 64` (104 windows a study at evaluation).
+- **Affine arm (review §5 #2): HELD, not run.** Found while preparing it: the flag was tested 09-27 on ResNet34,
+  −0.0019 ± 0.0048 (`75ab54c`). The owner approved it without that fact; ask before spending 1.8 GPU-h. `--k 24`
+  (~3.3 h) is the alternative for the same hours.
+- **If read 6a is ≥ 0.948** (the rule: a gain is shown at +0.010 over 0.938): folds 1–4 on `targets_teacher_v1`
+  (~7.5 GPU-h), then five folds alone against 0.945.
+- **OAI itself (owner's question, 10-12):** unchanged, closed for this competition (`94e7b54`): the NDA's Data Use
+  Certification allows research use and sharing only with DUC-listed researchers, so the data cannot sit on Kaggle
+  (our only GPU), a winner could not warrant the licence, and approval + download do not fit before 10-22. What we
+  use is the public OAI-trained model as a teacher (read 6). Not re-checked: a host ruling since 09-26.
+
 ## GPU
 
 30 h/week, reset Fri 17:00 PDT (10-16 is the last). **The quota is shared with casmi26**, which had a GPU kernel
