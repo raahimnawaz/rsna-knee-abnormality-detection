@@ -150,6 +150,12 @@ optimiser, k = 12, per-finding attention) **without** our confidence weight.
   on every training study's report labels (several of the same readers), so its targets may sit closer to the
   reference reader as well as closer to the images. Gold-58, report only: 0.929 against 0.928, paired +0.0018 ±
   0.0052 (PF OA 0.837 against 0.885, Synovitis 0.845 against 0.810).
+- **⏸ Read 6, both commit runs COMPLETE 10-12 14:40 PDT, NOT submitted** (0 slots until 17:00 PDT; the owner's
+  "submit all three" covered reads 3 and 4 only: ask). Kernels `raahimnawaz/rsna-knee-sub-a-ortho-teach1-f0-nall`
+  (6a, alone, against 0.938) and `...-teach1-f0-nall-p-synovitis` (6b, against the 0.884 probe), v1 each, built from
+  `65e928d`. Read in both logs: `sha256 ok`, `GATE PASSED (1/1)` (max |dp| 0.00035), `[sub A] ARMS:
+  convnext_small_stage_b only, windows all`, 0 tracebacks; the probe's `PROBE: only Synovitis is the model's`.
+  Submit with `kaggle competitions submit rsna-knee-abnormality-detection -k <kernel> -v 1 -f submission.csv -m ...`.
 - **Crops, for the record** (the owner had tried them): the millimetre FOV crop (+0.027, in every cache since 09-06);
   an nnU-Net anatomy crop (gate failed, closed 09-07, `b3efe95`); the zoom arm Z (691 +0.0159, but crop-specific
   +0.0070 at P 0.943 against the 336 px arm R → stopped 09-29, MCL the one crop-specific gain). Untried: an
