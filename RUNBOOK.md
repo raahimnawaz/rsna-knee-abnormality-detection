@@ -74,22 +74,31 @@ optimiser, k = 12, per-finding attention) **without** our confidence weight.
 4. **The Synovitis mask**, by `--probe Synovitis`: masked against `_synbase`. Two ticks (0.024 on Synovitis) either
    way decides it; less is a tie and the mask stays (it removes a fill, it invents nothing).
 
-## Running now (written 10-11 23:50 PDT; the Mac was on battery at 38% and sleeping between steps)
+## Running now (written 10-11 23:57 PDT; the Mac was on battery at ~33% and sleeping between steps)
 
-- **Fold 0 alone on the LB (read 2, first half):** commit-run kernel `raahimnawaz/rsna-knee-sub-a-ortho-cnxs-cons2-f0-nall`
-  (the slug says "ortho" for every `--ours-only` build). Weights `runs_convnext_small/fold0/last.pt`, sha256
-  `8fc45272b82839f4439f4f7a069d2b5754fc9191063a0cc2a3eae63a9c4e6e58` (avg3: `d08bc775d99864380267f468b505b7a2fb94cb5a058b2f47481e78797ddf8168`),
-  read on Kaggle by the CPU kernel `raahimnawaz/rsna-knee-weights-sha` because the CLI download of the 99 MB file
-  broke four times (BrokenPipe). **Submit only if its log shows `GATE PASSED` and `[sub A] ARMS:`**:
-  `kaggle competitions submit rsna-knee-abnormality-detection -k raahimnawaz/rsna-knee-sub-a-ortho-cnxs-cons2-f0-nall -v 1 -f submission.csv -m "<what it is>"`.
-  Compare with Ortho r1 0.927 (the same 3,502 training studies): |Δ| < 0.010 is noise.
-- **Folds 1 and 2:** `raahimnawaz/rsna-knee-c7-train-convnext-small-cons2-f12-cv` (its own slug, so fold 0's output
-  stays the latest version of its kernel). Same recipe, ~3.5 h. Folds 3 and 4 wait for the owner's word on the GPU
-  budget (shared with casmi26).
-- **Both PUSHED 10-11 23:50 PDT, built from `35a4c7a`, RUNNING at 23:51.** The submission commit run is v1 of its
-  kernel; folds 1-2 are v1 of theirs, `--time-budget-h 5.0` (2.5 h a fold; 12 epochs took 94 min on fold 0).
-  Fetch folds 1-2 small files with `--file-pattern '.*\.(txt|json|csv)$'`; read their shas by adding the kernel to
-  `rsna-knee-weights-sha`'s `kernel_sources` and re-pushing it (CPU).
+- **⏳ Fold 0 alone on the LB (read 2, first half): SUBMITTED 10-11 23:55 PDT, ref `57098827`, PENDING.** Kernel
+  `raahimnawaz/rsna-knee-sub-a-ortho-cnxs-cons2-f0-nall` v1 (built from `35a4c7a`; the slug says "ortho" for every
+  `--ours-only` build). Read in its commit log before the submit: weights `sha256 ok` (`fold0/last.pt`,
+  `8fc45272b82839f4439f4f7a069d2b5754fc9191063a0cc2a3eae63a9c4e6e58`), `GATE PASSED (1/1)` (8 studies rebuilt from
+  DICOMs, max |dp| 0.00052, mean 0.00008; limits 0.03 / 0.005), `[sub A] ARMS: convnext_small_stage_b only, windows
+  all; 3 studies`, 0 tracebacks. **Read:** against Ortho r1 0.927 (ref `56799701`, the same 3,502 training studies);
+  |Δ| < 0.010 is noise. `kaggle competitions submissions rsna-knee-abnormality-detection`. 4 slots left in the UTC
+  day that began 17:00 PDT.
+- **⏳ Folds 1 and 2:** `raahimnawaz/rsna-knee-c7-train-convnext-small-cons2-f12-cv` v1, PUSHED 23:50 from `35a4c7a`.
+- **⏳ Folds 3 and 4** (owner 10-11: "yes it can take it"): `raahimnawaz/rsna-knee-c7-train-convnext-small-cons2-f34-cv`
+  v1, PUSHED 23:55 from `d84d7ab`. Both fold kernels: fold 0's recipe, `--time-budget-h 5.0` (2.5 h a fold; fold 0
+  took 104 min), ~3.5 h each, due ~03:30 Mon 10-12.
+- **When the folds are COMPLETE:**
+  1. Small files: `kaggle kernels output <kernel> -p fusion/runs_cnxs_cons2_f12 --file-pattern '.*\.(txt|json|csv)$'`
+     (and `_f34`). The CLI download of a 99 MB `last.pt` broke four times (BrokenPipe); it is not needed.
+  2. Shas: add both fold kernels to `kernel_sources` of the CPU kernel `raahimnawaz/rsna-knee-weights-sha`
+     (source in the 23:50 commit's message is not kept; it walks `/kaggle/input`, hashes every `last.pt`, writes
+     `weights_sha.json`), push, read its output.
+  3. The five-fold ensemble alone (read 2): `build_submit_kernel.py --ours-only --weights-kernel
+     raahimnawaz/rsna-knee-c7-train-convnext-small-cons2-cv,raahimnawaz/rsna-knee-c7-train-convnext-small-cons2-f12-cv,raahimnawaz/rsna-knee-c7-train-convnext-small-cons2-f34-cv
+     --weights-sha <five shas, comma-joined> --tag cnxs-cons2-cv5 --out /tmp/sub5`; push; submit only on
+     `GATE PASSED (5/5)` and `[sub A] ARMS: ... x5`.
+  4. Then reads 3 and 4 (the `dread_soft` arm; the Synovitis probe).
 
 ## GPU
 
