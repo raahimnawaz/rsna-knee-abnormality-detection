@@ -146,6 +146,15 @@ optimiser, k = 12, per-finding attention) **without** our confidence weight.
   - Read 4: `--probe Synovitis` on both fold-0 models (the consensus one has the mask, the `dread_soft` one has the
     Effusion fill). Two ticks (0.002 on the board = 0.024 on Synovitis) either way decides; less is a tie and the
     mask stays. The `_synbase` table is then not needed.
+  - **✅ Run COMPLETE 10-12 ~11:30 PDT:** 12/12 epochs, no early stop, 118 min, 0 tracebacks, labels sha `8cec477f…`,
+    same 3,502 / 847 split and seed as the consensus fold 0. `last.pt` sha256, read on Kaggle (v3 of
+    `rsna-knee-weights-sha`): `cdedbae5509faa6093f3f97d83366f8d08037e0221308140b2ebe86edcb7f3f1` (`avg3`: `441f5432…`).
+    Small files in `fusion/runs_cnxs_dread_f0/`.
+  - **Held-out 847, report only (rule 3: the reference is one more report reader, and the consensus holds six of
+    its kind, so this cannot judge labels; the LB does):** `dread_soft` 0.8618, consensus 0.8667, paired
+    **+0.0049 ± 0.0021** for the consensus (2.3 sigma). It is two findings: Synovitis 0.815 → 0.845 (the mask) and
+    Baker's 0.917 → 0.936; MCL 0.804 → 0.793; the other nine within 0.009. On the 681: 0.8607 against 0.8654.
+    Gold-58, report only: 0.923 against 0.928.
 - GPU used on 10-11/12 by this line: ~1.8 h (fold 0) + ~3.5 h + ~3.8 h (folds) + three short commit runs ≈ 9.4 h.
 
 ## GPU
