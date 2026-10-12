@@ -183,6 +183,10 @@ optimiser, k = 12, per-finding attention) **without** our confidence weight.
     from `58b6dbb` (a slug over 50 characters is refused with a 400: the tags are `dread-f0` and `cons2-f0`). Read in
     both logs: `sha256 ok`, `GATE PASSED (1/1)` (max |dp| 0.00032 / 0.00052), `PROBE: only Synovitis is the model's;
     the other 11 columns are 0.5`, 0 tracebacks. Score = (5.5 + AUROC) / 12. **0 slots left to 17:00 PDT.**
+  - **✅ First half READ 10-12 (seen 12:56 PDT): the consensus (masked) model's probe = 0.532 → Synovitis AUROC
+    0.884 on the public LB** (0.878–0.890 from the board's rounding), ref `57117247`. Gold says 0.810 and the
+    held-out reference 0.845 for the same model: on the public test set Synovitis is not the 0.81 finding gold
+    shows. The `dread_soft` probe (`57117246`) decides read 4: ≤ 0.530 or ≥ 0.534 is two ticks.
 - GPU used on 10-11/12 by this line: ~1.8 h (fold 0) + ~3.5 h + ~3.8 h (folds) + three short commit runs ≈ 9.4 h.
 
 ## GPU
