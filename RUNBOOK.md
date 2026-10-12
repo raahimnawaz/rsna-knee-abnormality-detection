@@ -91,9 +91,9 @@ optimiser, k = 12, per-finding attention) **without** our confidence weight.
 - **When the folds are COMPLETE:**
   1. Small files: `kaggle kernels output <kernel> -p fusion/runs_cnxs_cons2_f12 --file-pattern '.*\.(txt|json|csv)$'`
      (and `_f34`). The CLI download of a 99 MB `last.pt` broke four times (BrokenPipe); it is not needed.
-  2. Shas: add both fold kernels to `kernel_sources` of the CPU kernel `raahimnawaz/rsna-knee-weights-sha`
-     (source in the 23:50 commit's message is not kept; it walks `/kaggle/input`, hashes every `last.pt`, writes
-     `weights_sha.json`), push, read its output.
+  2. Shas, read on Kaggle (CPU): `python notebooks/build_weights_sha_kernel.py --kernels <the three fold kernels>
+     --out /tmp/sha`, push, then `kaggle kernels output raahimnawaz/rsna-knee-weights-sha -p /tmp/sha_out` →
+     `weights_sha.json`.
   3. The five-fold ensemble alone (read 2): `build_submit_kernel.py --ours-only --weights-kernel
      raahimnawaz/rsna-knee-c7-train-convnext-small-cons2-cv,raahimnawaz/rsna-knee-c7-train-convnext-small-cons2-f12-cv,raahimnawaz/rsna-knee-c7-train-convnext-small-cons2-f34-cv
      --weights-sha <five shas, comma-joined> --tag cnxs-cons2-cv5 --out /tmp/sub5`; push; submit only on
