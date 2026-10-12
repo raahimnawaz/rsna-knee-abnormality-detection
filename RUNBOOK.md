@@ -105,13 +105,26 @@ optimiser, k = 12, per-finding attention) **without** our confidence weight.
   at half of every supervised cell and alone on the Synovitis cells the reports left unread
   (`build_consensus_targets.py --teacher ... --w-teacher 0.5`). (a) Alone against 0.938: a gain is shown at
   ≥ +0.010; it is kept unless ≥ 0.005 below. (b) `--probe Synovitis` against the 0.938 model's probe: two ticks decide.
-- **⏳ Read 5 PUSHED 10-12 09:52 PDT:** `raahimnawaz/rsna-knee-c7-train-coatnet-oai-teacher-pa` v2, built from `138861b`
+- **Read 5 PUSHED 10-12 09:52 PDT:** `raahimnawaz/rsna-knee-c7-train-coatnet-oai-teacher-pa` v2, built from `138861b`
   (`--predict-all`, `--init raptor_ft_alldata_t16_blendjev_oai_d96_r384_swa.pt`, `--eval-bs 1 --enc-chunk 16`, both
   T4s, ~1 h). Its CPU smoke (v1, `c3f15b2`) loaded the checkpoint strict (486 tensors, sha `7e5315da…` = the
   author's manifest) and was then killed for memory in evaluation, 76 windows in one CPU forward: hence
   `--enc-chunk`. Outputs: `runs_coatnet/oof_all.csv` (all 4,349 non-gold studies) and `oof_gold.csv`. Then:
   `build_consensus_targets.py --teacher <oof_all.csv> --out data/student/targets_teacher_v1.csv`, upload to
   `raahimnawaz/rsna-knee-student-targets`, and the fold-0 student (read 6).
+- **✅ Read 5 READ 10-12 (run complete ~12:30 PDT): gold-58 macro 0.920 → usable by the rule (≥ 0.910).** 62.8 min,
+  strict load of `7e5315da…`, 0 tracebacks, `oof_all.csv` on all 4,349 (small files in
+  `fusion/runs_coatnet_oai_teacher_pa/`). **It is not shown to read better than its student in OUR input:** gold,
+  report only (SE 0.012 macro, 0.03–0.09 a finding), teacher / our consensus fold 0: macro 0.920 / 0.928; Lateral
+  Meniscus 0.883 / 0.904, Lateral OA 0.770 / 0.824, PF OA 0.840 / 0.885, Synovitis 0.828 / 0.810. Its 0.949 on the
+  LB is in its own preprocessing; ours may cost it, and gold cannot say (rule 1: nothing is selected here, read 6
+  runs as written). 0.9230 against the reference on the 4,349 is its own training studies, not a held-out number.
+  **If read 6 is a null, the faithful route (its notebook's code on the training DICOMs, ~5 GPU-h) is still
+  untested, not closed.**
+- **`targets_teacher_v1`** (`data/student/targets_teacher_v1.csv`, sha256
+  `2980e8d6cdd0f3c539bc5a1c33be49a5e40e33b78ab10df2f1b7acaf35fef749`; in `raahimnawaz/rsna-knee-student-targets`,
+  version of 10-12 12:37 PDT, four files): `--w-teacher 0.5`; no masked cell left (the teacher alone on the 2,404
+  unread Synovitis cells); Spearman teacher against the consensus target 0.45 (Fracture) to 0.80 (Medial Meniscus).
 - **Crops, for the record** (the owner had tried them): the millimetre FOV crop (+0.027, in every cache since 09-06);
   an nnU-Net anatomy crop (gate failed, closed 09-07, `b3efe95`); the zoom arm Z (691 +0.0159, but crop-specific
   +0.0070 at P 0.943 against the 336 px arm R → stopped 09-29, MCL the one crop-specific gain). Untried: an
@@ -155,6 +168,14 @@ optimiser, k = 12, per-finding attention) **without** our confidence weight.
     **+0.0049 ± 0.0021** for the consensus (2.3 sigma). It is two findings: Synovitis 0.815 → 0.845 (the mask) and
     Baker's 0.917 → 0.936; MCL 0.804 → 0.793; the other nine within 0.009. On the 681: 0.8607 against 0.8654.
     Gold-58, report only: 0.923 against 0.928.
+  - **⏳ Read 3 SUBMITTED 10-12 12:35 PDT, ref `57117178`, PENDING** (owner: submit all three). Kernel
+    `raahimnawaz/rsna-knee-sub-a-ortho-cnxs-dread-f0-nall` v1, built from `58b6dbb`. Read in its log before the
+    submit: `sha256 ok`, `GATE PASSED (1/1)` (max |dp| 0.00032), `[sub A] ARMS: convnext_small_stage_b only, windows
+    all`, 0 tracebacks. Against 0.938.
+  - **⏳ Read 4, both commit runs PUSHED 10-12 12:35 PDT** from `58b6dbb`:
+    `raahimnawaz/rsna-knee-sub-a-ortho-dread-f0-nall-p-synovitis` and `...-cons2-f0-nall-p-synovitis` (v1 each). A
+    slug over 50 characters is refused (400): the tags are `dread-f0` and `cons2-f0`. After each gate: submit
+    (2 slots left to 17:00 PDT). Score = (5.5 + AUROC) / 12.
 - GPU used on 10-11/12 by this line: ~1.8 h (fold 0) + ~3.5 h + ~3.8 h (folds) + three short commit runs ≈ 9.4 h.
 
 ## GPU
