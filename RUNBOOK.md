@@ -3,6 +3,11 @@
 **Any session starts here.** Branch `labels-small-backbone` (off `main`, which stays the showcase tree). History up to
 10-03 is at commit `9c23daf`: `git show 9c23daf:RUNBOOK.md`, `9c23daf:DATA.md`, `9c23daf:docs/REVIEW-2026-10-04.md`.
 
+**Diagnosis and proposed work, 10-12: [`docs/REVIEW-2026-10-12.md`](docs/REVIEW-2026-10-12.md)** (nothing in its §5 is approved).
+Four findings carry ~70% of the deficit; Lateral OA and PF OA are limited by what the model SEES (the report reads
+gold better than we do), Synovitis by the labels; the cache keeps 53% of coronal and 44% of axial slices (6.5 and
+9.0 mm apart). Tables: `python fusion/error_budget.py`.
+
 ## Goal — 0.97 (owner, 2026-10-11)
 
 Fix the labels, switch to a small backbone, train the best models of our own. **The public blend is not submitted
