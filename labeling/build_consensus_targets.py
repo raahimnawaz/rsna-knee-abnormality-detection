@@ -12,6 +12,11 @@ Two changes against a single report-label table:
    read as absent (then Synovitis is absent). Every other Synovitis cell is NaN and carries no
    loss (`train_windows.py --allow-missing-labels`).
 
+With --teacher (an outside image model's predictions for the training studies), a third change:
+
+3. The teacher's order joins every supervised cell on the target's own levels at `--w-teacher`, and
+   it alone fills the Synovitis cells the reports left unread, on the scale of the read ones.
+
 Nothing is fitted to the radiologist-graded studies; they are scored at the end, for the report only.
 """
 from __future__ import annotations
@@ -126,6 +131,27 @@ def synovitis(val: dict[str, pd.DataFrame], adr: dict[str, pd.DataFrame], effusi
     return y, info
 
 
+def add_teacher(out: pd.DataFrame, teacher: pd.DataFrame, w: float) -> tuple[pd.DataFrame, dict]:
+    """Blend an outside image teacher into the targets, and let it fill the cells left unsupervised.
+    Supervised cells: the teacher's order on the target's own values (`on_base_ties`), weight `w`.
+    Unsupervised cells (NaN): the teacher alone, its prediction placed at the same quantile of the
+    supervised targets that it holds among the teacher's predictions on the supervised studies."""
+    new, info = out.copy(), {}
+    for lab in LABELS:
+        t = teacher[lab].reindex(out.index)
+        sup = out[lab].notna() & t.notna()
+        mapped = on_base_ties(t[sup], out.loc[sup, lab])
+        new.loc[sup, lab] = (1 - w) * out.loc[sup, lab] + w * mapped
+        fill = out[lab].isna() & t.notna()
+        if fill.any():
+            xs, ys = np.sort(t[sup].to_numpy()), np.sort(out.loc[sup, lab].to_numpy())
+            new.loc[fill, lab] = np.interp(t[fill].to_numpy(), xs, ys)
+        info[lab] = {"supervised_with_teacher": int(sup.sum()), "filled_by_teacher": int(fill.sum()),
+                     "still_masked": int(new[lab].isna().sum()),
+                     "spearman_teacher_vs_target": round(float(spearmanr(t[sup], out.loc[sup, lab])[0]), 3)}
+    return new, info
+
+
 def macro(y: pd.DataFrame, p: pd.DataFrame) -> float:
     return float(np.mean([roc_auc_score((y[c] > 0.5).astype(int), p[c]) for c in LABELS]))
 
@@ -137,6 +163,9 @@ def main() -> None:
     ap.add_argument("--w-base", type=float, default=0.5, help="the base table's share of each target")
     ap.add_argument("--synovitis", choices=["masked", "base"], default="masked",
                     help="base: keep the base table's filled Synovitis column (the control arm)")
+    ap.add_argument("--teacher", type=Path, help="an outside image teacher's predictions for the training studies "
+                    "(StudyInstanceUID + 12 columns, e.g. a --predict-all run's oof_all.csv)")
+    ap.add_argument("--w-teacher", type=float, default=0.5, help="the teacher's share of each supervised cell")
     ap.add_argument("--gold", type=Path, help="train.csv: score the readers that carry its graded rows, report only")
     a = ap.parse_args()
 
@@ -163,6 +192,12 @@ def main() -> None:
     else:
         out[SYN] = base[SYN]
         report["per_finding"][SYN] = {"kept": "the base column"}
+    if a.teacher:
+        t = pd.read_csv(a.teacher).drop_duplicates("StudyInstanceUID").set_index("StudyInstanceUID")[LABELS]
+        miss = len(out.index.difference(t.index))
+        out, report["teacher"] = add_teacher(out, t.apply(pd.to_numeric, errors="coerce"), a.w_teacher)
+        report["teacher"].update(file=str(a.teacher), sha256=hashlib.sha256(a.teacher.read_bytes()).hexdigest(),
+                                 w_teacher=a.w_teacher, studies_without_teacher=miss)
     v = out.to_numpy(float)
     if out.drop(columns=SYN).isna().any().any() or ((v < 0) | (v > 1)).any():       # NaN compares False: a masked cell passes
         raise SystemExit("a target is missing or outside [0, 1]")
@@ -181,6 +216,8 @@ def main() -> None:
     a.out.with_suffix(".json").write_text(json.dumps(report, indent=1))
     for lab, v in report["per_finding"].items():
         print(f"  {lab:17s} {v}")
+    for lab in LABELS if a.teacher else []:
+        print(f"  teacher {lab:17s} {report['teacher'][lab]}")
     print(f"wrote {a.out} ({len(out)} studies, sha256 {report['sha256'][:16]}) and {a.out.with_suffix('.json').name}")
 
 
