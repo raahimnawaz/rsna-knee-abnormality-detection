@@ -99,6 +99,13 @@ optimiser, k = 12, per-finding attention) **without** our confidence weight.
   at half of every supervised cell and alone on the Synovitis cells the reports left unread
   (`build_consensus_targets.py --teacher ... --w-teacher 0.5`). (a) Alone against 0.938: a gain is shown at
   ≥ +0.010; it is kept unless ≥ 0.005 below. (b) `--probe Synovitis` against the 0.938 model's probe: two ticks decide.
+- **⏳ Read 5 PUSHED 10-12 09:52 PDT:** `raahimnawaz/rsna-knee-c7-train-coatnet-oai-teacher-pa` v2, built from `138861b`
+  (`--predict-all`, `--init raptor_ft_alldata_t16_blendjev_oai_d96_r384_swa.pt`, `--eval-bs 1 --enc-chunk 16`, both
+  T4s, ~1 h). Its CPU smoke (v1, `c3f15b2`) loaded the checkpoint strict (486 tensors, sha `7e5315da…` = the
+  author's manifest) and was then killed for memory in evaluation, 76 windows in one CPU forward: hence
+  `--enc-chunk`. Outputs: `runs_coatnet/oof_all.csv` (all 4,349 non-gold studies) and `oof_gold.csv`. Then:
+  `build_consensus_targets.py --teacher <oof_all.csv> --out data/student/targets_teacher_v1.csv`, upload to
+  `raahimnawaz/rsna-knee-student-targets`, and the fold-0 student (read 6).
 - **Crops, for the record** (the owner had tried them): the millimetre FOV crop (+0.027, in every cache since 09-06);
   an nnU-Net anatomy crop (gate failed, closed 09-07, `b3efe95`); the zoom arm Z (691 +0.0159, but crop-specific
   +0.0070 at P 0.943 against the 336 px arm R → stopped 09-29, MCL the one crop-specific gain). Untried: an
