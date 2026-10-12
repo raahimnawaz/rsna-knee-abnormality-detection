@@ -139,6 +139,17 @@ optimiser, k = 12, per-finding attention) **without** our confidence weight.
   (`...-cons2-cv`, rebuilt and diffed) in the targets' name and sha only. Then: its sha by
   `build_weights_sha_kernel.py`; `--ours-only` alone against 0.938 and `--probe Synovitis` against ref `57117247`
   (two slots, after 17:00 PDT). Tag for the submit kernels: `teach1-f0`.
+- **✅ Read 6, the run: COMPLETE 10-12 ~14:30 PDT**, 12/12 epochs, 111 min, 0 tracebacks, labels sha `2980e8d6…`,
+  the 0.938 model's split and seed. `last.pt` sha256, read on Kaggle (v4 of `rsna-knee-weights-sha`):
+  `1c58b2bcfe5adc0168fffba48f38735e5888ce86a3291db3ab6cb96155d93b20` (`avg3`: `aebc9273…`). Small files in
+  `fusion/runs_cnxs_teach1_f0/`.
+  **Held-out 847, report only (a label change: the LB judges, rule 3): 0.8804 against the 0.938 model's 0.8667,
+  paired +0.0138 ± 0.0019 (7.3 sigma), 11 of 12 up** — MCL +0.029, Effusion +0.027, Lateral Meniscus +0.026,
+  Contusion +0.026, Synovitis +0.023, PF OA +0.013, Lateral OA +0.010; Baker's −0.007. For scale: consensus over
+  `dread_soft` was +0.0049 here and +0.005 on the LB. **The caveat that keeps this report-only:** the teacher trained
+  on every training study's report labels (several of the same readers), so its targets may sit closer to the
+  reference reader as well as closer to the images. Gold-58, report only: 0.929 against 0.928, paired +0.0018 ±
+  0.0052 (PF OA 0.837 against 0.885, Synovitis 0.845 against 0.810).
 - **Crops, for the record** (the owner had tried them): the millimetre FOV crop (+0.027, in every cache since 09-06);
   an nnU-Net anatomy crop (gate failed, closed 09-07, `b3efe95`); the zoom arm Z (691 +0.0159, but crop-specific
   +0.0070 at P 0.943 against the 336 px arm R → stopped 09-29, MCL the one crop-specific gain). Untried: an
