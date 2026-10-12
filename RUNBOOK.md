@@ -86,7 +86,10 @@ optimiser, k = 12, per-finding attention) **without** our confidence weight.
 - **Folds 1 and 2:** `raahimnawaz/rsna-knee-c7-train-convnext-small-cons2-f12-cv` (its own slug, so fold 0's output
   stays the latest version of its kernel). Same recipe, ~3.5 h. Folds 3 and 4 wait for the owner's word on the GPU
   budget (shared with casmi26).
-- Build commands and push times: the commit log of this file.
+- **Both PUSHED 10-11 23:50 PDT, built from `35a4c7a`, RUNNING at 23:51.** The submission commit run is v1 of its
+  kernel; folds 1-2 are v1 of theirs, `--time-budget-h 5.0` (2.5 h a fold; 12 epochs took 94 min on fold 0).
+  Fetch folds 1-2 small files with `--file-pattern '.*\.(txt|json|csv)$'`; read their shas by adding the kernel to
+  `rsna-knee-weights-sha`'s `kernel_sources` and re-pushing it (CPU).
 
 ## GPU
 
