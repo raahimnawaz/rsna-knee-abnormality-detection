@@ -125,6 +125,11 @@ optimiser, k = 12, per-finding attention) **without** our confidence weight.
   `2980e8d6cdd0f3c539bc5a1c33be49a5e40e33b78ab10df2f1b7acaf35fef749`; in `raahimnawaz/rsna-knee-student-targets`,
   version of 10-12 12:37 PDT, four files): `--w-teacher 0.5`; no masked cell left (the teacher alone on the 2,404
   unread Synovitis cells); Spearman teacher against the consensus target 0.45 (Fracture) to 0.80 (Medial Meniscus).
+- **⏳ Read 6 PUSHED 10-12 12:39 PDT:** `raahimnawaz/rsna-knee-c7-train-convnext-small-teach1-cv` v1, built from
+  `f87048d`; fold 0 held out, 12 epochs, 3 h cap, due ~14:40. The notebook differs from the 0.938 model's
+  (`...-cons2-cv`, rebuilt and diffed) in the targets' name and sha only. Then: its sha by
+  `build_weights_sha_kernel.py`; `--ours-only` alone against 0.938 and `--probe Synovitis` against ref `57117247`
+  (two slots, after 17:00 PDT). Tag for the submit kernels: `teach1-f0`.
 - **Crops, for the record** (the owner had tried them): the millimetre FOV crop (+0.027, in every cache since 09-06);
   an nnU-Net anatomy crop (gate failed, closed 09-07, `b3efe95`); the zoom arm Z (691 +0.0159, but crop-specific
   +0.0070 at P 0.943 against the 336 px arm R → stopped 09-29, MCL the one crop-specific gain). Untried: an
@@ -172,10 +177,12 @@ optimiser, k = 12, per-finding attention) **without** our confidence weight.
     `raahimnawaz/rsna-knee-sub-a-ortho-cnxs-dread-f0-nall` v1, built from `58b6dbb`. Read in its log before the
     submit: `sha256 ok`, `GATE PASSED (1/1)` (max |dp| 0.00032), `[sub A] ARMS: convnext_small_stage_b only, windows
     all`, 0 tracebacks. Against 0.938.
-  - **⏳ Read 4, both commit runs PUSHED 10-12 12:35 PDT** from `58b6dbb`:
-    `raahimnawaz/rsna-knee-sub-a-ortho-dread-f0-nall-p-synovitis` and `...-cons2-f0-nall-p-synovitis` (v1 each). A
-    slug over 50 characters is refused (400): the tags are `dread-f0` and `cons2-f0`. After each gate: submit
-    (2 slots left to 17:00 PDT). Score = (5.5 + AUROC) / 12.
+  - **⏳ Read 4, both probes SUBMITTED 10-12 12:38 PDT, PENDING:** ref `57117246` = the `dread_soft` model
+    (Synovitis filled), ref `57117247` = the consensus model (Synovitis masked). Kernels
+    `raahimnawaz/rsna-knee-sub-a-ortho-dread-f0-nall-p-synovitis` and `...-cons2-f0-nall-p-synovitis`, v1 each, built
+    from `58b6dbb` (a slug over 50 characters is refused with a 400: the tags are `dread-f0` and `cons2-f0`). Read in
+    both logs: `sha256 ok`, `GATE PASSED (1/1)` (max |dp| 0.00032 / 0.00052), `PROBE: only Synovitis is the model's;
+    the other 11 columns are 0.5`, 0 tracebacks. Score = (5.5 + AUROC) / 12. **0 slots left to 17:00 PDT.**
 - GPU used on 10-11/12 by this line: ~1.8 h (fold 0) + ~3.5 h + ~3.8 h (folds) + three short commit runs ≈ 9.4 h.
 
 ## GPU
