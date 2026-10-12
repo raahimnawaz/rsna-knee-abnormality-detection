@@ -217,7 +217,7 @@ if ALL_DATA:
     if set(TRAIN) & set(VAL) or len(VAL) < 50:
         sys.exit(f"all-data: train/gold overlap or only {len(VAL)} gold studies in the corpus")
 elif PREDICT_ALL:
-    VAL = sorted(set(_pool) | set(VAL))
+    VAL = sorted(u for u in FOLDS.loc[~FOLDS.is_gold, "StudyInstanceUID"] if u in CORPUS_IDS)   # every non-gold study
     TRAIN = _pool[:2]                                      # train_windows needs a train list; 0 epochs never use it
 elif TEACHER_FOLD:
     _fk = set(FOLDS.loc[FOLDS.fold == TEACHER_FOLD, "StudyInstanceUID"])
@@ -405,7 +405,8 @@ def main() -> None:
     elif a.corpus == "stage_b":
         folds = [int(x) for x in a.folds.split(",") if x != ""]
         budget = (a.time_budget_h / max(len(folds), 1)) if mode == "full" else 0.3
-        extra = (SMALL_PACKAGE if a.arch in SMALL else PACKAGE + SPEED) + ["--time-budget-h", str(round(budget, 3))]
+        extra = (["--res", "384"] if a.predict_all else SMALL_PACKAGE if a.arch in SMALL else PACKAGE + SPEED) \
+            + ["--time-budget-h", str(round(budget, 3))]
     else:
         extra = []
     extra += a.train_args.split()
