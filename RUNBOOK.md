@@ -92,12 +92,21 @@ optimiser, k = 12, per-finding attention) **without** our confidence weight.
   - fold 3 `eb3bb1627d24a5cfa7118ee6721b6b154e970431223f5b9820dd5deca6c7af7d`
   - fold 4 `8b0768b0e78e80ecaa6cf8826102d44f8c9f79bc487863047da703aa364eecc8`
   (`avg3/last.pt`: `d08bc775…`, `0edc69f2…`, `54f9bf76…`, `7863c8a8…`, `f3f05439…`.)
-- **Next, read 2: the five folds as one ensemble, alone.** `build_submit_kernel.py --ours-only --weights-kernel
-  <the three fold kernels, comma-joined> --weights-sha <the five shas above, comma-joined> --tag cnxs-cons2-cv5`.
-  Submit only on `GATE PASSED (5/5)` and `[sub A] ARMS: convnext_small_stage_b x5`. Against fold 0 alone 0.938:
-  one tick is ±0.001 and a blend change reads ±0.002, so +0.003 or more is the ensemble's gain.
-- Then reads 3 and 4. GPU used on 10-11/12 by this line: ~1.8 h (fold 0) + ~3.5 h + ~3.8 h (folds) + two short
-  commit runs ≈ 9.3 h.
+- **⏳ Read 2, second half: the five folds as one ensemble, alone. SUBMITTED 10-12 09:27 PDT, ref `57112913`,
+  PENDING.** Kernel `raahimnawaz/rsna-knee-sub-a-ortho-cnxs-cons2-cv5-nall` v1, built from `81b8fd4`. Read in its
+  commit log before the submit: 5 checkpoints `sha256 ok`; `GATE PASSED (1/5)` … `(5/5)`, each member rebuilding 3
+  of its own held-out studies from DICOMs (max |dp| 0.00043 / 0.00030 / 0.00034 / 0.00036 / 0.00015);
+  `[sub A] ARMS: convnext_small_stage_b x5 only, windows all`; 0 tracebacks. **Read:** against fold 0 alone 0.938;
+  +0.003 or more is the ensemble's gain. 3 slots left in the UTC day (to 17:00 PDT).
+- **Reads 3 and 4 on ONE model each, fold 0 (decided before the run, to spend 1.8 GPU-h instead of 9):** the same
+  recipe on `dread_soft` (`8cec477f`), fold 0 held out, kernel `...-convnext-small-dread-cv`. It differs from the
+  0.938 model in the targets only.
+  - Read 3: its LB alone against 0.938. The rule above stands: consensus is kept unless it is ≥ 0.005 BELOW
+    `dread_soft`; it has shown a gain only at ≥ +0.010.
+  - Read 4: `--probe Synovitis` on both fold-0 models (the consensus one has the mask, the `dread_soft` one has the
+    Effusion fill). Two ticks (0.002 on the board = 0.024 on Synovitis) either way decides; less is a tie and the
+    mask stays. The `_synbase` table is then not needed.
+- GPU used on 10-11/12 by this line: ~1.8 h (fold 0) + ~3.5 h + ~3.8 h (folds) + three short commit runs ≈ 9.4 h.
 
 ## GPU
 
