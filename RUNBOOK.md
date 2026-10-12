@@ -8,14 +8,15 @@
 Fix the labels, switch to a small backbone, train the best models of our own. **The public blend is not submitted
 and not built on** (owner: "its useless"). Solo. Final 10-22 16:59 PDT; two finals.
 
-## Scoreboard (pulled 10-11 ~15:40 PDT; re-pull before using, rule 8)
+## Scoreboard (pulled 10-12 11:26 PDT; re-pull before using, rule 8)
 
 | | LB | note |
 |---|--:|---|
-| #1 | 0.966 | 20th 0.961; 100th 0.956; 5,788 teams |
-| free public blend | 0.954 | 495 teams exactly there. `nartaa` CoAtNet (0.949 alone, 0.948 without its mirror pass) + `heliosli` ConvNeXt-small, 4 folds |
-| ours, best | 0.943 | 10-03: the old public stack with our CoAtNet student as its core |
-| **ours alone, best** | **0.938** | 10-12: ONE ConvNeXt-small, Stage B, `targets_consensus_v2`, fold 0 held out (ref `57098827`) |
+| #1 | 0.966 | 10th 0.963; 20th 0.962; 100th 0.956; 5,849 teams |
+| free public blend | 0.954 | 752 teams exactly there (ranks 216-967). `nartaa` CoAtNet (0.949 alone, 0.948 without its mirror pass) + `heliosli` ConvNeXt-small, 4 folds |
+| **ours, best** | **0.945** | 10-12: FIVE ConvNeXt-small folds alone, no public model in it (ref `57112913`); rank 1,629 |
+| ours, with the old public stack | 0.943 | 10-03: the old public stack with our CoAtNet student as its core |
+| ours, one model, best | 0.938 | 10-12: ONE ConvNeXt-small, Stage B, `targets_consensus_v2`, fold 0 held out (ref `57098827`) |
 | ours alone, before | 0.929 | Ortho ViT-L, Stage B, teacher targets, all data (ref `56811647`); r1 on 3,502 studies 0.927 |
 | stack + that Ortho at 1/3 | 0.941 | ref `56813945`, read 10-04: FAIL (rule ≥ 0.947) |
 
@@ -74,6 +75,11 @@ optimiser, k = 12, per-finding attention) **without** our confidence weight.
    same 3,502 training studies: **+0.011, outside the ±0.010 noise band**, so a real gain by the rule, by one tick.
    It is one model against one model, and it changed backbone AND labels at once: read 3 separates them. The old
    691 fit forecast 0.940.
+   **✅ Second half READ 10-12 (seen 11:25 PDT): the five folds alone = 0.945** (ref `57112913`). Against fold 0
+   alone 0.938: **+0.007 → the ensemble's gain (rule: +0.003 or more)**. Against Ortho all-data 0.929: +0.016,
+   outside the band. It is our best submission of any kind (the 0.943 was the public stack with our core) and
+   sits 0.004 under the public CoAtNet alone (0.949: inside ±0.005, model against model) and 0.009 under the
+   free blend.
 3. **Labels on the LB:** the same recipe on `dread_soft` against `targets_consensus_v2`, each alone. Consensus is
    kept if it is not below `dread_soft` by ≥ 0.005; it has *shown* a gain only at ≥ +0.010.
 4. **The Synovitis mask**, by `--probe Synovitis`: masked against `_synbase`. Two ticks (0.024 on Synovitis) either
@@ -124,8 +130,8 @@ optimiser, k = 12, per-finding attention) **without** our confidence weight.
   - fold 3 `eb3bb1627d24a5cfa7118ee6721b6b154e970431223f5b9820dd5deca6c7af7d`
   - fold 4 `8b0768b0e78e80ecaa6cf8826102d44f8c9f79bc487863047da703aa364eecc8`
   (`avg3/last.pt`: `d08bc775…`, `0edc69f2…`, `54f9bf76…`, `7863c8a8…`, `f3f05439…`.)
-- **⏳ Read 2, second half: the five folds as one ensemble, alone. SUBMITTED 10-12 09:27 PDT, ref `57112913`,
-  PENDING.** Kernel `raahimnawaz/rsna-knee-sub-a-ortho-cnxs-cons2-cv5-nall` v1, built from `81b8fd4`. Read in its
+- **✅ Read 2, second half: the five folds as one ensemble, alone. SUBMITTED 10-12 09:27 PDT, ref `57112913`,
+  READ 0.945 (seen 11:25 PDT).** Kernel `raahimnawaz/rsna-knee-sub-a-ortho-cnxs-cons2-cv5-nall` v1, built from `81b8fd4`. Read in its
   commit log before the submit: 5 checkpoints `sha256 ok`; `GATE PASSED (1/5)` … `(5/5)`, each member rebuilding 3
   of its own held-out studies from DICOMs (max |dp| 0.00043 / 0.00030 / 0.00034 / 0.00036 / 0.00015);
   `[sub A] ARMS: convnext_small_stage_b x5 only, windows all`; 0 tracebacks. **Read:** against fold 0 alone 0.938;
