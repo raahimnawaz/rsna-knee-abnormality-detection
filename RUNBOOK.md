@@ -70,7 +70,8 @@ weak finding 0.03–0.07 lower: do not size anything from gold.
 
 Closed before this branch, do not re-open (`9c23daf`): teacher rounds that learn from the same reports; our model as
 the public stack's core; centre crops and zoom; an nnU-Net crop; Qwen report labels; a per-site prior; the fastMRI+
-teacher; bigger backbones.
+teacher (what failed was a ResNet34 on four findings judged on gold-58, not fastMRI+ as data: LOG 10-12 ~21:55);
+bigger backbones.
 
 ## 4. In progress — the owner approved all three on 10-12 ("do all 3 but first if OAI helps lets do it")
 

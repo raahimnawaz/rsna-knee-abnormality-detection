@@ -343,4 +343,17 @@ could use it (the teacher's student, 0.944 against 0.938), so the order is: the 
   masked unread cells are the forms a ranking metric can use; a uniform noise correction changes no order, readers
   that share a text err together, and 58 image-read knees are too few to fit per-finding noise rates (rule 1). The
   one prior of this kind still on the list is Synovitis = own part + beta x Effusion (review §5 #7, in the finals).
+- **Owner Q 10-12 ~21:55: "why did fastMRI fail as a teacher, can we be sure it was the model and not us?"** No.
+  Re-read of `149cb0a` / `1766436` (09-28): what was tested is a ResNet34 at 224 px trained 10.5 min on the Mac on
+  473 coronal-only knees, on FOUR findings (ACL, Effusion, Baker's, Contusion: all findings we now read at ~0.97),
+  used as a relabelling teacher and judged on gold-58: report + NYU −0.0143 ± 0.0176, P 0.21. Four weaknesses are
+  the test's, not the data's: (1) a model later measured −0.036 under the main one; (2) none of today's weak
+  findings were in it (fastMRI+ has cartilage and meniscus boxes that the label file left blank); (3) a 58-knee
+  judge with SE 0.018 cannot see the +0.003–0.010 that was expected, and rule 1 now forbids sizing anything on it;
+  (4) a teacher role, where the public ConvNeXt uses the boxes as an auxiliary task. What the run DID show: it
+  learned (hold-out Effusion 0.962) and part did not transfer (Baker's 0.718 → 0.525 on gold; a protocol no
+  competition study uses). The 7,140 pseudo-labelled NYU knees were a separate null (+0.0035 ± 0.0051). **So the
+  closed item is "a small fastMRI+ teacher on four findings", not fastMRI+ as data.** Still against it: the images
+  were deleted 10-09, and the 10-04 review keeps NYU knees out of anything a final trains on (the fastMRI terms
+  against the winner's licence obligation). My reading, not a new measurement.
 
