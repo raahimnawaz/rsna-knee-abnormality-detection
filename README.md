@@ -6,6 +6,11 @@ competition on Kaggle: twelve findings per knee MRI study, scored by macro AUROC
 The twelve findings are ACL, MCL, medial and lateral meniscus, medial / lateral / patellofemoral osteoarthritis,
 effusion, synovitis, Baker's cyst, contusion and fracture.
 
+> **Status of this branch (`labels-small-backbone`), 2026-10-12.** The text below describes the pipeline as of
+> 10-03. Since then the workhorse is a ConvNeXt-small on consensus and teacher-refined report labels: one model
+> reads 0.944 on the public leaderboard and five folds read 0.945, against 0.929 for the ViT-L below. The working
+> state, the open decisions and the commands are in [`RUNBOOK.md`](RUNBOOK.md).
+
 ## The problem
 
 - **Weak labels.** 4,407 training studies come with radiology reports; only 58 carry radiologist grades read from the
