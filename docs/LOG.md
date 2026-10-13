@@ -1076,3 +1076,19 @@ the files exist, as a second run or the first if they arrive in time.
 - **⏳ A second submitter is armed (15:26, pid 99722) for 17:06:00** with `submit_plan_2026-10-13-r7.json`: the two
   R7 reads first, then tonight's three, so it sends whatever the 17:02 submitter (pid 96147, still running) did
   not. Five slots, five submissions. Check after 17:10: `tail data/submitter.log` and `$K competitions submissions`.
+
+## Owner 10-13 afternoon: "could we email people who do this irl … draft the emails in my gmail ill send"
+
+Five drafts are in the owner's Gmail (nothing sent; the owner sends). Each states the setting in our own numbers only
+(about 4,350 studies with report-derived labels, 58 radiologist-graded, about one answer in ten wrong against them,
+Synovitis mentioned in under a quarter of reports; no report text, no images) and asks one question.
+- Pranav Rajpurkar (CheXpert, MRNet): what to spend a week on; whether 58 graded studies can do more than evaluate.
+  Address from Harvard's faculty page, filled in.
+- Valentina Pedoia (OAI knee OA): which MOAKS sub-scores and cut-offs for PF OA, lateral OA, Synovitis; pitfalls.
+- Akshay Chaudhari (knee MRI, SKM-TEA): label cleaning, image-graded outside data, or dense side supervision.
+- Richard Kijowski (cartilage lesion detection): why the image model trails the report on PF and lateral OA.
+- Curtis Northcutt (confident learning): whether it applies to correlated readers, 12 findings and 58 clean studies.
+The last four have no recipient: no address could be confirmed from an official page (Kijowski's 2024 paper gives an
+NYU address, and an undated profile has him at HSS since). Not written to: other competitors (Kaggle's rule on
+private sharing; the forum is the place) and the host, where a public post asking for a ruling on OAI is still the
+most useful message and is not drafted. A reply that changes the plan gets recorded here.
