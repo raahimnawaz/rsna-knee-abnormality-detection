@@ -905,9 +905,17 @@ epochs.** Otherwise folds 1–4 go without asking. Gold-58 is reported and decid
   (not on gold):** mean cell change against `targets_teacher_v1` 0.050 (v2: 0.033); cells crossing 0.5: 2,555 of
   52,188, 4.9% (v2: 3.4%). So v3 is 1.5× v2's dose. The OAI-free twin moves 0.080 a cell and 9.5% across 0.5 (its
   base held no model), and its 2,404 unread Synovitis cells are filled by the consensus folds' predictions alone.
-- **⏳ The CPU smoke of the full recipe on the real cache: PUSHED 12:55**,
-  `raahimnawaz/rsna-knee-c7-train-convnext-small-v3s-cv` v1 from `a85f8c8` (`--smoke`, the v3 flags, two epochs so
-  the averaged weights are reached; `--k 2` in a smoke). Its result goes here.
+- **✅ The CPU smoke of the full recipe on the real cache: COMPLETE 10-13 13:09** (pushed 12:55, 7.9 min of
+  notebook time; `raahimnawaz/rsna-knee-c7-train-convnext-small-v3s-cv` v1 from `a85f8c8`: `--smoke`, the v3 flags,
+  two epochs so the averaged weights are reached, `--k 2` as every smoke). Log: `targets_teacher_v3.csv … sha256
+  6f786dda` found in the attached dataset · `corpus layout stage_b … canon True: 4407 studies` · `fold 0: train 3502
+  | val 847` · two processes · `spatial attention:` · `mirror: 0.50 of training draws mirrored` · `mirror averaging:`
+  · `fit-budget … -> 2 epoch(s)` · loss 1.2186 → 0.8247 · `DDP weight checksum per rank` equal · `SMOKE: the whole
+  path ran` · **0 tracebacks**. Files: `oof_all.csv` and `oof_plain.csv` for the last epoch and for `avg3`; MCL
+  identical in the two, the other findings moved by the second pass (up to 0.14 on two studies of an untrained
+  model, which says only that the pass ran). **Not reached by a smoke:** GPU memory at 24 windows with spatial
+  attention, fp16, the weights and `last_meta.json` (a smoke saves none; the local fixture covers the meta), and
+  the time of an epoch. The first minutes of fold 0 show the first two and `fit-budget`'s epoch estimate.
 - **Off Kaggle, and the way back** (`fea98f6`, `notebooks/offkaggle.py`). `train` runs one fold on a local copy of
   the cache with the kernel's own package and `V3_TRAIN_ARGS` (imported from the builder; `--recipe v3` there);
   `--dry` for fold 0 writes lists **identical, in order,** to the Kaggle fold-0 kernel's (3,502 / 847); it refuses a

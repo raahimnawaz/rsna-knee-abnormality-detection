@@ -9,7 +9,7 @@
 | why the weak findings are weak | [`docs/REVIEW-2026-10-12.md`](docs/REVIEW-2026-10-12.md): the error budget |
 | anything before 10-11 | `git show 9c23daf:RUNBOOK.md` (also `:DATA.md`, `:REFERENCE.md`, `:docs/REVIEW-2026-10-04.md`) |
 
-Last updated 2026-10-13 13:10 PDT.
+Last updated 2026-10-13 13:12 PDT.
 
 ## 0. Right now
 
@@ -20,9 +20,10 @@ Last updated 2026-10-13 13:10 PDT.
 - **Built and tested on CPU, 10-13 12:40–13:10:** the mirror code (`notebooks/mirror_fixture.py`, 66 checks, the
   geometry against the real DICOM path), `targets_teacher_v3` and its OAI-free twin (§7; in the private Kaggle
   dataset), the recipe under two-process DDP on this laptop, the off-Kaggle runner and the way back for its weights
-  (`notebooks/offkaggle.py`, `--weights-dataset`). **The Kaggle CPU smoke of the full recipe on the real cache**
-  (`rsna-knee-c7-train-convnext-small-v3s-cv`, pushed 12:55) was still running at 13:10: read its log before any
-  GPU run (lines to find: `mirror:`, `mirror averaging:`, `spatial attention:`, two epochs, `avg3`, 0 tracebacks).
+  (`notebooks/offkaggle.py`, `--weights-dataset`). **The Kaggle CPU smoke of the full recipe on the real cache is
+  clean** (`rsna-knee-c7-train-convnext-small-v3s-cv`, COMPLETE 13:09: the v3 table found by its sha, fold 0's
+  3,502 / 847, two processes, mirror + spatial attention + two-pass predictions, `avg3`, 0 tracebacks). A smoke does
+  not reach GPU memory, fp16 or the epoch time: read `fit-budget: … -> 16 epoch(s)` in fold 0's first minutes.
 - **Nothing has trained. The GPU is the open question:** the owner's message left it blank ("I am getting [FILL
   IN]"). Kaggle has ~0.7 h until Friday 17:00's reset, and five v3 folds are ~24.5 h of that last 30 h week (§5).
   **Ask the owner which GPU, and where the 62 GB Stage B cache should be pulled to** (it has not been pulled).
