@@ -387,8 +387,9 @@ could use it (the teacher's student, 0.944 against 0.938), so the order is: the 
     **The arm (NOT run; needs GPU hours):** `--arch coatnet --corpus stage_b --all-data`, `--init
     raptor_ft_alldata_t16_blendjev_oai_d96_r384_swa.pt` (sha `7e5315da…`, dataset
     `nartaa/rsna-knee-publication-swa-weights-20261007`), `targets_teacher_v1` (half of every cell is this model's
-    own reading, which holds it to what OAI taught it while the input changes), 6 epochs, the CoAtNet package
-    (bb-lr 9e-5, llrd 0.9, drop-path 0.1), `--conf-weight none`.
+    own reading, which holds it to what OAI taught it while the input changes), 6 epochs, `COATNET_PACKAGE`
+    (bb-lr 3e-5 as the 10-02 CoAtNet student, drop-path 0.1, zero-initialised slot / depth embeddings, plain BCE;
+    corrected 21:40: first written as the ViT package, which the smoke below refused).
     **Cost:** the 10-02 CoAtNet student took 456 min for 7 epochs of 4,349 studies on ONE T4 = 65 min/epoch, so
     ~33 min/epoch on both and **~3.5 GPU-h** for 6: more than this week has left (~0.9 h after tonight's runs).
     Friday 17:00's reset, or a rented GPU.
@@ -418,4 +419,11 @@ could use it (the teacher's student, 0.944 against 0.938), so the order is: the 
   ACL on MRNet at AUC 0.76; its one relevant claim, knee-specific pre-training beats generic, is a small point for
   starting from the OAI-trained weights. The AJR report-classifier abstract (an SVM on knee MRI reports, F1 > 90%
   in-site, 77.6–90.2% across sites) agrees with our report ceiling of ~0.90: reading the text is not the limit.
+- **⛔ Fine-tune smoke v1 ERROR 10-12 21:34 (5.6 min) — a wiring fault, found where it is free.** The checkpoint
+  loaded in the training configuration (`init from …swa.pt (sha256 7e5315da…): 486 tensors, strict but for 3
+  zero-initialised slot/depth weights`), then `--ckpt-blocks 12: coatnet's encoder has no .blocks; use -1 (all)`:
+  on Stage B the builder gave every non-small arch the ViT package (`PACKAGE + SPEED`), and CoAtNet had only ever
+  trained on Stage A, where no package is added. **Fix:** `COATNET_PACKAGE` in `build_backbone_ab_kernel.py`
+  (bb-lr 3e-5, drop-path 0.1, `--pos-emb`, `--fit-budget`, `--conf-weight none`; every block checkpointed, not
+  compiled). ConvNeXt-small's and Ortho's argument lists rebuilt and unchanged.
 

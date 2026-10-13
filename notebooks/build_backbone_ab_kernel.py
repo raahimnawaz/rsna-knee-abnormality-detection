@@ -42,6 +42,11 @@ SPEED = ["--compile", "--ckpt-blocks", "12"]
 SMALL = ("convnext_tiny", "convnext_small")
 SMALL_PACKAGE = ["--res", "384", "--drop-path", "0.1", "--bb-lr", "1e-4", "--pos-emb", "--fit-budget",
                  "--conf-weight", "none"]
+# CoAtNet on Stage B (a fine-tune from the public checkpoint): the 10-02 student's rate (bb-lr 3e-5), plain BCE.
+# Not PACKAGE + SPEED: its encoder has no .blocks for --ckpt-blocks 12 (every block is checkpointed, the default),
+# and it has never run compiled. Slot / depth embeddings start at zero, so step 0 is the checkpoint itself.
+COATNET_PACKAGE = ["--res", "384", "--drop-path", "0.1", "--bb-lr", "3e-5", "--pos-emb", "--fit-budget",
+                   "--conf-weight", "none"]
 N_TRAIN, DRAW_SEED = 2871, 20260923
 QWEN_EXTRA = ["--fit-budget", "--k", "12", "--eval-windows", "12"]
 # The versions this arch was built and tested against locally; the image may carry neither.
@@ -406,7 +411,8 @@ def main() -> None:
     elif a.corpus in ("stage_b", "stage_c"):
         folds = [int(x) for x in a.folds.split(",") if x != ""]
         budget = (a.time_budget_h / max(len(folds), 1)) if mode == "full" else 0.3
-        extra = (["--res", "384"] if a.predict_all else SMALL_PACKAGE if a.arch in SMALL else PACKAGE + SPEED) \
+        extra = (["--res", "384"] if a.predict_all else SMALL_PACKAGE if a.arch in SMALL
+                 else COATNET_PACKAGE if a.arch == "coatnet" else PACKAGE + SPEED) \
             + ["--time-budget-h", str(round(budget, 3))]
     else:
         extra = []
