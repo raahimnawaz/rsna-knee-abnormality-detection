@@ -9,10 +9,11 @@
 | why the open experiments are the open experiments | [`docs/REVIEW-2026-10-12.md`](docs/REVIEW-2026-10-12.md): the error budget |
 | anything before 10-11 | `git show 9c23daf:RUNBOOK.md` (also `:DATA.md`, `:REFERENCE.md`, `:docs/REVIEW-2026-10-04.md`) |
 
-Last updated 2026-10-12 21:21 PDT. **Running on Kaggle:** folds 1–4 on the teacher labels (two kernels, pushed 20:22,
-due ~00:15). **Queued behind them:** the spatial-attention arm (kernel built, push when a GPU session frees).
-**Approved for the 17:00 PDT reset on 10-13 (no slots before it):** the five teacher folds as one ensemble, and the
-student's Synovitis probe. Nothing is pending on the leaderboard.
+Last updated 2026-10-12 21:49 PDT. **Running on Kaggle:** folds 1–4 on the teacher labels (two kernels, pushed 20:22,
+due ~00:15). **Queued behind them (owner's swap, 10-12 ~21:50):** the pseudo-label student (§4.5); the
+spatial-attention arm moves to Friday's reset. **For the 17:00 PDT reset on 10-13 (no slots before it), approved:**
+the five teacher folds as one ensemble, the student's Synovitis probe, the public checkpoint alone in our input.
+The pseudo-label student's submission is built and gated but NOT approved yet. Nothing is pending on the leaderboard.
 
 ## 1. Goal and the owner's directions
 
@@ -81,9 +82,9 @@ bigger backbones.
 
 Order: the OAI-derived work first (item 2), then item 1; item 3 at the next slot reset.
 
-1. **Spatial attention for Lateral OA and PF OA: BUILT, waiting for a GPU session.** `train_windows.py
+1. **Spatial attention for Lateral OA and PF OA: BUILT; MOVED to Friday's reset by the owner's swap (10-12 ~21:50).** `train_windows.py
    --spatial-attn` (a query per finding over each window's 12 × 12 feature map, zero-initialised = the global
-   average). Local checks and the Kaggle CPU smoke are clean. Kernel to push when a teacher-fold kernel finishes:
+   average). Local checks and the Kaggle CPU smoke are clean. Kernel to push at the reset:
    build with `--tag cons2-sa "--train-args=--allow-missing-labels --spatial-attn"` (→
    `raahimnawaz/rsna-knee-c7-train-convnext-small-cons2-sa-cv`). **Rule:** paired on the 847 against the 0.938 model,
    macro ≥ +0.004 OR the mean of Lateral OA and PF OA ≥ +0.015 → into the finals. After it, if hours remain:
@@ -104,7 +105,15 @@ Order: the OAI-derived work first (item 2), then item 1; item 3 at the next slot
    and the rule are in the LOG (10-12 ~21:17). *Two reads with no training, proposed for the 17:00 reset on 10-13,
    NOT approved yet:* the checkpoint as it is in our input, alone; and the five teacher folds + it.
 
-Then: the final recipe on the teacher labels, five folds (or all data, several seeds), read alone on the LB.
+5. **Pseudo-label round from our own five folds: APPROVED 10-12 ~21:50 ("do the swap"), runs when the teacher folds
+   finish.** Targets `targets_teacher_v2` = `targets_teacher_v1` with the five teacher-label folds' held-out
+   predictions (`cv_last/oof_all.csv` of each fold kernel) at half of every cell: `build_consensus_targets.py
+   --teacher <the CoAtNet's oof_all.csv> --own-oof <three files> --w-own 0.5`. Fold 0, the 0.944 model's recipe, the
+   targets the only change; kernel `--tag teach2`. **Rule, before any result:** alone on the LB against 0.944; kept
+   unless ≥ 0.005 below; a gain is shown at ≥ +0.010. Its held-out number is report only (a label change, and the
+   other folds' models trained on fold 0's studies). **Its submission still needs the owner's word.**
+
+Then: the final recipe on the best labels, five folds (or all data, several seeds), read alone on the LB.
 
 ## 5. Budget
 

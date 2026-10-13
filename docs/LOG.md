@@ -475,4 +475,17 @@ as gold to rank 21 (0.962), silver to 290, bronze to 581; the 0.954 tie group ru
 5. **Smaller label ideas, one report each:** train only on cells where the readers agree strongly (> 0.9 or < 0.1),
    dropping ~25% of cells ("improved CV and public LB", rank ~1,235); KneeCoT is ruled out by the host; KJD-25K
    (MICCAI 2026) and KneeXNet-2.5D could not be found by search.
+- **Owner 10-12 ~21:50: "do the swap".** The last GPU session of this week goes to the pseudo-label student; the
+  spatial-attention arm moves to Friday 17:00's reset (its kernel is built: `--tag cons2-sa`, one flag from the 0.938
+  model's). Read as a go for the RUN; the student's submission was named as a separate ask and is not assumed.
+  **The arm, written before the run:** `targets_teacher_v2` = `targets_teacher_v1` + the five teacher-label folds'
+  held-out predictions (each study read by the fold model that did not train on it; `cv_last`, the weights that are
+  submitted) at half of every cell, by `add_teacher` (the models' order on the target's own levels). Fold 0, the
+  0.944 model's recipe and seed; the targets are the only change. **Rule:** alone on the LB against 0.944 (ref
+  `57122696`); kept unless ≥ 0.005 below; a gain is shown at ≥ +0.010. The 847 held-out are report only: a label
+  change, and folds 1–4's models trained on those 847 studies, so the targets carry a trace of them.
+- **`build_consensus_targets.py --own-oof … --w-own` (21:49).** A second blend after `--teacher`; files must cover
+  disjoint studies. Checks: with `--teacher` alone it rebuilds `targets_teacher_v1` byte for byte (sha256
+  `2980e8d6…`); a dry run on the CONSENSUS folds' OOF (not the table that will train) covers all 4,349 studies, no
+  cell masked, Spearman of the models against the target 0.64 (Fracture) to 0.88 (Medial Meniscus).
 

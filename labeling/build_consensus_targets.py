@@ -17,6 +17,12 @@ With --teacher (an outside image model's predictions for the training studies), 
 3. The teacher's order joins every supervised cell on the target's own levels at `--w-teacher`, and
    it alone fills the Synovitis cells the reports left unread, on the scale of the read ones.
 
+With --own-oof (our own fold models' held-out predictions, every study read by a model that did not
+train on it), a fourth, applied after the teacher:
+
+4. The same blend again at `--w-own`: the models' order on the target's own levels. A pseudo-label
+   round. The files must cover disjoint studies (one per fold kernel).
+
 Nothing is fitted to the radiologist-graded studies; they are scored at the end, for the report only.
 """
 from __future__ import annotations
@@ -166,6 +172,9 @@ def main() -> None:
     ap.add_argument("--teacher", type=Path, help="an outside image teacher's predictions for the training studies "
                     "(StudyInstanceUID + 12 columns, e.g. a --predict-all run's oof_all.csv)")
     ap.add_argument("--w-teacher", type=float, default=0.5, help="the teacher's share of each supervised cell")
+    ap.add_argument("--own-oof", type=Path, nargs="+", default=[], help="our fold models' held-out predictions "
+                    "(oof_all.csv of each fold kernel; disjoint studies), blended in after --teacher")
+    ap.add_argument("--w-own", type=float, default=0.5, help="our own models' share of each cell")
     ap.add_argument("--gold", type=Path, help="train.csv: score the readers that carry its graded rows, report only")
     a = ap.parse_args()
 
@@ -198,6 +207,16 @@ def main() -> None:
         out, report["teacher"] = add_teacher(out, t.apply(pd.to_numeric, errors="coerce"), a.w_teacher)
         report["teacher"].update(file=str(a.teacher), sha256=hashlib.sha256(a.teacher.read_bytes()).hexdigest(),
                                  w_teacher=a.w_teacher, studies_without_teacher=miss)
+    if a.own_oof:
+        parts = [pd.read_csv(f) for f in a.own_oof]
+        o = pd.concat(parts)
+        if o.StudyInstanceUID.duplicated().any():
+            raise SystemExit("--own-oof: a study is in two files; held-out predictions must not overlap")
+        o = o.set_index("StudyInstanceUID")[LABELS].apply(pd.to_numeric, errors="coerce")
+        miss = len(out.index.difference(o.index))
+        out, report["own_oof"] = add_teacher(out, o, a.w_own)
+        report["own_oof"].update(files=[str(f) for f in a.own_oof], w_own=a.w_own, studies_without_oof=miss,
+                                 sha256=[hashlib.sha256(f.read_bytes()).hexdigest() for f in a.own_oof])
     v = out.to_numpy(float)
     if out.drop(columns=SYN).isna().any().any() or ((v < 0) | (v > 1)).any():       # NaN compares False: a masked cell passes
         raise SystemExit("a target is missing or outside [0, 1]")
@@ -218,6 +237,8 @@ def main() -> None:
         print(f"  {lab:17s} {v}")
     for lab in LABELS if a.teacher else []:
         print(f"  teacher {lab:17s} {report['teacher'][lab]}")
+    for lab in LABELS if a.own_oof else []:
+        print(f"  own oof {lab:17s} {report['own_oof'][lab]}")
     print(f"wrote {a.out} ({len(out)} studies, sha256 {report['sha256'][:16]}) and {a.out.with_suffix('.json').name}")
 
 
