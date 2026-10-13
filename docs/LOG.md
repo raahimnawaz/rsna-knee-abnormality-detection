@@ -407,13 +407,13 @@ could use it (the teacher's student, 0.944 against 0.938), so the order is: the 
     nartaa/rsna-knee-publication-swa-weights-20261007 --tag oai-ft-smk "--train-args=--init
     raptor_ft_alldata_t16_blendjev_oai_d96_r384_swa.pt --allow-missing-labels --conf-weight none --eval-bs 1
     --enc-chunk 16"`). The full run is the same line without `--smoke` and with `--tag oai-ft --time-budget-h 5.0`.
-- **Owner 10-12 ~21:27: "well see how they do and how the ensemble them after we get the scores".** Read as: the
+- **Owner 10-12 ~21:24: "well see how they do and how the ensemble them after we get the scores".** Read as: the
   public checkpoint ALONE in our input goes at the 17:00 reset on 10-13 with the two already approved (three slots);
   HOW to ensemble it with the teacher folds (which members, what weights) is decided after those scores, and that
   submission needs the owner's word then. Also asked: does the fine-tune have promise (my answer: modest; it should
   end near the checkpoint's own 0.949, + 0 to +0.005 from our input and labels; read (3) decides, by the rule
   above) and whether the plan stands (yes; the fine-tune waits for Friday's reset unless a GPU is rented).
-- **Three papers the owner sent (10-12 ~21:27), read: nothing to adopt.** PMC10741167 is peroneal-nerve injury on
+- **Three papers the owner sent (10-12 ~21:24), read: nothing to adopt.** PMC10741167 is peroneal-nerve injury on
   knee MRI (149 subjects, image-level split), not our findings. Sci Rep s41598-026-54489-x (MedNet-FS) is few-shot
   ACL on MRNet at AUC 0.76; its one relevant claim, knee-specific pre-training beats generic, is a small point for
   starting from the OAI-trained weights. The AJR report-classifier abstract (an SVM on knee MRI reports, F1 > 90%
