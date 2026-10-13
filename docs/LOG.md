@@ -540,4 +540,10 @@ in the seconds the Mac was awake. Nothing was lost on Kaggle: both fold kernels 
   0.944 by the rule of 10-12 ~21:50. **The submission needs the owner's word.**
 - **GPU by our count since the owner's 10.2 h:** folds 1–4 ~7.5 h, the two submission kernels a few minutes; the
   student ~1.9 h leaves ~0.7 h until Friday 17:00.
+- **Owner 10-13 ~08:08: "how did the runs go, sure submit".** The go for the pseudo-label student's submission, the
+  one asked for at 08:07 and on 10-12 ~21:50. It covers that submission and nothing later, and it goes only after
+  the student's kernel reads `sha256 ok`, `GATE PASSED (1/1)`, `[sub A] ARMS:` and 0 tracebacks. **So four slots at
+  the 17:00 PDT reset on 10-13:** the five teacher folds (against 0.945), the student's Synovitis probe (against
+  0.532), the public checkpoint alone in our input (against its own 0.949), the pseudo-label student alone (against
+  0.944). One slot stays free for the ensemble with the public checkpoint, to be decided after the scores.
 

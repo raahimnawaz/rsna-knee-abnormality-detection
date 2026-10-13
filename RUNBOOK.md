@@ -12,8 +12,9 @@
 Last updated 2026-10-13 08:07 PDT. **Running on Kaggle:** the pseudo-label student (§4.5; pushed 08:04, due ~10:00)
 and the five-teacher-fold submission kernel (pushed 08:06). Folds 1–4 on the teacher labels are COMPLETE.
 **For the 17:00 PDT reset today, approved:** the five teacher folds as one ensemble (gate to be read), the student's
-Synovitis probe (gate passed), the public checkpoint alone in our input (gate passed). **Not approved yet:** the
-pseudo-label student's submission, and how to ensemble the public checkpoint with ours (after the scores).
+Synovitis probe (gate passed), the public checkpoint alone in our input (gate passed), and the pseudo-label student
+alone once its kernel's gate passes (owner 10-13 ~08:08, "sure submit"). **Not approved yet:** how to ensemble the
+public checkpoint with ours (after the scores; one slot is kept for it).
 The spatial-attention arm and the fine-tune wait for Friday's reset. Nothing is pending on the leaderboard.
 
 ## 1. Goal and the owner's directions
@@ -112,7 +113,8 @@ Order: the OAI-derived work first (item 2), then item 1; item 3 at the next slot
    --teacher <the CoAtNet's oof_all.csv> --own-oof <three files> --w-own 0.5`. Fold 0, the 0.944 model's recipe, the
    targets the only change; kernel `--tag teach2`. **Rule, before any result:** alone on the LB against 0.944; kept
    unless ≥ 0.005 below; a gain is shown at ≥ +0.010. Its held-out number is report only (a label change, and the
-   other folds' models trained on fold 0's studies). **Its submission still needs the owner's word.**
+   other folds' models trained on fold 0's studies). **Its submission is approved (owner 10-13 ~08:08) for the 17:00
+   reset, after its gate lines read clean.**
 
 Then: the final recipe on the best labels, five folds (or all data, several seeds), read alone on the LB.
 
