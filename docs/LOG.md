@@ -502,3 +502,42 @@ as gold to rank 21 (0.962), silver to 290, bronze to 581; the 0.954 tie group ru
   `--time-budget-h 5.0`). **The kernel is one push away; it waits for GPU hours** (Friday's reset, or a rented GPU):
   the smoke's build line without `--smoke`, `--tag oai-ft`.
 
+---
+
+# 2026-10-13, morning — the 00:15 steps ran at 08:02 (the Mac slept with the lid shut from ~22:00)
+
+The fold watcher only fired its 5.5 h timeout on a dark wake (04:35); between 04:51 and 08:02 one push got through
+in the seconds the Mac was awake. Nothing was lost on Kaggle: both fold kernels finished on their own.
+
+- **✅ Folds 1–4 on `targets_teacher_v1` COMPLETE.** 12/12 epochs each, no early stop, 0 tracebacks, labels sha
+  `2980e8d6…` in every summary; 105–112 min a fold. Held-out, report only (a label change): folds 1+2 macro 0.8822,
+  folds 3+4 0.8795 (fold 0: 0.8804). Gold-58, report only: 0.929 / 0.931 / 0.930 by kernel, the five-fold mean
+  0.931. Small files in `fusion/runs_cnxs_teach1_f12/` and `…_f34/`. `last.pt` sha256 (v6 of `rsna-knee-weights-sha`):
+  - fold 1 `683857fad528ce5cc3518bb8e5be3314bfcfc89ff9d276a587c6c3a038aa5de6`
+  - fold 2 `479cf64b1b5123f4684183e4f048be8b09fba8c34e4b03223aec3e3f97c88d75`
+  - fold 3 `4921d0968d3616a90e3ec22948f40d60529f9f1ab3f4ed458b510da2a862269b`
+  - fold 4 `c910af266a41af08042d48da83f2db6e7a43deeb7b6365531c5cab30b0fd4685`
+  (`avg3/last.pt`: `090588c0…`, `ecc8c15d…`, `97c4b7a5…`, `8e7be5ac…`.)
+- **⏳ The five teacher folds as one ensemble: submission kernel PUSHED 08:06**,
+  `raahimnawaz/rsna-knee-sub-a-ortho-teach1-cv5-nall` v1, built from `3ab71b9` (`--tag teach1-cv5`, three weight
+  kernels, five shas with fold 0's `1c58b2bc…`). Read its gate before 17:00. Approved for the reset (owner 10-12
+  ~20:46).
+- **✅ The public checkpoint alone in our input: kernel COMPLETE** (`…-sub-a-ortho-oai-pa-nall` v1, pushed 06:16,
+  90 s): `1 checkpoint(s), sha256 ok` · `CHECK vs oof_all.csv: 8 studies rebuilt from DICOMs, max |dp| 0.00031` ·
+  `GATE PASSED (1/1)` · `[sub A] ARMS: coatnet_stage_b only, windows all` · 0 tracebacks. Ready for the reset
+  (approved 10-12 ~21:24). Its inference is 1.8–3.0 s a study on two T4s.
+- **`targets_teacher_v2`** (`data/student/targets_teacher_v2.csv`, sha256
+  `fa98f9434e525d4dea2baddfdea962ee94bd697d69663f4c7a91b2a4ec2eb915`): `--teacher` the CoAtNet's `oof_all.csv` at
+  0.5, then `--own-oof` the three `cv_last/oof_all.csv` files of the teacher-label fold kernels at 0.5. The OOF
+  covers the 4,349 studies exactly once, no NaN; no cell masked; every finding's mean is unchanged (the same levels,
+  re-ordered); mean |change| per cell 0.016 (Fracture) to 0.053 (PF OA); Spearman of our models against the target
+  0.69 (Fracture), 0.70 (Synovitis), 0.71 (Lateral Meniscus) to 0.89 (Medial Meniscus). In
+  `raahimnawaz/rsna-knee-student-targets` since 08:03 (five files; the other four byte-identical).
+- **⏳ The pseudo-label student PUSHED 08:04:** `raahimnawaz/rsna-knee-c7-train-convnext-small-teach2-cv` v1, built
+  from `3ab71b9`; fold 0, 12 epochs, 3 h cap, due ~10:00. Its notebook differs from a same-commit build of the
+  0.944 model's in the targets' name and sha only (16 lines, rebuilt and diffed). The trainer has gained
+  `--spatial-attn` since the 0.944 run (`9c56c45`); the flag is off here. Then: its sha, `--ours-only` alone against
+  0.944 by the rule of 10-12 ~21:50. **The submission needs the owner's word.**
+- **GPU by our count since the owner's 10.2 h:** folds 1–4 ~7.5 h, the two submission kernels a few minutes; the
+  student ~1.9 h leaves ~0.7 h until Friday 17:00.
+

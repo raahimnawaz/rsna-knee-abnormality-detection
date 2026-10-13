@@ -1,0 +1,33 @@
+{
+  "built_from": "47ff4ed",
+  "arch": "convnext_small",
+  "mode": "full",
+  "inputs": {
+    "headers.parquet": {
+      "path": "/kaggle/input/notebooks/zhukovoleksiy/rsna-metadata-probe/headers.parquet",
+      "sha256": "bb2b67e28987ea35fbbcb7eac2d334d3dd08c4aa901cd6c465af18e0bdd5ae78"
+    },
+    "llm_labels_v2.csv": {
+      "path": "/kaggle/input/datasets/stevenleehans/rsna-knee-llm-report-labels/llm_labels_v2.csv",
+      "sha256": "3c082a987939528a55202028f655bd6f9dc5c9e28eff5058bbae7ef088a9f144"
+    },
+    "labels_llm_gpt56sol.csv": {
+      "path": "/kaggle/input/datasets/lixin73/rsna-knee-llm-report-labels-sol56/labels_llm_gpt56sol.csv",
+      "sha256": "a79b05e609336811d51c97f9a48f00ea8004244a1a80fe886504a62bb39867ae"
+    }
+  },
+  "folds_site_sha256": "780f939c85cd35339cd64717306f68257a8c26135cf915ecac9da2e34fcaff21",
+  "targets_sha256": "2980e8d6cdd0f3c539bc5a1c33be49a5e40e33b78ab10df2f1b7acaf35fef749",
+  "fold_targets_sha256": "3c082a987939528a55202028f655bd6f9dc5c9e28eff5058bbae7ef088a9f144",
+  "n_train": 3502,
+  "n_val": 691,
+  "draw_seed": 20260923,
+  "teacher_fold": 0,
+  "predict_all": false,
+  "all_data": false,
+  "folds": [
+    3,
+    4
+  ],
+  "masked_targets": true
+}

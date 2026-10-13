@@ -9,11 +9,12 @@
 | why the open experiments are the open experiments | [`docs/REVIEW-2026-10-12.md`](docs/REVIEW-2026-10-12.md): the error budget |
 | anything before 10-11 | `git show 9c23daf:RUNBOOK.md` (also `:DATA.md`, `:REFERENCE.md`, `:docs/REVIEW-2026-10-04.md`) |
 
-Last updated 2026-10-12 21:49 PDT. **Running on Kaggle:** folds 1–4 on the teacher labels (two kernels, pushed 20:22,
-due ~00:15). **Queued behind them (owner's swap, 10-12 ~21:50):** the pseudo-label student (§4.5); the
-spatial-attention arm moves to Friday's reset. **For the 17:00 PDT reset on 10-13 (no slots before it), approved:**
-the five teacher folds as one ensemble, the student's Synovitis probe, the public checkpoint alone in our input.
-The pseudo-label student's submission is built and gated but NOT approved yet. Nothing is pending on the leaderboard.
+Last updated 2026-10-13 08:07 PDT. **Running on Kaggle:** the pseudo-label student (§4.5; pushed 08:04, due ~10:00)
+and the five-teacher-fold submission kernel (pushed 08:06). Folds 1–4 on the teacher labels are COMPLETE.
+**For the 17:00 PDT reset today, approved:** the five teacher folds as one ensemble (gate to be read), the student's
+Synovitis probe (gate passed), the public checkpoint alone in our input (gate passed). **Not approved yet:** the
+pseudo-label student's submission, and how to ensemble the public checkpoint with ours (after the scores).
+The spatial-attention arm and the fine-tune wait for Friday's reset. Nothing is pending on the leaderboard.
 
 ## 1. Goal and the owner's directions
 
@@ -89,9 +90,9 @@ Order: the OAI-derived work first (item 2), then item 1; item 3 at the next slot
    `raahimnawaz/rsna-knee-c7-train-convnext-small-cons2-sa-cv`). **Rule:** paired on the 847 against the 0.938 model,
    macro ≥ +0.004 OR the mean of Lateral OA and PF OA ≥ +0.015 → into the finals. After it, if hours remain:
    `--k 24` (~3.3 GPU-h, probably after Friday's reset).
-2. **Folds 1–4 on the teacher labels: RUNNING** — `raahimnawaz/rsna-knee-c7-train-convnext-small-teach1-f12-cv` and
-   `...-teach1-f34-cv`. When done: shas (`build_weights_sha_kernel.py`), the five-fold submission kernel (with fold
-   0's `1c58b2bc…`), read its gate. **Rule:** alone on the LB against 0.945; kept unless ≥ 0.005 below, shown at
+2. **Folds 1–4 on the teacher labels: COMPLETE 10-13** (12/12 epochs each; shas in §7) —
+   `raahimnawaz/rsna-knee-c7-train-convnext-small-teach1-f12-cv` and `...-teach1-f34-cv`. The five-fold submission
+   kernel `raahimnawaz/rsna-knee-sub-a-ortho-teach1-cv5-nall` v1 was pushed 08:06: read its gate. **Rule:** alone on the LB against 0.945; kept unless ≥ 0.005 below, shown at
    ≥ +0.010; at ≥ 0.945 it is the finals' candidate. **The owner's go for this one submission: given 10-12 ~20:46
    ("do it").** It covers this submission and nothing later. Today's five slots are used: it goes at the 17:00 PDT
    reset on 10-13, after its log reads `sha256 ok`, `GATE PASSED (5/5)`, `[sub A] ARMS:` and 0 tracebacks.
@@ -105,8 +106,8 @@ Order: the OAI-derived work first (item 2), then item 1; item 3 at the next slot
    kernel is one push away; the command, the cost and the rule are in the LOG (10-12 ~21:17 and 21:57). *Two reads with no training, proposed for the 17:00 reset on 10-13,
    NOT approved yet:* the checkpoint as it is in our input, alone; and the five teacher folds + it.
 
-5. **Pseudo-label round from our own five folds: APPROVED 10-12 ~21:50 ("do the swap"), runs when the teacher folds
-   finish.** Targets `targets_teacher_v2` = `targets_teacher_v1` with the five teacher-label folds' held-out
+5. **Pseudo-label round from our own five folds: RUNNING since 10-13 08:04** (approved 10-12 ~21:50, "do the swap";
+   `raahimnawaz/rsna-knee-c7-train-convnext-small-teach2-cv`, `targets_teacher_v2` `fa98f943…`, due ~10:00).** Targets `targets_teacher_v2` = `targets_teacher_v1` with the five teacher-label folds' held-out
    predictions (`cv_last/oof_all.csv` of each fold kernel) at half of every cell: `build_consensus_targets.py
    --teacher <the CoAtNet's oof_all.csv> --own-oof <three files> --w-own 0.5`. Fold 0, the 0.944 model's recipe, the
    targets the only change; kernel `--tag teach2`. **Rule, before any result:** alone on the LB against 0.944; kept
@@ -178,6 +179,7 @@ Targets are in `data/student/` (git-ignored) and in the private Kaggle dataset `
 
 | table | sha256 | what it is |
 |---|---|---|
+| `targets_teacher_v2.csv` | `fa98f943…` | teacher_v1 with our five teacher-label folds' held-out predictions at half of every cell (a pseudo-label round). **Under test** (§4.5) |
 | `targets_teacher_v1.csv` | `2980e8d6…` | consensus_v2 with the public OAI-trained CoAtNet's predictions at half of every supervised cell, and alone on unread Synovitis. **Best so far** |
 | `targets_consensus_v2.csv` | `a1ed4034…` | seven public readers of the same reports on `dread_soft`'s levels; Synovitis masked where unread. **The baseline's** |
 | `dread_soft` | `8cec477f…` | the public graded table both are built on (`dreaddevelopment/rsna-knee-labels`) |
@@ -194,7 +196,12 @@ consensus, five folds   raahimnawaz/rsna-knee-c7-train-convnext-small-cons2-cv  
                                                                                      fold 2  d147aa3c816ad1ad2b23c8202b1f534112514c667660d4cf84b0e163c7ed08b3
                         raahimnawaz/rsna-knee-c7-train-convnext-small-cons2-f34-cv   fold 3  eb3bb1627d24a5cfa7118ee6721b6b154e970431223f5b9820dd5deca6c7af7d
                                                                                      fold 4  8b0768b0e78e80ecaa6cf8826102d44f8c9f79bc487863047da703aa364eecc8
-teacher labels, fold 0  raahimnawaz/rsna-knee-c7-train-convnext-small-teach1-cv      fold 0  1c58b2bcfe5adc0168fffba48f38735e5888ce86a3291db3ab6cb96155d93b20
+teacher labels, five    raahimnawaz/rsna-knee-c7-train-convnext-small-teach1-cv      fold 0  1c58b2bcfe5adc0168fffba48f38735e5888ce86a3291db3ab6cb96155d93b20
+                        raahimnawaz/rsna-knee-c7-train-convnext-small-teach1-f12-cv  fold 1  683857fad528ce5cc3518bb8e5be3314bfcfc89ff9d276a587c6c3a038aa5de6
+                                                                                     fold 2  479cf64b1b5123f4684183e4f048be8b09fba8c34e4b03223aec3e3f97c88d75
+                        raahimnawaz/rsna-knee-c7-train-convnext-small-teach1-f34-cv  fold 3  4921d0968d3616a90e3ec22948f40d60529f9f1ab3f4ed458b510da2a862269b
+                                                                                     fold 4  c910af266a41af08042d48da83f2db6e7a43deeb7b6365531c5cab30b0fd4685
+public CoAtNet, re-saved raahimnawaz/rsna-knee-c7-train-coatnet-oai-teacher-pa       (all)   f900846d3e821721cf571a9f0a477021bc0c2e0e71ddb5565dc5687752fbd0c1
 dread_soft, fold 0      raahimnawaz/rsna-knee-c7-train-convnext-small-dread-cv       fold 0  cdedbae5509faa6093f3f97d83366f8d08037e0221308140b2ebe86edcb7f3f1
 ```
 
