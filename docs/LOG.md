@@ -494,4 +494,11 @@ as gold to rank 21 (0.962), silver to 290, bronze to 581; the 0.954 tie group ru
   f900846d3e821721cf571a9f0a477021bc0c2e0e71ddb5565dc5687752fbd0c1 --tag oai-pa`. That sha is the checkpoint as our
   trainer re-saved it at 0 epochs (146,463,855 bytes; v5 of `rsna-knee-weights-sha`), not the author's file
   (`7e5315da…`). Its gate checks the inference path against the predict-all run's own `oof_all.csv`.
+- **✅ Fine-tune smoke v2 COMPLETE 10-12 21:57 (20.0 min on CPU, 0 tracebacks), from `1b75b83`.** `init from
+  …swa.pt (sha256 7e5315da…): 486 tensors, strict but for 3 zero-initialised slot/depth weights` · `gradient
+  checkpointing: all of the encoder blocks` · `trainable 73.2M of 73.2M` · ALL DATA 4,349 with `targets_teacher_v1`
+  (`2980e8d6…`) · one epoch, evaluation and the save ran · `SMOKE: the whole path ran`. Not reached on a CPU: fp16
+  and the two-GPU step time, so the first GPU run's `fit-budget` line is the first real price (give it
+  `--time-budget-h 5.0`). **The kernel is one push away; it waits for GPU hours** (Friday's reset, or a rented GPU):
+  the smoke's build line without `--smoke`, `--tag oai-ft`.
 

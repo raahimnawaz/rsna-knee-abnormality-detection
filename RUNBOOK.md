@@ -101,8 +101,8 @@ Order: the OAI-derived work first (item 2), then item 1; item 3 at the next slot
 
 4. **The public OAI-trained CoAtNet in our own stack (owner 10-12 ~21:17: "we finetune/pretrain the cnn").**
    *Fine-tune:* from its weights, on our input and `targets_teacher_v1`, all data, 6 epochs; **~3.5 GPU-h, so not
-   before Friday's reset unless a GPU is rented.** A CPU smoke of the kernel is the next step; the command, the cost
-   and the rule are in the LOG (10-12 ~21:17). *Two reads with no training, proposed for the 17:00 reset on 10-13,
+   before Friday's reset unless a GPU is rented.** Its CPU smoke is clean (10-12 21:57, after one wiring fix), so the
+   kernel is one push away; the command, the cost and the rule are in the LOG (10-12 ~21:17 and 21:57). *Two reads with no training, proposed for the 17:00 reset on 10-13,
    NOT approved yet:* the checkpoint as it is in our input, alone; and the five teacher folds + it.
 
 5. **Pseudo-label round from our own five folds: APPROVED 10-12 ~21:50 ("do the swap"), runs when the teacher folds
