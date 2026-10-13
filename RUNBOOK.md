@@ -9,7 +9,7 @@
 | why the open experiments are the open experiments | [`docs/REVIEW-2026-10-12.md`](docs/REVIEW-2026-10-12.md): the error budget |
 | anything before 10-11 | `git show 9c23daf:RUNBOOK.md` (also `:DATA.md`, `:REFERENCE.md`, `:docs/REVIEW-2026-10-04.md`) |
 
-Last updated 2026-10-12 20:55 PDT. **Running on Kaggle:** folds 1–4 on the teacher labels (two kernels, pushed 20:22,
+Last updated 2026-10-12 21:21 PDT. **Running on Kaggle:** folds 1–4 on the teacher labels (two kernels, pushed 20:22,
 due ~00:15). **Queued behind them:** the spatial-attention arm (kernel built, push when a GPU session frees).
 **Approved for the 17:00 PDT reset on 10-13 (no slots before it):** the five teacher folds as one ensemble, and the
 student's Synovitis probe. Nothing is pending on the leaderboard.
@@ -17,7 +17,9 @@ student's Synovitis probe. Nothing is pending on the leaderboard.
 ## 1. Goal and the owner's directions
 
 - **0.97 macro AUROC** (10-11). Do not reframe it. Final submission **10-22 16:59 PDT**, two finals.
-- **Our own models only.** The public blend is not submitted, not built on and not proposed again ("its useless").
+- **Use whatever is available to us** (owner 10-12 ~21:17; the earlier "our own models only" is WITHDRAWN). Public
+  weights, models and data may be used and built on. Not asked, so not assumed: submitting the public blend as it
+  stands (the owner's "its useless" was said of that).
 - Solo: no merger.
 - **Ask before a batch of submissions and before spending GPU hours.** A go covers what it named and nothing later.
 - No Claude attribution in this repo's commits.
@@ -70,7 +72,7 @@ weak finding 0.03–0.07 lower: do not size anything from gold.
 
 Closed before this branch, do not re-open (`9c23daf`): teacher rounds that learn from the same reports; our model as
 the public stack's core; centre crops and zoom; an nnU-Net crop; Qwen report labels; a per-site prior; the fastMRI+
-teacher (what failed was a ResNet34 on four findings judged on gold-58, not fastMRI+ as data: LOG 10-12 ~21:55);
+teacher (what failed was a ResNet34 on four findings judged on gold-58, not fastMRI+ as data: LOG 10-12 ~21:07);
 bigger backbones.
 
 ## 4. In progress — the owner approved all three on 10-12 ("do all 3 but first if OAI helps lets do it")
@@ -93,6 +95,12 @@ Order: the OAI-derived work first (item 2), then item 1; item 3 at the next slot
 3. **The student's Synovitis probe: approved, submit at the 17:00 PDT reset on 10-13.** Kernel
    `raahimnawaz/rsna-knee-sub-a-ortho-teach1-f0-nall-p-synovitis` v1, gate passed. Against 0.532 (ref `57117247`);
    two ticks decide whether the teacher moved Synovitis.
+
+4. **The public OAI-trained CoAtNet in our own stack (owner 10-12 ~21:17: "we finetune/pretrain the cnn").**
+   *Fine-tune:* from its weights, on our input and `targets_teacher_v1`, all data, 6 epochs; **~3.5 GPU-h, so not
+   before Friday's reset unless a GPU is rented.** A CPU smoke of the kernel is the next step; the command, the cost
+   and the rule are in the LOG (10-12 ~21:17). *Two reads with no training, proposed for the 17:00 reset on 10-13,
+   NOT approved yet:* the checkpoint as it is in our input, alone; and the five teacher folds + it.
 
 Then: the final recipe on the teacher labels, five folds (or all data, several seeds), read alone on the LB.
 

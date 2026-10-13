@@ -311,7 +311,7 @@ could use it (the teacher's student, 0.944 against 0.938), so the order is: the 
   gate lines read clean. (2) The quota page: "it has 10.2 hrs" (the fold kernels were 25 min in; whether the page
   already counted them is not known). Against ~9.6 h for tonight's runs the attention run is NOT held; under 1 h is
   left until Friday's reset for anything else, casmi26 included.
-- **Owner 10-12 ~21:15: "ballpark the OAI download, and training on an M5 Studio" — a local Mac as the GPU that is
+- **Owner 10-12 ~20:57: "ballpark the OAI download, and training on an M5 Studio" — a local Mac as the GPU that is
   not Kaggle.** MEASURED on this MacBook Pro (base M5, 10 GPU cores, 16 GB; torch 2.14 MPS, fp16 autocast, random
   weights and input): ConvNeXt-small at 384 px trains at **17.7 img/s** (9.3 in fp32; 5.3 GB at 12 windows) and
   evaluates at 74.7 img/s. Kaggle's two T4s: 3,502 studies x 12 windows in 7.8 min = ~90 img/s, so this laptop is
@@ -324,7 +324,7 @@ could use it (the teacher's student, 0.944 against 0.938), so the order is: the 
   -> ~8 TB in all, ~1-1.5 TB for one visit of everyone, ~200-400 GB for the ~2,400 MOAKS-read knees if the archive
   lets a download be filtered by subject (not verified). This Mac has 716 GB free. The signing-official question is
   still unverified; today's search again describes an RAS login plus agreeing to OAI's terms.
-- **Owner Qs 10-12 ~21:40 (costs and label ideas; nothing run, nothing approved).**
+- **Owner Qs 10-12 ~21:02 (costs and label ideas; nothing run, nothing approved).**
   (a) *Renting a 5090.* Web snapshots of mid-2026, not re-checked live: ~$0.20–0.40/h interruptible (Vast.ai),
   ~$0.65/h the on-demand median, ~$0.99/h RunPod's own datacentres. Speed NOT measured: from general benchmarks a
   5090 is ~4–6x Kaggle's T4 pair on this model, so a fold is ~20–30 min, five folds ~2 h, and the review's whole
@@ -343,7 +343,7 @@ could use it (the teacher's student, 0.944 against 0.938), so the order is: the 
   masked unread cells are the forms a ranking metric can use; a uniform noise correction changes no order, readers
   that share a text err together, and 58 image-read knees are too few to fit per-finding noise rates (rule 1). The
   one prior of this kind still on the list is Synovitis = own part + beta x Effusion (review §5 #7, in the finals).
-- **Owner Q 10-12 ~21:55: "why did fastMRI fail as a teacher, can we be sure it was the model and not us?"** No.
+- **Owner Q 10-12 ~21:07: "why did fastMRI fail as a teacher, can we be sure it was the model and not us?"** No.
   Re-read of `149cb0a` / `1766436` (09-28): what was tested is a ResNet34 at 224 px trained 10.5 min on the Mac on
   473 coronal-only knees, on FOUR findings (ACL, Effusion, Baker's, Contusion: all findings we now read at ~0.97),
   used as a relabelling teacher and judged on gold-58: report + NYU −0.0143 ± 0.0176, P 0.21. Four weaknesses are
@@ -354,10 +354,10 @@ could use it (the teacher's student, 0.944 against 0.938), so the order is: the 
   learned (hold-out Effusion 0.962) and part did not transfer (Baker's 0.718 → 0.525 on gold; a protocol no
   competition study uses). The 7,140 pseudo-labelled NYU knees were a separate null (+0.0035 ± 0.0051). **So the
   closed item is "a small fastMRI+ teacher on four findings", not fastMRI+ as data.** Still against it: the raw files
-  were deleted 10-09 (corrected 10-12 ~22:15: a Stage A cache of the 556 knees is still on Kaggle, see the next
+  were deleted 10-09 (corrected 10-12 ~21:13: a Stage A cache of the 556 knees is still on Kaggle, see the next
   entry), and the 10-04 review keeps NYU knees out of anything a final trains on (the fastMRI terms
   against the winner's licence obligation). My reading, not a new measurement.
-- **Owner Qs 10-12 ~22:15: "can we just take their core model and put it in our code", "a better ConvNeXt", "bring
+- **Owner Qs 10-12 ~21:13: "can we just take their core model and put it in our code", "a better ConvNeXt", "bring
   back the fastMRI model". Answered, NOTHING approved, and RUNBOOK §1's "our own models only" stands until the owner
   says in words that it is changed.** Facts checked:
   - *The public OAI-trained CoAtNet* already loads strict in our trainer (`--arch coatnet --init`, read 5) and its
@@ -374,4 +374,31 @@ could use it (the teacher's student, 0.944 against 0.938), so the order is: the 
     needs the 88 GB of raw files again (deleted 10-09) and the converter and label script from `160f781` (removed
     from the tree by the showcase cleanup). Its labels cover ACL, Effusion, Contusion and cysts; the meniscus side
     mapping was never written; it has no synovitis label and is coronal only (nothing for PF OA).
+- (The four owner entries above were first written with guessed times up to an hour late; corrected 21:21 to the
+  commit clock: `968a95d` 20:59, `8cc8c36` 21:03, `905d624` 21:08, `19a0a45` 21:14.)
+- **⚠️ DIRECTION CHANGED, owner 10-12 ~21:17: "the rule shouldnt be my own models i have always been for using
+  whatever is avialable to us / and we finetune/pretrain the cnn".** RUNBOOK §1's "our own models only" is
+  WITHDRAWN: public weights, models and data may be used and built on. Not asked, so not assumed: submitting the
+  public blend as it stands (the owner's "its useless" was said of that). Asking before submissions and before GPU
+  hours is unchanged.
+  - **"finetune/pretrain the cnn", read as:** start from the public OAI-trained CoAtNet's weights and train it on
+    our input and labels. The trainer already does this: `--init` maps the public head's names onto ours and lets
+    the slot / depth embeddings and the spatial queries start at zero (`train_windows.py:641`).
+    **The arm (NOT run; needs GPU hours):** `--arch coatnet --corpus stage_b --all-data`, `--init
+    raptor_ft_alldata_t16_blendjev_oai_d96_r384_swa.pt` (sha `7e5315da…`, dataset
+    `nartaa/rsna-knee-publication-swa-weights-20261007`), `targets_teacher_v1` (half of every cell is this model's
+    own reading, which holds it to what OAI taught it while the input changes), 6 epochs, the CoAtNet package
+    (bb-lr 9e-5, llrd 0.9, drop-path 0.1), `--conf-weight none`.
+    **Cost:** the 10-02 CoAtNet student took 456 min for 7 epochs of 4,349 studies on ONE T4 = 65 min/epoch, so
+    ~33 min/epoch on both and **~3.5 GPU-h** for 6: more than this week has left (~0.9 h after tonight's runs).
+    Friday 17:00's reset, or a rented GPU.
+    **Judge:** its init saw every training study, so no held-out fold can judge it; the LB does. Rule, before any
+    result: alone against the SAME checkpoint as it is in our input (read (3) below). Less than +0.005 over that =
+    the fine-tune did not pay for its hours; ≥ +0.005 = it replaces the as-is checkpoint as an ensemble member.
+  - **Two reads that need no training, proposed for the 17:00 reset on 10-13 (NOT approved yet):** (3) the public
+    checkpoint as it is, in our input, alone: what our input costs it against its 0.949, so how much room a
+    fine-tune has; (4) the five teacher folds + it, against the five teacher folds alone: what it adds.
+    `raahimnawaz/rsna-knee-c7-train-coatnet-oai-teacher-pa` already holds it re-saved in our format (`last.pt`,
+    `last_meta.json`, `oof_all.csv`), so `build_submit_kernel.py --weights-kernel` can take it as a member. A
+    submission kernel's own run is ~6 min of GPU (one on record, 10-03).
 
