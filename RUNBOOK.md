@@ -9,7 +9,8 @@
 | why the open experiments are the open experiments | [`docs/REVIEW-2026-10-12.md`](docs/REVIEW-2026-10-12.md): the error budget |
 | anything before 10-11 | `git show 9c23daf:RUNBOOK.md` (also `:DATA.md`, `:REFERENCE.md`, `:docs/REVIEW-2026-10-04.md`) |
 
-Last updated 2026-10-12 19:50 PDT. **Nothing is running on Kaggle; nothing is pending on the leaderboard.**
+Last updated 2026-10-12 20:45 PDT. **Running on Kaggle:** folds 1–4 on the teacher labels (two kernels, pushed 20:22,
+due ~00:15). **Queued behind them:** the spatial-attention arm. Nothing is pending on the leaderboard.
 
 ## 1. Goal and the owner's directions
 
@@ -69,23 +70,30 @@ Closed before this branch, do not re-open (`9c23daf`): teacher rounds that learn
 the public stack's core; centre crops and zoom; an nnU-Net crop; Qwen report labels; a per-site prior; the fastMRI+
 teacher; bigger backbones.
 
-## 4. Open — each waits for the owner
+## 4. In progress — the owner approved all three on 10-12 ("do all 3 but first if OAI helps lets do it")
 
-1. **The next recipe experiment for Lateral OA and PF OA.** Recommended: per-finding spatial attention inside each
-   window in place of the global average (~40 lines in `WindowMIL`, ~2 GPU-h, queries start at zero so step 0 is
-   today's model). Then `--k 24` (flag only, ~3.3 GPU-h). Affine is last. Judge each as in §6.
-2. **Four more folds on the teacher labels** (~7.5 GPU-h; five folds would land near 0.951 if the +0.007 repeats):
-   now, or as part of the final run with whichever recipe change wins. Recommended: with the final run.
-3. **The student's Synovitis probe** is built and gated, not submitted: kernel
-   `raahimnawaz/rsna-knee-sub-a-ortho-teach1-f0-nall-p-synovitis` v1. One slot. Against 0.532 (ref `57117247`); two
-   ticks decide whether the teacher moved Synovitis.
+Order: the OAI-derived work first (item 2), then item 1; item 3 at the next slot reset.
 
-Then: the final recipe on the teacher labels, five folds (or all data, several seeds), read alone on the LB
-against 0.945.
+1. **Spatial attention for Lateral OA and PF OA: BUILT, waiting for a GPU session.** `train_windows.py
+   --spatial-attn` (a query per finding over each window's 12 × 12 feature map, zero-initialised = the global
+   average). Local checks and the Kaggle CPU smoke are clean. Kernel to push when a teacher-fold kernel finishes:
+   build with `--tag cons2-sa "--train-args=--allow-missing-labels --spatial-attn"` (→
+   `raahimnawaz/rsna-knee-c7-train-convnext-small-cons2-sa-cv`). **Rule:** paired on the 847 against the 0.938 model,
+   macro ≥ +0.004 OR the mean of Lateral OA and PF OA ≥ +0.015 → into the finals. After it, if hours remain:
+   `--k 24` (~3.3 GPU-h, probably after Friday's reset).
+2. **Folds 1–4 on the teacher labels: RUNNING** — `raahimnawaz/rsna-knee-c7-train-convnext-small-teach1-f12-cv` and
+   `...-teach1-f34-cv`. When done: shas (`build_weights_sha_kernel.py`), the five-fold submission kernel (with fold
+   0's `1c58b2bc…`), read its gate. **Rule:** alone on the LB against 0.945; kept unless ≥ 0.005 below, shown at
+   ≥ +0.010; at ≥ 0.945 it is the finals' candidate. **The submission itself still needs the owner's go.**
+3. **The student's Synovitis probe: approved, submit at the 17:00 PDT reset on 10-13.** Kernel
+   `raahimnawaz/rsna-knee-sub-a-ortho-teach1-f0-nall-p-synovitis` v1, gate passed. Against 0.532 (ref `57117247`);
+   two ticks decide whether the teacher moved Synovitis.
+
+Then: the final recipe on the teacher labels, five folds (or all data, several seeds), read alone on the LB.
 
 ## 5. Budget
 
-- **GPU:** 30 h/week on Kaggle, reset Fri 17:00 PDT; 10-16 is the last reset. ~10 h left this week by our own count
+- **GPU:** 30 h/week on Kaggle, reset Fri 17:00 PDT; 10-16 is the last reset. ~10 h left this week by our own count before the 10-12 evening runs, which take ~9.6 of them
   (the owner's quota page is the truth; **casmi26 shares the quota**). Two GPU sessions at once, five CPU sessions.
 - **Submissions:** 5 a day, reset 17:00 PDT (00:00 UTC). 25 used.
 
