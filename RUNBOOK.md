@@ -21,7 +21,8 @@ and not built on** (owner: "its useless"). Solo. Final 10-22 16:59 PDT; two fina
 | free public blend | 0.954 | 752 teams exactly there (ranks 216-967). `nartaa` CoAtNet (0.949 alone, 0.948 without its mirror pass) + `heliosli` ConvNeXt-small, 4 folds |
 | **ours, best** | **0.945** | 10-12: FIVE ConvNeXt-small folds alone, no public model in it (ref `57112913`); rank 1,629 |
 | ours, with the old public stack | 0.943 | 10-03: the old public stack with our CoAtNet student as its core |
-| ours, one model, best | 0.938 | 10-12: ONE ConvNeXt-small, Stage B, `targets_consensus_v2`, fold 0 held out (ref `57098827`) |
+| **ours, one model, best** | **0.944** | 10-12: the same recipe on `targets_teacher_v1` (the public OAI-trained CoAtNet as an outside teacher), fold 0 held out (ref `57122696`) |
+| ours, one model, consensus labels | 0.938 | 10-12: ONE ConvNeXt-small, Stage B, `targets_consensus_v2`, fold 0 held out (ref `57098827`) |
 | ours, one model, `dread_soft` labels | 0.933 | 10-12: the 0.938 model's recipe with the targets changed only (ref `57117178`) |
 | ours alone, before | 0.929 | Ortho ViT-L, Stage B, teacher targets, all data (ref `56811647`); r1 on 3,502 studies 0.927 |
 | stack + that Ortho at 1/3 | 0.941 | ref `56813945`, read 10-04: FAIL (rule ≥ 0.947) |
@@ -257,8 +258,14 @@ optimiser, k = 12, per-finding attention) **without** our confidence weight.
 - **Affine arm (review §5 #2): HELD, not run.** Found while preparing it: the flag was tested 09-27 on ResNet34,
   −0.0019 ± 0.0048 (`75ab54c`). The owner approved it without that fact; ask before spending 1.8 GPU-h. `--k 24`
   (~3.3 h) is the alternative for the same hours.
-- **If read 6a is ≥ 0.948** (the rule: a gain is shown at +0.010 over 0.938): folds 1–4 on `targets_teacher_v1`
-  (~7.5 GPU-h), then five folds alone against 0.945.
+- **✅ Read 6a READ 10-12 (seen 17:22 PDT): the student alone = 0.944** (ref `57122696`) against 0.938: **+0.006 →
+  `targets_teacher_v1` is KEPT (not ≥ 0.005 below); a gain is NOT shown (the rule needs +0.010).** It is our best
+  single model, one tick under the five-fold consensus ensemble (0.945), and outside the ±0.005 model-against-model
+  band without reaching the bar. The held-out 847 had said +0.0138: about half of that was the targets moving
+  toward the reference reader, as its caveat warned. Labels so far, same recipe and fold: `dread_soft` 0.933 →
+  consensus 0.938 → teacher 0.944.
+- **Folds 1–4 on `targets_teacher_v1`: NOT started.** The owner's go was conditional on ≥ 0.948; it read 0.944. Ask.
+  (~7.5 GPU-h; at the consensus folds' +0.007 for five over one it would land near 0.951.)
 - **OAI itself (owner's question, 10-12):** unchanged, closed for this competition (`94e7b54`): the NDA's Data Use
   Certification allows research use and sharing only with DUC-listed researchers, so the data cannot sit on Kaggle
   (our only GPU), a winner could not warrant the licence, and approval + download do not fit before 10-22. What we
