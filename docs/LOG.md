@@ -837,7 +837,7 @@ and the gold read is the one number whose reference is a radiologist, so the onl
 pseudo-labels (the 847 are scored against a report reader). "The submission as the test" is already how labels are
 judged (rule 3). If the owner wants the 58 in anyway, it is a change to three guards and costs that read; not done.
 
-**The dose, written 12:55 before the table is built. `targets_teacher_v3` = `targets_teacher_v1` with the five
+**The dose, written 12:53 before the table is built. `targets_teacher_v3` = `targets_teacher_v1` with the five
 teacher-label folds' held-out predictions at 0.75 of every cell** (`build_consensus_targets.py --own-oof
 fusion/runs_cnxs_teach1_{f0,f12,f34}/…/cv_last/oof_all.csv --w-own 0.75`; the models' order on the target's own
 levels, as in v2). The same predictions as v2, so the dose is the only change: reports 12.5%, the public CoAtNet

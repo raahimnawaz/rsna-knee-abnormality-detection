@@ -381,7 +381,8 @@ def main() -> None:
                     "for an arm that differs from its recipe by a named setting")
     ap.add_argument("--out", type=Path, required=True)
     g = ap.add_mutually_exclusive_group()
-    g.add_argument("--smoke", action="store_true", help="CPU, 16 + 6 studies, one epoch. First.")
+    g.add_argument("--smoke", action="store_true", help="CPU, 16 + 6 studies, one epoch (two for the small conv "
+                   "backbones, so the averaged weights are reached). First.")
     g.add_argument("--bench", action="store_true", help="T4, ONE full epoch, scored. Prices the run.")
     ap.add_argument("--epochs", type=int, default=10, help="full run only")
     ap.add_argument("--time-budget-h", type=float, default=10.3, help="stage_b: training hours inside the 12 h session")
@@ -401,7 +402,9 @@ def main() -> None:
     if a.n_train is None:
         a.n_train = 0 if a.arch.startswith("qwen") else N_TRAIN
     mode = "smoke" if a.smoke else "bench" if a.bench else "full"
-    epochs = 1 if mode != "full" else a.epochs
+    # a small-backbone smoke runs TWO epochs: the averaged weights (avg3) need two states, and that branch scores
+    # and saves at the very end of a full run
+    epochs = a.epochs if mode == "full" else 2 if mode == "smoke" and a.arch in SMALL else 1
     if a.arch.startswith("qwen"):
         # the smoke skips the fit-budget probe (8 steps at ~90 s each on a CPU) and stops after 2 steps
         extra = ([x for x in QWEN_EXTRA if x != "--fit-budget"] + ["--max-steps", "2", "--eval-windows", "4"]
