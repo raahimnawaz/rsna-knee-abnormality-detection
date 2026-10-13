@@ -9,16 +9,18 @@
 | why the weak findings are weak | [`docs/REVIEW-2026-10-12.md`](docs/REVIEW-2026-10-12.md): the error budget |
 | anything before 10-11 | `git show 9c23daf:RUNBOOK.md` (also `:DATA.md`, `:REFERENCE.md`, `:docs/REVIEW-2026-10-04.md`) |
 
-Last updated 2026-10-13 08:11 PDT.
+Last updated 2026-10-13 10:24 PDT.
 
 ## 0. Right now
 
-- **Running on Kaggle:** the pseudo-label student (pushed 08:04, due ~10:00).
-- **Next action:** when it finishes, build and gate its submission kernel (§4, read 4); then submit the four approved
-  reads at the **17:00 PDT reset today** (three kernels are already gated).
-  The Mac must be awake then: it sleeps with the lid shut and every watcher stops (this cost eight hours on 10-13).
+- **Nothing is running on Kaggle.** The pseudo-label student finished (held-out +0.0021 ± 0.0013 over the 0.944
+  model, report only).
+- **Next action: submit the four approved reads at the 17:00 PDT reset today** (§4; all four kernels are gated, the
+  commands are under the table). The session of 10-13 morning armed a background submitter for 17:00; **check
+  `kaggle competitions submissions` after 17:00 and submit by hand whatever is missing.** The Mac sleeps with the
+  lid shut and every watcher stops (this cost eight hours on 10-13).
+- **Then:** read the four scores by their rules, record them in §2–§4, and ask the owner how to ensemble.
 - **Waiting for GPU hours** (Friday 17:00's reset, or a rented GPU): spatial attention, the fine-tune, `--k 24`.
-- Nothing is pending on the leaderboard.
 
 ## 1. Goal and the owner's directions
 
@@ -107,7 +109,15 @@ not answered). The 0.949 author gained +0.003–0.005 from 2,399 baseline knees.
 | 1 | the five teacher folds, one ensemble | `rsna-knee-sub-a-ortho-teach1-cv5-nall` | passed (5/5) | 0.945 (`57112913`) | kept unless ≥ 0.005 below; shown at ≥ +0.010; at ≥ 0.945 the finals' candidate |
 | 2 | Synovitis probe, teacher-label fold 0 | `rsna-knee-sub-a-ortho-teach1-f0-nall-p-synovitis` | passed | 0.532 (`57117247`) | two ticks decide whether the teacher moved Synovitis |
 | 3 | the public checkpoint alone, in our input | `rsna-knee-sub-a-ortho-oai-pa-nall` | passed | its own 0.949 | no pass / fail: near 0.949 → use it as it is and skip the fine-tune; ~0.940 or lower → our input costs it and the fine-tune has room |
-| 4 | the pseudo-label student alone | **to build** when `rsna-knee-c7-train-convnext-small-teach2-cv` finishes: its sha, then `--ours-only --tag teach2-f0` | — | 0.944 (`57122696`) | kept unless ≥ 0.005 below; shown at ≥ +0.010 |
+| 4 | the pseudo-label student alone | `rsna-knee-sub-a-ortho-teach2-f0-nall` | passed | 0.944 (`57122696`) | kept unless ≥ 0.005 below; shown at ≥ +0.010 |
+
+```bash
+C=rsna-knee-abnormality-detection   # each: $K competitions submit $C -k raahimnawaz/<kernel> -v 1 -f submission.csv -m "<message>"
+# 1  "ConvNeXt-small x5 ALONE on targets_teacher_v1: read vs the five consensus folds 0.945 (57112913); kept unless >= 0.005 below, shown at >= +0.010"
+# 2  "PROBE Synovitis only: the teacher-label fold-0 model (0.944) against the consensus model's probe 0.532 (57117247); two ticks decide"
+# 3  "The public OAI-trained CoAtNet (nartaa) AS IT IS in OUR input (Stage B), alone: what our input costs it against its own 0.949"
+# 4  "ConvNeXt-small ALONE, one model, targets_teacher_v2 (pseudo-label round): read vs the 0.944 model (57122696); kept unless >= 0.005 below, shown at >= +0.010"
+```
 
 The fifth slot is kept for an ensemble with the public checkpoint. **Not approved: the owner decides how to ensemble
 after these scores.** What the forum shows works: every public blend runs `nartaa`'s notebook unchanged as stage 1,
@@ -229,6 +239,7 @@ consensus, five folds   raahimnawaz/rsna-knee-c7-train-convnext-small-cons2-cv  
                                                                                      fold 2  d147aa3c816ad1ad2b23c8202b1f534112514c667660d4cf84b0e163c7ed08b3
                         raahimnawaz/rsna-knee-c7-train-convnext-small-cons2-f34-cv   fold 3  eb3bb1627d24a5cfa7118ee6721b6b154e970431223f5b9820dd5deca6c7af7d
                                                                                      fold 4  8b0768b0e78e80ecaa6cf8826102d44f8c9f79bc487863047da703aa364eecc8
+pseudo-labels, fold 0   raahimnawaz/rsna-knee-c7-train-convnext-small-teach2-cv      fold 0  4cc8c3d45263bd705b86ff0c8b98d391935bdd553a0076268cd5f2dabf41ae02
 teacher labels, five    raahimnawaz/rsna-knee-c7-train-convnext-small-teach1-cv      fold 0  1c58b2bcfe5adc0168fffba48f38735e5888ce86a3291db3ab6cb96155d93b20
                         raahimnawaz/rsna-knee-c7-train-convnext-small-teach1-f12-cv  fold 1  683857fad528ce5cc3518bb8e5be3314bfcfc89ff9d276a587c6c3a038aa5de6
                                                                                      fold 2  479cf64b1b5123f4684183e4f048be8b09fba8c34e4b03223aec3e3f97c88d75

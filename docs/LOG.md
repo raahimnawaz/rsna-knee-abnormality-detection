@@ -557,4 +557,16 @@ in the seconds the Mac was awake. Nothing was lost on Kaggle: both fold kernels 
   `5 checkpoint(s), sha256 ok` · `GATE PASSED (1/5)` … `(5/5)`, each member rebuilding 3 of its own held-out studies
   from DICOMs (max |dp| 0.00021 / 0.00032 / 0.00030 / 0.00029 / 0.00073) · `[sub A] ARMS: convnext_small_stage_b x5
   only, windows all` · 0 tracebacks. Ready for the 17:00 reset.
+- **✅ The pseudo-label student, the run: COMPLETE 10-13 ~09:55** (seen 10:20; the Mac had slept again). 12/12
+  epochs, 105 min, 0 tracebacks, labels sha `fa98f943…`, the 0.944 model's split and seed. `last.pt` sha256 (v7 of
+  `rsna-knee-weights-sha`): `4cc8c3d45263bd705b86ff0c8b98d391935bdd553a0076268cd5f2dabf41ae02`. Small files in
+  `fusion/runs_cnxs_teach2_f0/`.
+  **Held-out 847, report only (a label change, and the targets carry a trace of these studies): 0.8825 against the
+  0.944 model's 0.8804, paired +0.0021 ± 0.0013 (1.7 sigma), 7 of 12 up** — Baker's +0.011, Lateral OA +0.008, ACL
+  +0.007, Lateral Meniscus +0.007; Fracture −0.009. For scale: the teacher labels were +0.0138 here and +0.006 on
+  the LB. Gold-58, report only: 0.934 against 0.929. A small move; the LB decides by the rule of 10-12 21:50.
+- **✅ Its submission kernel COMPLETE 10:23** (`raahimnawaz/rsna-knee-sub-a-ortho-teach2-f0-nall` v1, built from
+  `355b68a`, `--tag teach2-f0`, 103 s): `1 checkpoint(s), sha256 ok` · `CHECK vs oof_all.csv: 8 studies rebuilt from
+  DICOMs, max |dp| 0.00073` · `GATE PASSED (1/1)` · `[sub A] ARMS: convnext_small_stage_b only, windows all` · 0
+  tracebacks. **All four kernels for the 17:00 reset are gated.**
 
