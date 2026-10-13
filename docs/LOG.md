@@ -324,4 +324,23 @@ could use it (the teacher's student, 0.944 against 0.938), so the order is: the 
   -> ~8 TB in all, ~1-1.5 TB for one visit of everyone, ~200-400 GB for the ~2,400 MOAKS-read knees if the archive
   lets a download be filtered by subject (not verified). This Mac has 716 GB free. The signing-official question is
   still unverified; today's search again describes an RAS login plus agreeing to OAI's terms.
+- **Owner Qs 10-12 ~21:40 (costs and label ideas; nothing run, nothing approved).**
+  (a) *Renting a 5090.* Web snapshots of mid-2026, not re-checked live: ~$0.20–0.40/h interruptible (Vast.ai),
+  ~$0.65/h the on-demand median, ~$0.99/h RunPod's own datacentres. Speed NOT measured: from general benchmarks a
+  5090 is ~4–6x Kaggle's T4 pair on this model, so a fold is ~20–30 min, five folds ~2 h, and the review's whole
+  list plus finals (~27 Kaggle GPU-h) is ~5–7 h: **$10–30 covers everything**, and it lifts the weekly quota, which
+  is the binding limit this week. The Stage B cache would have to be pulled from the Kaggle kernel outputs to the
+  box. OAI images on a rented machine are a question of OAI's terms (someone else's hardware), not answered here.
+  (b) *A large LLM (Kimi K2) to re-read the reports.* 4,407 reports, 4.84 M characters (median 977): ~1.6 M tokens
+  of text plus a criteria prompt on each, **~$5–20** at ~$0.60 / $2.50 per million. Expected gain small: `0cbfb87`
+  and `7b14436` still stand (every reader reads the same text, readers agree r 0.82–0.95, the best tables read gold
+  ~0.90 against our image model's 0.93; the 10-04 review put a frontier read at +0.001–0.004), and the judge is the
+  cost: a fold plus an LB slot, +-0.005. Seven readers in consensus were +0.005, not shown.
+  (c) *Teacher–student from the reports* is the pipeline as built (report reader -> soft targets -> image model);
+  a second round through an image teacher trained on the same reports was +0.026 gold, ~0 LB (closed, `9c23daf`);
+  the outside OAI-trained teacher is the round that paid (+0.006).
+  (d) *Bayesian handling of noisy labels:* `8dd4f82` stands. Soft graded targets, the seven-reader consensus and
+  masked unread cells are the forms a ranking metric can use; a uniform noise correction changes no order, readers
+  that share a text err together, and 58 image-read knees are too few to fit per-finding noise rates (rule 1). The
+  one prior of this kind still on the list is Synovitis = own part + beta x Effusion (review §5 #7, in the finals).
 
