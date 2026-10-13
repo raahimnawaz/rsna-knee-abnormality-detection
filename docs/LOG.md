@@ -735,3 +735,68 @@ left open on 10-12 21:24.
   pair ~0.0007 at 390 studies (resampled on a stand-in pair: consensus folds as the base, teacher folds as the member
   at these weights). ≥ 0.957 → our folds stay in; 0.956 → read the rank inside the block, nothing claimed; ≤ 0.955 →
   they come out.
+- **✅ The blend's kernel COMPLETE 10-13 12:23** (`raahimnawaz/rsna-knee-sub-pub956-teach1cv5` v1, 11.5 min, from
+  `6bc69f9`). The public cells, as published: `RAPTOR_STAGE_DONE` · R7 `OURS_STAGE_COMPLETE {"status": "PASS", …
+  "scored": 3, "fallback_studies": 0}` · `R224_STAGE rc=0 ok=True` · `NOTEBOOK_COMPLETE`. Ours:
+  `OURS_ENV torch=2.11.0+cu128 timm=1.0.25 pydicom=3.0.1` (another image than our kernels') · `5 checkpoint(s), sha256
+  ok` · `GATE PASSED (1/5)` … `(5/5)`, max |dp| 0.00021 / 0.00032 / 0.00030 / 0.00029 / 0.00073, **the same five
+  figures as in our own five-fold kernel: the reader is unchanged by the other image** · `OURS DONE: 3 test studies
+  in 2.6 min` · `OURS_STAGE ok=True seconds 154 left_at_start_min 508` · `[public+ours] ARMS: the public blend as
+  published + convnext_small_stage_b x5; w_ours …` · 0 tracebacks. `submission.csv`: the public file's columns and
+  study order, finite in [0, 1]. Time, from the three test studies: the public cells 7.0 min (R7 325 s, most of it
+  compiling), ours 2.6 min; on ~1,300 studies ours is ~1–1.5 h (4–8 s a study on two T4s), the public part is not
+  known from this run.
+- **⏳ The 17:00 submitter is armed (12:26)** in the session of 10-13 midday: read 5 (the blend), read 1 (the five
+  teacher folds) and read 4 (the pseudo-label student), v1 each, at 17:00:40 PDT, skipping any already sent in the
+  new UTC day. It needs the lid open.
+
+## Owner 10-13 ~12:30: "Does it have our label quality. How can we maximize the gold labels and what we have of the reports. Could we make something that has the gold labels trained on multiple times with other slightly lower quality ones mixed in if that would work and only if it could help"
+
+Answered from the record and from one new table. Nothing was run on a GPU and nothing is approved.
+
+- **Does the blend have our labels?** Only through our five folds, at 10–25% of each finding's rank. The two public
+  members were trained on their authors' labels: `nartaa`'s on three of the public readers we also use
+  (`stevenleehans`, `pilkwang`, JEV) plus its own read and OAI's grades for three findings; R7's on its author's own
+  LLM read with a weight per cell (`probe_targets_opusv11b_rr7_plr7_cdr.csv`, not public), report states as a second
+  head and fastMRI+ boxes as an auxiliary task. **Ours are not shown to be better than theirs:** our two label steps
+  read +0.005 and +0.006 on the LB (kept, neither shown), and the models trained on theirs score above ours.
+- **The reports against the radiologists, on the 58 gold studies** (the three readers that carry gold rows, their
+  mean value; the image model = our five teacher folds, which never trained on gold; report only):
+
+  | finding | gold + | report AUROC | image AUROC | gold positives the readers call absent | gold negatives the readers call present |
+  |---|--:|--:|--:|--:|--:|
+  | ACL | 24 | 0.994 | 0.980 | 0 of 24 | 5 of 34 |
+  | MCL | 9 | 0.982 | 0.955 | 0 of 9 | 3 of 49 |
+  | Medial Meniscus | 26 | 0.945 | 0.972 | 1 of 26 | 4 of 32 |
+  | Lateral Meniscus | 23 | 0.874 | 0.894 | 3 of 23 | 3 of 35 |
+  | Medial OA | 15 | 0.926 | 0.983 | 1 of 15 | 4 of 43 |
+  | Lateral OA | 11 | 0.872 | 0.822 | 2 of 11 | 4 of 47 |
+  | PF OA | 21 | 0.905 | 0.852 | 4 of 21 | 0 of 37 |
+  | Effusion | 35 | 0.859 | 0.981 | 0 of 35 | 2 of 23 |
+  | Synovitis | 27 | 0.741 | 0.853 | 4 of 27 | 4 of 31 |
+  | Baker's | 12 | 0.908 | 0.982 | 1 of 12 | 4 of 46 |
+  | Contusion | 19 | 0.874 | 0.949 | 2 of 19 | **12 of 39** |
+  | Fracture | 18 | 0.863 | 0.951 | 3 of 18 | 5 of 40 |
+  | all | | 0.895 | 0.931 | **21 of 240 (9%)** | **50 of 456 (11%)** |
+
+  So the report labels are wrong on about one cell in ten by the radiologists' reading, and the image model already
+  reads gold better than the labels it was trained on (0.931 against 0.895): of the 21 positives the readers miss,
+  it ranks 16 in its top half. Gold is enriched (Fracture 31% positive against 4% in our targets), so its prevalences
+  say nothing about the test's. Per finding these are 2–12 studies: nothing is to be chosen on them (rule 1).
+- **Training on gold, repeated, with report labels mixed in: it would not help in any way we could measure.**
+  (1) 58 studies are 696 cells against 49,784 report-derived ones, 1.4%. What more data buys here is on record:
+  fold → all data, +847 studies, was 0.927 → 0.929 on the LB (Ortho, 10-03). Fifty-eight studies, each counted as
+  five for being clean, are ~+0.0005. (2) Repeating a study adds no information: a model fits 58 studies in a few
+  epochs and they then stop moving it (the selection table of 08-12 is the same arithmetic). (3) The 847 resolve
+  ~0.004 and the LB ~0.006 for a label change, so the result could not be read. (4) Neither public member trains on
+  gold (R7's manifest: `"gold_in_training": 0`; `d571f4c` for `nartaa`'s line). (5) It ends that model's gold read.
+  The history has it once, as "gold x3 = finals only" (`c962e52`), never run, its supposed source corrected in
+  `d571f4c`. **Free version:** the 58 as ordinary rows in a final all-data fit; no GPU, no claim.
+- **What the same idea looks like with enough data behind it: pseudo-labels.** "Better labels on top, slightly worse
+  ones mixed in" is what a pseudo-label round builds, on all 4,349 studies and not on 58: the table above is the
+  evidence that our out-of-fold predictions are closer to the radiologists than the reports are. It is the lever
+  proposed for Friday's hours (RUNBOOK §4), and gold stays outside it as the one image-read check.
+- **What is left in the reports:** as a label source, little: seven readers agree with each other at r 0.82–0.95
+  and with gold at ~0.90, and a better reader was costed and not run (10-12, E). The one thing in the table that a
+  reader could act on is a convention, not accuracy: Contusion, where the readers call 12 of 39 gold negatives
+  present. Twelve studies; noted, not proposed.

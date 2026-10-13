@@ -9,7 +9,7 @@
 | why the weak findings are weak | [`docs/REVIEW-2026-10-12.md`](docs/REVIEW-2026-10-12.md): the error budget |
 | anything before 10-11 | `git show 9c23daf:RUNBOOK.md` (also `:DATA.md`, `:REFERENCE.md`, `:docs/REVIEW-2026-10-04.md`) |
 
-Last updated 2026-10-13 12:15 PDT.
+Last updated 2026-10-13 12:35 PDT.
 
 ## 0. Right now
 
@@ -19,9 +19,13 @@ Last updated 2026-10-13 12:15 PDT.
   kernel `rsna-knee-sub-pub956-teach1cv5`, pushed 12:12); the five teacher folds alone; the pseudo-label student
   alone. The Synovitis probe and the public checkpoint in our input are **not** submitted: neither decides anything
   now (§4's table). Two slots stay free.
-- **⚠️ The morning session's 17:00 submitter is gone** (checked 11:50: no process, no scheduled task, no cron). The
-  slots of the new UTC day last until 17:00 on 10-14: check `kaggle competitions submissions` and submit by hand
-  whatever is missing (the commands are under §4's table).
+- **The blend's kernel is gated (12:23) and a submitter is armed in the session of 10-13 midday** for 17:00:40: it
+  sends the three, skipping any already sent, and needs the lid open. The morning's submitter had died with its
+  session, so **check `kaggle competitions submissions` after 17:00 and submit by hand whatever is missing** (the
+  commands are under §4's table; the slots last until 17:00 on 10-14).
+- **The scored rerun leaves no log**, so whether our stage ran to the end inside the nine hours cannot be seen
+  directly: note when each submission turns COMPLETE. The five folds alone give our stage's own time; the blend
+  should take the public recipe's time plus that.
 - **Then:** read the three scores by their rules and record them in §2–§4.
 - **The second audit of 10-13 (11:55; LOG, last block) changes three things on this page:** the board (§2: the free
   public recipe is now a 583-team block at 0.956, we are rank 1,792), what the 847 and the LB can judge (§6), and
@@ -134,6 +138,9 @@ not answered). The 0.949 author gained +0.003–0.005 from 2,399 baseline knees.
 - *Our model as the public stack's core:* lost with our 0.93 models. With the direction changed and ours at 0.945,
   adding the public checkpoint to OUR ensemble is open (§4).
 - Still closed: centre crops and zoom; an nnU-Net crop; Qwen report labels; a per-site prior.
+- **Training on the 58 gold studies, repeated or not: not run, and not proposed** (owner's question 10-13 ~12:30; LOG).
+  They are 696 cells against 49,784, the fold → all-data step (+847 studies) was worth ~+0.002, and repeating a
+  study adds no information. Free only as rows in a final all-data fit, at the cost of that model's gold read.
 
 ## 4. Open work
 
@@ -145,7 +152,7 @@ not answered). The 0.949 author gained +0.003–0.005 from 2,399 baseline knees.
 | ~~2~~ | ~~Synovitis probe, teacher-label fold 0~~ **NOT submitted (10-13 12:00):** no decision hangs on it; the teacher labels are kept either way | `rsna-knee-sub-a-ortho-teach1-f0-nall-p-synovitis` | passed | 0.532 (`57117247`) | two ticks decide whether the teacher moved Synovitis |
 | ~~3~~ | ~~the public checkpoint alone, in our input~~ **NOT submitted (10-13 12:00):** the blend runs it in its own notebook and the fine-tune it would have sized is dropped | `rsna-knee-sub-a-ortho-oai-pa-nall` | passed | its own 0.949 | no pass / fail: near 0.949 → use it as it is and skip the fine-tune; ~0.940 or lower → our input costs it and the fine-tune has room |
 | 4 | the pseudo-label student alone. Kept in: the one LB point on the lever proposed for Friday's hours, and only ≥ 0.950 or ≤ 0.940 would move that plan | `rsna-knee-sub-a-ortho-teach2-f0-nall` | passed | 0.944 (`57122696`) | kept unless ≥ 0.005 below; shown at ≥ +0.010 |
-| **5** | **the free 0.956 recipe + our five teacher folds** (`notebooks/build_public_blend_kernel.py`, from `6bc69f9`) | `rsna-knee-sub-pub956-teach1cv5` | ⏳ pushed 12:12 | 0.956, the recipe as published (rank 152–734) | below |
+| **5** | **the free 0.956 recipe + our five teacher folds** (`notebooks/build_public_blend_kernel.py`, from `6bc69f9`) | `rsna-knee-sub-pub956-teach1cv5` | passed (5/5), 12:23 | 0.956, the recipe as published (rank 152–734) | below |
 
 **Read 5, written 10-13 12:15 before its commit run finished.** The public notebook
 (`varshithakolupuri/rsna-knee-one-unused-checkpoint-lifts-the-0-956`, sha256 `6406e923…`: `nartaa` 384 px with the
