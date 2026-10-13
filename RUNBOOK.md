@@ -9,7 +9,7 @@
 | why the weak findings are weak | [`docs/REVIEW-2026-10-12.md`](docs/REVIEW-2026-10-12.md): the error budget |
 | anything before 10-11 | `git show 9c23daf:RUNBOOK.md` (also `:DATA.md`, `:REFERENCE.md`, `:docs/REVIEW-2026-10-04.md`) |
 
-Last updated 2026-10-13 13:12 PDT.
+Last updated 2026-10-13 14:25 PDT.
 
 ## 0. Right now
 
@@ -36,6 +36,13 @@ Last updated 2026-10-13 13:12 PDT.
   blend, the five teacher folds and the pseudo-label student at **17:02 PDT**, or on wake if the Mac sleeps through
   it, and never an item twice. **After 17:02: `tail data/submitter.log` and `$K competitions submissions $C`;** if
   the Mac was rebooted, re-arm with the command in §6. Then read the three scores by their rules into §2–§4.
+- **Open since ~14:15, the owner's question (LOG, last block): train the public R7 recipe itself on a pseudo-label
+  table, instead of porting its parts into ours.** Its trainer is public; its run was 176 windows a study, 16 epochs,
+  4 folds on a 32 GB-class card: ~100 h on two T4s by my estimate and over a T4's memory, so **not a Kaggle job**; on
+  a rented 5090 roughly 25–33 h. Its labels are private (ours would go in), its cache must be rebuilt with its code.
+  Three reads need no training and no go has been given for them: R7 alone (never scored in public; OAI-free as
+  trained), R7 with its mirror pass on, and `jessky`'s public pseudo-labelled S6 folds. **The GPU decides: T4s
+  only → v3; a 32 GB card → R7's trainer first, v3 as the fallback.**
 - **The golds stay held out** (the owner asked again 12:37; LOG): 58 studies are worth ~+0.0005 as training rows
   and are the one check that is not biased against pseudo-labels. Not changed without the owner's word.
 - **OAI-free line for a final:** the five consensus folds (0.945, ref `57112913`) are it today. Its v3 version is

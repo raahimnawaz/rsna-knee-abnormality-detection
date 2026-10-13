@@ -937,3 +937,39 @@ epochs.** Otherwise folds 1–4 go without asking. Gold-58 is reported and decid
   `stage_b/` in each kernel's output.
 - **Not done, and why:** no GPU run (the standing go names v3's folds, but no GPU is available: Kaggle has ~0.7 h
   until Friday, and the owner's GPU was left blank); no cache pull (destination unknown).
+
+## Owner 10-13 ~14:15: "so why arent we using robot b in conjuntion with better answer keys" — R7's trainer with pseudo-labels
+
+Nothing was run and nothing is approved. Read for this, all public and small: `manifest.json` of
+`heliosli/rsna-knee-compact-r7cnxfsss` (R7's weights), and `README.md` and `code/compact_train.py` of
+`jessky/rsna-knee-local-cv-cnx50` (the training tree). Sizes of a run are my estimates, not measurements.
+
+- **Why not: it was never proposed.** The 11:55 audit noted the trainer is public and stopped there; the owner's v3
+  names "the ConvNeXt-small trainer", ours, and ports three of R7's parts into it (spatial attention, mirror, more
+  windows). Training R7's own recipe on better labels is the fuller version of the same idea and was not weighed.
+- **What R7's run was (its manifest's `run_config`):** ConvNeXt-small at 384 px, crop 352; **176 windows a study**
+  by cover sampling at a 3.5 mm physical step, batch 2, 16 epochs, 4 folds, EMA 0.999, wd 0.05, `compile`;
+  `spatial_attn`, `mirror 0.5`, pair-ranking 0.5, OA extent 0.2, `syn_decomp`, a report-state head at 0.5
+  (`state_targets_opusv11b_rr7.csv`), per-cell weights (`cell_weights_plr7_v7.csv`), and a fastMRI+ auxiliary task
+  at 0.3 on 96 windows (`fm384_v1`). Its own pixel cache (`px384_v4` + a side-fix override, views v4, a side
+  classifier, knee anchors). 4,344 pool studies, gold in none. Trained under `/root/autodl-tmp` (a rented machine);
+  the trainer's comments name a 5090 and a PRO 6000, and say gradient checkpointing "keeps 208 windows/study on 32
+  GB cards" at ~1.3× compute. **Inference runs with `flip_tta: False`** although it trained with mirror 0.5.
+- **What is not public:** its targets, cell weights and state targets (the trainer wants its own schema: `is_gold`,
+  `<finding>|prior` columns). `--state-targets`, `--extra` and the fastMRI+ task are optional arguments; `--folds-csv`
+  takes a StudyInstanceUID,fold file such as ours. fastMRI+ was removed from this Mac on 10-09.
+- **Cost against ours (estimate):** 176 windows × ~3,260 training studies is ~13.6× our k 12 epoch's windows, ~11×
+  after the smaller crop: ~1.5 h an epoch on two T4s, ~25 h a fold, ~100 h for four, and 176 windows with gradients
+  do not fit a 16 GB T4 (24 of ours peak at 8.1 GB). **It is not a Kaggle job.** On one rented 5090, roughly 6–8 h
+  a fold, 25–33 h for four. Its cache has to be rebuilt from the DICOMs with its own code first.
+- **Already public, unscored: a pseudo-labelled earlier R7.** `jessky`'s dataset holds five `cnxS6s_d50` folds, the
+  S6 recipe trained on `labels_distill50` ("incorporates an external OOF teacher"), with `distill.py` in the tree.
+  Its README calls it a provisional local-CV candidate and says second-order leakage is not ruled out. No public
+  notebook attaches it (`kaggle kernels list --dataset`: none) and no score is given anywhere we have.
+- **Never scored in public: R7 alone.** As trained it has no OAI in it (report-derived targets, fastMRI+ as a side
+  task), so alone it would also be an OAI-free candidate, to be read against our 0.945.
+- **So three reads cost no training:** R7's four folds alone; R7 with its mirror pass switched on, paired against
+  it; `jessky`'s d50 folds (needs an inference notebook written from the tree's `compact_infer.py`). Each is a
+  submission and the GPU minutes of a commit run: the owner's go.
+- **Where it leaves v3:** with Kaggle's T4s only, R7's recipe cannot train and v3 is what fits. With a 32 GB card,
+  R7's trainer on a pseudo-label table is the stronger use of the hours, and v3 becomes the fallback.
