@@ -877,3 +877,47 @@ current model's fold 0 (`runs_cnxs_teach1_f0`, 847 macro 0.8804, the 0.944 model
 SE), or if any of MCL, Medial / Lateral Meniscus, Medial / Lateral OA is more than 0.03 below** (what a mirror or
 swap fault would look like; single findings moved ≤ 0.011 between two like models), **or if it did not finish 16
 epochs.** Otherwise folds 1–4 go without asking. Gold-58 is reported and decides nothing.
+
+**Built 10-13 12:42–13:05, all on CPU; nothing has trained.**
+
+- **The mirror** (`32fd2b6`). `train_windows.py --mirror P --mirror-tta`; `infer_windows.py` reads `mirror_tta` from
+  `last_meta.json`. The canonical frame (`build_slots64.canon_ops`) puts the medial–lateral axis on the slice order
+  of a sagittal slot and on the columns of a coronal or axial slice, so a mirrored knee is: a sagittal window's three
+  slices in reverse order at depth 1 − pos; a coronal or axial slice flipped left-right at the same depth. Targets:
+  Medial ↔ Lateral Meniscus, Medial ↔ Lateral OA; MCL becomes NaN (no loss). `pos_weight` uses the prevalence the
+  loss sees (a medial column is its lateral twin's on the mirrored share). At test, MCL is the plain pass alone.
+  **`notebooks/mirror_fixture.py`, 66 checks:** (1) two synthetic knees through the real DICOM builder, one with its
+  anatomy reflected: `mirror_windows` of the first equals the second to ±1 grey level in all three planes, right and
+  left knee, at the mirrored depth; without the mirror they differ by > 50, and a mirror that flips a sagittal slice
+  in-plane, or keeps the unmirrored depth, fails; (2) the target swap; (3) on a random model the trainer's batched
+  two-pass `predict` equals the submission path's arithmetic to 1e-5, and mirroring the input swaps the medial /
+  lateral columns of the mean and nothing else; (4) `mirror=0` is the old sample (the existing canon and
+  infer-parity fixtures still pass), `mirror=1` its mirror; (5) the whole flag set trains four epochs on a tiny conv
+  encoder and writes `oof_all.csv` (the mean), `oof_plain.csv`, `avg3/`, and a meta with `mirror_tta`.
+  **Also run under two-process DDP on this laptop** (the path Kaggle's two T4s take): equal weight checksums on both
+  ranks, the sharded two-pass evaluation and `avg3` written.
+- **The tables.** `targets_teacher_v3.csv` sha256 `6f786dda00286503c8a541fc254f3a648eca48809bb7c323a61552e71d39f36a`;
+  `targets_consensus_v3.csv` `264015596475582aac0f1739b64a4f7128117201698ee2a4941bc9d5d1deafd5`; both 4,349 studies,
+  no masked cell, in the private Kaggle dataset `raahimnawaz/rsna-knee-student-targets` (new versions 12:54 and
+  13:00, with `folds_site_stage_b.csv` `b8d82239…`). Checks: the builder at `--w-own 0.5` rebuilds
+  `targets_teacher_v2` byte for byte; v3 from the five git-tracked per-fold `oof_all.csv` files is the same sha as
+  from the untracked `cv_last` files, so a fresh clone can rebuild it. **Size of the dose, measured on the tables
+  (not on gold):** mean cell change against `targets_teacher_v1` 0.050 (v2: 0.033); cells crossing 0.5: 2,555 of
+  52,188, 4.9% (v2: 3.4%). So v3 is 1.5× v2's dose. The OAI-free twin moves 0.080 a cell and 9.5% across 0.5 (its
+  base held no model), and its 2,404 unread Synovitis cells are filled by the consensus folds' predictions alone.
+- **⏳ The CPU smoke of the full recipe on the real cache: PUSHED 12:55**,
+  `raahimnawaz/rsna-knee-c7-train-convnext-small-v3s-cv` v1 from `a85f8c8` (`--smoke`, the v3 flags, two epochs so
+  the averaged weights are reached; `--k 2` in a smoke). Its result goes here.
+- **Off Kaggle, and the way back** (`fea98f6`, `notebooks/offkaggle.py`). `train` runs one fold on a local copy of
+  the cache with the kernel's own package and `V3_TRAIN_ARGS` (imported from the builder; `--recipe v3` there);
+  `--dry` for fold 0 writes lists **identical, in order,** to the Kaggle fold-0 kernel's (3,502 / 847); it refuses a
+  finished run that lost studies or epochs. `pack` makes one flat private dataset per fold (`last.pt`,
+  `last_meta.json`, `oof_all.csv` side by side, which is what the submission kernel looks for), and prints the
+  `--weights-dataset … --weights-sha …` line; `build_submit_kernel.py` and `build_public_blend_kernel.py` take
+  `--weights-dataset`, with the same sha256 and gate as a kernel source. Tested offline only: two toy runs packed,
+  a submission kernel built on them with the datasets attached. **Not tested: a real upload and its gate on Kaggle
+  (needs a real fold), and `pull` (62 GB; nothing has been downloaded, and where to is the owner's answer).**
+- **The OAI-free line.** Alive today as the five consensus folds (0.945). Its v3 is one table away from training
+  and costs a second set of five folds; not started, no hours named for it.
+- **Not done, and why:** no GPU run (the standing go names v3's folds, but no GPU is available: Kaggle has ~0.7 h
+  until Friday, and the owner's GPU was left blank); no cache pull (destination unknown).

@@ -9,28 +9,36 @@
 | why the weak findings are weak | [`docs/REVIEW-2026-10-12.md`](docs/REVIEW-2026-10-12.md): the error budget |
 | anything before 10-11 | `git show 9c23daf:RUNBOOK.md` (also `:DATA.md`, `:REFERENCE.md`, `:docs/REVIEW-2026-10-04.md`) |
 
-Last updated 2026-10-13 12:35 PDT.
+Last updated 2026-10-13 13:10 PDT.
 
 ## 0. Right now
 
-- **Owner 10-13 ~12:00: "Use the public blend but put what lever we have that's better than what it has or what can
-  improve it into it and submit that. Only submit those other 4 if they're actually worth anything."**
-- **So tonight is three submissions, not four** (§4): the free 0.956 recipe with our five teacher folds added (new
-  kernel `rsna-knee-sub-pub956-teach1cv5`, pushed 12:12); the five teacher folds alone; the pseudo-label student
-  alone. The Synovitis probe and the public checkpoint in our input are **not** submitted: neither decides anything
-  now (§4's table). Two slots stay free.
-- **The blend's kernel is gated (12:23) and a submitter is armed in the session of 10-13 midday** for 17:00:40: it
-  sends the three, skipping any already sent, and needs the lid open. The morning's submitter had died with its
-  session, so **check `kaggle competitions submissions` after 17:00 and submit by hand whatever is missing** (the
-  commands are under §4's table; the slots last until 17:00 on 10-14).
-- **The scored rerun leaves no log**, so whether our stage ran to the end inside the nine hours cannot be seen
-  directly: note when each submission turns COMPLETE. The five folds alone give our stage's own time; the blend
-  should take the public recipe's time plus that.
-- **Then:** read the three scores by their rules and record them in §2–§4.
-- **The second audit of 10-13 (11:55; LOG, last block) changes three things on this page:** the board (§2: the free
-  public recipe is now a 583-team block at 0.956, we are rank 1,792), what the 847 and the LB can judge (§6), and
-  the GPU queue (§4: the fine-tune and `--k 24` recommended to drop, spatial attention to hold; the owner decides).
-- **Waiting for GPU hours** (Friday 17:00's reset, or a rented GPU): see §4's table and the recommendation under it.
+- **Owner 10-13 ~12:37: "Change of approach for the last 9 days: stop testing one change at a time."** One combined
+  recipe, **v3**, on the ConvNeXt-small trainer: stronger pseudo-labels, spatial attention, mirror augmentation with
+  a mirrored pass at inference, 24 windows, 16 epochs, the averaged weights (§4 has the recipe, the dose and the
+  rule; LOG, last block, has the owner's message in full). It replaces the one-arm-at-a-time queue.
+- **Built and tested on CPU, 10-13 12:40–13:10:** the mirror code (`notebooks/mirror_fixture.py`, 66 checks, the
+  geometry against the real DICOM path), `targets_teacher_v3` and its OAI-free twin (§7; in the private Kaggle
+  dataset), the recipe under two-process DDP on this laptop, the off-Kaggle runner and the way back for its weights
+  (`notebooks/offkaggle.py`, `--weights-dataset`). **The Kaggle CPU smoke of the full recipe on the real cache**
+  (`rsna-knee-c7-train-convnext-small-v3s-cv`, pushed 12:55) was still running at 13:10: read its log before any
+  GPU run (`[sub]`-style lines to find: `mirror:`, `mirror averaging:`, `spatial attention:`, 2 epochs, 0 tracebacks).
+- **Nothing has trained. The GPU is the open question:** the owner's message left it blank ("I am getting [FILL
+  IN]"). Kaggle has ~0.7 h until Friday 17:00's reset, and five v3 folds are ~24.5 h of that last 30 h week (§5).
+  **Ask the owner which GPU, and where the 62 GB Stage B cache should be pulled to** (it has not been pulled).
+- **Standing go (owner 10-13 12:37; no need to ask per run):** fold 0 of v3 as a not-broken check → the other four
+  → a second label round from v3's own held-out predictions if hours remain. Stop and tell the owner only if fold 0
+  is clearly worse than the current model (§4 says what that means). **Standing go for two submissions:** v3 five
+  folds alone, and v3 inside the public blend in place of the current folds. Ask before any other.
+- **Tonight's three submissions (§4) are armed again.** The 12:26 submitter was not running at 12:37 (it had gone
+  with its session). `notebooks/submit_at_reset.py` was armed at 12:42 as its own process (pid 96147): it sends the
+  blend, the five teacher folds and the pseudo-label student at **17:02 PDT**, or on wake if the Mac sleeps through
+  it, and never an item twice. **After 17:02: `tail data/submitter.log` and `$K competitions submissions $C`;** if
+  the Mac was rebooted, re-arm with the command in §6. Then read the three scores by their rules into §2–§4.
+- **The golds stay held out** (the owner asked again 12:37; LOG): 58 studies are worth ~+0.0005 as training rows
+  and are the one check that is not biased against pseudo-labels. Not changed without the owner's word.
+- **OAI-free line for a final:** the five consensus folds (0.945, ref `57112913`) are it today. Its v3 version is
+  ready to train (`targets_consensus_v3`, §7) if hours allow: the same recipe, ~24.5 h more.
 
 ## 1. Goal and the owner's directions
 
@@ -40,6 +48,9 @@ Last updated 2026-10-13 12:35 PDT.
   stands (the owner once called that "useless").
 - Solo: no merger.
 - **Ask before a batch of submissions and before spending GPU hours.** A go covers what it named and nothing later.
+  **In force since 10-13 12:37, a standing go that names:** v3 fold 0, then folds 1–4, then a second label round
+  from v3's own held-out predictions; and two submissions, v3 five folds alone and v3 inside the public blend.
+  Everything else is still asked first.
 - Keep this page a current-state page; dated detail goes to the LOG. No Claude attribution in this repo's commits.
 
 ## 2. Where we are
@@ -201,7 +212,32 @@ nothing: five folds on `targets_teacher_v2` (~9.5 GPU-h) are trained only if rea
 smaller or negative read leaves `targets_teacher_v1` as the finals' labels. A stronger dose (the OOF at full weight,
 or other teachers per finding, as the forum describes) is a different arm and would need its own go.
 
-**Waiting for GPU hours** (each has its kernel command in §6 and its rule in the LOG):
+**v3, the combined recipe (owner 10-13 12:37; everything here was fixed before any run, LOG last block).**
+
+| part | what | state |
+|---|---|---|
+| labels | `targets_teacher_v3`: `targets_teacher_v1` with the five teacher folds' held-out predictions at **0.75** of every cell (v2 was 0.5: reports 12.5%, public CoAtNet 12.5%, our held-out models 75%). Cells move 0.050 on average (v2 0.033); 4.9% cross 0.5 (v2 3.4%): **1.5× v2's dose, not a different regime** | built, in the Kaggle dataset |
+| pooling | `--spatial-attn` | built 10-12, in the smoke |
+| mirror | `--mirror 0.5`: half the training draws are the knee mirrored medial ↔ lateral (a sagittal slot read backwards at depth 1 − pos; coronal and axial slices flipped), Medial ↔ Lateral Meniscus and OA targets swapped, MCL masked. `--mirror-tta`: every prediction is the mean of the plain and the mirrored pass, MCL from the plain pass | built 10-13, 66 offline checks |
+| windows | `--k 24 --micro 1` (24 windows a forward per GPU, as today; the batch stays 8 studies) | flag existed |
+| schedule | 16 epochs; submit `avg3/last.pt` (mean of the last three epochs' weights), gated against `avg3/oof_all.csv` | existed |
+
+- **One fold per kernel, ~4.9 h on two T4s (estimate: twice the measured k 12 epoch, × 16, + four evaluation
+  passes); five folds ~24.5 h; a second label round the same again.** §5.
+- **Fold 0 is a not-broken check. "Clearly worse" = stop and tell the owner:** against `runs_cnxs_teach1_f0` (847
+  macro 0.8804, the 0.944 model) on the same studies, v3's `avg3/oof_all.csv` more than **0.008** below on the macro,
+  or more than **0.03** below on any of MCL, Medial / Lateral Meniscus, Medial / Lateral OA (a mirror or swap fault),
+  or fewer than 16 epochs. Otherwise folds 1–4 go. It is not a test for a gain: the 847 under-credit pseudo-labels.
+- **The two submissions with a standing go:** v3 five folds alone (against the five teacher folds, tonight's read 1;
+  a label-and-recipe pair, readable from ~+0.006); v3 in the public blend in place of the teacher folds, same
+  weights as read 5 (`build_public_blend_kernel.py`), against read 5.
+- **A second label round** = `build_consensus_targets.py … --own-oof <v3's five cv_avg3 files> --w-own 0.75` on
+  `targets_teacher_v1` again, then five more folds. Only with hours to spare.
+- **The OAI-free twin:** the same recipe on `targets_consensus_v3` (`targets_consensus_v2` + the five CONSENSUS
+  folds' held-out predictions at 0.75; 2,404 unread Synovitis cells are filled by those models alone). Not started.
+- **What v3 cannot tell us:** which of its five parts moved the score. The owner's choice.
+
+**Superseded by v3 on 10-13 12:37 (kept for the record: each arm's own rule and the audit's view of it):**
 
 | arm | cost | state | rule |
 |---|--:|---|---|
@@ -225,8 +261,14 @@ five folds against five folds on the LB (readable from +0.006). The dose and the
   then once the student finishes (the owner's quota page read 10.2 h on 10-12 20:46; that page is the truth).
   **casmi26 shares the quota.** Two GPU sessions at once, five CPU sessions.
 - **Submissions:** 5 a day, reset 17:00 PDT (00:00 UTC). 25 used before today's four.
-- **A rented GPU**, if the owner wants one: a 5090 at ~$0.20–0.99/h would run the whole list above in ~5–7 h
-  ($10–30, speed estimated, not measured). The Stage B cache would have to be pulled to it from Kaggle.
+- **v3 against that:** ~4.9 h a fold on Kaggle (estimate), ~24.5 h for five, of the last 30 h week, which casmi26
+  shares. A second label round or the OAI-free twin (~24.5 h each) does not fit on Kaggle beside it.
+- **A GPU off Kaggle** (the owner's 12:37 message says one is coming, not which): `notebooks/offkaggle.py` (§6).
+  It needs this repo, `~/.kaggle` credentials, `data/train.csv`, the private targets dataset (tables and
+  `folds_site_stage_b.csv`) and the Stage B cache, **~62 GB** as eight kernel outputs (4,407 studies × 96 × 384²
+  bytes). `offkaggle.py pull` has not been run at that size, and this page's own note says a 99 MB kernel output
+  once broke the download: try one shard first. A rented 5090 was estimated at ~$0.20–0.99/h and several times
+  two T4s; this M5 laptop is ~5× slower than Kaggle (measured 10-12), ~24 h a fold: not an option for five.
 
 ## 6. How to run things
 
@@ -257,7 +299,28 @@ $K kernels push -p <dir>
 $K competitions submit rsna-knee-abnormality-detection -k raahimnawaz/<kernel> -v <n> -f submission.csv \
     -m "<what, against what, and the rule>"
 
-# the arms waiting for GPU (§4): the baseline line above with
+# ---- v3 (§4). One fold per kernel; --recipe v3 = the flags and 16 epochs, defined once in the builder.
+$PY notebooks/build_backbone_ab_kernel.py --arch convnext_small --corpus stage_b --folds 0 --n-train 0 --recipe v3 \
+    --time-budget-h 7.0 --targets data/student/targets_teacher_v3.csv \
+    --targets-from raahimnawaz/rsna-knee-student-targets --tag v3 --out <dir>      # folds 1..4: --tag v3-f1 … (slug < 50)
+#   CPU smoke first: add --smoke and --tag v3s. Not-broken check after fold 0 (§4's numbers):
+$PY fusion/score_oof.py fusion/runs_cnxs_teach1_f0/runs_convnext_small/fold0 <v3 fold0>/avg3
+# submission: the AVERAGED weights. --weights-sha = sha256 of each fold's avg3/last.pt (build_weights_sha_kernel.py)
+
+# ---- v3 off Kaggle (the same lists, package and flags; fold 0's lists are identical to the Kaggle run's, in order)
+$PY notebooks/offkaggle.py pull --dest <cache>                                   # ~62 GB, untested at that size
+$PY notebooks/offkaggle.py train --fold 0 --corpus <cache> --labels data/student/targets_teacher_v3.csv \
+    --folds data/student/folds_site_stage_b.csv --out <runs>                     # --dry prints the command only
+$PY notebooks/offkaggle.py pack --runs <runs> --slug rsna-knee-v3 --out <dir>    # one flat private dataset per fold;
+#   it prints the `kaggle datasets create` lines and the build_submit_kernel line (--weights-dataset a,b,… --weights-sha …).
+#   build_public_blend_kernel.py takes --weights-dataset too. The kernel's commit run gates them as it does a kernel's.
+
+# ---- the 17:00 submitter (survives the session; not a reboot). The plan file lists kernel, version, message, key.
+$PY notebooks/submit_at_reset.py --plan notebooks/submit_plan_2026-10-13.json --dry-run     # what it would send now
+$PY notebooks/submit_at_reset.py --plan notebooks/submit_plan_2026-10-13.json --not-before "2026-10-13 17:02:00" --detach
+tail data/submitter.log
+
+# the arms that waited for GPU before v3 (§4): the baseline line above with
 #   spatial attention:  --tag cons2-sa "--train-args=--allow-missing-labels --spatial-attn"
 #   the fine-tune:      --arch coatnet --all-data (no --folds) --epochs 6 --time-budget-h 5.0 --tag oai-ft \
 #                       --targets data/student/targets_teacher_v1.csv \
@@ -275,6 +338,7 @@ $K datasets version -p <dir> -m "<what was added>"
 
 $PY fusion/error_budget.py                                          # the review's tables
 $PY notebooks/canon_fixture.py --out <dir> && $PY notebooks/infer_parity_fixture.py --fixture <dir>   # offline tests
+$PY notebooks/mirror_fixture.py --out <dir>                         # the mirror: 66 checks, ~1 min, no GPU
 ```
 
 **Judging a change.**
@@ -307,6 +371,10 @@ $PY notebooks/canon_fixture.py --out <dir> && $PY notebooks/infer_parity_fixture
 - `kaggle kernels output` can hang for hours after a sleep: run it with a timeout and retry.
 - CoAtNet on Stage B needs its own argument package (`COATNET_PACKAGE`); the ViT one fails on `--ckpt-blocks`.
 - A third GPU kernel cannot start while two are running: build it, push it when one finishes.
+- A submitter armed as a session's background task stops with that session (twice on 10-13). Use
+  `submit_at_reset.py --detach`, and check `data/submitter.log` and the account after the hour.
+- `--k 24` with two studies a forward is 48 windows: over a T4's memory (24 windows peak at 8.1 GB). `--micro 1`.
+- A CPU smoke of one epoch never reaches the averaged weights; the small-backbone smoke now runs two.
 
 ## 7. Labels and weights
 
@@ -314,13 +382,17 @@ Targets are in `data/student/` (git-ignored) and in the private Kaggle dataset `
 
 | table | sha256 | what it is |
 |---|---|---|
+| `targets_teacher_v3.csv` | `6f786dda…` | teacher_v1 with the same held-out predictions at **0.75** of every cell. **v3's labels** (§4) |
+| `targets_consensus_v3.csv` | `26401559…` | consensus_v2 with the five CONSENSUS folds' held-out predictions at 0.75, no outside teacher: **the OAI-free twin** |
 | `targets_teacher_v2.csv` | `fa98f943…` | teacher_v1 with our five teacher-label folds' held-out predictions at half of every cell (a pseudo-label round). **Under test** (§4, read 4) |
 | `targets_teacher_v1.csv` | `2980e8d6…` | consensus_v2 with the public OAI-trained CoAtNet's predictions at half of every supervised cell, and alone on unread Synovitis. **Best so far** |
 | `targets_consensus_v2.csv` | `a1ed4034…` | seven public readers of the same reports on `dread_soft`'s levels; Synovitis masked where unread. **The baseline's** |
 | `dread_soft` | `8cec477f…` | the public graded table both are built on (`dreaddevelopment/rsna-knee-labels`) |
 
-Builder: `labeling/build_consensus_targets.py [--teacher <oof_all.csv>] [--own-oof <files>]` (§6); with `--teacher`
-alone it rebuilds `targets_teacher_v1` byte for byte. Never train on a table that
+`folds_site_stage_b.csv` (`b8d82239…`, same dataset): the fold of each of the 4,349 non-gold studies, for training
+off Kaggle. Builder: `labeling/build_consensus_targets.py [--teacher <oof_all.csv>] [--own-oof <files>] [--w-own]`
+(§6); with `--teacher` alone it rebuilds `targets_teacher_v1` byte for byte, and with `--w-own 0.5` v2 (checked
+10-13). Never train on a table that
 contains the gold rows (`tasmeemreza`, `yehezkielhaganta`, `dhiyaneshbabu`, `lvthanhxun` fused, `gperdrizet`), and
 never on `lixin73`'s: `score_oof.py` scores against it.
 
@@ -366,7 +438,9 @@ Caches: Stage B = `raahimnawaz/rsna-knee-stage-b-s{0..7}of8` (in use). Stage C =
 | `fusion/error_budget.py` | the review's tables | live |
 | `labeling/build_consensus_targets.py` | the label tables of §7, including the pseudo-label step | live |
 | `notebooks/build_*_kernel.py` | generators for the cache, training, weights-sha and submission kernels | live |
-| `notebooks/*_fixture.py` | offline tests on synthetic DICOMs | live |
+| `notebooks/*_fixture.py` | offline tests on synthetic DICOMs; `mirror_fixture.py` is the mirror's | live |
+| `notebooks/offkaggle.py` | v3 on another GPU: the folds file, one fold's run, the cache pull, packing weights as datasets | live, never run on a GPU |
+| `notebooks/submit_at_reset.py`, `submit_plan_*.json` | the detached submitter and the list it sends | live |
 | `fusion/runs_cnxs_*`, `runs_coatnet_oai_teacher_pa` | this branch's run records: config, held-out and gold predictions, scores (no weights, no logs) | live |
 | `fusion/orthofoundation_model.py`, `qwen_vlm.py`, `local_teacher_folds.py`, `window_curve.py`, `score_gold.py`, `labeling/build_student_targets.py`, the `core_*` fixtures, the other `fusion/runs_*` | the ViT-L, VLM, same-report-teacher and public-stack work up to 10-03 | legacy: kept for the showcase, not on the current path. Two files are still read: the training kernel embeds `runs_c6_ortho/oof_all.csv` and `runs_port_repro/oof_all.csv` as its paired control |
 | `README.md` | the portfolio description as of 10-03, with a status note for this branch | |

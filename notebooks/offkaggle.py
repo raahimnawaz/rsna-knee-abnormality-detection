@@ -44,15 +44,20 @@ def _ids(p: Path) -> list[str]:
 
 
 def folds(a) -> None:
-    val, train = {}, {}
+    """Fold k's held-out studies are the rows of its tracked oof_all.csv; where the kernel's own lists are on disk
+    (they are not in git) they must agree."""
+    val = {}
     for k, rec in RECORDS.items():
         d = PROJ / "fusion" / rec / "runs_convnext_small" / f"fold{k}"
-        val[k], train[k] = _ids(d / "val_studies.csv"), _ids(d / "train_studies.csv")
+        val[k] = _ids(d / "oof_all.csv")
+        if (d / "val_studies.csv").exists() and _ids(d / "val_studies.csv") != val[k]:
+            raise SystemExit(f"fold {k}: oof_all.csv is not the kernel's val list")
     every = [u for k in val for u in val[k]]
     if len(set(every)) != len(every):
         raise SystemExit("a study is held out in two folds")
-    for k in val:                                           # each train list is exactly the other four folds
-        if set(train[k]) != set(every) - set(val[k]):
+    for k, rec in RECORDS.items():                          # each train list is exactly the other four folds
+        t = PROJ / "fusion" / rec / "runs_convnext_small" / f"fold{k}" / "train_studies.csv"
+        if t.exists() and set(_ids(t)) != set(every) - set(val[k]):
             raise SystemExit(f"fold {k}: the train list is not the other four folds")
     out = pd.DataFrame([(u, k) for k in val for u in val[k]], columns=["StudyInstanceUID", "fold"])
     out = out.sort_values("StudyInstanceUID").reset_index(drop=True)
