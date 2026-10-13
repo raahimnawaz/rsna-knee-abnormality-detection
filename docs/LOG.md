@@ -389,7 +389,7 @@ could use it (the teacher's student, 0.944 against 0.938), so the order is: the 
     `nartaa/rsna-knee-publication-swa-weights-20261007`), `targets_teacher_v1` (half of every cell is this model's
     own reading, which holds it to what OAI taught it while the input changes), 6 epochs, `COATNET_PACKAGE`
     (bb-lr 3e-5 as the 10-02 CoAtNet student, drop-path 0.1, zero-initialised slot / depth embeddings, plain BCE;
-    corrected 21:40: first written as the ViT package, which the smoke below refused).
+    corrected 21:35: first written as the ViT package, which the smoke below refused).
     **Cost:** the 10-02 CoAtNet student took 456 min for 7 epochs of 4,349 studies on ONE T4 = 65 min/epoch, so
     ~33 min/epoch on both and **~3.5 GPU-h** for 6: more than this week has left (~0.9 h after tonight's runs).
     Friday 17:00's reset, or a rented GPU.
@@ -426,4 +426,53 @@ could use it (the teacher's student, 0.944 against 0.938), so the order is: the 
   trained on Stage A, where no package is added. **Fix:** `COATNET_PACKAGE` in `build_backbone_ab_kernel.py`
   (bb-lr 3e-5, drop-path 0.1, `--pos-emb`, `--fit-budget`, `--conf-weight none`; every block checkpointed, not
   compiled). ConvNeXt-small's and Ortho's argument lists rebuilt and unchanged.
+- **Fine-tune smoke v2 PUSHED 10-12 21:35** from `1b75b83` (the `COATNET_PACKAGE` arguments); past v1's failure
+  point and still running at 21:45.
+
+---
+
+# 2026-10-12 ~21:45 — owner: "use online resources to try and find a useable fix for our problem"
+
+Read tonight: the leaderboard, the public notebooks and datasets (Kaggle CLI), four forum threads (745861 "Tricks",
+746792 the 0.949 author's write-up, 743416 external data, 735304 "Best single-model score"). Everything below is what
+other people report, unverified by us unless it says measured. Nothing is approved or run.
+
+**Board (pulled 21:41):** #1 0.966; three teams 0.965; 0.963 at ~rank 7–11. A public notebook reads the medal lines
+as gold to rank 21 (0.962), silver to 290, bronze to 581; the 0.954 tie group runs from rank 193 to 870; hidden test
+~1,300 studies, public part ~390, one score ±0.007 (2 SD) in its simulation.
+
+1. **Pseudo-labels from strong image models are what the top single models report, with no outside data** (735304):
+   `azamat1ch` (5th) five-fold singles ConvNeXt-T 0.959, EfficientNetV2-S 0.956, CoAtNet 0.952; `colum2131` (40th)
+   ConvNeXt-T 0.953 and DINOv2 ViT-S 0.951 "trained with pseudo labels … no external data"; `Raymond Yuen` (36th)
+   0.938 → 0.949 on labels alone ("weak-label sources to train teacher models, then … pseudo-labels … a final model
+   on them; different teachers seem to help different targets"; API cost under $5; cheap and expensive readers
+   differ little); `CoolinLai` (21st) five-fold ResNet50 at 224 px 0.954; `Chris Deotte`: a pseudo-labelled single
+   model matches the ensemble that labelled it.
+   **Against our record:** RUNBOOK §3 closes "teacher rounds that learn from the same reports" on +0.026 gold, ~0 LB.
+   That round's teachers were four ResNet34 at 224 px (a model 0.036 under its own student on the 691). A round from
+   the five-fold ConvNeXt-small's out-of-fold predictions has NOT been run. `add_teacher` in
+   `build_consensus_targets.py` already blends a teacher's order into the targets; the consensus folds' OOF is on
+   disk and the teacher folds' arrives with tonight's kernels. **Proposed arm (not approved):** targets =
+   `targets_teacher_v1` + our own five-fold OOF at half weight; fold 0, the 0.944 model's recipe, ~1.9 GPU-h; the LB
+   judges it alone against 0.944 (kept unless ≥ 0.005 below, shown at ≥ +0.010).
+2. **Model size is not the lever** (735304; 735154 "Scaling the encoder bought us nothing (+0.0011)"): the best
+   reported singles are ConvNeXt-Tiny, ResNet50 and EfficientNetV2-S at 224 px. A bigger ConvNeXt is not proposed.
+3. **OAI, from the 0.949 author (746792):** 2,399 BASELINE OAI knees, masked labels, supervising exactly **PF OA,
+   Lateral OA and Synovitis** (our three weak findings); 0.942 → 0.945 with them, 0.948 with the 384 px full-field
+   recipe, +0.001 from mirror averaging; a 12-month arm did not help; fewer windows at inference lost 0.006; the
+   MOAKS mapping is not published (asked, unanswered). **Access (743416):** one participant reports individual
+   approval at once through a Login.gov account, "Institutional Approval Required: No"; others report login and
+   download errors; the host has still not said yes or no for OAI, and a 23rd-place participant warns against it.
+   So the unverified fact of RUNBOOK §3's OAI row now has one report in favour; it is still the owner's login.
+4. **The public stack is two models and a rank blend:** `nartaa`'s OAI-trained CoAtNet (0.949, Apache 2.0) and
+   `heliosli`'s four-fold ConvNeXt-small (S6 / R7: knee-joint anchors, a side classifier; "Feel free to blend my
+   model with yours!"), per-finding percentile ranks, 70/30 → 0.954, R7 50/50 → ≈0.957. A third reader
+   (`goodpjw2008`, 0.929 alone) adds nothing at a flat 30% (0.948) and 0.000–0.001 with per-finding weights.
+   Every one of them runs `nartaa`'s notebook unchanged as stage 1, in its own preprocessing. **For us:** because
+   OAI supervised exactly our three weak findings, a per-finding rank blend with weights fixed beforehand (theirs
+   heavier on those three) is the principled way to add it; that means its own notebook as stage 1 (our Submission
+   B path), not the checkpoint in our input.
+5. **Smaller label ideas, one report each:** train only on cells where the readers agree strongly (> 0.9 or < 0.1),
+   dropping ~25% of cells ("improved CV and public LB", rank ~1,235); KneeCoT is ruled out by the host; KJD-25K
+   (MICCAI 2026) and KneeXNet-2.5D could not be found by search.
 

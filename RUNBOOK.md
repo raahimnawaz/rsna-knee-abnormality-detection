@@ -68,9 +68,11 @@ weak finding 0.03–0.07 lower: do not size anything from gold.
 | denser coronal and axial slices (Stage C cache) | held-out macro +0.0030 ± 0.0023; Lateral OA / PF OA / MCL −0.0002 ± 0.0049 | **FAIL: Stage B stays.** Slice spacing is not the limit. It ran 11 epochs of 12 |
 | the public OAI-trained model run on our cache | gold 0.920 (ours 0.928) | usable as a teacher; not a better reader than its student |
 | affine augmentation | −0.0019 ± 0.0048 on ResNet34, 09-27 (`75ab54c`) | **not run** on this recipe; held |
-| OAI data itself | host (discussion 741819): allowed if reachable without institutional sign-off, which is unverified; cannot go on Kaggle; the access request is the owner's. A local Mac could train it (this M5 laptop: 17.7 img/s against Kaggle's ~90, measured 10-12; LOG) | **not in the time left on Kaggle alone**; open only if the owner has a Studio-class Mac and same-day access |
+| OAI data itself | host (discussion 741819): allowed if reachable without institutional sign-off, which is unverified; cannot go on Kaggle; the access request is the owner's. A local Mac could train it (this M5 laptop: 17.7 img/s against Kaggle's ~90, measured 10-12; LOG). Forum 10-12: one participant reports individual, immediate NDA approval, and the 0.949 author used 2,399 baseline knees for PF OA, Lateral OA and Synovitis only (+0.003–0.005 for them) | **not in the time left on Kaggle alone**; open only if the owner has a Studio-class Mac and same-day access |
 
-Closed before this branch, do not re-open (`9c23daf`): teacher rounds that learn from the same reports; our model as
+Closed before this branch, do not re-open (`9c23daf`): teacher rounds that learn from the same reports (**⚠️ 10-12
+~21:45: what was run is a round from four ResNet34 teachers; several top-40 teams report their best single models
+come from pseudo-labels of strong image models, and a round from our five-fold OOF is untested: LOG, same time**); our model as
 the public stack's core; centre crops and zoom; an nnU-Net crop; Qwen report labels; a per-site prior; the fastMRI+
 teacher (what failed was a ResNet34 on four findings judged on gold-58, not fastMRI+ as data: LOG 10-12 ~21:07);
 bigger backbones.
