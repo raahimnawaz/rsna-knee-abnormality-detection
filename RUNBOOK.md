@@ -255,6 +255,20 @@ optimiser, k = 12, per-finding attention) **without** our confidence weight.
     from `6227cc2`; its notebook differs from the 0.938 model's in `LAYOUT = 'stage_c'` and `--enc-chunk 64` only
     (rebuilt and diffed). 12 epochs, 3 h cap, due ~19:00. Read: `score_oof.py` paired against
     `fusion/runs_cnxs_cons2_f0/runs_convnext_small/fold0`, by the rule above.
+  - **✅ The four probes READ 10-12 (seen 17:35 PDT), five-fold model:**
+
+    | finding | LB probe | AUROC (± 0.006) | deficit, of 0.66 | gold-58 said |
+    |---|--:|--:|--:|--:|
+    | Synovitis (fold 0 alone, ref `57117247`) | 0.532 | 0.884 | 0.116 = 18% | 0.841 |
+    | Lateral OA (`57122701`) | 0.533 | 0.896 | 0.104 = 16% | 0.822 |
+    | PF OA (`57122722`) | 0.533 | 0.896 | 0.104 = 16% | 0.864 |
+    | Lateral Meniscus (`57122728`) | 0.536 | 0.932 | 0.068 = 10% | 0.882 |
+    | MCL (`57122735`) | 0.539 | 0.968 | 0.032 = 5% | 0.961 |
+    | the other seven, by subtraction from 12 × 0.945 | | mean 0.966 | 0.24 = 36% | 0.946–0.986 |
+
+    Half of the deficit is Synovitis + Lateral OA + PF OA (0.88–0.90). Lateral Meniscus (0.932) and MCL (0.968)
+    are better than gold-58 said. Read 6b (the student's Synovitis probe, kernel ready) now matters more: Synovitis
+    is the largest single term and the teacher is the one label source that could move it.
 - **Affine arm (review §5 #2): HELD, not run.** Found while preparing it: the flag was tested 09-27 on ResNet34,
   −0.0019 ± 0.0048 (`75ab54c`). The owner approved it without that fact; ask before spending 1.8 GPU-h. `--k 24`
   (~3.3 h) is the alternative for the same hours.
