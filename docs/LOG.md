@@ -919,5 +919,13 @@ epochs.** Otherwise folds 1–4 go without asking. Gold-58 is reported and decid
   (needs a real fold), and `pull` (62 GB; nothing has been downloaded, and where to is the owner's answer).**
 - **The OAI-free line.** Alive today as the five consensus folds (0.945). Its v3 is one table away from training
   and costs a second set of five folds; not started, no hours named for it.
+- **`--time-budget-h 9.0` for a v3 fold, not the 7.0 written above (13:05, before any run; a budget, not a recipe
+  change).** `--fit-budget` cuts epochs when 16 × (the measured epoch × 1.35) does not fit, and 7.0 h holds 16 epochs
+  only up to ~19 min an epoch against an estimate of 16.4. At 9.0 h it holds to ~25 min, and 3 h of the session
+  remain for evaluation. The real fold-0 kernel builds from `62c3d9d` with `--recipe v3` and carries the same flags
+  as the smoke (checked in the built notebook); it is not pushed.
+- **The cache is retrievable and its size is now measured, not estimated:** shard 0's manifest and ids fetched
+  (`c7-96slice-384`, canonical, 551 studies → `vols.npy` 7.8 GB); eight shards ≈ 62.4 GB. Its files sit under
+  `stage_b/` in each kernel's output.
 - **Not done, and why:** no GPU run (the standing go names v3's folds, but no GPU is available: Kaggle has ~0.7 h
   until Friday, and the owner's GPU was left blank); no cache pull (destination unknown).

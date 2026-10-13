@@ -22,7 +22,7 @@ Last updated 2026-10-13 13:10 PDT.
   dataset), the recipe under two-process DDP on this laptop, the off-Kaggle runner and the way back for its weights
   (`notebooks/offkaggle.py`, `--weights-dataset`). **The Kaggle CPU smoke of the full recipe on the real cache**
   (`rsna-knee-c7-train-convnext-small-v3s-cv`, pushed 12:55) was still running at 13:10: read its log before any
-  GPU run (`[sub]`-style lines to find: `mirror:`, `mirror averaging:`, `spatial attention:`, 2 epochs, 0 tracebacks).
+  GPU run (lines to find: `mirror:`, `mirror averaging:`, `spatial attention:`, two epochs, `avg3`, 0 tracebacks).
 - **Nothing has trained. The GPU is the open question:** the owner's message left it blank ("I am getting [FILL
   IN]"). Kaggle has ~0.7 h until Friday 17:00's reset, and five v3 folds are ~24.5 h of that last 30 h week (§5).
   **Ask the owner which GPU, and where the 62 GB Stage B cache should be pulled to** (it has not been pulled).
@@ -301,8 +301,11 @@ $K competitions submit rsna-knee-abnormality-detection -k raahimnawaz/<kernel> -
 
 # ---- v3 (§4). One fold per kernel; --recipe v3 = the flags and 16 epochs, defined once in the builder.
 $PY notebooks/build_backbone_ab_kernel.py --arch convnext_small --corpus stage_b --folds 0 --n-train 0 --recipe v3 \
-    --time-budget-h 7.0 --targets data/student/targets_teacher_v3.csv \
+    --time-budget-h 9.0 --targets data/student/targets_teacher_v3.csv \
     --targets-from raahimnawaz/rsna-knee-student-targets --tag v3 --out <dir>      # folds 1..4: --tag v3-f1 … (slug < 50)
+#   9.0, not the ~5 h it should take: --fit-budget cuts epochs if 16 x (measured epoch x 1.35) does not fit, and the
+#   epoch time at k 24 with spatial attention is an estimate. 9 h keeps 16 epochs up to 25 min an epoch, with 3 h
+#   of the 12 h session left for the four evaluation passes. Check `fit-budget: … -> 16 epoch(s)` in the first minutes.
 #   CPU smoke first: add --smoke and --tag v3s. Not-broken check after fold 0 (§4's numbers):
 $PY fusion/score_oof.py fusion/runs_cnxs_teach1_f0/runs_convnext_small/fold0 <v3 fold0>/avg3
 # submission: the AVERAGED weights. --weights-sha = sha256 of each fold's avg3/last.pt (build_weights_sha_kernel.py)
