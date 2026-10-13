@@ -1092,3 +1092,18 @@ The last four have no recipient: no address could be confirmed from an official 
 NYU address, and an undated profile has him at HSS since). Not written to: other competitors (Kaggle's rule on
 private sharing; the forum is the place) and the host, where a public post asking for a ruling on OAI is still the
 most useful message and is not drafted. A reply that changes the plan gets recorded here.
+
+**Outreach, later the same afternoon (owner: "put thier emials in"; "also how about former simmilar competition
+winners").** Four more drafts now carry a recipient, each from a place the person publishes it (no address is kept
+in this repo): Pedoia and Chaudhari from the correspondence lines of their 2024–2026 papers (Europe PMC), Kijowski
+from the correspondence line of a 2026 review (he now lists RadNet and HSS, not NYU), Northcutt from his own site.
+Gmail's connector cannot edit a draft, so these are new drafts; the four earlier ones without a recipient are still
+there for the owner to discard. Nothing sent.
+- **Past winners: most of the well-known ones are IN this competition**, so a private message to them is the thing
+  Kaggle's private-sharing rule is about. Today's leaderboard by member handle: Theo Viel (rank 11, 0.963), Nischay
+  Dhankhar (34, 0.961; RSNA 2023's winning team), Ian Pan and Dieter (64, 0.959), Chris Deotte (154, 0.957), hengck23
+  (295, 0.956), yu4u and tattaka, Guanshuo Xu, and the 2023 mammography winner. Not on it today: Qishen Ha (RSNA 2022
+  cervical spine, 1st), Darragh Hanley (2022, 3rd), Yuji Ariyasu (2023 3rd; 2024 2nd's team), Harshit Sheoran (2023's
+  winning team). One draft for those, with no recipient (they publish no address; LinkedIn or Kaggle is the channel)
+  and a line asking anyone who is entered to ignore it. Their challenges had radiologist labels, so what they know
+  best is the pipeline (find the joint, crop, classify), not label noise.
