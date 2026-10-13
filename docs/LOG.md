@@ -353,7 +353,25 @@ could use it (the teacher's student, 0.944 against 0.938), so the order is: the 
   (4) a teacher role, where the public ConvNeXt uses the boxes as an auxiliary task. What the run DID show: it
   learned (hold-out Effusion 0.962) and part did not transfer (Baker's 0.718 → 0.525 on gold; a protocol no
   competition study uses). The 7,140 pseudo-labelled NYU knees were a separate null (+0.0035 ± 0.0051). **So the
-  closed item is "a small fastMRI+ teacher on four findings", not fastMRI+ as data.** Still against it: the images
-  were deleted 10-09, and the 10-04 review keeps NYU knees out of anything a final trains on (the fastMRI terms
+  closed item is "a small fastMRI+ teacher on four findings", not fastMRI+ as data.** Still against it: the raw files
+  were deleted 10-09 (corrected 10-12 ~22:15: a Stage A cache of the 556 knees is still on Kaggle, see the next
+  entry), and the 10-04 review keeps NYU knees out of anything a final trains on (the fastMRI terms
   against the winner's licence obligation). My reading, not a new measurement.
+- **Owner Qs 10-12 ~22:15: "can we just take their core model and put it in our code", "a better ConvNeXt", "bring
+  back the fastMRI model". Answered, NOTHING approved, and RUNBOOK §1's "our own models only" stands until the owner
+  says in words that it is changed.** Facts checked:
+  - *The public OAI-trained CoAtNet* already loads strict in our trainer (`--arch coatnet --init`, read 5) and its
+    README allows the competition. Three uses, none run: (A) as it is, a sixth member of our ensemble in our input
+    (no training; gold there 0.920 against our 0.928); (B) in its own preprocessing beside ours (the Submission B
+    path of `build_submit_kernel.py`, last used 10-03); (C) fine-tuned from its weights on our labels (done once
+    with the pre-OAI public CoAtNet: 0.931 against the public 0.933, noise). My estimate for B: ~0.953–0.957, where
+    the public blends already are.
+  - *A bigger or newer ConvNeXt* has not been run on this recipe (only tiny and small are wired in; "bigger
+    backbones" in §3 rests on ViT-L losing by 0.011). A base-size fold is ~2x the GPU time.
+  - *fastMRI+:* the 09-28 teacher's weights are on this Mac (`fusion/runs_nyu_teacher/last.pt`, ResNet34, four
+    findings) and the 556-knee cache is still a private Kaggle dataset (`raahimnawaz/rsna-knee-fastmri-plus-cache`,
+    1.0 GB) but in Stage A format (64 slices), which `--extra-corpus` refuses beside Stage B. A Stage B rebuild
+    needs the 88 GB of raw files again (deleted 10-09) and the converter and label script from `160f781` (removed
+    from the tree by the showcase cleanup). Its labels cover ACL, Effusion, Contusion and cysts; the meniscus side
+    mapping was never written; it has no synovitis label and is coronal only (nothing for PF OA).
 
