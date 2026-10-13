@@ -9,7 +9,7 @@
 | why the weak findings are weak | [`docs/REVIEW-2026-10-12.md`](docs/REVIEW-2026-10-12.md): the error budget |
 | anything before 10-11 | `git show 9c23daf:RUNBOOK.md` (also `:DATA.md`, `:REFERENCE.md`, `:docs/REVIEW-2026-10-04.md`) |
 
-Last updated 2026-10-13 14:25 PDT.
+Last updated 2026-10-13 15:25 PDT.
 
 ## 0. Right now
 
@@ -36,13 +36,24 @@ Last updated 2026-10-13 14:25 PDT.
   blend, the five teacher folds and the pseudo-label student at **17:02 PDT**, or on wake if the Mac sleeps through
   it, and never an item twice. **After 17:02: `tail data/submitter.log` and `$K competitions submissions $C`;** if
   the Mac was rebooted, re-arm with the command in §6. Then read the three scores by their rules into §2–§4.
-- **Open since ~14:15, the owner's question (LOG, last block): train the public R7 recipe itself on a pseudo-label
-  table, instead of porting its parts into ours.** Its trainer is public; its run was 176 windows a study, 16 epochs,
-  4 folds on a 32 GB-class card: ~100 h on two T4s by my estimate and over a T4's memory, so **not a Kaggle job**; on
-  a rented 5090 roughly 25–33 h. Its labels are private (ours would go in), its cache must be rebuilt with its code.
-  Three reads need no training and no go has been given for them: R7 alone (never scored in public; OAI-free as
-  trained), R7 with its mirror pass on, and `jessky`'s public pseudo-labelled S6 folds. **The GPU decides: T4s
-  only → v3; a 32 GB card → R7's trainer first, v3 as the fallback.**
+- **The direction since ~15:10 (owner; LOG, last three blocks): build on the public R7 ("robot B") if it is the
+  best single family, feed it better labels, and add OAI's knees to it.** Its trainer is public; its run was 176
+  windows a study, 16 epochs, 4 folds on a 32 GB-class card: **not a Kaggle job** (~100 h on two T4s and over a T4's
+  memory, by estimate). On a rented 5090: ~35–45 h of machine, ~$20–45, for its recipe on a pseudo-label table
+  (reports + the OAI-trained CoAtNet + R7's own held-out predictions + ours); with OAI's ~2,400 knees ~55–65 h,
+  ~$30–65. All estimates. **v3 is now the fallback, for the case of Kaggle's T4s only.**
+- **Two reads approved 15:10, kernels pushed 15:17** (`notebooks/build_r7_read_kernel.py`; rules in §4 and the LOG):
+  `rsna-knee-sub-r7-alone` (R7 as published; its score alone exists nowhere) and `rsna-knee-sub-r7-alone-flip`
+  (its mirror pass on, one line changed). **Read both commit logs before submitting** (`OURS_STAGE_COMPLETE …
+  PASS` · `NOTEBOOK_COMPLETE` · `R7_READ flip_tta=…` · 0 tracebacks), then send them after 17:06 with
+  `notebooks/submit_plan_2026-10-13-r7.json` (it lists all five of tonight's, so it also covers the first
+  submitter). `jessky`'s public pseudo-labelled folds were checked and are NOT a read worth a slot (the small
+  recipe, no public inference settings, nothing to gate against).
+- **OAI's images need the owner first:** the NDA / OAI account and its data-use terms are theirs to sign; then the
+  download (~200–400 GB, unverified), a MOAKS → findings mapping we would write, and R7's cache builder on OAI's
+  series. The forum's challenge to OAI's eligibility has no host reply. Measured by its one public user: +0.003 to
+  +0.005 on one model.
+- **Still open: which GPU.** Nothing trains until it exists.
 - **The golds stay held out** (the owner asked again 12:37; LOG): 58 studies are worth ~+0.0005 as training rows
   and are the one check that is not biased against pseudo-labels. Not changed without the owner's word.
 - **OAI-free line for a final:** the five consensus folds (0.945, ref `57112913`) are it today. Its v3 version is
@@ -220,7 +231,20 @@ nothing: five folds on `targets_teacher_v2` (~9.5 GPU-h) are trained only if rea
 smaller or negative read leaves `targets_teacher_v1` as the finals' labels. A stronger dose (the OOF at full weight,
 or other teachers per finding, as the forum describes) is a different arm and would need its own go.
 
-**v3, the combined recipe (owner 10-13 12:37; everything here was fixed before any run, LOG last block).**
+**Two reads of the public R7, approved 10-13 15:10 (rules written 15:17, before either kernel was built).**
+
+| read | kernel | against | rule |
+|---|---|---|---|
+| A: R7's four folds alone, as published | `rsna-knee-sub-r7-alone` | the CoAtNet's 0.949, our 0.945 | a level, ± 0.008. **≥ 0.950 → R7 alone is the OAI-free final candidate** in place of the five consensus folds; it is also the baseline for R7's recipe on a pseudo-label table (shown at ≥ +0.006 over it) |
+| B: R7 alone + its mirror pass | `rsna-knee-sub-r7-alone-flip` | read A | **≥ +0.002 → the pass goes on wherever R7 is used; −0.001 to +0.001 → not shown, stays off (it doubles R7's GPU time); ≤ −0.002 → off** |
+
+**Tonight's three, reviewed again 15:15 at the owner's word ("make sure those 3 are actually worth it"):** read 5
+is the one that matters (the only one that can become our best score and a final); read 1 is worth it moderately
+(the evidence for the CoAtNet's opinions in a label table, readable at ≥ +0.006); read 4 is weak (it changes
+nothing in about five outcomes of six) and stays only because its slot would otherwise be empty and it costs no GPU.
+
+**v3, the combined recipe (owner 10-13 12:37; everything here was fixed before any run). Since 15:10 the fallback
+for a Kaggle-only week: R7's own recipe on a 5090 comes first (§0).**
 
 | part | what | state |
 |---|---|---|

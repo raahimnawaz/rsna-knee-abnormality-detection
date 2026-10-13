@@ -1,0 +1,37 @@
+{
+  "competition": "rsna-knee-abnormality-detection",
+  "slot_day_utc": "2026-10-14",
+  "max_in_day": 5,
+  "items": [
+    {
+      "key": "The public R7 x4 ALONE, as published",
+      "kernel": "raahimnawaz/rsna-knee-sub-r7-alone",
+      "version": 1,
+      "message": "The public R7 x4 ALONE, as published (heliosli's four ConvNeXt-small folds, as they run inside the free 0.956 recipe; notebook 6406e923 unchanged, R7's own predictions in place of the blend): a level, +-0.008; >= 0.950 it is the OAI-free candidate over our five consensus folds 0.945 (57112913); the baseline for the mirror pass and for R7's recipe on pseudo-labels (a0fcd74)"
+    },
+    {
+      "key": "The public R7 x4 ALONE + its mirror pass",
+      "kernel": "raahimnawaz/rsna-knee-sub-r7-alone-flip",
+      "version": 1,
+      "message": "The public R7 x4 ALONE + its mirror pass (--flip-tta, one line changed; the manifest ships it off): read against R7 alone; >= +0.002 the pass goes on wherever R7 is used, -0.001..+0.001 no effect shown and it stays off, <= -0.002 off (a0fcd74)"
+    },
+    {
+      "key": "The free 0.956 recipe as published",
+      "kernel": "raahimnawaz/rsna-knee-sub-pub956-teach1cv5",
+      "version": 1,
+      "message": "The free 0.956 recipe as published (nartaa 384 + 224 px at 35% of that slot, heliosli R7 x4, ranks 50/50; notebook 6406e923) + OUR five ConvNeXt-small folds on targets_teacher_v1 as one more stage: per-finding ranks, ours 0.25 on ACL MCL MedMen MedOA Effusion Bakers Contusion Fracture and 0.10 on LatMen LatOA PFOA Synovitis, fixed before any run; >= 0.957 ours stay in, 0.956 read the rank in the block, <= 0.955 ours come out (6bc69f9)"
+    },
+    {
+      "key": "ConvNeXt-small x5 ALONE on targets_teacher_v1",
+      "kernel": "raahimnawaz/rsna-knee-sub-a-ortho-teach1-cv5-nall",
+      "version": 1,
+      "message": "ConvNeXt-small x5 ALONE on targets_teacher_v1: read vs the five consensus folds 0.945 (57112913); kept unless >= 0.005 below, shown at >= +0.010"
+    },
+    {
+      "key": "ConvNeXt-small ALONE, one model, targets_teacher_v2",
+      "kernel": "raahimnawaz/rsna-knee-sub-a-ortho-teach2-f0-nall",
+      "version": 1,
+      "message": "ConvNeXt-small ALONE, one model, targets_teacher_v2 (pseudo-label round): read vs the 0.944 model (57122696); kept unless >= 0.005 below, shown at >= +0.010"
+    }
+  ]
+}
