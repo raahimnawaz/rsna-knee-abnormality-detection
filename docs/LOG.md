@@ -676,7 +676,7 @@ attached datasets through Kaggle's public listing, eight forum threads); everyth
 - **R7's trainer is public in full** (`compact_train.py`, 83 KB, in `jessky/rsna-knee-local-cv-cnx50` with the whole
   training tree, and embedded in the R7 notebook): our backbone with spatial attention, 176-window cover sampling,
   mirror augmentation, EMA, the state head. The recipe arms we queue one at a time are a published, scored whole.
-- Two more OAI-trained weight sets, no score and no notebook using them: `rauleg/rsna-knee-weights-dense-r288-attn-
+- One more OAI-trained weight set, with no score and no notebook using it: `rauleg/rsna-knee-weights-dense-r288-attn-
   swa-oaij` (five ResNet34 folds on Kaggle + 1,660 OAI knees). New label tables (`hukumjailer` 5-source consensus,
   10-13; `shogomiyawaki`, 10-12): more readers of the same reports, not leak-checked, not proposed.
 - An instrument we did not have: rank inside a tie block reads below 0.001 for any submission that becomes our best
