@@ -488,4 +488,10 @@ as gold to rank 21 (0.962), silver to 290, bronze to 581; the 0.954 tie group ru
   disjoint studies. Checks: with `--teacher` alone it rebuilds `targets_teacher_v1` byte for byte (sha256
   `2980e8d6…`); a dry run on the CONSENSUS folds' OOF (not the table that will train) covers all 4,349 studies, no
   cell masked, Spearman of the models against the target 0.64 (Fracture) to 0.88 (Medial Meniscus).
+- **The public checkpoint alone in our input: submission kernel BUILT 10-12 21:52, not pushed (both GPU sessions are
+  in use until ~00:15).** `raahimnawaz/rsna-knee-sub-a-ortho-oai-pa-nall`, built from `1dffa3f` with `--ours-only
+  --weights-kernel raahimnawaz/rsna-knee-c7-train-coatnet-oai-teacher-pa --weights-sha
+  f900846d3e821721cf571a9f0a477021bc0c2e0e71ddb5565dc5687752fbd0c1 --tag oai-pa`. That sha is the checkpoint as our
+  trainer re-saved it at 0 epochs (146,463,855 bytes; v5 of `rsna-knee-weights-sha`), not the author's file
+  (`7e5315da…`). Its gate checks the inference path against the predict-all run's own `oof_all.csv`.
 
