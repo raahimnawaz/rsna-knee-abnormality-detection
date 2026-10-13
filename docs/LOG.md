@@ -695,3 +695,43 @@ attached datasets through Kaggle's public listing, eight forum threads); everyth
   free. Its dose and teachers are not written yet.
 - No training GPU and where the ranking is decided: the free recipe + the 224 px checkpoint + our five folds at a
   small fixed weight, told apart by rank inside the block. Needs the owner's word (RUNBOOK §4).
+
+## Owner 10-13 ~12:00: "Use the public blend but put what lever we have that's better than what it has or what can improve it into it and submit that. Only submit those other 4 if they're actually worth anything"
+
+Read as: the go for ONE submission, the free public blend with whatever of ours can add to it, and for its kernel's
+commit run (minutes of GPU); and my judgment on the four reads approved earlier. It ends the "how to ensemble" question
+left open on 10-12 21:24.
+
+- **What we have that the blend lacks.** Nothing of ours is shown better than it (second audit, 3. and 4.). Two things
+  can add: `nartaa`'s 224 px checkpoint (public; measured by its user as a rank gain inside the block) and our five
+  folds as one more family. So the base is the public notebook that already carries the first,
+  `varshithakolupuri/rsna-knee-one-unused-checkpoint-lifts-the-0-956` (sha256 `6406e92300011e48…`), run unchanged.
+- **Which folds: the five on `targets_teacher_v1`** (stronger alone: +0.006 as one model on the LB, +0.016 OOF). The
+  consensus folds are less like the public CoAtNet (within-class rank correlation 0.80–0.83 against 0.85–0.88, on
+  gold-58 and on the 4,349, the public model in OUR input) and equal on gold-58 (0.931): a second variant if tonight's
+  read 1 puts the teacher folds under them.
+- **Weights, fixed before any run:** ours 0.25 on ACL, MCL, Medial Meniscus, Medial OA, Effusion, Baker's, Contusion,
+  Fracture; 0.10 on Lateral Meniscus, Lateral OA, PF OA, Synovitis. From the 10-12 probes of our five folds (0.966–0.968
+  on the first group, 0.88–0.93 on the second) against a blend whose macro is 0.956, and the correlation above: under
+  a two-score normal model a member at par with ρ 0.85 adds ~+0.002 a finding at 0.25, one 0.006 behind ~+0.001, one
+  0.03 behind ~0 at 0.10. Expected +0.001 macro (−0.001 to +0.002). Gold-58 was looked at for the correlation only;
+  nothing was chosen on it.
+- **`notebooks/build_public_blend_kernel.py`** (`6bc69f9`): the 13 public cells byte for byte, then our stage
+  (`build_submit_kernel`'s OURS cell: sha256 of each `last.pt`, the gate on 15 held-out studies in the commit run,
+  both GPUs) under a deadline of nine hours less 25 minutes from the notebook's own clock, then the blend. In the
+  scored rerun a fault, a timeout, under an hour left, fewer than 90% of studies scored or a mean Spearman under 0.2
+  with the public ranks all leave the public `submission.csv` as it is; in the commit run each stops the notebook. A
+  study our reader cannot build keeps the public rank. `notebooks/public_blend_fixture.py`: 8 offline checks pass.
+  **One thing the commit run has to show:** the public cells pin another image than our kernels' and install their
+  own wheels, so our reader runs on other library versions (`OURS_ENV` line); the gate is what says it still
+  reproduces the scored OOF.
+- **⏳ Kernel PUSHED 12:12:** `raahimnawaz/rsna-knee-sub-pub956-teach1cv5` v1, built from `6bc69f9`.
+- **The four reads.** Sent: 1 (the five teacher folds alone: the strength of the member that is now in the blend, and
+  the finals' candidate) and 4 (the pseudo-label student: the one LB point on the lever proposed for Friday; only
+  ≥ 0.950 or ≤ 0.940 would move that plan, about one outcome in six). **Not sent: 2** (the Synovitis probe: the
+  teacher labels are kept either way) **and 3** (the public checkpoint in our input: the blend runs it in its own
+  notebook, and the fine-tune it would have sized is dropped). Their kernels stay, gated.
+- **Rule for the blend, written 12:15 before its commit run finished (RUNBOOK §4, read 5):** paired noise of such a
+  pair ~0.0007 at 390 studies (resampled on a stand-in pair: consensus folds as the base, teacher folds as the member
+  at these weights). ≥ 0.957 → our folds stay in; 0.956 → read the rank inside the block, nothing claimed; ≤ 0.955 →
+  they come out.
