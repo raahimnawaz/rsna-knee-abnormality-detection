@@ -277,3 +277,20 @@ Before 10-11: `git show 9c23daf:RUNBOOK.md` and `9c23daf:docs/LOG.md`.
   Login.gov plus the OAI terms; the 09-28 help-desk reply read as institutional). Unchanged whatever the answer: the
   images may not be re-shared, so they cannot go on Kaggle and training needs a GPU elsewhere; the access request is
   the owner's to make; download + MOAKS label mapping + a Stage B conversion is more than the ten days left.
+
+---
+
+# 2026-10-12, late evening — owner: "do all 3 but first if OAI helps lets do it"
+
+Read as: the three open items of RUNBOOK §4 are approved, the OAI-derived one first. OAI's signal did help where we
+could use it (the teacher's student, 0.944 against 0.938), so the order is: the four remaining folds on
+`targets_teacher_v1`, then the spatial-attention experiment, and the student's Synovitis probe at the next slot reset
+(17:00 PDT 10-13; none are left today).
+
+- **Folds 1–4 on `targets_teacher_v1` (`2980e8d6…`), the 0.944 model's recipe.** Two kernels, two folds each:
+  `raahimnawaz/rsna-knee-c7-train-convnext-small-teach1-f12-cv` and `...-teach1-f34-cv`, `--time-budget-h 6.0`
+  (3.0 a fold, as fold 0). ~3.7 GPU-h each.
+  **Rule, before any result:** the five teacher folds as one ensemble, alone on the LB, against the five consensus
+  folds' 0.945. Kept unless ≥ 0.005 below; a gain is shown at ≥ +0.010; at ≥ 0.945 it is the finals' candidate.
+  The held-out macro per fold is report only (a label change).
+
