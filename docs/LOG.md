@@ -973,3 +973,40 @@ Nothing was run and nothing is approved. Read for this, all public and small: `m
   submission and the GPU minutes of a commit run: the owner's go.
 - **Where it leaves v3:** with Kaggle's T4s only, R7's recipe cannot train and v3 is what fits. With a 32 GB card,
   R7's trainer on a pseudo-label table is the stronger use of the hours, and v3 becomes the fallback.
+
+## Owner 10-13 ~14:40: the cost of R7 + pseudo-labels on a 5090; "we can do 1, but check it first"; "add oai to robot b"; "then do 3"
+
+Read for this: `manifest.json`, `compact_infer.py`, `px_cache.py`, `distill.py`, `label_source_policy.py` of
+`jessky/rsna-knee-local-cv-cnx50`, and the notebook `heliosli/0-957-latest-dataset-score-in-one-click` (source only).
+Nothing was run on a GPU, nothing pushed, nothing submitted.
+
+- **Check of read 1 (`jessky`'s d50 folds): NOT recommended as it stands.** (a) It is not R7's recipe with new
+  labels: its manifest says 288 px, crop 256, 48 windows, 10 epochs, 5 folds (R7: 384 / 352, 176 windows, 16 epochs,
+  spatial attention, mirror, the extra heads), so its score would not say what pseudo-labels add to R7. (b) The
+  inference notebook that ran it is not public and the manifest omits what `compact_infer.py` needs (`--views`,
+  whether a `--state-spec`); no held-out predictions are published, so there is nothing to gate a rebuilt path
+  against: a wrong setting would score low and read as "pseudo-labels do not help". (c) The teacher behind
+  `labels_distill50` is not named anywhere public ("an external OOF teacher"). Its code makes no network or shell
+  calls (`compact_infer.py`, `px_cache.py`: numpy and torch only; the vendored `requests` is for its download
+  scripts). My 14:15 note called it "an earlier R7 on pseudo-labels": that left out that it is the small recipe.
+- **"Leakage", as its README means it:** its fold models' labels hold a teacher's predictions; if that teacher (or
+  the model that taught it) had trained on the studies a fold holds out, the fold's held-out score is inflated. It
+  flatters local validation only; the hidden test cannot leak. Ours has the same property (the public CoAtNet in
+  `targets_teacher_v1` trained on every study), which is why label changes are judged on the LB.
+- **Read 3 is one supported flag.** The R7 notebook's inference worker has `--flip-tta` ("every fold model also
+  scores the mirrored windows", MCL from the plain pass); R7's manifest ships `flip_tta: False`. Its author built the
+  flag on 10-11 and left it off on 10-12: no reason is given (no gain, or the time it doubles). The notebook writes
+  R7's own predictions as `ours_sub.csv`, so R7 alone is that file published as the submission. **Read 3 needs a
+  baseline:** R7 alone (read 2, not yet approved), or the blend's known 0.956.
+- **"Add OAI to robot B".** OAI's images: not available to us in nine days (the owner's login, the files, and a
+  grade mapping its one public user has not published). OAI's knowledge through the labels: yes, by keeping the
+  OAI-trained CoAtNet in the table R7 trains on, as `targets_teacher_v1/v3` do. That R7 would no longer be OAI-free.
+- **The 5090 run, one pass (all estimates; speed and memory on a 5090 never measured by us):** rebuild R7's pixel
+  cache from the DICOMs ~3–6 h; R7's four public folds scored on their own held-out training studies as the teacher
+  ~2 h; the table (reports + the OAI-trained CoAtNet + R7 held-out + ours held-out) on CPU; four folds × 16 epochs ×
+  176 windows ~25–32 h with gradient checkpointing (a 32 GB card cannot hold the published batch without it);
+  setup and a first-epoch check ~4–8 h. **~35–45 h of machine time.** Prices found today (snapshots from July–August
+  2026): Vast.ai $0.20–1.34/h, median $0.53; RunPod $0.69–0.99/h. **≈ $20–45, plus a few dollars of disk; a failed
+  late run doubles it.** Two days of wall clock after a day of porting.
+- **"Do them on the GPU":** training and held-out checks can run there. A leaderboard read cannot: the scored
+  rerun and its commit run are Kaggle's (~12 GPU-min a kernel; ~0.7 h left this week by our count).
