@@ -9,8 +9,10 @@
 | why the open experiments are the open experiments | [`docs/REVIEW-2026-10-12.md`](docs/REVIEW-2026-10-12.md): the error budget |
 | anything before 10-11 | `git show 9c23daf:RUNBOOK.md` (also `:DATA.md`, `:REFERENCE.md`, `:docs/REVIEW-2026-10-04.md`) |
 
-Last updated 2026-10-12 20:45 PDT. **Running on Kaggle:** folds 1–4 on the teacher labels (two kernels, pushed 20:22,
-due ~00:15). **Queued behind them:** the spatial-attention arm. Nothing is pending on the leaderboard.
+Last updated 2026-10-12 20:55 PDT. **Running on Kaggle:** folds 1–4 on the teacher labels (two kernels, pushed 20:22,
+due ~00:15). **Queued behind them:** the spatial-attention arm (kernel built, push when a GPU session frees).
+**Approved for the 17:00 PDT reset on 10-13 (no slots before it):** the five teacher folds as one ensemble, and the
+student's Synovitis probe. Nothing is pending on the leaderboard.
 
 ## 1. Goal and the owner's directions
 
@@ -84,7 +86,9 @@ Order: the OAI-derived work first (item 2), then item 1; item 3 at the next slot
 2. **Folds 1–4 on the teacher labels: RUNNING** — `raahimnawaz/rsna-knee-c7-train-convnext-small-teach1-f12-cv` and
    `...-teach1-f34-cv`. When done: shas (`build_weights_sha_kernel.py`), the five-fold submission kernel (with fold
    0's `1c58b2bc…`), read its gate. **Rule:** alone on the LB against 0.945; kept unless ≥ 0.005 below, shown at
-   ≥ +0.010; at ≥ 0.945 it is the finals' candidate. **The submission itself still needs the owner's go.**
+   ≥ +0.010; at ≥ 0.945 it is the finals' candidate. **The owner's go for this one submission: given 10-12 ~20:46
+   ("do it").** It covers this submission and nothing later. Today's five slots are used: it goes at the 17:00 PDT
+   reset on 10-13, after its log reads `sha256 ok`, `GATE PASSED (5/5)`, `[sub A] ARMS:` and 0 tracebacks.
 3. **The student's Synovitis probe: approved, submit at the 17:00 PDT reset on 10-13.** Kernel
    `raahimnawaz/rsna-knee-sub-a-ortho-teach1-f0-nall-p-synovitis` v1, gate passed. Against 0.532 (ref `57117247`);
    two ticks decide whether the teacher moved Synovitis.
@@ -93,8 +97,11 @@ Then: the final recipe on the teacher labels, five folds (or all data, several s
 
 ## 5. Budget
 
-- **GPU:** 30 h/week on Kaggle, reset Fri 17:00 PDT; 10-16 is the last reset. ~10 h left this week by our own count before the 10-12 evening runs, which take ~9.6 of them
-  (the owner's quota page is the truth; **casmi26 shares the quota**). Two GPU sessions at once, five CPU sessions.
+- **GPU:** 30 h/week on Kaggle, reset Fri 17:00 PDT; 10-16 is the last reset. **The owner's quota page read 10.2 h
+  left on 10-12 ~20:46** (the two fold kernels were 25 min in; whether the page already counted them is not known).
+  The 10-12 evening runs take ~9.6 h by our count (folds 1–4 ~7.4, spatial attention ~1.9, the submission kernel's
+  own run ~0.3), so **under 1 h is left until Friday for anything else, casmi26 included** (it shares the quota).
+  The attention run is therefore not held. Two GPU sessions at once, five CPU sessions.
 - **Submissions:** 5 a day, reset 17:00 PDT (00:00 UTC). 25 used.
 
 ## 6. How to run things

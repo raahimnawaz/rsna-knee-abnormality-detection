@@ -305,4 +305,9 @@ could use it (the teacher's student, 0.944 against 0.938), so the order is: the 
   **The arm:** the 0.938 model's recipe, labels (`a1ed4034`) and fold, plus `--spatial-attn`. Paired on the 847
   against the 0.938 model: **macro ≥ +0.004, OR the mean of Lateral OA and PF OA ≥ +0.015 → it goes into the finals;
   otherwise the global average stays.** (MCL is out of the target set: the probe read it at 0.968.)
-
+- **Owner 10-12 ~20:46, two answers.** (1) "do it": the go for ONE submission, the five teacher folds as one ensemble
+  read alone against 0.945 by the rule above. It covers that submission and nothing later. No slots are left today
+  (all five went at 17:00), so it goes at the 17:00 PDT reset on 10-13 with the student's Synovitis probe, after the
+  gate lines read clean. (2) The quota page: "it has 10.2 hrs" (the fold kernels were 25 min in; whether the page
+  already counted them is not known). Against ~9.6 h for tonight's runs the attention run is NOT held; under 1 h is
+  left until Friday's reset for anything else, casmi26 included.
