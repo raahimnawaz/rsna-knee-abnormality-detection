@@ -47,6 +47,11 @@ SMALL_PACKAGE = ["--res", "384", "--drop-path", "0.1", "--bb-lr", "1e-4", "--pos
 # and it has never run compiled. Slot / depth embeddings start at zero, so step 0 is the checkpoint itself.
 COATNET_PACKAGE = ["--res", "384", "--drop-path", "0.1", "--bb-lr", "3e-5", "--pos-emb", "--fit-budget",
                    "--conf-weight", "none"]
+# The combined recipe of 10-13 ("v3", docs/LOG.md): on top of SMALL_PACKAGE, at 16 epochs. One definition, used by
+# --recipe v3 here and by notebooks/offkaggle.py, so a Kaggle fold and an off-Kaggle fold are the same run.
+# --micro 1: 24 windows a forward per GPU, as k 12 x 2 studies was (8.1 GB on a T4); the batch stays 8 studies.
+V3_TRAIN_ARGS = ["--allow-missing-labels", "--spatial-attn", "--mirror", "0.5", "--mirror-tta", "--k", "24", "--micro", "1"]
+V3_EPOCHS = 16
 N_TRAIN, DRAW_SEED = 2871, 20260923
 QWEN_EXTRA = ["--fit-budget", "--k", "12", "--eval-windows", "12"]
 # The versions this arch was built and tested against locally; the image may carry neither.
@@ -379,6 +384,8 @@ def main() -> None:
     ap.add_argument("--cpu", action="store_true", help="a CPU session even in full mode (an eval-only check: no GPU quota)")
     ap.add_argument("--train-args", default="", help="extra train_windows flags, one string (e.g. '--bb-lr 3e-4'): "
                     "for an arm that differs from its recipe by a named setting")
+    ap.add_argument("--recipe", choices=["v3"], help=f"v3: {' '.join(V3_TRAIN_ARGS)} at {V3_EPOCHS} epochs "
+                    "(convnext_small on stage_b; pass --targets and one fold per kernel)")
     ap.add_argument("--out", type=Path, required=True)
     g = ap.add_mutually_exclusive_group()
     g.add_argument("--smoke", action="store_true", help="CPU, 16 + 6 studies, one epoch (two for the small conv "
@@ -401,6 +408,11 @@ def main() -> None:
     a = ap.parse_args()
     if a.n_train is None:
         a.n_train = 0 if a.arch.startswith("qwen") else N_TRAIN
+    if a.recipe == "v3":
+        if a.arch != "convnext_small" or a.corpus != "stage_b" or not a.targets:
+            raise SystemExit("--recipe v3 is convnext_small on --corpus stage_b with --targets")
+        a.train_args = " ".join(V3_TRAIN_ARGS + a.train_args.split())
+        a.epochs = V3_EPOCHS
     mode = "smoke" if a.smoke else "bench" if a.bench else "full"
     # a small-backbone smoke runs TWO epochs: the averaged weights (avg3) need two states, and that branch scores
     # and saves at the very end of a full run

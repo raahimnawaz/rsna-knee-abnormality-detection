@@ -162,7 +162,9 @@ def with_deadline(ours: str) -> str:
 def main() -> None:
     ap = argparse.ArgumentParser(description=__doc__.splitlines()[0])
     ap.add_argument("--public-dir", type=Path, required=True, help=f"`kaggle kernels pull {PUBLIC} -m`")
-    ap.add_argument("--weights-kernel", required=True, help="our training kernels, comma-joined")
+    ap.add_argument("--weights-kernel", default="", help="our training kernels, comma-joined")
+    ap.add_argument("--weights-dataset", default="", help="and / or private datasets holding run dirs trained off "
+                    "Kaggle (notebooks/offkaggle.py pack), comma-joined")
     ap.add_argument("--weights-sha", required=True, help="the members' last.pt sha256, comma-joined (an ensemble)")
     ap.add_argument("--tag", required=True, help="slug suffix (the whole slug must stay under 50 characters)")
     ap.add_argument("--desc", default="our ConvNeXt-small folds", help="what our member is, for the intro")
@@ -172,7 +174,11 @@ def main() -> None:
     ap.add_argument("--out", type=Path, required=True)
     a = ap.parse_args()
 
-    shas, wkernels = a.weights_sha.split(","), a.weights_kernel.split(",")
+    shas = a.weights_sha.split(",")
+    wkernels = [k for k in a.weights_kernel.split(",") if k]
+    wdatasets = [d for d in a.weights_dataset.split(",") if d]
+    if not wkernels and not wdatasets:
+        raise SystemExit("pass --weights-kernel and / or --weights-dataset: where the members' last.pt are")
     if len(set(shas)) != len(shas) or not all(re.fullmatch(r"[0-9a-f]{64}", h) for h in shas):
         raise SystemExit("--weights-sha: full 64-hex sha256 values of each last.pt, joined by commas")
     slug = f"rsna-knee-sub-{a.tag}"
@@ -213,7 +219,7 @@ def main() -> None:
             .replace("__FILES_B64__", repr(blob)).replace("__BUILT_FROM__", built_from)
             .replace("__W_OURS__", "None").replace("__N_CHECK__", str(a.n_check))
             .replace("__N_WINDOWS__", "0").replace("__CHECK_ALWAYS__", "False")
-            .replace("__WEIGHTS_SHAS__", repr(shas)).replace("__WEIGHTS_KERNEL__", a.weights_kernel))
+            .replace("__WEIGHTS_SHAS__", repr(shas)).replace("__WEIGHTS_KERNEL__", ",".join(wkernels + wdatasets)))
     stage = (STAGE.replace("__MARGIN_MIN__", str(a.margin_min)).replace("__MIN_LEFT_MIN__", str(a.min_left_min))
              .replace("__OURS_SRC__", repr(ours)))
     blend = BLEND.replace("__W_OURS__", repr(W_OURS)).replace("__BUILT_FROM__", built_from)
@@ -235,7 +241,7 @@ def main() -> None:
             "language": "python", "kernel_type": "notebook", "is_private": True,
             "enable_gpu": True, "enable_tpu": False, "enable_internet": False, "keywords": [],
             "competition_sources": ["rsna-knee-abnormality-detection"],
-            "dataset_sources": pmeta["dataset_sources"], "kernel_sources": wkernels, "model_sources": [],
+            "dataset_sources": pmeta["dataset_sources"] + wdatasets, "kernel_sources": wkernels, "model_sources": [],
             "docker_image": pmeta["docker_image"], "machine_shape": "NvidiaTeslaT4"}
     (a.out / "kernel-metadata.json").write_text(json.dumps(meta, indent=2), encoding="utf-8")
     print(f"built {a.out / (slug + '.ipynb')}: {len(new)} cells ({len(cells)} public, unchanged; + intro, our stage, "

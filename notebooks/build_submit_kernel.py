@@ -564,6 +564,9 @@ def main() -> None:
     ap.add_argument("--w-ours", type=float, default=1 / 3, help="the rule gives 1/3; see docstring")
     ap.add_argument("--n-check", type=int, default=8)
     ap.add_argument("--weights-kernel", default=WEIGHTS_KERNEL)
+    ap.add_argument("--weights-dataset", default="", help="private dataset(s), comma-joined, holding run dirs (last.pt, "
+                    "last_meta.json and oof_all.csv side by side): weights trained off Kaggle, from `notebooks/"
+                    "offkaggle.py pack`. With it --weights-kernel is not needed; the sha256 and the gate are the same")
     ap.add_argument("--weights-sha", default=WEIGHTS_SHA256)
     ap.add_argument("--tag", default="", help="slug suffix for a submission on another checkpoint")
     ap.add_argument("--alone-lb", type=float, default=None,
@@ -595,13 +598,18 @@ def main() -> None:
     elif a.add_family:
         raise SystemExit("--add-family only means something with --core-kernel (Submission B always adds a family)")
     shas, wkernels = a.weights_sha.split(","), a.weights_kernel.split(",")
+    wdatasets = [d for d in a.weights_dataset.split(",") if d]
+    if wdatasets and a.weights_kernel == WEIGHTS_KERNEL:    # every checkpoint comes from the datasets
+        wkernels = []
+    custom = a.weights_kernel != WEIGHTS_KERNEL or bool(wdatasets)
+    wsrc = ",".join(wkernels + wdatasets)
     if len(set(shas)) != len(shas) or not all(re.fullmatch(r"[0-9a-f]{64}", h) for h in shas):
         raise SystemExit("--weights-sha: one full 64-hex sha256 of a last.pt, or several joined by commas (an ensemble)")
-    if (a.weights_kernel != WEIGHTS_KERNEL) != (a.weights_sha != WEIGHTS_SHA256):
-        raise SystemExit("--weights-kernel and --weights-sha move together: a new checkpoint needs both")
-    if a.weights_kernel != WEIGHTS_KERNEL and not a.tag:
+    if custom != (a.weights_sha != WEIGHTS_SHA256):
+        raise SystemExit("--weights-kernel / --weights-dataset and --weights-sha move together: a new checkpoint needs both")
+    if custom and not a.tag:
         raise SystemExit("another checkpoint needs a --tag, so its notebook does not overwrite the default one")
-    if a.weights_kernel != WEIGHTS_KERNEL and not a.ours_only and a.alone_lb is None:
+    if custom and not a.ours_only and a.alone_lb is None:
         raise SystemExit("another checkpoint: build it as --ours-only first and pass its own LB as --alone-lb "
                          "before it joins any blend (blending a weaker member costs)")
     if not a.ours_only and not a.public_dir:
@@ -646,7 +654,7 @@ def main() -> None:
     ours = (OURS.replace("__FILES_B64__", repr(blob)).replace("__BUILT_FROM__", built_from)
                 .replace("__W_OURS__", repr(a.w_ours)).replace("__N_CHECK__", str(a.n_check))
                 .replace("__N_WINDOWS__", str(a.n_windows)).replace("__CHECK_ALWAYS__", str(not a.ours_only))
-                .replace("__WEIGHTS_SHAS__", repr(shas)).replace("__WEIGHTS_KERNEL__", a.weights_kernel))
+                .replace("__WEIGHTS_SHAS__", repr(shas)).replace("__WEIGHTS_KERNEL__", wsrc))
     blend = BLEND.replace("__LABELS__", repr(LABELS)).replace("__BUILT_FROM__", built_from)
     if a.probe and not a.ours_only:
         raise SystemExit("--probe reads one finding of our model alone: pass --ours-only")
@@ -659,10 +667,10 @@ def main() -> None:
                 + (f"-p-{re.sub('[^a-z]+', '-', a.probe.lower()).strip('-')}" if a.probe else ""))
         intro = INTRO_A.replace("__WINDOWS__", str(a.n_windows or "all")).replace("__BUILT_FROM__", built_from)
         if a.desc:
-            intro += (f"\n\n**This build:** {a.desc} Weights: `{a.weights_kernel}`, last.pt sha256 "
+            intro += (f"\n\n**This build:** {a.desc} Weights: `{wsrc}`, last.pt sha256 "
                       + ", ".join(f"`{h[:16]}`" for h in shas) + ".")
         new = [md(intro), code(ours), code(sub_a)]
-        sources = {"dataset_sources": [], "kernel_sources": wkernels, "model_sources": [],
+        sources = {"dataset_sources": wdatasets, "kernel_sources": wkernels, "model_sources": [],
                    "docker_image": DOCKER_IMAGE}
     elif a.core_alone:
         # the seams this build relies on -- refuse an upstream version that moved any of them
@@ -791,10 +799,10 @@ def main() -> None:
         body = [dict(c, outputs=[], execution_count=None) if c["cell_type"] == "code" else c for c in cells]
         intro = INTRO.replace("__BUILT_FROM__", built_from)
         if a.desc:
-            intro += (f"\n\n**This build:** {a.desc} Alone on the LB: {a.alone_lb}. Weights: `{a.weights_kernel}`, "
+            intro += (f"\n\n**This build:** {a.desc} Alone on the LB: {a.alone_lb}. Weights: `{wsrc}`, "
                       f"last.pt sha256 `{a.weights_sha[:16]}`.")
         new = [md(intro), code(ours)] + body[:-1] + [code(blend), body[-1]]
-        sources = {"dataset_sources": pmeta["dataset_sources"],
+        sources = {"dataset_sources": pmeta["dataset_sources"] + wdatasets,
                    "kernel_sources": pmeta["kernel_sources"] + wkernels,
                    "model_sources": pmeta["model_sources"], "docker_image": pmeta["docker_image"]}
     nb = dict(pub, cells=new)
