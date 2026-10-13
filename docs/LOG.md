@@ -293,4 +293,16 @@ could use it (the teacher's student, 0.944 against 0.938), so the order is: the 
   **Rule, before any result:** the five teacher folds as one ensemble, alone on the LB, against the five consensus
   folds' 0.945. Kept unless ≥ 0.005 below; a gain is shown at ≥ +0.010; at ≥ 0.945 it is the finals' candidate.
   The held-out macro per fold is report only (a label change).
+- **✅ Folds 1–4 PUSHED 10-12 20:22 PDT**, v1 each, built from `47ff4ed`; each notebook differs from fold 0's in
+  `FOLD_LIST` only (rebuilt and diffed). Due ~00:15.
+- **Spatial attention (RUNBOOK §4.1), rule written before the run.** `train_windows.py --spatial-attn`: a query per
+  finding over the 12 × 12 positions of each window's feature map, in place of the global average; then the existing
+  per-finding attention over windows, each finding on its own token. Queries start at zero = the average.
+  Checked on the Mac: with zero queries the output equals the plain model's (max |diff| 3e-7, with slot / depth
+  embeddings and a padded bag); chunked evaluation equals unchunked; the queries receive gradient; a three-epoch run
+  on the synthetic-DICOM fixture saves `sq` and `spatial: true`, and `infer_windows.py --check-against` rebuilds its
+  held-out predictions from DICOMs (max |dp| 0.00002).
+  **The arm:** the 0.938 model's recipe, labels (`a1ed4034`) and fold, plus `--spatial-attn`. Paired on the 847
+  against the 0.938 model: **macro ≥ +0.004, OR the mean of Lateral OA and PF OA ≥ +0.015 → it goes into the finals;
+  otherwise the global average stays.** (MCL is out of the target set: the probe read it at 0.968.)
 

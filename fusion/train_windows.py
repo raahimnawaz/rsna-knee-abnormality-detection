@@ -295,9 +295,9 @@ class WindowMIL(nn.Module):
     """Encoder + per-finding attention over windows. Input is uint8; the device does the rest."""
 
     def __init__(self, encoder: nn.Module, res: int, n: int = len(LABELS), drop: float = 0.2,
-                 n_slots: int = 0):
+                 n_slots: int = 0, spatial: bool = False):
         super().__init__()
-        self.encoder, self.res, self.n_slots = encoder, res, n_slots
+        self.encoder, self.res, self.n_slots, self.spatial = encoder, res, n_slots, spatial
         self.affine = 0.0
         self.zoom = 0.0
         self.enc_chunk = 0                                  # eval only: windows per encoder forward; 0 = all at once
@@ -314,6 +314,14 @@ class WindowMIL(nn.Module):
             self.depth_proj = nn.Linear(8, f)
             for t in (self.slot_emb.weight, self.depth_proj.weight, self.depth_proj.bias):
                 nn.init.zeros_(t)
+        if spatial:
+            # One query per finding over the positions of a window's feature map, in place of the global average:
+            # a 2-3 mm cartilage layer is a few of the 144 positions, and the average dilutes it. The queries start
+            # at ZERO, where the attention is uniform, i.e. the average: step 0 is exactly the model without them.
+            if not (hasattr(encoder, "forward_features") and hasattr(getattr(encoder, "head", None), "norm")):
+                raise SystemExit("--spatial-attn needs a conv encoder with a pooled head (convnext_*)")
+            self.sq = nn.Parameter(torch.zeros(n, f))
+            self.sq_norm = nn.LayerNorm(f)
         self.register_buffer("mean", torch.tensor(MEAN).view(1, 3, 1, 1), persistent=False)
         self.register_buffer("std", torch.tensor(STD).view(1, 3, 1, 1), persistent=False)
 
@@ -338,6 +346,15 @@ class WindowMIL(nn.Module):
                               padding_mode="zeros", align_corners=False)
         return (x - self.mean) / self.std
 
+    def encode(self, xp: torch.Tensor) -> torch.Tensor:
+        """Windows -> one feature each (N, F); with spatial attention, one per finding (N, n, F)."""
+        if not self.spatial:
+            return self.encoder(xp)
+        t = self.encoder.forward_features(xp).flatten(2).transpose(1, 2).float()      # (N, positions, F)
+        a = torch.softmax(self.sq_norm(t) @ self.sq.t() / t.shape[-1] ** 0.5, dim=1)   # (N, positions, n)
+        p = torch.einsum("npc,npf->ncf", a, t)                                         # (N, n, F)
+        return self.encoder.head.norm(p.reshape(-1, p.shape[-1], 1, 1)).flatten(1).view(p.shape)   # the head's own norm
+
     def forward(self, x, mask=None, gain=None, slot=None, pos=None):
         if self.zoom:
             h_ = x.shape[-1]
@@ -352,19 +369,22 @@ class WindowMIL(nn.Module):
         b, k = x.shape[:2]
         xp = self.prep(x, gain)
         if self.enc_chunk and not self.training:            # bound memory; the head still sees every window together
-            f = torch.cat([self.encoder(c) for c in xp.split(self.enc_chunk)])
+            f = torch.cat([self.encode(c) for c in xp.split(self.enc_chunk)])
         else:
-            f = self.encoder(xp)
-        h = self.norm(f.view(b, k, -1).float())
+            f = self.encode(xp)
+        h = self.norm(f.view(b, k, *f.shape[1:]).float())   # (B,K,F); spatial: (B,K,12,F), a token per finding
         if self.n_slots:
             if slot is None or pos is None:
                 raise ValueError("this model was built with slot/depth embeddings: pass slot and pos")
-            h = h + self.where(slot, pos)
+            w = self.where(slot, pos)
+            h = h + (w[:, :, None] if self.spatial else w)
         a = self.att(h)                                     # (B,K,12)
+        if self.spatial:
+            a = torch.diagonal(a, dim1=2, dim2=3)           # finding n scores the windows by its own token
         if mask is not None:
             a = a.masked_fill(~mask[..., None], float("-inf"))
         a = torch.softmax(a, dim=1)
-        pooled = torch.einsum("bkn,bkf->bnf", a, h)
+        pooled = torch.einsum("bkn,bknf->bnf" if self.spatial else "bkn,bkf->bnf", a, h)
         return (pooled * self.w).sum(-1) + self.b
 
 
@@ -523,6 +543,9 @@ def main() -> None:
                          "resized back; both views in one bag, train and eval (2x the windows). 0 = off")
     ap.add_argument("--enc-chunk", type=int, default=0,
                     help="evaluation only: encode this many windows per forward (a large encoder on ~80 windows); 0 = all")
+    ap.add_argument("--spatial-attn", action="store_true",
+                    help="per-finding attention over the positions of each window's feature map, in place of the global "
+                         "average; starts as the average (convnext_* only)")
     ap.add_argument("--conf-weight", choices=["fork", "none"], default="fork",
                     help="fork: loss x (0.25 + 0.75|2y-1|), built for a table where 0.5 means 'not stated'; none: plain "
                          "BCE, for graded tables whose mid levels are readings (and for masked targets)")
@@ -612,7 +635,9 @@ def main() -> None:
         barrier(world)
         if rank != 0:
             enc = build_encoder(a.arch, a.weights_dir, res, a.drop_path)
-        model = WindowMIL(enc, res, n_slots=len(corpus.slot_sizes) if a.pos_emb else 0).to(dev)
+        model = WindowMIL(enc, res, n_slots=len(corpus.slot_sizes) if a.pos_emb else 0, spatial=a.spatial_attn).to(dev)
+        if a.spatial_attn:
+            log("spatial attention: a query per finding over each window's feature map (zero-initialised = the average)")
     if a.init:
         import hashlib
         src = a.init if a.init.exists() else next(iter(sorted(a.corpus.rglob(a.init.name))), None)
@@ -623,7 +648,7 @@ def main() -> None:
         ren = {"clsW": "w", "clsb": "b"}                           # the public raptor head's names for ours
         sd = {("encoder." + k[len("backbone."):]) if k.startswith("backbone.") else ren.get(k, k): v for k, v in sd.items()}
         missing, unexpected = model.load_state_dict(sd, strict=False)
-        zero_init = {k for k in missing if k.startswith(("slot_emb.", "depth_proj."))}   # start at zero by design
+        zero_init = {k for k in missing if k.startswith(("slot_emb.", "depth_proj.", "sq"))}   # start at zero by design
         if unexpected or set(missing) - zero_init:
             raise SystemExit(f"--init {src}: missing {sorted(set(missing) - zero_init)[:8]}, unexpected {unexpected[:8]}")
         a.init_sha256 = hashlib.sha256(src.read_bytes()).hexdigest()
@@ -850,7 +875,7 @@ def main() -> None:
             "timm": ARCHS[a.arch].get("timm", "vit_large_patch16_dinov3"),
             "layout": corpus.layout, "slot_sizes": list(corpus.slot_sizes), "img": getattr(corpus, "img", 336),
             "pos_emb": bool(a.pos_emb), "n_slots": model.n_slots, "llrd": a.llrd, "drop_path": a.drop_path,
-            "zoom": a.zoom,
+            "zoom": a.zoom, "spatial": bool(getattr(model, "spatial", False)),
             "rope_periods": rope.periods.float().tolist() if rope is not None and hasattr(rope, "periods") else None,
             "mean": MEAN, "std": STD,
             **({"hf": ARCHS[a.arch].get("hf"), "qwen_config": model.qwen.config.to_dict(), "qwen_ids": model.ids,
@@ -887,7 +912,7 @@ def main() -> None:
                    "n_train": len(tr), "n_val": len(va), "n_gold": len(gold_ids), "k": a.k, "bs": a.bs,
                    "bb_lr": a.bb_lr, "head_lr": a.head_lr, "wd": a.wd, "seed": a.seed, "res": res,
                    "drop_path": a.drop_path, "llrd": a.llrd, "pos_emb": a.pos_emb, "eval_windows": a.eval_windows,
-                   "aug_affine": a.aug_affine, "zoom": a.zoom, "conf_weight": a.conf_weight, "init": str(a.init) if a.init else None, "slots": a.slots or None,
+                   "aug_affine": a.aug_affine, "zoom": a.zoom, "spatial_attn": a.spatial_attn, "conf_weight": a.conf_weight, "init": str(a.init) if a.init else None, "slots": a.slots or None,
                    "allow_missing_labels": a.allow_missing_labels,
                    "init_sha256": getattr(a, "init_sha256", None),
                    "labels_sha256": __import__("hashlib").sha256(Path(a.labels).read_bytes()).hexdigest()
