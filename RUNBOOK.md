@@ -9,7 +9,7 @@
 | why the weak findings are weak | [`docs/REVIEW-2026-10-12.md`](docs/REVIEW-2026-10-12.md): the error budget |
 | anything before 10-11 | `git show 9c23daf:RUNBOOK.md` (also `:DATA.md`, `:REFERENCE.md`, `:docs/REVIEW-2026-10-04.md`) |
 
-Last updated 2026-10-13 15:25 PDT.
+Last updated 2026-10-13 15:28 PDT.
 
 ## 0. Right now
 
@@ -42,13 +42,15 @@ Last updated 2026-10-13 15:25 PDT.
   memory, by estimate). On a rented 5090: ~35–45 h of machine, ~$20–45, for its recipe on a pseudo-label table
   (reports + the OAI-trained CoAtNet + R7's own held-out predictions + ours); with OAI's ~2,400 knees ~55–65 h,
   ~$30–65. All estimates. **v3 is now the fallback, for the case of Kaggle's T4s only.**
-- **Two reads approved 15:10, kernels pushed 15:17** (`notebooks/build_r7_read_kernel.py`; rules in §4 and the LOG):
-  `rsna-knee-sub-r7-alone` (R7 as published; its score alone exists nowhere) and `rsna-knee-sub-r7-alone-flip`
-  (its mirror pass on, one line changed). **Read both commit logs before submitting** (`OURS_STAGE_COMPLETE …
-  PASS` · `NOTEBOOK_COMPLETE` · `R7_READ flip_tta=…` · 0 tracebacks), then send them after 17:06 with
-  `notebooks/submit_plan_2026-10-13-r7.json` (it lists all five of tonight's, so it also covers the first
-  submitter). `jessky`'s public pseudo-labelled folds were checked and are NOT a read worth a slot (the small
-  recipe, no public inference settings, nothing to gate against).
+- **Two reads approved 15:10, both kernels COMPLETE and gated 15:25** (`notebooks/build_r7_read_kernel.py`; rules
+  in §4, gate lines in the LOG): `rsna-knee-sub-r7-alone` (R7 as published; its score alone exists nowhere) and
+  `rsna-knee-sub-r7-alone-flip` (its mirror pass on, one line changed; `FLIP_TTA_READY` in both workers).
+  **A second submitter (pid 99722) is armed for 17:06** with `notebooks/submit_plan_2026-10-13-r7.json`: the two R7
+  reads, then tonight's three if the 17:02 submitter (pid 96147) has not sent them. **After 17:10: `tail
+  data/submitter.log` and `$K competitions submissions $C`; five should carry the new UTC day.** The flip read can
+  fail by running late (two passes of four folds): then it raises and shows no score. `jessky`'s public
+  pseudo-labelled folds were checked and are NOT a read worth a slot (the small recipe, no public inference
+  settings, nothing to gate against).
 - **OAI's images need the owner first:** the NDA / OAI account and its data-use terms are theirs to sign; then the
   download (~200–400 GB, unverified), a MOAKS → findings mapping we would write, and R7's cache builder on OAI's
   series. The forum's challenge to OAI's eligibility has no host reply. Measured by its one public user: +0.003 to

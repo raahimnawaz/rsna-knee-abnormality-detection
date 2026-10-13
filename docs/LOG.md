@@ -1059,3 +1059,20 @@ laid out again when the plan moved to R7.** What it takes, in order:
 and on). On R7: unknown. **Order proposed:** read A first (is R7 the one to build on); the 5090 run on the
 pseudo-label table needs no OAI access and starts when the GPU exists; OAI's knees join as soon as the account and
 the files exist, as a second run or the first if they arrive in time.
+
+**✅ Both R7 read kernels COMPLETE and gated, 10-13 15:25** (pushed 15:17, built from `a0fcd74`; ~7 min each, so
+~0.25 h of Kaggle GPU for the two).
+- `raahimnawaz/rsna-knee-sub-r7-alone` v1: `OURS_STAGE_COMPLETE {"status": "PASS", … "scored": 3,
+  "fallback_studies": 0}` · `NOTEBOOK_COMPLETE` · `R7_READ flip_tta=False rows=3 unscored=0` · 0 tracebacks. Its 13
+  public cells are byte-identical to the notebook's; `submission.csv` equals R7's own `ours_sub.csv` and differs
+  from the blend the notebook wrote (kept as `public_blend_sub.csv`).
+- `raahimnawaz/rsna-knee-sub-r7-alone-flip` v1: the same lines with `R7_READ flip_tta=True`; one public line differs
+  (`if manifest.get('flip_tta'):` → `if True:`); both workers print `FLIP_TTA_READY {"perm": [0, 1, 3, 2, 5, 4, 6, …],
+  "mcl_plain_pass_only": true}`; GPU time a study 9.3 s → 18.2 s; against the plain kernel on the three test studies
+  MCL is identical and Medial / Lateral OA move by up to 0.10: the second pass ran and is swapped back.
+- **What the commit run cannot show:** whether four folds × two passes finish inside the notebook's 8.3 h on ~1,300
+  studies (about 3.3 h of GPU on two T4s by the per-study figure, plus decoding). A late run leaves studies
+  unscored, and the last cell then raises: no score, a slot spent.
+- **⏳ A second submitter is armed (15:26, pid 99722) for 17:06:00** with `submit_plan_2026-10-13-r7.json`: the two
+  R7 reads first, then tonight's three, so it sends whatever the 17:02 submitter (pid 96147, still running) did
+  not. Five slots, five submissions. Check after 17:10: `tail data/submitter.log` and `$K competitions submissions`.
