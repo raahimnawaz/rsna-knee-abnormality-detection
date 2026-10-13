@@ -13,9 +13,9 @@ Last updated 2026-10-13 08:11 PDT.
 
 ## 0. Right now
 
-- **Running on Kaggle:** the pseudo-label student (pushed 08:04, due ~10:00) and the five-teacher-fold submission
-  kernel (pushed 08:06).
-- **Next action:** read the two kernels (§4), then submit the four approved reads at the **17:00 PDT reset today**.
+- **Running on Kaggle:** the pseudo-label student (pushed 08:04, due ~10:00).
+- **Next action:** when it finishes, build and gate its submission kernel (§4, read 4); then submit the four approved
+  reads at the **17:00 PDT reset today** (three kernels are already gated).
   The Mac must be awake then: it sleeps with the lid shut and every watcher stops (this cost eight hours on 10-13).
 - **Waiting for GPU hours** (Friday 17:00's reset, or a rented GPU): spatial attention, the fine-tune, `--k 24`.
 - Nothing is pending on the leaderboard.
@@ -104,7 +104,7 @@ not answered). The 0.949 author gained +0.003–0.005 from 2,399 baseline knees.
 
 | # | submission | kernel (`raahimnawaz/…`, v1) | gate | against | rule |
 |---|---|---|---|---|---|
-| 1 | the five teacher folds, one ensemble | `rsna-knee-sub-a-ortho-teach1-cv5-nall` | **to read** | 0.945 (`57112913`) | kept unless ≥ 0.005 below; shown at ≥ +0.010; at ≥ 0.945 the finals' candidate |
+| 1 | the five teacher folds, one ensemble | `rsna-knee-sub-a-ortho-teach1-cv5-nall` | passed (5/5) | 0.945 (`57112913`) | kept unless ≥ 0.005 below; shown at ≥ +0.010; at ≥ 0.945 the finals' candidate |
 | 2 | Synovitis probe, teacher-label fold 0 | `rsna-knee-sub-a-ortho-teach1-f0-nall-p-synovitis` | passed | 0.532 (`57117247`) | two ticks decide whether the teacher moved Synovitis |
 | 3 | the public checkpoint alone, in our input | `rsna-knee-sub-a-ortho-oai-pa-nall` | passed | its own 0.949 | no pass / fail: near 0.949 → use it as it is and skip the fine-tune; ~0.940 or lower → our input costs it and the fine-tune has room |
 | 4 | the pseudo-label student alone | **to build** when `rsna-knee-c7-train-convnext-small-teach2-cv` finishes: its sha, then `--ours-only --tag teach2-f0` | — | 0.944 (`57122696`) | kept unless ≥ 0.005 below; shown at ≥ +0.010 |

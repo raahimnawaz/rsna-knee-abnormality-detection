@@ -553,4 +553,8 @@ in the seconds the Mac was awake. Nothing was lost on Kaggle: both fold kernels 
   the 17:00 PDT reset on 10-13:** the five teacher folds (against 0.945), the student's Synovitis probe (against
   0.532), the public checkpoint alone in our input (against its own 0.949), the pseudo-label student alone (against
   0.944). One slot stays free for the ensemble with the public checkpoint, to be decided after the scores.
+- **✅ The five teacher folds: submission kernel COMPLETE 10-13 08:12** (`…-sub-a-ortho-teach1-cv5-nall` v1, 201 s):
+  `5 checkpoint(s), sha256 ok` · `GATE PASSED (1/5)` … `(5/5)`, each member rebuilding 3 of its own held-out studies
+  from DICOMs (max |dp| 0.00021 / 0.00032 / 0.00030 / 0.00029 / 0.00073) · `[sub A] ARMS: convnext_small_stage_b x5
+  only, windows all` · 0 tracebacks. Ready for the 17:00 reset.
 
