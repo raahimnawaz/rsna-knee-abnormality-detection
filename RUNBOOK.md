@@ -5,47 +5,54 @@
 
 | if you need | read |
 |---|---|
-| a kernel name, a full sha256, a gate line, the exact wording of a rule | [`docs/LOG.md`](docs/LOG.md): every run and read since 10-11 |
-| why the open experiments are the open experiments | [`docs/REVIEW-2026-10-12.md`](docs/REVIEW-2026-10-12.md): the error budget |
+| a kernel name, a full sha256, a gate line, the exact wording of a rule | [`docs/LOG.md`](docs/LOG.md): every run and read since 10-11, dated |
+| why the weak findings are weak | [`docs/REVIEW-2026-10-12.md`](docs/REVIEW-2026-10-12.md): the error budget |
 | anything before 10-11 | `git show 9c23daf:RUNBOOK.md` (also `:DATA.md`, `:REFERENCE.md`, `:docs/REVIEW-2026-10-04.md`) |
 
-Last updated 2026-10-13 08:07 PDT. **Running on Kaggle:** the pseudo-label student (§4.5; pushed 08:04, due ~10:00)
-and the five-teacher-fold submission kernel (pushed 08:06). Folds 1–4 on the teacher labels are COMPLETE.
-**For the 17:00 PDT reset today, approved:** the five teacher folds as one ensemble (gate to be read), the student's
-Synovitis probe (gate passed), the public checkpoint alone in our input (gate passed), and the pseudo-label student
-alone once its kernel's gate passes (owner 10-13 ~08:08, "sure submit"). **Not approved yet:** how to ensemble the
-public checkpoint with ours (after the scores; one slot is kept for it).
-The spatial-attention arm and the fine-tune wait for Friday's reset. Nothing is pending on the leaderboard.
+Last updated 2026-10-13 08:11 PDT.
+
+## 0. Right now
+
+- **Running on Kaggle:** the pseudo-label student (pushed 08:04, due ~10:00) and the five-teacher-fold submission
+  kernel (pushed 08:06).
+- **Next action:** read the two kernels (§4), then submit the four approved reads at the **17:00 PDT reset today**.
+  The Mac must be awake then: it sleeps with the lid shut and every watcher stops (this cost eight hours on 10-13).
+- **Waiting for GPU hours** (Friday 17:00's reset, or a rented GPU): spatial attention, the fine-tune, `--k 24`.
+- Nothing is pending on the leaderboard.
 
 ## 1. Goal and the owner's directions
 
 - **0.97 macro AUROC** (10-11). Do not reframe it. Final submission **10-22 16:59 PDT**, two finals.
-- **Use whatever is available to us** (owner 10-12 ~21:17; the earlier "our own models only" is WITHDRAWN). Public
+- **Use whatever is available to us** (owner 10-12 21:17; an earlier "our own models only" note is withdrawn). Public
   weights, models and data may be used and built on. Not asked, so not assumed: submitting the public blend as it
-  stands (the owner's "its useless" was said of that).
+  stands (the owner once called that "useless").
 - Solo: no merger.
 - **Ask before a batch of submissions and before spending GPU hours.** A go covers what it named and nothing later.
-- No Claude attribution in this repo's commits.
+- Keep this page a current-state page; dated detail goes to the LOG. No Claude attribution in this repo's commits.
 
 ## 2. Where we are
 
 | | LB | |
 |---|--:|---|
-| #1 | 0.966 | 10th 0.963 · 20th 0.962 · 100th 0.957 · 5,879 teams (pulled 10-12 19:49; re-pull before quoting) |
-| free public blends | 0.954 | 718 teams exactly there; newer public notebooks claim ≈0.957 |
+| #1 | 0.966 | three teams at 0.965; 0.963 at rank ~7–11 (pulled 10-12 21:41; re-pull before quoting) |
+| medal lines, from a public notebook | | gold to rank 21 (0.962), silver to 290, bronze to 581; ~5,880 teams |
+| free public blends | 0.954–0.957 | the 0.954 tie group runs from rank 193 to 870 |
 | public single model (`nartaa` CoAtNet, trained with 2,399 OAI knees) | 0.949 | |
-| **ours: five folds, consensus labels** | **0.945** | ref `57112913`, rank 1,692. Our best submission |
+| **ours: five folds, consensus labels** | **0.945** | ref `57112913`, rank ~1,690. Our best submission |
 | **ours: one model, teacher labels** | **0.944** | ref `57122696`. Our best single model |
 | ours: one model, consensus labels | 0.938 | ref `57098827`. **The baseline every recipe change is paired against** |
 | ours: one model, `dread_soft` labels | 0.933 | ref `57117178` |
 | ours before this branch (Ortho ViT-L, all data) | 0.929 | ref `56811647` |
+
+The hidden test is ~1,300 studies and the public part ~390: one score is ±0.007 (2 SD) by a public simulation, and a
+difference under ~0.004 between unrelated models says little.
 
 **The model.** ConvNeXt-small (in12k → in1k, 384 px) on the Stage B cache: 7 series slots, 96 slices, 140 mm field
 at 384 px, left knees mirrored to right. Windows of 3 consecutive sampled slices → global average pool → per-finding
 attention over the windows → 12 logits. 12 epochs, 12 random windows a study per step, plain BCE on soft report
 targets, no geometric augmentation. One fold = ~1.9 GPU-h on both T4s (7.8 min/epoch); five folds, held out by site.
 
-**Where the error is: the test set, by single-finding probes on the five-fold model (± 0.006 each).**
+**Where the error is: the test set, by single-finding probes on the five-fold consensus model (± 0.006 each).**
 
 | finding | AUROC | share of what is left | what limits it (review §2.2) |
 |---|--:|--:|---|
@@ -56,8 +63,9 @@ targets, no geometric augmentation. One fold = ~1.9 GPU-h on both T4s (7.8 min/e
 | MCL | 0.968 | 5% | — |
 | the other seven, by subtraction | mean 0.966 | 36% | — |
 
-0.97 needs those first three near 0.95 with everything else near 0.975. Gold-58 gives the same order but reads every
-weak finding 0.03–0.07 lower: do not size anything from gold.
+0.97 needs those first three near 0.95 with everything else near 0.975. They are also the three findings the public
+0.949 model's OAI knees supervised (its author's write-up). Gold-58 gives the same order but reads every weak finding
+0.03–0.07 lower: do not size anything from gold.
 
 ## 3. Decided (each by a rule written before its result; detail in the LOG)
 
@@ -68,64 +76,65 @@ weak finding 0.03–0.07 lower: do not size anything from gold.
 | consensus labels against `dread_soft` | LB +0.005 (held-out +0.0049) | kept, not shown (bar +0.010) |
 | teacher labels against consensus | LB +0.006 (held-out had said +0.0138) | **kept**, not shown. Use them for finals |
 | Synovitis: mask unread cells or fill from Effusion | probes 0.884 against 0.872: one tick | a tie; the mask stays |
-| denser coronal and axial slices (Stage C cache) | held-out macro +0.0030 ± 0.0023; Lateral OA / PF OA / MCL −0.0002 ± 0.0049 | **FAIL: Stage B stays.** Slice spacing is not the limit. It ran 11 epochs of 12 |
-| the public OAI-trained model run on our cache | gold 0.920 (ours 0.928) | usable as a teacher; not a better reader than its student |
-| affine augmentation | −0.0019 ± 0.0048 on ResNet34, 09-27 (`75ab54c`) | **not run** on this recipe; held |
-| OAI data itself | host (discussion 741819): allowed if reachable without institutional sign-off, which is unverified; cannot go on Kaggle; the access request is the owner's. A local Mac could train it (this M5 laptop: 17.7 img/s against Kaggle's ~90, measured 10-12; LOG). Forum 10-12: one participant reports individual, immediate NDA approval, and the 0.949 author used 2,399 baseline knees for PF OA, Lateral OA and Synovitis only (+0.003–0.005 for them) | **not in the time left on Kaggle alone**; open only if the owner has a Studio-class Mac and same-day access |
+| denser coronal and axial slices (Stage C cache) | held-out macro +0.0030 ± 0.0023; Lateral OA / PF OA / MCL −0.0002 ± 0.0049 | **FAIL: Stage B stays.** It ran 11 epochs of 12 |
+| the public OAI-trained model run on our cache | gold 0.920 (ours 0.928) | usable as a teacher; its LB in our input is read 3 of §4 |
+| affine augmentation | −0.0019 ± 0.0048 on ResNet34, 09-27 (`75ab54c`) | not run on this recipe; held |
+| a bigger backbone | ViT-L lost by 0.011; the forum's best singles are ConvNeXt-Tiny, ResNet50, EfficientNetV2-S at 224 px | not proposed |
+| a stronger LLM re-reading the reports | every reader reads the same text; best tables ~0.90 on gold, our image model 0.93 | not run (~$5–20; the judge is the cost) |
 
-Closed before this branch, do not re-open (`9c23daf`): teacher rounds that learn from the same reports (**⚠️ 10-12
-~21:45: what was run is a round from four ResNet34 teachers; several top-40 teams report their best single models
-come from pseudo-labels of strong image models, and a round from our five-fold OOF is untested: LOG, same time**); our model as
-the public stack's core; centre crops and zoom; an nnU-Net crop; Qwen report labels; a per-site prior; the fastMRI+
-teacher (what failed was a ResNet34 on four findings judged on gold-58, not fastMRI+ as data: LOG 10-12 ~21:07);
-bigger backbones.
+**OAI images themselves: not pursued, the owner's call.** The rules side looks open (host: allowed if reachable
+without institutional sign-off; one participant reports individual approval at once, unverified by us; the host has
+not said yes or no). The images cannot go on Kaggle, so training needs another GPU: this M5 laptop is ~5× slower than
+Kaggle (17.7 img/s against ~90, measured), a rented 5090 is ~$0.65/h (whether OAI's terms allow a rented machine is
+not answered). The 0.949 author gained +0.003–0.005 from 2,399 baseline knees. Sizes and costs: LOG, 10-12 evening.
 
-## 4. In progress — the owner approved all three on 10-12 ("do all 3 but first if OAI helps lets do it")
+**Closed before this branch (`9c23daf`), with what has changed since:**
+- *Teacher rounds from the same reports:* the round that read ~0 on the LB used four ResNet34 teachers. Top teams
+  report their best singles from pseudo-labels of strong models, so a round from our own five folds is **re-opened
+  and running** (§4, read 4).
+- *The fastMRI+ teacher:* what failed was a ResNet34 on four findings judged on gold-58, not fastMRI+ as data. Its
+  ceiling for us is low (coronal only, no synovitis label); the 556-knee cache is still on Kaggle in Stage A format.
+- *Our model as the public stack's core:* lost with our 0.93 models. With the direction changed and ours at 0.945,
+  adding the public checkpoint to OUR ensemble is open (§4).
+- Still closed: centre crops and zoom; an nnU-Net crop; Qwen report labels; a per-site prior.
 
-Order: the OAI-derived work first (item 2), then item 1; item 3 at the next slot reset.
+## 4. Open work
 
-1. **Spatial attention for Lateral OA and PF OA: BUILT; MOVED to Friday's reset by the owner's swap (10-12 ~21:50).** `train_windows.py
-   --spatial-attn` (a query per finding over each window's 12 × 12 feature map, zero-initialised = the global
-   average). Local checks and the Kaggle CPU smoke are clean. Kernel to push at the reset:
-   build with `--tag cons2-sa "--train-args=--allow-missing-labels --spatial-attn"` (→
-   `raahimnawaz/rsna-knee-c7-train-convnext-small-cons2-sa-cv`). **Rule:** paired on the 847 against the 0.938 model,
-   macro ≥ +0.004 OR the mean of Lateral OA and PF OA ≥ +0.015 → into the finals. After it, if hours remain:
-   `--k 24` (~3.3 GPU-h, probably after Friday's reset).
-2. **Folds 1–4 on the teacher labels: COMPLETE 10-13** (12/12 epochs each; shas in §7) —
-   `raahimnawaz/rsna-knee-c7-train-convnext-small-teach1-f12-cv` and `...-teach1-f34-cv`. The five-fold submission
-   kernel `raahimnawaz/rsna-knee-sub-a-ortho-teach1-cv5-nall` v1 was pushed 08:06: read its gate. **Rule:** alone on the LB against 0.945; kept unless ≥ 0.005 below, shown at
-   ≥ +0.010; at ≥ 0.945 it is the finals' candidate. **The owner's go for this one submission: given 10-12 ~20:46
-   ("do it").** It covers this submission and nothing later. Today's five slots are used: it goes at the 17:00 PDT
-   reset on 10-13, after its log reads `sha256 ok`, `GATE PASSED (5/5)`, `[sub A] ARMS:` and 0 tracebacks.
-3. **The student's Synovitis probe: approved, submit at the 17:00 PDT reset on 10-13.** Kernel
-   `raahimnawaz/rsna-knee-sub-a-ortho-teach1-f0-nall-p-synovitis` v1, gate passed. Against 0.532 (ref `57117247`);
-   two ticks decide whether the teacher moved Synovitis.
+**Today's reads, 17:00 PDT reset (four approved; submit only after the gate lines read clean, §6).**
 
-4. **The public OAI-trained CoAtNet in our own stack (owner 10-12 ~21:17: "we finetune/pretrain the cnn").**
-   *Fine-tune:* from its weights, on our input and `targets_teacher_v1`, all data, 6 epochs; **~3.5 GPU-h, so not
-   before Friday's reset unless a GPU is rented.** Its CPU smoke is clean (10-12 21:57, after one wiring fix), so the
-   kernel is one push away; the command, the cost and the rule are in the LOG (10-12 ~21:17 and 21:57). *Two reads with no training, proposed for the 17:00 reset on 10-13,
-   NOT approved yet:* the checkpoint as it is in our input, alone; and the five teacher folds + it.
+| # | submission | kernel (`raahimnawaz/…`, v1) | gate | against | rule |
+|---|---|---|---|---|---|
+| 1 | the five teacher folds, one ensemble | `rsna-knee-sub-a-ortho-teach1-cv5-nall` | **to read** | 0.945 (`57112913`) | kept unless ≥ 0.005 below; shown at ≥ +0.010; at ≥ 0.945 the finals' candidate |
+| 2 | Synovitis probe, teacher-label fold 0 | `rsna-knee-sub-a-ortho-teach1-f0-nall-p-synovitis` | passed | 0.532 (`57117247`) | two ticks decide whether the teacher moved Synovitis |
+| 3 | the public checkpoint alone, in our input | `rsna-knee-sub-a-ortho-oai-pa-nall` | passed | its own 0.949 | no pass / fail: near 0.949 → use it as it is and skip the fine-tune; ~0.940 or lower → our input costs it and the fine-tune has room |
+| 4 | the pseudo-label student alone | **to build** when `rsna-knee-c7-train-convnext-small-teach2-cv` finishes: its sha, then `--ours-only --tag teach2-f0` | — | 0.944 (`57122696`) | kept unless ≥ 0.005 below; shown at ≥ +0.010 |
 
-5. **Pseudo-label round from our own five folds: RUNNING since 10-13 08:04** (approved 10-12 ~21:50, "do the swap";
-   `raahimnawaz/rsna-knee-c7-train-convnext-small-teach2-cv`, `targets_teacher_v2` `fa98f943…`, due ~10:00).** Targets `targets_teacher_v2` = `targets_teacher_v1` with the five teacher-label folds' held-out
-   predictions (`cv_last/oof_all.csv` of each fold kernel) at half of every cell: `build_consensus_targets.py
-   --teacher <the CoAtNet's oof_all.csv> --own-oof <three files> --w-own 0.5`. Fold 0, the 0.944 model's recipe, the
-   targets the only change; kernel `--tag teach2`. **Rule, before any result:** alone on the LB against 0.944; kept
-   unless ≥ 0.005 below; a gain is shown at ≥ +0.010. Its held-out number is report only (a label change, and the
-   other folds' models trained on fold 0's studies). **Its submission is approved (owner 10-13 ~08:08) for the 17:00
-   reset, after its gate lines read clean.**
+The fifth slot is kept for an ensemble with the public checkpoint. **Not approved: the owner decides how to ensemble
+after these scores.** What the forum shows works: every public blend runs `nartaa`'s notebook unchanged as stage 1,
+in its own preprocessing, and blends per-finding percentile ranks. For us that is the Submission B path of
+`build_submit_kernel.py` (last used 10-03, needs pointing at `nartaa/rsna-knee-0949-anatomical-mirror`), with
+weights fixed beforehand and theirs heavier on PF OA, Lateral OA and Synovitis.
 
-Then: the final recipe on the best labels, five folds (or all data, several seeds), read alone on the LB.
+**After the scores.** Read 4 kept → five folds on `targets_teacher_v2` (~9.5 GPU-h) are the finals' labels. Read 1
+at ≥ 0.945 → the teacher folds are the finals' candidate until something beats them.
+
+**Waiting for GPU hours** (each has its kernel command in §6 and its rule in the LOG):
+
+| arm | cost | state | rule |
+|---|--:|---|---|
+| spatial attention (`--spatial-attn`), for Lateral OA and PF OA | ~1.9 h | built, CPU smoke clean; the owner moved it to Friday | paired on the 847 against the 0.938 model: macro ≥ +0.004, or the mean of Lateral OA and PF OA ≥ +0.015 → into the finals |
+| fine-tune of the public CoAtNet on our input and `targets_teacher_v1`, all data, 6 epochs | ~3.5 h (estimate) | CPU smoke clean; one push away | LB only (its init saw every study): ≥ +0.005 over read 3, or it did not pay |
+| `--k 24` | ~3.3 h | not built | macro ≥ +0.004 → finals; below +0.002 closes bag size |
+| finals: the best labels and recipe, five folds | ~9.5 h | — | alone on the LB |
 
 ## 5. Budget
 
-- **GPU:** 30 h/week on Kaggle, reset Fri 17:00 PDT; 10-16 is the last reset. **The owner's quota page read 10.2 h
-  left on 10-12 ~20:46** (the two fold kernels were 25 min in; whether the page already counted them is not known).
-  The 10-12 evening runs take ~9.6 h by our count (folds 1–4 ~7.4, spatial attention ~1.9, the submission kernel's
-  own run ~0.3), so **under 1 h is left until Friday for anything else, casmi26 included** (it shares the quota).
-  The attention run is therefore not held. Two GPU sessions at once, five CPU sessions.
-- **Submissions:** 5 a day, reset 17:00 PDT (00:00 UTC). 25 used.
+- **GPU:** 30 h/week on Kaggle, reset Fri 17:00 PDT; **10-16 is the last reset**. By our count ~0.7 h is left until
+  then once the student finishes (the owner's quota page read 10.2 h on 10-12 20:46; that page is the truth).
+  **casmi26 shares the quota.** Two GPU sessions at once, five CPU sessions.
+- **Submissions:** 5 a day, reset 17:00 PDT (00:00 UTC). 25 used before today's four.
+- **A rented GPU**, if the owner wants one: a 5090 at ~$0.20–0.99/h would run the whole list above in ~5–7 h
+  ($10–30, speed estimated, not measured). The Stage B cache would have to be pulled to it from Kaggle.
 
 ## 6. How to run things
 
@@ -156,6 +165,22 @@ $K kernels push -p <dir>
 $K competitions submit rsna-knee-abnormality-detection -k raahimnawaz/<kernel> -v <n> -f submission.csv \
     -m "<what, against what, and the rule>"
 
+# the arms waiting for GPU (§4): the baseline line above with
+#   spatial attention:  --tag cons2-sa "--train-args=--allow-missing-labels --spatial-attn"
+#   the fine-tune:      --arch coatnet --all-data (no --folds) --epochs 6 --time-budget-h 5.0 --tag oai-ft \
+#                       --targets data/student/targets_teacher_v1.csv \
+#                       --extra-datasets nartaa/rsna-knee-publication-swa-weights-20261007 \
+#                       "--train-args=--init raptor_ft_alldata_t16_blendjev_oai_d96_r384_swa.pt --allow-missing-labels --eval-bs 1 --enc-chunk 16"
+
+# a pseudo-label table: the teacher table again, plus our fold models' held-out predictions (one file per fold kernel)
+$PY labeling/build_consensus_targets.py --labels-dir data/public_llm_labels --gold data/train.csv \
+    --teacher fusion/runs_coatnet_oai_teacher_pa/runs_coatnet/oof_all.csv --w-teacher 0.5 \
+    --own-oof fusion/runs_cnxs_teach1_{f0,f12,f34}/runs_convnext_small/cv_last/oof_all.csv --w-own 0.5 \
+    --out data/student/targets_teacher_v2.csv
+# a new table goes into the Kaggle dataset as a new version: a folder with EVERY table already there, the new one
+# and a dataset-metadata.json ({"id": "raahimnawaz/rsna-knee-student-targets", "title": …, "licenses": [{"name": "other"}]})
+$K datasets version -p <dir> -m "<what was added>"
+
 $PY fusion/error_budget.py                                          # the review's tables
 $PY notebooks/canon_fixture.py --out <dir> && $PY notebooks/infer_parity_fixture.py --fixture <dir>   # offline tests
 ```
@@ -174,6 +199,11 @@ $PY notebooks/canon_fixture.py --out <dir> && $PY notebooks/infer_parity_fixture
 - `--train-args=--flag` needs the `=` when the value is a single token starting with `--`.
 - A CPU smoke does not reach GPU-only branches; force those locally before an architecture's first GPU run.
 - zsh does not split `$var` in a `for` loop; write the list out.
+- The Mac sleeps with the lid shut and background watchers stop with it; Kaggle runs carry on. Anything that must
+  happen at a set hour needs the lid open. Take times for the LOG from `date`, not from memory.
+- `kaggle kernels output` can hang for hours after a sleep: run it with a timeout and retry.
+- CoAtNet on Stage B needs its own argument package (`COATNET_PACKAGE`); the ViT one fails on `--ckpt-blocks`.
+- A third GPU kernel cannot start while two are running: build it, push it when one finishes.
 
 ## 7. Labels and weights
 
@@ -181,12 +211,13 @@ Targets are in `data/student/` (git-ignored) and in the private Kaggle dataset `
 
 | table | sha256 | what it is |
 |---|---|---|
-| `targets_teacher_v2.csv` | `fa98f943…` | teacher_v1 with our five teacher-label folds' held-out predictions at half of every cell (a pseudo-label round). **Under test** (§4.5) |
+| `targets_teacher_v2.csv` | `fa98f943…` | teacher_v1 with our five teacher-label folds' held-out predictions at half of every cell (a pseudo-label round). **Under test** (§4, read 4) |
 | `targets_teacher_v1.csv` | `2980e8d6…` | consensus_v2 with the public OAI-trained CoAtNet's predictions at half of every supervised cell, and alone on unread Synovitis. **Best so far** |
 | `targets_consensus_v2.csv` | `a1ed4034…` | seven public readers of the same reports on `dread_soft`'s levels; Synovitis masked where unread. **The baseline's** |
 | `dread_soft` | `8cec477f…` | the public graded table both are built on (`dreaddevelopment/rsna-knee-labels`) |
 
-Builder: `labeling/build_consensus_targets.py [--teacher <oof_all.csv> --w-teacher 0.5]`. Never train on a table that
+Builder: `labeling/build_consensus_targets.py [--teacher <oof_all.csv>] [--own-oof <files>]` (§6); with `--teacher`
+alone it rebuilds `targets_teacher_v1` byte for byte. Never train on a table that
 contains the gold rows (`tasmeemreza`, `yehezkielhaganta`, `dhiyaneshbabu`, `lvthanhxun` fused, `gperdrizet`), and
 never on `lixin73`'s: `score_oof.py` scores against it.
 
@@ -229,7 +260,7 @@ Caches: Stage B = `raahimnawaz/rsna-knee-stage-b-s{0..7}of8` (in use). Stage C =
 | `pipeline/` | slot layouts (`slots96.py` = Stage B, `slots118.py` = Stage C, `slots64.py` = Stage A), DICOM → cache builder, provenance | live |
 | `fusion/train_windows.py`, `infer_windows.py`, `folds.py`, `score_oof.py` | trainer, inference, site folds, paired scoring | live |
 | `fusion/error_budget.py` | the review's tables | live |
-| `labeling/build_consensus_targets.py` | the label tables of §7 | live |
+| `labeling/build_consensus_targets.py` | the label tables of §7, including the pseudo-label step | live |
 | `notebooks/build_*_kernel.py` | generators for the cache, training, weights-sha and submission kernels | live |
 | `notebooks/*_fixture.py` | offline tests on synthetic DICOMs | live |
 | `fusion/runs_cnxs_*`, `runs_coatnet_oai_teacher_pa` | this branch's run records: config, held-out and gold predictions, scores (no weights, no logs) | live |

@@ -280,12 +280,18 @@ Before 10-11: `git show 9c23daf:RUNBOOK.md` and `9c23daf:docs/LOG.md`.
 
 ---
 
-# 2026-10-12, late evening — owner: "do all 3 but first if OAI helps lets do it"
+# 2026-10-12, late evening (20:22 – 21:57 PDT)
 
-Read as: the three open items of RUNBOOK §4 are approved, the OAI-derived one first. OAI's signal did help where we
+How to read this block: **A** is what was approved and started, **B** the owner's change of direction and the
+fine-tune it asked for, **C** what an online pass found, **D** the swap it led to, **E** the owner's questions
+answered from the record (reference; nothing in E was run).
+
+## A. "do all 3 but first if OAI helps lets do it" — the teacher folds, spatial attention, the probe
+
+Read as: the three open items of the RUNBOOK are approved, the OAI-derived one first. OAI's signal did help where we
 could use it (the teacher's student, 0.944 against 0.938), so the order is: the four remaining folds on
 `targets_teacher_v1`, then the spatial-attention experiment, and the student's Synovitis probe at the next slot reset
-(17:00 PDT 10-13; none are left today).
+(17:00 PDT 10-13; none were left on 10-12).
 
 - **Folds 1–4 on `targets_teacher_v1` (`2980e8d6…`), the 0.944 model's recipe.** Two kernels, two folds each:
   `raahimnawaz/rsna-knee-c7-train-convnext-small-teach1-f12-cv` and `...-teach1-f34-cv`, `--time-budget-h 6.0`
@@ -295,7 +301,7 @@ could use it (the teacher's student, 0.944 against 0.938), so the order is: the 
   The held-out macro per fold is report only (a label change).
 - **✅ Folds 1–4 PUSHED 10-12 20:22 PDT**, v1 each, built from `47ff4ed`; each notebook differs from fold 0's in
   `FOLD_LIST` only (rebuilt and diffed). Due ~00:15.
-- **Spatial attention (RUNBOOK §4.1), rule written before the run.** `train_windows.py --spatial-attn`: a query per
+- **Spatial attention (RUNBOOK §4), rule written before the run.** `train_windows.py --spatial-attn`: a query per
   finding over the 12 × 12 positions of each window's feature map, in place of the global average; then the existing
   per-finding attention over windows, each finding on its own token. Queries start at zero = the average.
   Checked on the Mac: with zero queries the output equals the plain model's (max |diff| 3e-7, with slot / depth
@@ -311,6 +317,131 @@ could use it (the teacher's student, 0.944 against 0.938), so the order is: the 
   gate lines read clean. (2) The quota page: "it has 10.2 hrs" (the fold kernels were 25 min in; whether the page
   already counted them is not known). Against ~9.6 h for tonight's runs the attention run is NOT held; under 1 h is
   left until Friday's reset for anything else, casmi26 included.
+
+## B. 21:17 — the direction changes: use whatever is available; fine-tune the public model
+
+- **⚠️ DIRECTION CHANGED, owner 10-12 ~21:17: "the rule shouldnt be my own models i have always been for using
+  whatever is avialable to us / and we finetune/pretrain the cnn".** RUNBOOK §1's "our own models only" is
+  WITHDRAWN: public weights, models and data may be used and built on. Not asked, so not assumed: submitting the
+  public blend as it stands (the owner's "its useless" was said of that). Asking before submissions and before GPU
+  hours is unchanged.
+  - **"finetune/pretrain the cnn", read as:** start from the public OAI-trained CoAtNet's weights and train it on
+    our input and labels. The trainer already does this: `--init` maps the public head's names onto ours and lets
+    the slot / depth embeddings and the spatial queries start at zero (`train_windows.py:641`).
+    **The arm (NOT run; needs GPU hours):** `--arch coatnet --corpus stage_b --all-data`, `--init
+    raptor_ft_alldata_t16_blendjev_oai_d96_r384_swa.pt` (sha `7e5315da…`, dataset
+    `nartaa/rsna-knee-publication-swa-weights-20261007`), `targets_teacher_v1` (half of every cell is this model's
+    own reading, which holds it to what OAI taught it while the input changes), 6 epochs, `COATNET_PACKAGE`
+    (bb-lr 3e-5 as the 10-02 CoAtNet student, drop-path 0.1, zero-initialised slot / depth embeddings, plain BCE;
+    the ViT package it was first given is what smoke v1 refused).
+    **Cost:** the 10-02 CoAtNet student took 456 min for 7 epochs of 4,349 studies on ONE T4 = 65 min/epoch, so
+    ~33 min/epoch on both and **~3.5 GPU-h** for 6: more than this week has left (~0.9 h after tonight's runs).
+    Friday 17:00's reset, or a rented GPU.
+    **Judge:** its init saw every training study, so no held-out fold can judge it; the LB does. Rule, before any
+    result: alone against the SAME checkpoint as it is in our input (read (3) below; RUNBOOK §4 read 3). Less than +0.005 over that =
+    the fine-tune did not pay for its hours; ≥ +0.005 = it replaces the as-is checkpoint as an ensemble member.
+  - **Two reads that need no training, proposed for the 17:00 reset on 10-13 (NOT approved yet):** (3) the public
+    checkpoint as it is, in our input, alone: what our input costs it against its 0.949, so how much room a
+    fine-tune has; (4) the five teacher folds + it, against the five teacher folds alone: what it adds.
+    `raahimnawaz/rsna-knee-c7-train-coatnet-oai-teacher-pa` already holds it re-saved in our format (`last.pt`,
+    `last_meta.json`, `oof_all.csv`), so `build_submit_kernel.py --weights-kernel` can take it as a member. A
+    submission kernel's own run is ~6 min of GPU (one on record, 10-03).
+  - **Fine-tune kernel, CPU smoke PUSHED 10-12 21:22:** `raahimnawaz/rsna-knee-c7-train-coatnet-oai-ft-smk-all` v1,
+    built from `c359fc1` (`--smoke --arch coatnet --corpus stage_b --all-data --epochs 6 --targets
+    data/student/targets_teacher_v1.csv --targets-from raahimnawaz/rsna-knee-student-targets --extra-datasets
+    nartaa/rsna-knee-publication-swa-weights-20261007 --tag oai-ft-smk "--train-args=--init
+    raptor_ft_alldata_t16_blendjev_oai_d96_r384_swa.pt --allow-missing-labels --conf-weight none --eval-bs 1
+    --enc-chunk 16"`). The full run is the same line without `--smoke` and with `--tag oai-ft --time-budget-h 5.0`.
+- **Owner 10-12 ~21:24: "well see how they do and how the ensemble them after we get the scores".** Read as: the
+  public checkpoint ALONE in our input goes at the 17:00 reset on 10-13 with the two already approved (three slots);
+  HOW to ensemble it with the teacher folds (which members, what weights) is decided after those scores, and that
+  submission needs the owner's word then. Also asked: does the fine-tune have promise (my answer: modest; it should
+  end near the checkpoint's own 0.949, + 0 to +0.005 from our input and labels; read (3) decides, by the rule
+  above) and whether the plan stands (yes; the fine-tune waits for Friday's reset unless a GPU is rented).
+- **⛔ Fine-tune smoke v1 ERROR 10-12 21:34 (5.6 min) — a wiring fault, found where it is free.** The checkpoint
+  loaded in the training configuration (`init from …swa.pt (sha256 7e5315da…): 486 tensors, strict but for 3
+  zero-initialised slot/depth weights`), then `--ckpt-blocks 12: coatnet's encoder has no .blocks; use -1 (all)`:
+  on Stage B the builder gave every non-small arch the ViT package (`PACKAGE + SPEED`), and CoAtNet had only ever
+  trained on Stage A, where no package is added. **Fix:** `COATNET_PACKAGE` in `build_backbone_ab_kernel.py`
+  (bb-lr 3e-5, drop-path 0.1, `--pos-emb`, `--fit-budget`, `--conf-weight none`; every block checkpointed, not
+  compiled). ConvNeXt-small's and Ortho's argument lists rebuilt and unchanged.
+- **✅ Fine-tune smoke v2 COMPLETE 10-12 21:57 (20.0 min on CPU, 0 tracebacks), from `1b75b83`.** `init from
+  …swa.pt (sha256 7e5315da…): 486 tensors, strict but for 3 zero-initialised slot/depth weights` · `gradient
+  checkpointing: all of the encoder blocks` · `trainable 73.2M of 73.2M` · ALL DATA 4,349 with `targets_teacher_v1`
+  (`2980e8d6…`) · one epoch, evaluation and the save ran · `SMOKE: the whole path ran`. Not reached on a CPU: fp16
+  and the two-GPU step time, so the first GPU run's `fit-budget` line is the first real price (give it
+  `--time-budget-h 5.0`). **The kernel is one push away; it waits for GPU hours** (Friday's reset, or a rented GPU):
+  the smoke's build line without `--smoke`, `--tag oai-ft`.
+
+## C. 21:45 — "use online resources to try and find a useable fix for our problem"
+
+Read tonight: the leaderboard, the public notebooks and datasets (Kaggle CLI), four forum threads (745861 "Tricks",
+746792 the 0.949 author's write-up, 743416 external data, 735304 "Best single-model score"). Everything below is what
+other people report, unverified by us unless it says measured. Nothing is approved or run.
+
+**Board (pulled 21:41):** #1 0.966; three teams 0.965; 0.963 at ~rank 7–11. A public notebook reads the medal lines
+as gold to rank 21 (0.962), silver to 290, bronze to 581; the 0.954 tie group runs from rank 193 to 870; hidden test
+~1,300 studies, public part ~390, one score ±0.007 (2 SD) in its simulation.
+
+1. **Pseudo-labels from strong image models are what the top single models report, with no outside data** (735304):
+   `azamat1ch` (5th) five-fold singles ConvNeXt-T 0.959, EfficientNetV2-S 0.956, CoAtNet 0.952; `colum2131` (40th)
+   ConvNeXt-T 0.953 and DINOv2 ViT-S 0.951 "trained with pseudo labels … no external data"; `Raymond Yuen` (36th)
+   0.938 → 0.949 on labels alone ("weak-label sources to train teacher models, then … pseudo-labels … a final model
+   on them; different teachers seem to help different targets"; API cost under $5; cheap and expensive readers
+   differ little); `CoolinLai` (21st) five-fold ResNet50 at 224 px 0.954; `Chris Deotte`: a pseudo-labelled single
+   model matches the ensemble that labelled it.
+   **Against our record:** RUNBOOK §3 closes "teacher rounds that learn from the same reports" on +0.026 gold, ~0 LB.
+   That round's teachers were four ResNet34 at 224 px (a model 0.036 under its own student on the 691). A round from
+   the five-fold ConvNeXt-small's out-of-fold predictions has NOT been run. `add_teacher` in
+   `build_consensus_targets.py` already blends a teacher's order into the targets; the consensus folds' OOF is on
+   disk and the teacher folds' arrives with tonight's kernels. **Proposed arm (not approved):** targets =
+   `targets_teacher_v1` + our own five-fold OOF at half weight; fold 0, the 0.944 model's recipe, ~1.9 GPU-h; the LB
+   judges it alone against 0.944 (kept unless ≥ 0.005 below, shown at ≥ +0.010).
+2. **Model size is not the lever** (735304; 735154 "Scaling the encoder bought us nothing (+0.0011)"): the best
+   reported singles are ConvNeXt-Tiny, ResNet50 and EfficientNetV2-S at 224 px. A bigger ConvNeXt is not proposed.
+3. **OAI, from the 0.949 author (746792):** 2,399 BASELINE OAI knees, masked labels, supervising exactly **PF OA,
+   Lateral OA and Synovitis** (our three weak findings); 0.942 → 0.945 with them, 0.948 with the 384 px full-field
+   recipe, +0.001 from mirror averaging; a 12-month arm did not help; fewer windows at inference lost 0.006; the
+   MOAKS mapping is not published (asked, unanswered). **Access (743416):** one participant reports individual
+   approval at once through a Login.gov account, "Institutional Approval Required: No"; others report login and
+   download errors; the host has still not said yes or no for OAI, and a 23rd-place participant warns against it.
+   So the unverified fact of RUNBOOK §3's OAI note now has one report in favour; it is still the owner's login.
+4. **The public stack is two models and a rank blend:** `nartaa`'s OAI-trained CoAtNet (0.949, Apache 2.0) and
+   `heliosli`'s four-fold ConvNeXt-small (S6 / R7: knee-joint anchors, a side classifier; "Feel free to blend my
+   model with yours!"), per-finding percentile ranks, 70/30 → 0.954, R7 50/50 → ≈0.957. A third reader
+   (`goodpjw2008`, 0.929 alone) adds nothing at a flat 30% (0.948) and 0.000–0.001 with per-finding weights.
+   Every one of them runs `nartaa`'s notebook unchanged as stage 1, in its own preprocessing. **For us:** because
+   OAI supervised exactly our three weak findings, a per-finding rank blend with weights fixed beforehand (theirs
+   heavier on those three) is the principled way to add it; that means its own notebook as stage 1 (our Submission
+   B path), not the checkpoint in our input.
+5. **Smaller label ideas, one report each:** train only on cells where the readers agree strongly (> 0.9 or < 0.1),
+   dropping ~25% of cells ("improved CV and public LB", rank ~1,235); KneeCoT is ruled out by the host; KJD-25K
+   (MICCAI 2026) and KneeXNet-2.5D could not be found by search.
+
+## D. 21:50 — "do the swap": a pseudo-label round from our own five folds
+
+- **Owner 10-12 ~21:50: "do the swap".** The last GPU session of this week goes to the pseudo-label student; the
+  spatial-attention arm moves to Friday 17:00's reset (its kernel is built: `--tag cons2-sa`, one flag from the 0.938
+  model's). Read as a go for the RUN; the student's submission was named as a separate ask and is not assumed.
+  **The arm, written before the run:** `targets_teacher_v2` = `targets_teacher_v1` + the five teacher-label folds'
+  held-out predictions (each study read by the fold model that did not train on it; `cv_last`, the weights that are
+  submitted) at half of every cell, by `add_teacher` (the models' order on the target's own levels). Fold 0, the
+  0.944 model's recipe and seed; the targets are the only change. **Rule:** alone on the LB against 0.944 (ref
+  `57122696`); kept unless ≥ 0.005 below; a gain is shown at ≥ +0.010. The 847 held-out are report only: a label
+  change, and folds 1–4's models trained on those 847 studies, so the targets carry a trace of them.
+- **`build_consensus_targets.py --own-oof … --w-own` (21:49).** A second blend after `--teacher`; files must cover
+  disjoint studies. Checks: with `--teacher` alone it rebuilds `targets_teacher_v1` byte for byte (sha256
+  `2980e8d6…`); a dry run on the CONSENSUS folds' OOF (not the table that will train) covers all 4,349 studies, no
+  cell masked, Spearman of the models against the target 0.64 (Fracture) to 0.88 (Medial Meniscus).
+- **The public checkpoint alone in our input: submission kernel BUILT 10-12 21:52, not pushed (both GPU sessions are
+  in use until ~00:15).** `raahimnawaz/rsna-knee-sub-a-ortho-oai-pa-nall`, built from `1dffa3f` with `--ours-only
+  --weights-kernel raahimnawaz/rsna-knee-c7-train-coatnet-oai-teacher-pa --weights-sha
+  f900846d3e821721cf571a9f0a477021bc0c2e0e71ddb5565dc5687752fbd0c1 --tag oai-pa`. That sha is the checkpoint as our
+  trainer re-saved it at 0 epochs (146,463,855 bytes; v5 of `rsna-knee-weights-sha`), not the author's file
+  (`7e5315da…`). Its gate checks the inference path against the predict-all run's own `oof_all.csv`.
+
+## E. The owner's questions, answered from the record (nothing here was run)
+
 - **Owner 10-12 ~20:57: "ballpark the OAI download, and training on an M5 Studio" — a local Mac as the GPU that is
   not Kaggle.** MEASURED on this MacBook Pro (base M5, 10 GPU cores, 16 GB; torch 2.14 MPS, fp16 autocast, random
   weights and input): ConvNeXt-small at 384 px trains at **17.7 img/s** (9.3 in fp32; 5.3 GB at 12 windows) and
@@ -318,7 +449,7 @@ could use it (the teacher's student, 0.944 against 0.938), so the order is: the 
   ~5x slower: one fold of the current recipe ~8 h here against 1.9 h. With 2,399 OAI knees added (6,748 studies):
   one all-data model, 12 epochs, ~15 h here; five folds ~61 h. A Studio is NOT measured: scaled by GPU cores, a
   Max-class chip (~4x) is ~4 h and ~15 h, an Ultra-class about half of that. **So a Studio removes the "Kaggle is
-  our only GPU" blocker of RUNBOOK §3's OAI row; access, the download and the label mapping are what is left.**
+  our only GPU" blocker of RUNBOOK §3's OAI note; access, the download and the label mapping are what is left.**
   OAI size, MY ARITHMETIC and not an official figure (two web searches found no package sizes): the protocol is
   ~1,000 images a participant-visit at ~0.3 MB, and catalogs give 26.6 M images in the archive (4,796 participants)
   -> ~8 TB in all, ~1-1.5 TB for one visit of everyone, ~200-400 GB for the ~2,400 MOAKS-read knees if the archive
@@ -354,12 +485,10 @@ could use it (the teacher's student, 0.944 against 0.938), so the order is: the 
   learned (hold-out Effusion 0.962) and part did not transfer (Baker's 0.718 → 0.525 on gold; a protocol no
   competition study uses). The 7,140 pseudo-labelled NYU knees were a separate null (+0.0035 ± 0.0051). **So the
   closed item is "a small fastMRI+ teacher on four findings", not fastMRI+ as data.** Still against it: the raw files
-  were deleted 10-09 (corrected 10-12 ~21:13: a Stage A cache of the 556 knees is still on Kaggle, see the next
-  entry), and the 10-04 review keeps NYU knees out of anything a final trains on (the fastMRI terms
+  were deleted 10-09 (a Stage A cache of the 556 knees is still on Kaggle, see the next entry), and the 10-04 review keeps NYU knees out of anything a final trains on (the fastMRI terms
   against the winner's licence obligation). My reading, not a new measurement.
 - **Owner Qs 10-12 ~21:13: "can we just take their core model and put it in our code", "a better ConvNeXt", "bring
-  back the fastMRI model". Answered, NOTHING approved, and RUNBOOK §1's "our own models only" stands until the owner
-  says in words that it is changed.** Facts checked:
+  back the fastMRI model". Answered, nothing approved at the time (the direction changed four minutes later, §B).** Facts checked:
   - *The public OAI-trained CoAtNet* already loads strict in our trainer (`--arch coatnet --init`, read 5) and its
     README allows the competition. Three uses, none run: (A) as it is, a sixth member of our ensemble in our input
     (no training; gold there 0.920 against our 0.928); (B) in its own preprocessing beside ours (the Submission B
@@ -374,133 +503,11 @@ could use it (the teacher's student, 0.944 against 0.938), so the order is: the 
     needs the 88 GB of raw files again (deleted 10-09) and the converter and label script from `160f781` (removed
     from the tree by the showcase cleanup). Its labels cover ACL, Effusion, Contusion and cysts; the meniscus side
     mapping was never written; it has no synovitis label and is coronal only (nothing for PF OA).
-- (The four owner entries above were first written with guessed times up to an hour late; corrected 21:21 to the
-  commit clock: `968a95d` 20:59, `8cc8c36` 21:03, `905d624` 21:08, `19a0a45` 21:14.)
-- **⚠️ DIRECTION CHANGED, owner 10-12 ~21:17: "the rule shouldnt be my own models i have always been for using
-  whatever is avialable to us / and we finetune/pretrain the cnn".** RUNBOOK §1's "our own models only" is
-  WITHDRAWN: public weights, models and data may be used and built on. Not asked, so not assumed: submitting the
-  public blend as it stands (the owner's "its useless" was said of that). Asking before submissions and before GPU
-  hours is unchanged.
-  - **"finetune/pretrain the cnn", read as:** start from the public OAI-trained CoAtNet's weights and train it on
-    our input and labels. The trainer already does this: `--init` maps the public head's names onto ours and lets
-    the slot / depth embeddings and the spatial queries start at zero (`train_windows.py:641`).
-    **The arm (NOT run; needs GPU hours):** `--arch coatnet --corpus stage_b --all-data`, `--init
-    raptor_ft_alldata_t16_blendjev_oai_d96_r384_swa.pt` (sha `7e5315da…`, dataset
-    `nartaa/rsna-knee-publication-swa-weights-20261007`), `targets_teacher_v1` (half of every cell is this model's
-    own reading, which holds it to what OAI taught it while the input changes), 6 epochs, `COATNET_PACKAGE`
-    (bb-lr 3e-5 as the 10-02 CoAtNet student, drop-path 0.1, zero-initialised slot / depth embeddings, plain BCE;
-    corrected 21:35: first written as the ViT package, which the smoke below refused).
-    **Cost:** the 10-02 CoAtNet student took 456 min for 7 epochs of 4,349 studies on ONE T4 = 65 min/epoch, so
-    ~33 min/epoch on both and **~3.5 GPU-h** for 6: more than this week has left (~0.9 h after tonight's runs).
-    Friday 17:00's reset, or a rented GPU.
-    **Judge:** its init saw every training study, so no held-out fold can judge it; the LB does. Rule, before any
-    result: alone against the SAME checkpoint as it is in our input (read (3) below). Less than +0.005 over that =
-    the fine-tune did not pay for its hours; ≥ +0.005 = it replaces the as-is checkpoint as an ensemble member.
-  - **Two reads that need no training, proposed for the 17:00 reset on 10-13 (NOT approved yet):** (3) the public
-    checkpoint as it is, in our input, alone: what our input costs it against its 0.949, so how much room a
-    fine-tune has; (4) the five teacher folds + it, against the five teacher folds alone: what it adds.
-    `raahimnawaz/rsna-knee-c7-train-coatnet-oai-teacher-pa` already holds it re-saved in our format (`last.pt`,
-    `last_meta.json`, `oof_all.csv`), so `build_submit_kernel.py --weights-kernel` can take it as a member. A
-    submission kernel's own run is ~6 min of GPU (one on record, 10-03).
-  - **Fine-tune kernel, CPU smoke PUSHED 10-12 21:22:** `raahimnawaz/rsna-knee-c7-train-coatnet-oai-ft-smk-all` v1,
-    built from `c359fc1` (`--smoke --arch coatnet --corpus stage_b --all-data --epochs 6 --targets
-    data/student/targets_teacher_v1.csv --targets-from raahimnawaz/rsna-knee-student-targets --extra-datasets
-    nartaa/rsna-knee-publication-swa-weights-20261007 --tag oai-ft-smk "--train-args=--init
-    raptor_ft_alldata_t16_blendjev_oai_d96_r384_swa.pt --allow-missing-labels --conf-weight none --eval-bs 1
-    --enc-chunk 16"`). The full run is the same line without `--smoke` and with `--tag oai-ft --time-budget-h 5.0`.
-- **Owner 10-12 ~21:24: "well see how they do and how the ensemble them after we get the scores".** Read as: the
-  public checkpoint ALONE in our input goes at the 17:00 reset on 10-13 with the two already approved (three slots);
-  HOW to ensemble it with the teacher folds (which members, what weights) is decided after those scores, and that
-  submission needs the owner's word then. Also asked: does the fine-tune have promise (my answer: modest; it should
-  end near the checkpoint's own 0.949, + 0 to +0.005 from our input and labels; read (3) decides, by the rule
-  above) and whether the plan stands (yes; the fine-tune waits for Friday's reset unless a GPU is rented).
 - **Three papers the owner sent (10-12 ~21:24), read: nothing to adopt.** PMC10741167 is peroneal-nerve injury on
   knee MRI (149 subjects, image-level split), not our findings. Sci Rep s41598-026-54489-x (MedNet-FS) is few-shot
   ACL on MRNet at AUC 0.76; its one relevant claim, knee-specific pre-training beats generic, is a small point for
   starting from the OAI-trained weights. The AJR report-classifier abstract (an SVM on knee MRI reports, F1 > 90%
   in-site, 77.6–90.2% across sites) agrees with our report ceiling of ~0.90: reading the text is not the limit.
-- **⛔ Fine-tune smoke v1 ERROR 10-12 21:34 (5.6 min) — a wiring fault, found where it is free.** The checkpoint
-  loaded in the training configuration (`init from …swa.pt (sha256 7e5315da…): 486 tensors, strict but for 3
-  zero-initialised slot/depth weights`), then `--ckpt-blocks 12: coatnet's encoder has no .blocks; use -1 (all)`:
-  on Stage B the builder gave every non-small arch the ViT package (`PACKAGE + SPEED`), and CoAtNet had only ever
-  trained on Stage A, where no package is added. **Fix:** `COATNET_PACKAGE` in `build_backbone_ab_kernel.py`
-  (bb-lr 3e-5, drop-path 0.1, `--pos-emb`, `--fit-budget`, `--conf-weight none`; every block checkpointed, not
-  compiled). ConvNeXt-small's and Ortho's argument lists rebuilt and unchanged.
-- **Fine-tune smoke v2 PUSHED 10-12 21:35** from `1b75b83` (the `COATNET_PACKAGE` arguments); past v1's failure
-  point and still running at 21:45.
-
----
-
-# 2026-10-12 ~21:45 — owner: "use online resources to try and find a useable fix for our problem"
-
-Read tonight: the leaderboard, the public notebooks and datasets (Kaggle CLI), four forum threads (745861 "Tricks",
-746792 the 0.949 author's write-up, 743416 external data, 735304 "Best single-model score"). Everything below is what
-other people report, unverified by us unless it says measured. Nothing is approved or run.
-
-**Board (pulled 21:41):** #1 0.966; three teams 0.965; 0.963 at ~rank 7–11. A public notebook reads the medal lines
-as gold to rank 21 (0.962), silver to 290, bronze to 581; the 0.954 tie group runs from rank 193 to 870; hidden test
-~1,300 studies, public part ~390, one score ±0.007 (2 SD) in its simulation.
-
-1. **Pseudo-labels from strong image models are what the top single models report, with no outside data** (735304):
-   `azamat1ch` (5th) five-fold singles ConvNeXt-T 0.959, EfficientNetV2-S 0.956, CoAtNet 0.952; `colum2131` (40th)
-   ConvNeXt-T 0.953 and DINOv2 ViT-S 0.951 "trained with pseudo labels … no external data"; `Raymond Yuen` (36th)
-   0.938 → 0.949 on labels alone ("weak-label sources to train teacher models, then … pseudo-labels … a final model
-   on them; different teachers seem to help different targets"; API cost under $5; cheap and expensive readers
-   differ little); `CoolinLai` (21st) five-fold ResNet50 at 224 px 0.954; `Chris Deotte`: a pseudo-labelled single
-   model matches the ensemble that labelled it.
-   **Against our record:** RUNBOOK §3 closes "teacher rounds that learn from the same reports" on +0.026 gold, ~0 LB.
-   That round's teachers were four ResNet34 at 224 px (a model 0.036 under its own student on the 691). A round from
-   the five-fold ConvNeXt-small's out-of-fold predictions has NOT been run. `add_teacher` in
-   `build_consensus_targets.py` already blends a teacher's order into the targets; the consensus folds' OOF is on
-   disk and the teacher folds' arrives with tonight's kernels. **Proposed arm (not approved):** targets =
-   `targets_teacher_v1` + our own five-fold OOF at half weight; fold 0, the 0.944 model's recipe, ~1.9 GPU-h; the LB
-   judges it alone against 0.944 (kept unless ≥ 0.005 below, shown at ≥ +0.010).
-2. **Model size is not the lever** (735304; 735154 "Scaling the encoder bought us nothing (+0.0011)"): the best
-   reported singles are ConvNeXt-Tiny, ResNet50 and EfficientNetV2-S at 224 px. A bigger ConvNeXt is not proposed.
-3. **OAI, from the 0.949 author (746792):** 2,399 BASELINE OAI knees, masked labels, supervising exactly **PF OA,
-   Lateral OA and Synovitis** (our three weak findings); 0.942 → 0.945 with them, 0.948 with the 384 px full-field
-   recipe, +0.001 from mirror averaging; a 12-month arm did not help; fewer windows at inference lost 0.006; the
-   MOAKS mapping is not published (asked, unanswered). **Access (743416):** one participant reports individual
-   approval at once through a Login.gov account, "Institutional Approval Required: No"; others report login and
-   download errors; the host has still not said yes or no for OAI, and a 23rd-place participant warns against it.
-   So the unverified fact of RUNBOOK §3's OAI row now has one report in favour; it is still the owner's login.
-4. **The public stack is two models and a rank blend:** `nartaa`'s OAI-trained CoAtNet (0.949, Apache 2.0) and
-   `heliosli`'s four-fold ConvNeXt-small (S6 / R7: knee-joint anchors, a side classifier; "Feel free to blend my
-   model with yours!"), per-finding percentile ranks, 70/30 → 0.954, R7 50/50 → ≈0.957. A third reader
-   (`goodpjw2008`, 0.929 alone) adds nothing at a flat 30% (0.948) and 0.000–0.001 with per-finding weights.
-   Every one of them runs `nartaa`'s notebook unchanged as stage 1, in its own preprocessing. **For us:** because
-   OAI supervised exactly our three weak findings, a per-finding rank blend with weights fixed beforehand (theirs
-   heavier on those three) is the principled way to add it; that means its own notebook as stage 1 (our Submission
-   B path), not the checkpoint in our input.
-5. **Smaller label ideas, one report each:** train only on cells where the readers agree strongly (> 0.9 or < 0.1),
-   dropping ~25% of cells ("improved CV and public LB", rank ~1,235); KneeCoT is ruled out by the host; KJD-25K
-   (MICCAI 2026) and KneeXNet-2.5D could not be found by search.
-- **Owner 10-12 ~21:50: "do the swap".** The last GPU session of this week goes to the pseudo-label student; the
-  spatial-attention arm moves to Friday 17:00's reset (its kernel is built: `--tag cons2-sa`, one flag from the 0.938
-  model's). Read as a go for the RUN; the student's submission was named as a separate ask and is not assumed.
-  **The arm, written before the run:** `targets_teacher_v2` = `targets_teacher_v1` + the five teacher-label folds'
-  held-out predictions (each study read by the fold model that did not train on it; `cv_last`, the weights that are
-  submitted) at half of every cell, by `add_teacher` (the models' order on the target's own levels). Fold 0, the
-  0.944 model's recipe and seed; the targets are the only change. **Rule:** alone on the LB against 0.944 (ref
-  `57122696`); kept unless ≥ 0.005 below; a gain is shown at ≥ +0.010. The 847 held-out are report only: a label
-  change, and folds 1–4's models trained on those 847 studies, so the targets carry a trace of them.
-- **`build_consensus_targets.py --own-oof … --w-own` (21:49).** A second blend after `--teacher`; files must cover
-  disjoint studies. Checks: with `--teacher` alone it rebuilds `targets_teacher_v1` byte for byte (sha256
-  `2980e8d6…`); a dry run on the CONSENSUS folds' OOF (not the table that will train) covers all 4,349 studies, no
-  cell masked, Spearman of the models against the target 0.64 (Fracture) to 0.88 (Medial Meniscus).
-- **The public checkpoint alone in our input: submission kernel BUILT 10-12 21:52, not pushed (both GPU sessions are
-  in use until ~00:15).** `raahimnawaz/rsna-knee-sub-a-ortho-oai-pa-nall`, built from `1dffa3f` with `--ours-only
-  --weights-kernel raahimnawaz/rsna-knee-c7-train-coatnet-oai-teacher-pa --weights-sha
-  f900846d3e821721cf571a9f0a477021bc0c2e0e71ddb5565dc5687752fbd0c1 --tag oai-pa`. That sha is the checkpoint as our
-  trainer re-saved it at 0 epochs (146,463,855 bytes; v5 of `rsna-knee-weights-sha`), not the author's file
-  (`7e5315da…`). Its gate checks the inference path against the predict-all run's own `oof_all.csv`.
-- **✅ Fine-tune smoke v2 COMPLETE 10-12 21:57 (20.0 min on CPU, 0 tracebacks), from `1b75b83`.** `init from
-  …swa.pt (sha256 7e5315da…): 486 tensors, strict but for 3 zero-initialised slot/depth weights` · `gradient
-  checkpointing: all of the encoder blocks` · `trainable 73.2M of 73.2M` · ALL DATA 4,349 with `targets_teacher_v1`
-  (`2980e8d6…`) · one epoch, evaluation and the save ran · `SMOKE: the whole path ran`. Not reached on a CPU: fp16
-  and the two-GPU step time, so the first GPU run's `fit-budget` line is the first real price (give it
-  `--time-budget-h 5.0`). **The kernel is one push away; it waits for GPU hours** (Friday's reset, or a rented GPU):
-  the smoke's build line without `--smoke`, `--tag oai-ft`.
 
 ---
 
