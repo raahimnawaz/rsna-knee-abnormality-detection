@@ -150,8 +150,8 @@ optimiser, k = 12, per-finding attention) **without** our confidence weight.
   on every training study's report labels (several of the same readers), so its targets may sit closer to the
   reference reader as well as closer to the images. Gold-58, report only: 0.929 against 0.928, paired +0.0018 ±
   0.0052 (PF OA 0.837 against 0.885, Synovitis 0.845 against 0.810).
-- **⏸ Read 6, both commit runs COMPLETE 10-12 14:40 PDT, NOT submitted** (0 slots until 17:00 PDT; the owner's
-  "submit all three" covered reads 3 and 4 only: ask). Kernels `raahimnawaz/rsna-knee-sub-a-ortho-teach1-f0-nall`
+- **Read 6, both commit runs COMPLETE 10-12 14:40 PDT; 6a SUBMITTED 17:00 (ref `57122696`, owner: "yes do 1-2"),
+  6b waits for a slot.** Kernels `raahimnawaz/rsna-knee-sub-a-ortho-teach1-f0-nall`
   (6a, alone, against 0.938) and `...-teach1-f0-nall-p-synovitis` (6b, against the 0.884 probe), v1 each, built from
   `65e928d`. Read in both logs: `sha256 ok`, `GATE PASSED (1/1)` (max |dp| 0.00035), `[sub A] ARMS:
   convnext_small_stage_b only, windows all`, 0 tracebacks; the probe's `PROBE: only Synovitis is the model's`.
@@ -238,6 +238,22 @@ optimiser, k = 12, per-finding attention) **without** our confidence weight.
   most at once). GATE C before any training: 8 manifests, one spec, canonical, 4,407 studies exactly once, 0 errors,
   slot fill equal to Stage B's (sag_2 0.973, cor_2 0.745, sag_3 0.218, ax_2 0.248). Then a CPU smoke, then the run
   with `--enc-chunk 64` (104 windows a study at evaluation).
+  - **✅ Probes and read 6a SUBMITTED 10-12 17:00 PDT (00:00 UTC, all five slots), PENDING:** `57122696` the
+    student alone (read 6a) · `57122701` Lateral OA · `57122722` PF OA · `57122728` Lateral Meniscus · `57122735`
+    MCL. Read in every log before the submit: `sha256 ok`, `GATE PASSED` (1/1; 5/5 for the five-fold kernels, max
+    |dp| ≤ 0.00043), the `PROBE: only <finding> is the model's` line, `[sub A] ARMS:`, 0 tracebacks; each probe's
+    submission.csv has one non-constant column. AUROC = 12 × score − 5.5, ±0.006.
+  - **✅ GATE C PASSED 10-12 16:35:** 8 manifests, one spec (`c8-118slice-384`), all canonical, one span (2–98%);
+    4,407 studies, each once, equal to `train.csv`'s ids; 0 study errors, 0 decode failures; fill sag_2 0.973, cor_2
+    0.745, sag_3 0.218, ax_2 0.248 (Stage B's to the third decimal); side R 2,295 / L 2,112; 7.6–9.7 min a shard.
+    **CPU smoke clean** (v2 of `...-c8-train-convnext-small-smk-cv`, from `6227cc2`): 4,407 studies, slots (26, 20,
+    26, 10, 26, 6, 4), fold 0 train 3,502 / val 847, 92–98 windows a study, 2 processes, 0 tracebacks. (v1 failed in
+    22 s: pushed before shard 7's output was published — "have [0..6] of 8". Push a consumer only after every shard
+    reads COMPLETE.)
+  - **⏳ Dense arm PUSHED 10-12 17:01 PDT:** `raahimnawaz/rsna-knee-c8-train-convnext-small-cons2-cv` v1, built
+    from `6227cc2`; its notebook differs from the 0.938 model's in `LAYOUT = 'stage_c'` and `--enc-chunk 64` only
+    (rebuilt and diffed). 12 epochs, 3 h cap, due ~19:00. Read: `score_oof.py` paired against
+    `fusion/runs_cnxs_cons2_f0/runs_convnext_small/fold0`, by the rule above.
 - **Affine arm (review §5 #2): HELD, not run.** Found while preparing it: the flag was tested 09-27 on ResNet34,
   −0.0019 ± 0.0048 (`75ab54c`). The owner approved it without that fact; ask before spending 1.8 GPU-h. `--k 24`
   (~3.3 h) is the alternative for the same hours.
