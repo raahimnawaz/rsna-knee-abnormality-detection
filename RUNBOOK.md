@@ -9,17 +9,20 @@
 | why the weak findings are weak | [`docs/REVIEW-2026-10-12.md`](docs/REVIEW-2026-10-12.md): the error budget |
 | anything before 10-11 | `git show 9c23daf:RUNBOOK.md` (also `:DATA.md`, `:REFERENCE.md`, `:docs/REVIEW-2026-10-04.md`) |
 
-Last updated 2026-10-13 11:55 PDT.
+Last updated 2026-10-13 12:15 PDT.
 
 ## 0. Right now
 
-- **Nothing is running on Kaggle.** The pseudo-label student finished (held-out +0.0021 ± 0.0013 over the 0.944
-  model, report only).
-- **Next action: submit the four approved reads after the 17:00 PDT reset today** (§4; all four kernels read COMPLETE
-  at 11:50, the commands are under the table). **⚠️ NOTHING IS ARMED: the morning session's background submitter is
-  gone** (checked 11:50: no process, no scheduled task, no cron). The slots of the new UTC day last until 17:00 on
-  10-14, so there is no deadline at 17:00 sharp: submit by hand, or have a session do it with the lid open.
-- **Then:** read the four scores by their rules, record them in §2–§4, and ask the owner how to ensemble.
+- **Owner 10-13 ~12:00: "Use the public blend but put what lever we have that's better than what it has or what can
+  improve it into it and submit that. Only submit those other 4 if they're actually worth anything."**
+- **So tonight is three submissions, not four** (§4): the free 0.956 recipe with our five teacher folds added (new
+  kernel `rsna-knee-sub-pub956-teach1cv5`, pushed 12:12); the five teacher folds alone; the pseudo-label student
+  alone. The Synovitis probe and the public checkpoint in our input are **not** submitted: neither decides anything
+  now (§4's table). Two slots stay free.
+- **⚠️ The morning session's 17:00 submitter is gone** (checked 11:50: no process, no scheduled task, no cron). The
+  slots of the new UTC day last until 17:00 on 10-14: check `kaggle competitions submissions` and submit by hand
+  whatever is missing (the commands are under §4's table).
+- **Then:** read the three scores by their rules and record them in §2–§4.
 - **The second audit of 10-13 (11:55; LOG, last block) changes three things on this page:** the board (§2: the free
   public recipe is now a 583-team block at 0.956, we are rank 1,792), what the 847 and the LB can judge (§6), and
   the GPU queue (§4: the fine-tune and `--k 24` recommended to drop, spatial attention to hold; the owner decides).
@@ -134,14 +137,29 @@ not answered). The 0.949 author gained +0.003–0.005 from 2,399 baseline knees.
 
 ## 4. Open work
 
-**Today's reads, 17:00 PDT reset (four approved; submit only after the gate lines read clean, §6).**
+**Today's reads, 17:00 PDT reset (three go, by the owner's word of ~12:00; submit only after the gate lines read clean, §6).**
 
 | # | submission | kernel (`raahimnawaz/…`, v1) | gate | against | rule |
 |---|---|---|---|---|---|
 | 1 | the five teacher folds, one ensemble | `rsna-knee-sub-a-ortho-teach1-cv5-nall` | passed (5/5) | 0.945 (`57112913`) | kept unless ≥ 0.005 below; shown at ≥ +0.010; at ≥ 0.945 the finals' candidate |
-| 2 | Synovitis probe, teacher-label fold 0 | `rsna-knee-sub-a-ortho-teach1-f0-nall-p-synovitis` | passed | 0.532 (`57117247`) | two ticks decide whether the teacher moved Synovitis |
-| 3 | the public checkpoint alone, in our input | `rsna-knee-sub-a-ortho-oai-pa-nall` | passed | its own 0.949 | no pass / fail: near 0.949 → use it as it is and skip the fine-tune; ~0.940 or lower → our input costs it and the fine-tune has room |
-| 4 | the pseudo-label student alone | `rsna-knee-sub-a-ortho-teach2-f0-nall` | passed | 0.944 (`57122696`) | kept unless ≥ 0.005 below; shown at ≥ +0.010 |
+| ~~2~~ | ~~Synovitis probe, teacher-label fold 0~~ **NOT submitted (10-13 12:00):** no decision hangs on it; the teacher labels are kept either way | `rsna-knee-sub-a-ortho-teach1-f0-nall-p-synovitis` | passed | 0.532 (`57117247`) | two ticks decide whether the teacher moved Synovitis |
+| ~~3~~ | ~~the public checkpoint alone, in our input~~ **NOT submitted (10-13 12:00):** the blend runs it in its own notebook and the fine-tune it would have sized is dropped | `rsna-knee-sub-a-ortho-oai-pa-nall` | passed | its own 0.949 | no pass / fail: near 0.949 → use it as it is and skip the fine-tune; ~0.940 or lower → our input costs it and the fine-tune has room |
+| 4 | the pseudo-label student alone. Kept in: the one LB point on the lever proposed for Friday's hours, and only ≥ 0.950 or ≤ 0.940 would move that plan | `rsna-knee-sub-a-ortho-teach2-f0-nall` | passed | 0.944 (`57122696`) | kept unless ≥ 0.005 below; shown at ≥ +0.010 |
+| **5** | **the free 0.956 recipe + our five teacher folds** (`notebooks/build_public_blend_kernel.py`, from `6bc69f9`) | `rsna-knee-sub-pub956-teach1cv5` | ⏳ pushed 12:12 | 0.956, the recipe as published (rank 152–734) | below |
+
+**Read 5, written 10-13 12:15 before its commit run finished.** The public notebook
+(`varshithakolupuri/rsna-knee-one-unused-checkpoint-lifts-the-0-956`, sha256 `6406e923…`: `nartaa` 384 px with the
+224 px checkpoint at 35% of that slot, R7's four folds, per-finding ranks 50/50) runs unchanged; our five folds run
+after it and join by per-finding percentile rank at **0.25 on ACL, MCL, Medial Meniscus, Medial OA, Effusion,
+Baker's, Contusion and Fracture** (our probes read 0.966–0.968 there) **and 0.10 on Lateral Meniscus, Lateral OA,
+PF OA and Synovitis** (0.88–0.93). Fixed before any run, fitted to nothing. What they rest on: within-class rank
+correlation of our folds with the public CoAtNet 0.85–0.88 (in our input, so an upper bound), under which a member
+at par adds ~+0.002 a finding at 0.25 and one 0.03 behind adds ~0 at 0.10. **Expected: +0.001 macro, between −0.001
+and +0.002.** In the scored rerun any fault, or under an hour left of the nine, keeps the public submission.
+**Rule:** the paired noise of such a pair is ~0.0007 at 390 studies (resampled on a stand-in pair), one displayed
+tick is ~1.4 of that. **≥ 0.957 → our folds stay in and the per-finding weights are the next thing to test;
+0.956 → read our rank inside the block against the recipe's own (its author's team was ~207th on 10-13), nothing
+claimed; ≤ 0.955 → our folds cost it and come out.** It cannot say which finding moved.
 
 ```bash
 C=rsna-knee-abnormality-detection   # each: $K competitions submit $C -k raahimnawaz/<kernel> -v 1 -f submission.csv -m "<message>"
@@ -149,6 +167,7 @@ C=rsna-knee-abnormality-detection   # each: $K competitions submit $C -k raahimn
 # 2  "PROBE Synovitis only: the teacher-label fold-0 model (0.944) against the consensus model's probe 0.532 (57117247); two ticks decide"
 # 3  "The public OAI-trained CoAtNet (nartaa) AS IT IS in OUR input (Stage B), alone: what our input costs it against its own 0.949"
 # 4  "ConvNeXt-small ALONE, one model, targets_teacher_v2 (pseudo-label round): read vs the 0.944 model (57122696); kept unless >= 0.005 below, shown at >= +0.010"
+# 5  "The free 0.956 recipe as published (nartaa 384 + 224 px at 35% of that slot, heliosli R7 x4, ranks 50/50; notebook 6406e923) + OUR five ConvNeXt-small folds on targets_teacher_v1 as one more stage: per-finding ranks, ours 0.25 on ACL MCL MedMen MedOA Effusion Bakers Contusion Fracture and 0.10 on LatMen LatOA PFOA Synovitis, fixed before any run; >= 0.957 ours stay in, 0.956 read the rank in the block, <= 0.955 ours come out (6bc69f9)"
 ```
 
 The fifth slot is kept for an ensemble with the public checkpoint. **Not approved: the owner decides how to ensemble
