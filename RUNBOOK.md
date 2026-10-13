@@ -5,8 +5,9 @@
 
 **Diagnosis and proposed work, 10-12: [`docs/REVIEW-2026-10-12.md`](docs/REVIEW-2026-10-12.md)** (nothing in its §5 is approved).
 Four findings carry ~70% of the deficit; Lateral OA and PF OA are limited by what the model SEES (the report reads
-gold better than we do), Synovitis by the labels; the cache keeps 53% of coronal and 44% of axial slices (6.5 and
-9.0 mm apart). Tables: `python fusion/error_budget.py`.
+gold better than we do), Synovitis by the labels. The cache keeps 53% of coronal and 44% of axial slices (6.5 and
+9.0 mm apart) — **tested 10-12 and NOT the cause: the dense cache left Lateral OA and PF OA where they were.** On the
+LB (probes): Synovitis 0.884, Lateral OA 0.896, PF OA 0.896 are half of the deficit. Tables: `python fusion/error_budget.py`.
 
 ## Goal — 0.97 (owner, 2026-10-11)
 
@@ -269,6 +270,13 @@ optimiser, k = 12, per-finding attention) **without** our confidence weight.
     Half of the deficit is Synovitis + Lateral OA + PF OA (0.88–0.90). Lateral Meniscus (0.932) and MCL (0.968)
     are better than gold-58 said. Read 6b (the student's Synovitis probe, kernel ready) now matters more: Synovitis
     is the largest single term and the teacher is the one label source that could move it.
+  - **⛔ Dense arm READ 10-12 19:37 PDT: FAIL by its rule → Stage B stays.** 847 held-out, paired against the 0.938
+    model: macro 0.8697 against 0.8667, **+0.0030 ± 0.0023** (1.3 sigma; bar +0.004); Lateral OA 0.000, PF OA
+    −0.009, MCL +0.009: **mean −0.0002 ± 0.0049** (bar +0.015). Lateral Meniscus +0.017, Contusion +0.017, ACL −0.009.
+    Gold-58, report only: 0.921 against 0.928. 0 tracebacks, 123 min. **Confound, against the arm:** the fit-budget
+    probe timed a cold cache (0.80 s a micro-step → 15.7 min/epoch projected; real epochs 8.8 min after a 22 min
+    first one) and cut the run to **11 epochs of 12**. For the next run on a newly built cache: give the budget
+    room (`--time-budget-h 4`) so the probe cannot cut an epoch. The Stage C shards and code stay; nothing uses them.
 - **Affine arm (review §5 #2): HELD, not run.** Found while preparing it: the flag was tested 09-27 on ResNet34,
   −0.0019 ± 0.0048 (`75ab54c`). The owner approved it without that fact; ask before spending 1.8 GPU-h. `--k 24`
   (~3.3 h) is the alternative for the same hours.
