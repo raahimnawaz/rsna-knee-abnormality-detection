@@ -311,3 +311,17 @@ could use it (the teacher's student, 0.944 against 0.938), so the order is: the 
   gate lines read clean. (2) The quota page: "it has 10.2 hrs" (the fold kernels were 25 min in; whether the page
   already counted them is not known). Against ~9.6 h for tonight's runs the attention run is NOT held; under 1 h is
   left until Friday's reset for anything else, casmi26 included.
+- **Owner 10-12 ~21:15: "ballpark the OAI download, and training on an M5 Studio" — a local Mac as the GPU that is
+  not Kaggle.** MEASURED on this MacBook Pro (base M5, 10 GPU cores, 16 GB; torch 2.14 MPS, fp16 autocast, random
+  weights and input): ConvNeXt-small at 384 px trains at **17.7 img/s** (9.3 in fp32; 5.3 GB at 12 windows) and
+  evaluates at 74.7 img/s. Kaggle's two T4s: 3,502 studies x 12 windows in 7.8 min = ~90 img/s, so this laptop is
+  ~5x slower: one fold of the current recipe ~8 h here against 1.9 h. With 2,399 OAI knees added (6,748 studies):
+  one all-data model, 12 epochs, ~15 h here; five folds ~61 h. A Studio is NOT measured: scaled by GPU cores, a
+  Max-class chip (~4x) is ~4 h and ~15 h, an Ultra-class about half of that. **So a Studio removes the "Kaggle is
+  our only GPU" blocker of RUNBOOK §3's OAI row; access, the download and the label mapping are what is left.**
+  OAI size, MY ARITHMETIC and not an official figure (two web searches found no package sizes): the protocol is
+  ~1,000 images a participant-visit at ~0.3 MB, and catalogs give 26.6 M images in the archive (4,796 participants)
+  -> ~8 TB in all, ~1-1.5 TB for one visit of everyone, ~200-400 GB for the ~2,400 MOAKS-read knees if the archive
+  lets a download be filtered by subject (not verified). This Mac has 716 GB free. The signing-official question is
+  still unverified; today's search again describes an RAS login plus agreeing to OAI's terms.
+
