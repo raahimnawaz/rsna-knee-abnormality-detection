@@ -1010,3 +1010,52 @@ Nothing was run on a GPU, nothing pushed, nothing submitted.
   late run doubles it.** Two days of wall clock after a day of porting.
 - **"Do them on the GPU":** training and held-out checks can run there. A leaderboard read cannot: the scored
   rerun and its commit run are Kaggle's (~12 GPU-min a kernel; ~0.7 h left this week by our count).
+
+## Owner 10-13 ~15:10: "Yes both checks"; "make sure those 3 submissions are actually worth it"; "if b is overall the best then we should add oai ones to improve it. Then we can change the code if we have to"
+
+**The go:** two submissions and their commit runs (~25 Kaggle GPU-min of ~0.7 h): R7 alone, and R7 with its mirror
+pass on. Both written here before either is built or run.
+
+- **Kernels** (`notebooks/build_r7_read_kernel.py`): the public notebook our blend kernel runs (sha256
+  `6406e923…`), cells unchanged, plus one cell that publishes R7's own predictions (`ours_sub.csv`, full precision,
+  the file the blend cell reads) in place of the blend. `--flip` changes one line of the public R7 cell so the
+  worker gets `--flip-tta`. The cell raises, and there is no score, if R7 left more than 2% of the studies unscored
+  or the flag did not reach the worker (tested offline: seven cases). Slugs `rsna-knee-sub-r7-alone`,
+  `rsna-knee-sub-r7-alone-flip`.
+- **Read A, R7 alone. No pass or fail: a level, ± 0.008.** It decides three things. (1) "Is B the best": against
+  the public CoAtNet's 0.949 and our five folds' 0.945. (2) The OAI-free final: at **≥ 0.950** R7 alone replaces the
+  five consensus folds (0.945) as that candidate; under that the two are one reading and ours stays, being ours.
+  (3) The baseline of the 5090 run: R7's recipe on a pseudo-label table has to read **≥ +0.006** over this to be
+  shown.
+- **Read B, R7 + mirror pass against read A.** The same four models on the same studies; only the second pass
+  differs, so the pair is tighter than any we have measured (a label-only pair is 0.003; one displayed tick is
+  0.001). **≥ +0.002 → the mirror pass goes on wherever R7 is used (the blend, the 5090 run's inference); −0.001 to
+  +0.001 → no effect shown, it stays off (it doubles R7's GPU time: 8.6 s a study on a T4 in the commit run);
+  ≤ −0.002 → off.** Expected 0 to +0.001: the CoAtNet's author measured +0.001 on his model, and R7's author built
+  the flag and shipped it off.
+
+**The three submissions armed for 17:02, looked at again against the plan as it now stands** (R7's recipe on a
+5090; v3 the fallback). All three kernels are gated and cost no GPU; the day has five slots and the two reads above
+take the other two, so none of the three displaces anything.
+
+| read | what would change with its result | verdict |
+|---|---|---|
+| 5: the free blend + our five teacher folds | It is the only one that can become our best score (0.945 → ~0.956, rank ~1,800 → inside the 152–734 block) and a final candidate; and whether a 0.945 member adds anything at 10–25% | **worth it: the one that matters** |
+| 1: the five teacher folds alone | Whether the OAI-trained CoAtNet's opinions in the labels help at five folds (one model: +0.006). That is the evidence for putting them in R7's label table on the 5090. Readable only at ≥ +0.006 | **worth it, moderately**: a null says little |
+| 4: the pseudo-label student alone | Nothing in about five outcomes of six: one fold, half dose, our trainer; the 5090 run uses a stronger teacher either way. Only ≥ 0.950 or ≤ 0.940 would be news | **weak. Kept only because the slot is otherwise empty and the kernel is free**; first to go if a slot is wanted |
+
+**OAI's images into R7 — re-opened; it was closed on the owner's word of 10-12 ("not pursued") and should have been
+laid out again when the plan moved to R7.** What it takes, in order:
+1. **The owner's account and signature** (NDA / OAI data-use terms; not something to be done for them). One forum
+   participant reports individual approval at once; unverified. The terms' view of a rented machine is not known.
+2. **The rules risk stands:** thread 748276 argues OAI is not equally accessible; no host reply.
+3. The download: ~200–400 GB for the ~2,400 knees with semi-quantitative reads (my arithmetic of 10-12, unverified).
+4. Labels: OAI's MOAKS reads → PF OA, Lateral OA, Synovitis (and possibly Medial OA, both menisci, Effusion). The one
+   public user's mapping is unpublished; ours would be written from the MOAKS definitions.
+5. Code: OAI knees through R7's cache builder (OAI has sagittal and coronal series, and no 2-D axial); R7's trainer
+   already takes a weight per cell, so the nine findings OAI does not grade carry no loss.
+6. Cost: ~1.55× the studies, so ~39–50 h of training in place of 25–32; ~55–65 h of machine in all, ~$30–65.
+**Measured gain, by the one person who reports it: +0.003 to +0.005 on a single model** (the CoAtNet, 0.942 → 0.945
+and on). On R7: unknown. **Order proposed:** read A first (is R7 the one to build on); the 5090 run on the
+pseudo-label table needs no OAI access and starts when the GPU exists; OAI's knees join as soon as the account and
+the files exist, as a second run or the first if they arrive in time.
