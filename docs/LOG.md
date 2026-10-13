@@ -569,4 +569,43 @@ in the seconds the Mac was awake. Nothing was lost on Kaggle: both fold kernels 
   `355b68a`, `--tag teach2-f0`, 103 s): `1 checkpoint(s), sha256 ok` · `CHECK vs oof_all.csv: 8 studies rebuilt from
   DICOMs, max |dp| 0.00073` · `GATE PASSED (1/1)` · `[sub A] ARMS: convnext_small_stage_b only, windows all` · 0
   tracebacks. **All four kernels for the 17:00 reset are gated.**
+- **⏳ The 17:00 submitter is armed (10:25):** a background job in the session of 10-13 morning waits for 17:00:30
+  PDT and submits the four gated kernels (v1 each), skipping any already submitted in the new UTC day; it runs when
+  the Mac is awake. The messages are under RUNBOOK §4's table for a submit by hand.
+
+## Audit, 10-13 ~10:36 — owner: "make sure everything has been tested correctly … not wasting compute on dead ends … know the true strength"
+
+**The instrument, measured** (resampling our own held-out predictions against the reference reader; 1,200–3,000
+draws with replacement; the test's AUROC is higher than the held-out's, so these are if anything high):
+- one macro score on 390 studies (the public part): **SD 0.0079**; on 910 (the private part): 0.0052;
+- the five teacher folds against the five consensus folds, paired (labels differ, recipe the same): **SD 0.0030** at
+  390, 0.0020 at 910 (correlation of the two scores 0.92);
+- one finding's AUROC at 390: SD 0.013 (Medial Meniscus) to 0.033 (Fracture); Synovitis 0.029, Lateral OA 0.022,
+  PF OA 0.018;
+- a Synovitis probe pair (teacher against consensus, fold-0 models): paired SD 0.010.
+The 09-27 measurement on the older models said the same (one score ±0.008, two different models ±0.005).
+
+**What that says about what is on record:**
+- Sound: five folds over one (+0.007, an ensemble against its member); ConvNeXt-small over ViT-L (+0.011 LB and
+  +0.012 paired held-out); the teacher labels (+0.006 single = 2 SD; tonight's five-fold read is the second read);
+  the Synovitis mask as a tie (one tick = 1.2 SD); the dense-slice null (+0.0030 ± 0.0023 held-out).
+- **Corrected:** the probe table's "± 0.006" was the readout's rounding, not the uncertainty. Each level carries
+  0.02–0.03 of sampling noise. The weak three sit ~0.07 under the rest, so "these three are the weak ones" stands;
+  their order, and "Lateral OA = PF OA", do not.
+- Every absolute score (ours and the board's) is ± 0.008; the top ten are inside one SD of each other.
+
+**Tonight's four reads, what each can and cannot show:**
+1. five teacher folds against 0.945: readable from ~+0.006; a clean label-only comparison.
+2. Synovitis probe: its two-tick rule is ~2.4 SD: sound.
+3. the public checkpoint in our input: a drop of ~0.006–0.010 or more from 0.949 is readable.
+4. **the pseudo-label student: its held-out gain (+0.0021 ± 0.0013, and optimistic) is under one SD of the LB's
+   paired noise, so the read cannot confirm it.** The dose was also small (half weight, the order mapped onto the
+   old levels, mean change 0.02–0.05 a cell): a null closes this dose, not pseudo-labels. Rule tightened before the
+   result: five folds on `targets_teacher_v2` only at ≥ +0.006 (RUNBOOK §4).
+
+**Compute not to spend:** the fine-tune (dominated by the public notebook as stage 1: the known 0.949, no GPU
+hours; recommended to drop, the owner to confirm since the owner asked for it); five new folds unless an arm passes;
+`--k 24` last (the 0.949 model trains at 12 windows too). **Worth its 1.9 h:** spatial attention (labels fixed, so
+the 847 judge it at SE 0.002 against a bar of two SE). **Costs no GPU and has the largest expected gain:** the
+per-finding rank blend with the public checkpoint in its own preprocessing (the owner decides after the scores).
 

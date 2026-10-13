@@ -9,7 +9,7 @@
 | why the weak findings are weak | [`docs/REVIEW-2026-10-12.md`](docs/REVIEW-2026-10-12.md): the error budget |
 | anything before 10-11 | `git show 9c23daf:RUNBOOK.md` (also `:DATA.md`, `:REFERENCE.md`, `:docs/REVIEW-2026-10-04.md`) |
 
-Last updated 2026-10-13 10:24 PDT.
+Last updated 2026-10-13 10:36 PDT.
 
 ## 0. Right now
 
@@ -46,15 +46,25 @@ Last updated 2026-10-13 10:24 PDT.
 | ours: one model, `dread_soft` labels | 0.933 | ref `57117178` |
 | ours before this branch (Ortho ViT-L, all data) | 0.929 | ref `56811647` |
 
-The hidden test is ~1,300 studies and the public part ~390: one score is ±0.007 (2 SD) by a public simulation, and a
-difference under ~0.004 between unrelated models says little.
+**How much a leaderboard number is worth (measured 10-13 by resampling our own held-out predictions at the public
+part's size, ~390 studies; the private part is ~910):**
+
+| what is read | noise, 1 SD | so |
+|---|--:|---|
+| one macro score | ~0.008 (0.005 on the private part) | our "0.945" is 0.945 ± 0.008 as an estimate of the model; the top of the board is inside one SD of itself |
+| two of OUR models that differ in labels only | ~0.003 | the LB can show a label gain of ~0.006 or more; anything smaller is not readable |
+| two unrelated models | ~0.005 (09-27) | a difference under ~0.010 says little |
+| one finding's AUROC, as a level | 0.02–0.03 | the probe table below is the public part's truth, not the test's |
+| one finding, two of our models (a probe pair) | ~0.010 | "two ticks decide" (0.024) is ~2.4 SD: a sound rule |
 
 **The model.** ConvNeXt-small (in12k → in1k, 384 px) on the Stage B cache: 7 series slots, 96 slices, 140 mm field
 at 384 px, left knees mirrored to right. Windows of 3 consecutive sampled slices → global average pool → per-finding
 attention over the windows → 12 logits. 12 epochs, 12 random windows a study per step, plain BCE on soft report
 targets, no geometric augmentation. One fold = ~1.9 GPU-h on both T4s (7.8 min/epoch); five folds, held out by site.
 
-**Where the error is: the test set, by single-finding probes on the five-fold consensus model (± 0.006 each).**
+**Where the error is: the public part of the test, by single-finding probes on the five-fold consensus model.** The
+readout rounds to ±0.006; the sampling noise of each level is 0.02–0.03 (above). The three weak findings are ~0.07
+under the rest, so the grouping holds; their order does not.
 
 | finding | AUROC | share of what is left | what limits it (review §2.2) |
 |---|--:|--:|---|
@@ -125,17 +135,21 @@ in its own preprocessing, and blends per-finding percentile ranks. For us that i
 `build_submit_kernel.py` (last used 10-03, needs pointing at `nartaa/rsna-knee-0949-anatomical-mirror`), with
 weights fixed beforehand and theirs heavier on PF OA, Lateral OA and Synovitis.
 
-**After the scores.** Read 4 kept → five folds on `targets_teacher_v2` (~9.5 GPU-h) are the finals' labels. Read 1
-at ≥ 0.945 → the teacher folds are the finals' candidate until something beats them.
+**After the scores (written 10-13 10:40, before any of them).** Read 1 at ≥ 0.945 → the five teacher folds are the
+finals' candidate until something beats them; with read 6a's +0.006 it is the second read of the same label change.
+Read 4: the student's held-out gain is +0.0021, under one SD of what the LB can read, so **"kept" by its rule buys
+nothing: five folds on `targets_teacher_v2` (~9.5 GPU-h) are trained only if read 4 is ≥ +0.006 over 0.944**; a
+smaller or negative read leaves `targets_teacher_v1` as the finals' labels. A stronger dose (the OOF at full weight,
+or other teachers per finding, as the forum describes) is a different arm and would need its own go.
 
 **Waiting for GPU hours** (each has its kernel command in §6 and its rule in the LOG):
 
 | arm | cost | state | rule |
 |---|--:|---|---|
 | spatial attention (`--spatial-attn`), for Lateral OA and PF OA | ~1.9 h | built, CPU smoke clean; the owner moved it to Friday | paired on the 847 against the 0.938 model: macro ≥ +0.004, or the mean of Lateral OA and PF OA ≥ +0.015 → into the finals |
-| fine-tune of the public CoAtNet on our input and `targets_teacher_v1`, all data, 6 epochs | ~3.5 h (estimate) | CPU smoke clean; one push away | LB only (its init saw every study): ≥ +0.005 over read 3, or it did not pay |
-| `--k 24` | ~3.3 h | not built | macro ≥ +0.004 → finals; below +0.002 closes bag size |
-| finals: the best labels and recipe, five folds | ~9.5 h | — | alone on the LB |
+| fine-tune of the public CoAtNet on our input and `targets_teacher_v1`, all data, 6 epochs | ~3.5 h (estimate) | CPU smoke clean; one push away. **Recommended to drop (10-13 audit; the owner asked for it, so the owner confirms):** its best case is the checkpoint's own 0.949 + ≤ 0.005, which the LB cannot read, and running the public notebook unchanged as stage 1 gives the known 0.949 for no GPU hours | LB only (its init saw every study): ≥ +0.005 over read 3, or it did not pay |
+| `--k 24` | ~3.3 h | not built; **last in the queue**: the public 0.949 model also trains at 12 windows a study | macro ≥ +0.004 → finals; below +0.002 closes bag size |
+| finals: five new folds | ~9.5 h | **only if an arm above passes** (or read 4 ≥ +0.006); otherwise the five teacher folds already trained are the finals | alone on the LB |
 
 ## 5. Budget
 
@@ -199,7 +213,8 @@ $PY notebooks/canon_fixture.py --out <dir> && $PY notebooks/infer_parity_fixture
 - *Recipe or input, labels fixed:* fold 0, paired with `score_oof.py` against the 0.938 model on the same 847
   held-out studies. Bar so far: macro ≥ +0.004 (paired SE ≈ 0.002). The LB then confirms only the final ensemble.
 - *Labels:* the held-out number overstates (it is scored against another report reader). The LB decides, one model
-  against one model, ± 0.005: kept unless ≥ 0.005 below, shown at ≥ +0.010.
+  against one model: kept unless ≥ 0.005 below, shown at ≥ +0.010. The LB's noise for such a pair is ~0.003 (§2), so
+  "kept" alone is not evidence of a gain and must not buy GPU hours; ~+0.006 is the smallest readable gain.
 - *One finding:* `--probe`; score = (5.5 + AUROC) / 12, one tick = 0.012 on that finding, two ticks decide.
 
 **Things that have already cost a run or an hour.**
