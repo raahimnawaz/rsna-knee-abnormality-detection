@@ -800,3 +800,80 @@ Answered from the record and from one new table. Nothing was run on a GPU and no
   and with gold at ~0.90, and a better reader was costed and not run (10-12, E). The one thing in the table that a
   reader could act on is a convention, not accuracy: Contusion, where the readers call 12 of 39 gold negatives
   present. Twelve studies; noted, not proposed.
+
+## Owner 10-13 ~12:37: "Change of approach for the last 9 days: stop testing one change at a time" — the v3 recipe
+
+The owner's message, in full: are the golds held out, and should we train on them and use the submission as the
+test; then seven points. (1) ONE combined recipe "v3" on the ConvNeXt-small trainer: stronger pseudo-labels than
+`targets_teacher_v2` (larger model share, from five-fold held-out predictions; the exact dose in the LOG before any
+run, nothing chosen on gold-58), `--spatial-attn`, mirror augmentation with Medial ↔ Lateral targets swapped and MCL
+masked on mirrored samples plus a mirrored pass averaged in at inference, `--k 24`, 16 epochs, submit the averaged
+weights. (2) Start now on CPU: mirror code with unit tests, the label table, a CPU smoke of the full recipe. (3) GPU:
+"I am getting [FILL IN]" (the blank was not filled in); prepare to train off Kaggle: pull the Stage B cache, and a
+way to get off-Kaggle weights into a gated submission kernel. (4) **Standing go, no need to ask per run:** one fold
+of v3 as a not-broken check, then the other four, then a second label round from v3's own held-out predictions if
+hours remain; stop and tell the owner only if fold 0 is clearly worse than the current model. (5) **Standing go for
+two submissions:** v3 five folds alone, and v3 inside the public blend in place of the current folds; ask before any
+others. (6) Keep one OAI-free line alive for a final. (7) First, confirm the 17:00 submitter is running, re-arm if not.
+
+This supersedes the "one arm at a time, each against a rule" queue of RUNBOOK §4 and the audit's recommendations to
+drop `--k 24` and hold spatial attention: the owner has decided to run them together. What it costs is on record: if
+v3 moves, nothing says which part moved it.
+
+**7. The submitter was NOT running (checked 12:37–12:41).** No process (`ps`: no waiting shell or Python, no child of
+any session), no scheduled task, no cron or launchd job; the last submission on the account is 10-12's. The 12:26
+submitter was a session's background task and went with its session, as the morning's did. All three kernels read
+COMPLETE. **Re-armed 12:42** with `notebooks/submit_at_reset.py` (`c24bd36`): it forks twice into its own process
+session (pid 96147, parent 1), polls the wall clock so a Mac that slept sends on wake, lists the account's
+submissions before every send and skips an item already dated on the new UTC day, and logs to `data/submitter.log`.
+It fires at **17:02:00**, after 17:00:40, so if an older submitter is alive somewhere it goes first and this one
+sends nothing. Tested without sending: the dry run lists tonight's three; against yesterday's slot day it skips the
+two that were sent and keeps the one that was not. It does not survive a reboot.
+
+**The golds.** Yes: the 58 graded studies are in no training list and no target table (the trainer and the table
+builder both refuse them), and every run scores them as a report-only number. Training on them is not in v3: 58
+studies are 1.3% of 4,407, worth ~+0.0005 by the fold → all-data step on record, which no instrument here can see;
+and the gold read is the one number whose reference is a radiologist, so the only one not biased against
+pseudo-labels (the 847 are scored against a report reader). "The submission as the test" is already how labels are
+judged (rule 3). If the owner wants the 58 in anyway, it is a change to three guards and costs that read; not done.
+
+**The dose, written 12:55 before the table is built. `targets_teacher_v3` = `targets_teacher_v1` with the five
+teacher-label folds' held-out predictions at 0.75 of every cell** (`build_consensus_targets.py --own-oof
+fusion/runs_cnxs_teach1_{f0,f12,f34}/…/cv_last/oof_all.csv --w-own 0.75`; the models' order on the target's own
+levels, as in v2). The same predictions as v2, so the dose is the only change: reports 12.5%, the public CoAtNet
+12.5%, our held-out models 75% (v2: 25 / 25 / 50). Why 0.75 and not 1.0: at 0.5 a cell where the report and the model
+disagree lands in the middle; at 0.75 it lands on the model's side (report-positive but ranked low → ~0.26;
+report-negative but ranked high → ~0.73), which is what makes it a pseudo-label; at 1.0 the reports are gone, and on
+Lateral OA and PF OA the model is the weak reader (review §2.2), so it would train on its own errors there. Not
+taken: a second model family in the held-out mean (the consensus folds are the weaker member, rule 4), per-finding
+doses or teachers (nothing but gold could set them, rule 1). **Gold-58 was not consulted for any of this.**
+**The OAI-free twin, same dose: `targets_consensus_v3` = `targets_consensus_v2` with the five CONSENSUS folds'
+held-out predictions at 0.75** (no `--teacher`: nothing in it has seen the OAI-trained checkpoint).
+
+**The recipe, v3, fixed before any run** (against the 0.944 model's: 12 epochs, k 12, global average, no mirror):
+
+```bash
+$PY notebooks/build_backbone_ab_kernel.py --arch convnext_small --corpus stage_b --folds 0 --n-train 0 --epochs 16 \
+    --time-budget-h 7.0 --targets data/student/targets_teacher_v3.csv \
+    --targets-from raahimnawaz/rsna-knee-student-targets --tag v3 \
+    "--train-args=--allow-missing-labels --spatial-attn --mirror 0.5 --mirror-tta --k 24 --micro 1" --out <dir>
+```
+
+- `--mirror 0.5`: half of the training draws are the knee mirrored medial ↔ lateral (the public R7's augmentation,
+  review §4.1). `--mirror-tta`: every prediction is the mean of the plain and the mirrored pass, MCL from the plain
+  pass; `oof_all.csv` holds that mean (so the submission gate checks what is submitted), `oof_plain.csv` the plain
+  pass. `last_meta.json` carries `mirror_tta`, and `infer_windows.py` does the same per checkpoint.
+- `--k 24 --micro 1`: 24 windows a study, one study per forward per GPU. Two studies of 24 windows would be 48
+  windows a forward, and 24 already peak at 8.1 GB on a T4. The batch stays 8 studies (1 × 2 GPUs × 4 accumulated).
+- Submitted: `avg3/last.pt`, the mean of the last three epochs' weights, with `avg3/oof_all.csv` as its gate.
+- **One fold per kernel:** ~16.4 min an epoch at k 24 (twice the 8.2 measured at k 12) × 16 = 4.4 h, plus ~0.35 h
+  for four evaluation passes: **~4.9 h a fold on two T4s, ~24.5 h for five**, of a 30 h week shared with casmi26.
+  A second label round is another ~24.5 h: it does not fit on Kaggle. Estimates, not measurements.
+
+**"Clearly worse", fixed before fold 0 runs.** The check is for a broken recipe, not for a gain: the 847 are scored
+against a report reader and under-credit pseudo-labels, and run-to-run noise has never been measured. Against the
+current model's fold 0 (`runs_cnxs_teach1_f0`, 847 macro 0.8804, the 0.944 model) on the same studies, with
+`score_oof.py`, v3's `avg3/oof_all.csv`: **stop and tell the owner if the macro is more than 0.008 below (4 paired
+SE), or if any of MCL, Medial / Lateral Meniscus, Medial / Lateral OA is more than 0.03 below** (what a mirror or
+swap fault would look like; single findings moved ≤ 0.011 between two like models), **or if it did not finish 16
+epochs.** Otherwise folds 1–4 go without asking. Gold-58 is reported and decides nothing.
