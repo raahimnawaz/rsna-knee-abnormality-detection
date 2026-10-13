@@ -130,7 +130,8 @@ def pull(a) -> None:
     kaggle = str(Path(sys.executable).parent / "kaggle")
     for sh in K.STAGE_B_SHARDS:
         d = a.dest / sh.split("/")[1]
-        if (d / "vols.npy").exists() and (d / "manifest.json").exists() and not a.force:
+        have = lambda: any(d.rglob("vols.npy")) and any(d.rglob("manifest.json"))     # noqa: E731  (they land in stage_b/)
+        if have() and not a.force:
             print(f"{sh}: already there")
             continue
         for attempt in range(1, a.retries + 1):
@@ -138,7 +139,7 @@ def pull(a) -> None:
                 rc = subprocess.run([kaggle, "kernels", "output", sh, "-p", str(d)], timeout=a.timeout_min * 60).returncode
             except subprocess.TimeoutExpired:
                 rc = -1
-            if rc == 0 and (d / "vols.npy").exists():
+            if rc == 0 and have():
                 break
             print(f"{sh}: attempt {attempt} failed (rc {rc})")
         else:
