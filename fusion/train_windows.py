@@ -40,6 +40,8 @@ ARCHS = {
     "convnext_tiny": dict(res=384, pool="avg", timm="convnext_tiny.in12k_ft_in1k_384", ckpt=False),
     "convnext_small": dict(res=384, pool="avg", timm="convnext_small.in12k_ft_in1k_384", ckpt=False),
     "tiny":    dict(res=224, pool="token", timm="vit_tiny_patch16_224"),
+    # wiring only, random weights: the conv family at 3.4M params, so --spatial-attn runs on a CPU in seconds
+    "cnxatto": dict(res=224, pool="avg", timm="convnext_atto", ckpt=False),
     # wiring only, random weights: Ortho's own architecture family (Eva, RoPE, registers) at 22M params,
     # so gradient checkpointing and DDP are exercised on the code path Ortho takes, on a CPU
     "smalleva": dict(res=224, pool="token", timm="vit_small_patch16_dinov3"),
@@ -48,14 +50,62 @@ ARCHS = {
     "qwen35vl": dict(res=384, pool="qwen", hf="Qwen/Qwen3.5-2B"),
     "qwentiny": dict(res=64, pool="qwen"),
 }
-UNTRAINED = {"tiny", "smalleva", "qwentiny"}
+UNTRAINED = {"tiny", "smalleva", "qwentiny", "cnxatto"}
 ORTHO_URL = "https://media.githubusercontent.com/media/ytrsk/OrthoFoundation/main/OrthoFoudation-L.pth"
 ORTHO_BYTES = 1213056638
+
+
+# A knee mirrored across its own sagittal plane: the medial compartment lies where the lateral one was. The two
+# medial / lateral pairs trade places. MCL has no lateral twin among the 12 (the LCL is not a finding), so on a
+# mirrored knee it is unknown: no loss in training, and at test the plain pass alone answers for it.
+MIRROR_PAIRS = (("Medial Meniscus", "Lateral Meniscus"), ("Medial OA", "Lateral OA"))
+MIRROR_PERM = list(range(len(LABELS)))
+for _a, _b in MIRROR_PAIRS:
+    MIRROR_PERM[LABELS.index(_a)], MIRROR_PERM[LABELS.index(_b)] = LABELS.index(_b), LABELS.index(_a)
+MIRROR_UNKNOWN = LABELS.index("MCL")
 
 
 def log(msg: str) -> None:
     if os.environ.get("RANK", "0") == "0":                  # under torchrun, rank 0 speaks for all
         print(f"[{time.strftime('%H:%M:%S')}] {msg}", flush=True)
+
+
+def slot_is_sagittal(corpus) -> torch.Tensor:
+    """One bool per slot, for `mirror_windows`. Refuses a cache whose medial-lateral axis is not known."""
+    meta = getattr(corpus, "slot_meta", None)
+    if not meta or "canon True" not in str(getattr(corpus, "layout", "")):
+        raise SystemExit(f"mirroring needs a canonical cache with slot planes (Stage B / C); this is {getattr(corpus, 'layout', '?')}")
+    planes = [m.get("plane") for m in meta]
+    if not set(planes) <= {"Sagittal", "Coronal", "Axial"}:
+        raise SystemExit(f"mirroring: unknown slot planes {planes}")
+    return torch.tensor([p == "Sagittal" for p in planes])
+
+
+def mirror_windows(w: torch.Tensor, slot: torch.Tensor, pos: torch.Tensor,
+                   sagittal: torch.Tensor) -> tuple[torch.Tensor, torch.Tensor]:
+    """Windows (..., K, 3, H, W) of a CANONICAL stack -> the same knee mirrored medial <-> lateral, and its depths.
+    The canonical frame (`build_slots64.canon_ops`) puts the medial-lateral axis on the SLICE order of a sagittal
+    slot (lateral -> medial) and on the COLUMNS of a coronal or axial slice (lateral -> medial). So:
+      sagittal  the slot read backwards: a window's three slices in reverse order, at depth 1 - pos;
+      coronal, axial  each slice flipped left-right, slice order and depth unchanged."""
+    sag = sagittal.to(slot.device)[slot]
+    return (torch.where(sag[..., None, None, None], w.flip(-3), w.flip(-1)),
+            torch.where(sag, 1.0 - pos, pos))
+
+
+def mirror_targets(y: np.ndarray) -> np.ndarray:
+    """Targets (..., 12) of the mirrored knee: the medial / lateral pairs swapped, MCL unknown (NaN)."""
+    m = np.array(y[..., MIRROR_PERM], dtype=np.float32, copy=True)
+    m[..., MIRROR_UNKNOWN] = np.nan
+    return m
+
+
+def mirror_average(plain, mirrored):
+    """Probabilities (..., 12) of the plain and the mirrored pass -> one prediction: the mirrored pass read back
+    into the plain knee's columns and averaged in; MCL from the plain pass alone. numpy or torch."""
+    out = 0.5 * (plain + mirrored[..., MIRROR_PERM])
+    out[..., MIRROR_UNKNOWN] = plain[..., MIRROR_UNKNOWN]
+    return out
 
 
 # ----------------------------------------------------------------------------- corpus
@@ -156,7 +206,9 @@ class SyntheticCorpus:
 
     def __init__(self, uids: list[str], seed: int = 0):
         rng = np.random.default_rng(seed)
-        self.slot_sizes, self.layout = SLOT_SIZES, "synthetic raptor44"
+        self.slot_sizes, self.layout = SLOT_SIZES, "synthetic raptor44 canon True"
+        self.slot_meta = [{"name": f"s{i}", "plane": p} for i, p in
+                          enumerate(("Sagittal", "Sagittal", "Coronal", "Coronal", "Axial"))]
         self.ids = np.asarray(uids)
         self.row = {u: k for k, u in enumerate(uids)}
         self.vol = rng.integers(0, 255, (len(uids), 44, 336, 336), dtype=np.uint8)
@@ -212,9 +264,12 @@ def window_meta(centres, slot_sizes) -> tuple[np.ndarray, np.ndarray]:
 class Windows(torch.utils.data.Dataset):
     """One study -> (uint8 windows [K,3,H,W], slot [K], depth [K], targets [12]). Normalisation on device."""
 
-    def __init__(self, corpus, uids: list[str], y: np.ndarray, k: int | None, seed: int = 0, thin: int = 0):
+    def __init__(self, corpus, uids: list[str], y: np.ndarray, k: int | None, seed: int = 0, thin: int = 0,
+                 mirror: float = 0.0):
         self.c, self.uids, self.y, self.k, self.seed, self.thin = corpus, uids, y, k, seed, thin
         self.rng = random.Random(seed)
+        self.mirror = mirror                                # training: this share of draws is the mirrored knee
+        self.sagittal = slot_is_sagittal(corpus) if mirror else None
 
     def __len__(self) -> int:
         return len(self.uids)
@@ -237,8 +292,11 @@ class Windows(torch.utils.data.Dataset):
                 [self.rng.choice(cs) for _ in range(self.k)]
         w = np.stack([vol[c - 1:c + 2] for c in cs])        # (K,3,H,W)
         slot, pos = window_meta(cs, self.c.slot_sizes)
-        return (torch.from_numpy(np.ascontiguousarray(w)), torch.from_numpy(slot), torch.from_numpy(pos),
-                torch.from_numpy(self.y[i]))
+        w, slot, pos, y = torch.from_numpy(np.ascontiguousarray(w)), torch.from_numpy(slot), torch.from_numpy(pos), self.y[i]
+        if self.mirror and self.rng.random() < self.mirror:
+            w, pos = mirror_windows(w, slot, pos, self.sagittal)
+            y = mirror_targets(y)
+        return w, slot, pos, torch.from_numpy(y)
 
 
 def seed_worker(_wid: int) -> None:
@@ -403,17 +461,24 @@ def autocast(dev, amp: bool):
 
 
 @torch.no_grad()
-def predict(model, ds, dev, amp, bs) -> np.ndarray:
+def predict(model, ds, dev, amp, bs, sagittal: torch.Tensor | None = None) -> np.ndarray:
+    """(N, 12) probabilities; with `sagittal` (mirror averaging) (N, 2, 12): the plain pass, then the mirrored
+    pass in the MIRRORED knee's columns -- `mirror_average` makes one prediction of the two."""
     model.eval()
     dl = torch.utils.data.DataLoader(ds, batch_size=bs, shuffle=False, num_workers=ds_workers(),
                                      collate_fn=pad_collate)
     out = []
     with torch.compiler.set_stance("force_eager"):
         for x, m, sl, ps, _ in dl:
+            x, m, sl, ps = x.to(dev), m.to(dev), sl.to(dev), ps.to(dev)
             with autocast(dev, amp):
-                out.append(torch.sigmoid(model(x.to(dev), m.to(dev), slot=sl.to(dev), pos=ps.to(dev)).float())
-                           .cpu().numpy())
-    return np.concatenate(out) if out else np.zeros((0, len(LABELS)), np.float32)
+                p = torch.sigmoid(model(x, m, slot=sl, pos=ps).float())
+                if sagittal is not None:
+                    xm, pm = mirror_windows(x, sl, ps, sagittal)
+                    p = torch.stack([p, torch.sigmoid(model(xm, m, slot=sl, pos=pm).float())], 1)
+            out.append(p.cpu().numpy())
+    shape = (0, len(LABELS)) if sagittal is None else (0, 2, len(LABELS))
+    return np.concatenate(out) if out else np.zeros(shape, np.float32)
 
 
 def ds_workers() -> int:
@@ -450,11 +515,12 @@ def all_any(flag: bool, world: int, dev) -> bool:
     return bool(t.item() > 0)
 
 
-def predict_sharded(model, corpus, uids, dev, amp, bs, world, rank, thin: int = 0) -> np.ndarray:
+def predict_sharded(model, corpus, uids, dev, amp, bs, world, rank, thin: int = 0,
+                    sagittal: torch.Tensor | None = None) -> np.ndarray:
     """Rank r scores uids[r::world]; every rank gets all of them back, in `uids` order."""
     mine = uids[rank::world]
     p = predict(model, Windows(corpus, mine, np.zeros((len(mine), 12), np.float32), k=None, thin=thin),
-                dev, amp, bs)
+                dev, amp, bs, sagittal)
     if world == 1:
         return p
     import torch.distributed as dist
@@ -551,7 +617,18 @@ def main() -> None:
                          "BCE, for graded tables whose mid levels are readings (and for masked targets)")
     ap.add_argument("--eval-windows", type=int, default=0,
                     help="score an evenly spaced ~N windows per study (thin_windows); 0 = every window")
+    ap.add_argument("--mirror", type=float, default=0.0,
+                    help="training: this share of draws is the knee mirrored medial <-> lateral, with the Medial / Lateral "
+                         "targets swapped and MCL unknown (canonical caches only; needs --allow-missing-labels)")
+    ap.add_argument("--mirror-tta", action="store_true",
+                    help="every prediction is the mean of the plain and the mirrored pass (MCL: the plain pass); "
+                         "oof_all.csv holds that mean, oof_plain.csv the plain pass. Stored in last_meta.json, so the "
+                         "submission path does the same")
     a = ap.parse_args()
+    if not 0.0 <= a.mirror <= 1.0 or (a.mirror and not a.allow_missing_labels):
+        raise SystemExit("--mirror is a probability in [0, 1] and needs --allow-missing-labels (MCL is unknown on a mirrored knee)")
+    if (a.mirror or a.mirror_tta) and ARCHS[a.arch]["pool"] == "qwen":
+        raise SystemExit("--mirror / --mirror-tta: not built for the qwen archs")
 
     world, rank, local = dist_setup()
     if a.bs % (a.micro * world):
@@ -691,8 +768,15 @@ def main() -> None:
     log(f"encoder {n_enc / 1e6:.1f}M params, num_features {model.encoder.num_features} | res {res} | "
         f"drop_path {a.drop_path} | llrd {a.llrd} | pos_emb {a.pos_emb}")
 
-    prev = np.clip(np.nan_to_num(np.nanmean(np.where(np.isfinite(ytr), ytr, np.nan), 0), nan=0.5)
-                   if a.allow_missing_labels else ytr.mean(0), 0.03, 0.7)
+    prev = (np.nan_to_num(np.nanmean(np.where(np.isfinite(ytr), ytr, np.nan), 0), nan=0.5)
+            if a.allow_missing_labels else ytr.mean(0))
+    if a.mirror:                                            # what the loss sees: a medial column is its lateral twin's
+        prev = (1 - a.mirror) * prev + a.mirror * prev[MIRROR_PERM]      # on that share of draws (MCL: unchanged)
+        log(f"mirror: {a.mirror:.2f} of training draws mirrored (Medial <-> Lateral targets swapped, MCL masked)")
+    prev = np.clip(prev, 0.03, 0.7)
+    tta = slot_is_sagittal(corpus).to(dev) if a.mirror_tta else None
+    if a.mirror_tta:
+        log("mirror averaging: every prediction is the mean of the plain and the mirrored pass (MCL: plain only)")
     pos_w = torch.tensor(np.clip((1 - prev) / prev, 1, 10), dtype=torch.float32, device=dev)
     groups = (model.param_groups(a.bb_lr, a.head_lr, a.lora_lr) if is_qwen
               else param_groups(model, a.bb_lr, a.head_lr, a.llrd))
@@ -700,7 +784,7 @@ def main() -> None:
     if a.llrd < 1.0:
         log(f"layer-wise LR: {len(groups) - 1} encoder groups, {groups[0]['lr']:.2e} (embeddings) .. "
             f"{groups[-2]['lr']:.2e} (top) | head {groups[-1]['lr']:.2e}")
-    tr_ds = Windows(corpus, tr, ytr, k=a.k, seed=a.seed + 1000 * rank)
+    tr_ds = Windows(corpus, tr, ytr, k=a.k, seed=a.seed + 1000 * rank, mirror=a.mirror)
     sampler = (torch.utils.data.distributed.DistributedSampler(tr_ds, num_replicas=world, rank=rank,
                                                                 shuffle=True, seed=a.seed, drop_last=True)
                if world > 1 else None)
@@ -856,16 +940,22 @@ def main() -> None:
              "ckpt_blocks": a.ckpt_blocks, "compile": a.compile, "loss_trace": loss_trace}
 
     # ---- evaluate: last epoch (primary), then the fixed last-3 average (secondary). Sharded over GPUs.
-    t_ev = time.time()
-    p_last = predict_sharded(model, corpus, va, dev, amp, a.eval_bs, world, rank, a.eval_windows)
-    bench["eval_sec_per_study"] = (time.time() - t_ev) * world / max(len(va), 1)     # per study, per GPU
-    if rank == 0:
-        pd.DataFrame(p_last, columns=LABELS).assign(StudyInstanceUID=va).to_csv(a.out / "oof_all.csv", index=False)
-    pg = None
-    if gold_ids:
-        pg = predict_sharded(model, corpus, gold_ids, dev, amp, a.eval_bs, world, rank, a.eval_windows)
+    def score(uids, out_dir, name):
+        """Predict `uids`; rank 0 writes <name>.csv. Under --mirror-tta that file holds the two-pass mean (what is
+        submitted) and the plain pass goes beside it as oof_plain.csv / oof_gold_plain.csv."""
+        raw = predict_sharded(model, corpus, uids, dev, amp, a.eval_bs, world, rank, a.eval_windows, tta)
+        p = raw if tta is None else mirror_average(raw[:, 0], raw[:, 1])
         if rank == 0:
-            pd.DataFrame(pg, columns=LABELS).assign(StudyInstanceUID=gold_ids).to_csv(a.out / "oof_gold.csv", index=False)
+            pd.DataFrame(p, columns=LABELS).assign(StudyInstanceUID=uids).to_csv(out_dir / f"{name}.csv", index=False)
+            if tta is not None:
+                plain = {"oof_all": "oof_plain", "oof_gold": "oof_gold_plain"}[name]
+                pd.DataFrame(raw[:, 0], columns=LABELS).assign(StudyInstanceUID=uids).to_csv(out_dir / f"{plain}.csv", index=False)
+        return p
+
+    t_ev = time.time()
+    p_last = score(va, a.out, "oof_all")
+    bench["eval_sec_per_study"] = (time.time() - t_ev) * world / max(len(va), 1)     # per study, per GPU
+    pg = score(gold_ids, a.out, "oof_gold") if gold_ids else None
     if a.save_weights and rank == 0:
         torch.save({k: v.half() if v.is_floating_point() else v for k, v in model.state_dict().items()},
                    a.out / "last.pt")
@@ -876,6 +966,7 @@ def main() -> None:
             "layout": corpus.layout, "slot_sizes": list(corpus.slot_sizes), "img": getattr(corpus, "img", 336),
             "pos_emb": bool(a.pos_emb), "n_slots": model.n_slots, "llrd": a.llrd, "drop_path": a.drop_path,
             "zoom": a.zoom, "spatial": bool(getattr(model, "spatial", False)),
+            "mirror": a.mirror, "mirror_tta": bool(a.mirror_tta),
             "rope_periods": rope.periods.float().tolist() if rope is not None and hasattr(rope, "periods") else None,
             "mean": MEAN, "std": STD,
             **({"hf": ARCHS[a.arch].get("hf"), "qwen_config": model.qwen.config.to_dict(), "qwen_ids": model.ids,
@@ -887,15 +978,13 @@ def main() -> None:
         missing = model.load_state_dict(avg, strict=not is_qwen)
         if is_qwen and missing.unexpected_keys:
             raise SystemExit(f"avg3: unexpected keys {missing.unexpected_keys[:3]}")
-        pa = predict_sharded(model, corpus, va, dev, amp, a.eval_bs, world, rank, a.eval_windows)
-        pga = (predict_sharded(model, corpus, gold_ids, dev, amp, a.eval_bs, world, rank, a.eval_windows)
-               if gold_ids else None)
+        d3 = a.out / "avg3"
         if rank == 0:
-            d3 = a.out / "avg3"
             d3.mkdir(exist_ok=True)
-            pd.DataFrame(pa, columns=LABELS).assign(StudyInstanceUID=va).to_csv(d3 / "oof_all.csv", index=False)
-            if pga is not None:
-                pd.DataFrame(pga, columns=LABELS).assign(StudyInstanceUID=gold_ids).to_csv(d3 / "oof_gold.csv", index=False)
+        score(va, d3, "oof_all")
+        if gold_ids:
+            score(gold_ids, d3, "oof_gold")
+        if rank == 0:
             if a.save_weights and not is_qwen:      # served like last.pt: its meta sits beside it
                 torch.save({k: v.half() if v.is_floating_point() else v for k, v in model.state_dict().items()},
                            d3 / "last.pt")
@@ -912,7 +1001,8 @@ def main() -> None:
                    "n_train": len(tr), "n_val": len(va), "n_gold": len(gold_ids), "k": a.k, "bs": a.bs,
                    "bb_lr": a.bb_lr, "head_lr": a.head_lr, "wd": a.wd, "seed": a.seed, "res": res,
                    "drop_path": a.drop_path, "llrd": a.llrd, "pos_emb": a.pos_emb, "eval_windows": a.eval_windows,
-                   "aug_affine": a.aug_affine, "zoom": a.zoom, "spatial_attn": a.spatial_attn, "conf_weight": a.conf_weight, "init": str(a.init) if a.init else None, "slots": a.slots or None,
+                   "aug_affine": a.aug_affine, "zoom": a.zoom, "spatial_attn": a.spatial_attn, "conf_weight": a.conf_weight,
+                   "mirror": a.mirror, "mirror_tta": bool(a.mirror_tta), "init": str(a.init) if a.init else None, "slots": a.slots or None,
                    "allow_missing_labels": a.allow_missing_labels,
                    "init_sha256": getattr(a, "init_sha256", None),
                    "labels_sha256": __import__("hashlib").sha256(Path(a.labels).read_bytes()).hexdigest()

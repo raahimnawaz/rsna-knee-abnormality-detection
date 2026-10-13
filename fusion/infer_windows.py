@@ -24,7 +24,8 @@ sys.path.insert(0, str(HERE))
 sys.path.insert(0, str(HERE.parent / "pipeline"))
 import build_slots64 as B  # noqa: E402
 import slots64 as S  # noqa: E402
-from train_windows import LABELS, WindowMIL, thin_windows, window_centres, window_meta  # noqa: E402
+from train_windows import (LABELS, WindowMIL, mirror_average, mirror_windows, thin_windows,  # noqa: E402
+                           window_centres, window_meta)
 
 SLOT_SIZES = tuple(s.n_slices for s in S.SLOTS)            # Stage A's; a checkpoint's last_meta.json overrides
 ORTHO_PERIODS = [1.0, 1.335938, 1.78125, 2.375, 3.15625, 4.21875, 5.625, 7.5,
@@ -54,7 +55,7 @@ def load_meta(weights: Path) -> dict:
            "canon": "canon True" in layout, "res": int(m.get("res", 336)), "img": int(m.get("img", 336)),
            "timm": m.get("timm", "vit_large_patch16_dinov3"), "pool": m.get("pool", "token"),
            "pos_emb": bool(m.get("pos_emb", False)), "n_slots": int(m.get("n_slots", 0)),
-           "spatial": bool(m.get("spatial", False)),
+           "spatial": bool(m.get("spatial", False)), "mirror_tta": bool(m.get("mirror_tta", False)),
            "rope_periods": m.get("rope_periods"), "slot_sizes": tuple(m.get("slot_sizes") or SLOT_SIZES)}
     Sp = B.SPECS[spec]
     if tuple(s.n_slices for s in Sp.SLOTS) != out["slot_sizes"] or Sp.IMG != out["img"]:
@@ -164,6 +165,12 @@ def main() -> None:
             f"res {m['res']} slots {m['slot_sizes']} pos_emb {m['pos_emb']} | meta {m['source']} | "
             + ("RoPE periods = the trained ones" if getattr(models[-1].encoder, "rope", None) is not None else "no RoPE"))
     log(f"{len(models)} checkpoint(s): probabilities averaged with equal weight")
+    if any(m["mirror_tta"] for m in metas):
+        if not meta["canon"]:
+            raise SystemExit("a checkpoint asks for mirror averaging, but its cache is not canonical")
+        log(f"mirror averaging (plain + mirrored pass, MCL plain only) for {sum(m['mirror_tta'] for m in metas)} "
+            f"of {len(metas)} checkpoint(s), as each was scored")
+    sagittal = torch.tensor([s_.plane == "Sagittal" for s_ in B.SPECS[meta["spec"]].SLOTS], device=dev)
     if a.n_windows and a.check_against:
         raise SystemExit("--check-against compares with the OOF, which read every window: drop --n-windows")
     ds = DicomStudies(a.root / f"{a.split}_series", uids, series_by_study(a.root, a.split), a.n_windows,
@@ -177,7 +184,12 @@ def main() -> None:
             x = w[None].to(dev, non_blocking=True)
             ones, sl_d, ps_d = torch.ones(x.shape[:2], dtype=torch.bool, device=dev), sl[None].to(dev), ps[None].to(dev)
             with torch.autocast("cuda", dtype=torch.float16, enabled=dev == "cuda"):
-                p = torch.stack([torch.sigmoid(m(x, ones, slot=sl_d, pos=ps_d).float()) for m in models]).mean(0)
+                ps_ = [torch.sigmoid(m(x, ones, slot=sl_d, pos=ps_d).float()) for m in models]
+                if any(mt["mirror_tta"] for mt in metas):   # `train_windows.predict`'s two passes, per checkpoint
+                    xm, pm = mirror_windows(x, sl_d, ps_d, sagittal)
+                    ps_ = [mirror_average(q, torch.sigmoid(m(xm, ones, slot=sl_d, pos=pm).float()))
+                           if mt["mirror_tta"] else q for q, m, mt in zip(ps_, models, metas)]
+                p = torch.stack(ps_).mean(0)
             rows.append([uid] + p[0].cpu().numpy().tolist())
             infer_s.append(time.time() - t)
             build_s.append(sec)

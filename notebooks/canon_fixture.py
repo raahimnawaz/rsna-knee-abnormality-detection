@@ -45,14 +45,18 @@ def phantom(P: np.ndarray, centre: np.ndarray, m: np.ndarray) -> np.ndarray:
     return v
 
 
-def write(root: Path) -> dict:
+def write(root: Path, studies: dict | None = None, mm: float = MM) -> dict:
+    """`studies`: name -> (side, knee centre x, tag, orientation per plane[, mirrored]). A mirrored study is the same
+    knee with its ANATOMY reflected medial <-> lateral (what `train_windows.mirror_windows` claims to produce);
+    `mm`: pixel size (0.7 makes the 200 px image exactly the 140 mm field, so no crop rounds off-centre)."""
     img_dir = root / "train_series"
     if root.exists():
         shutil.rmtree(root)
     img_dir.mkdir(parents=True)
     random.seed(0)
     rows, truth = [], {}
-    for name, (side, cx, tag, orient) in STUDIES.items():
+    for name, (side, cx, tag, orient, *more) in (studies or STUDIES).items():
+        mirrored = bool(more and more[0])
         suid = generate_uid()
         truth[suid] = {"name": name, "side": side, "src": "tag" if tag else "geometry"}
         centre = np.array([cx, 0.0, 0.0])
@@ -70,10 +74,10 @@ def write(root: Path) -> dict:
             for inst, k in enumerate(ks, 1):
                 t = (k - (N - 1) / 2) * STEP
                 ctr = centre + t * n
-                ipp = ctr - (W - 1) / 2 * MM * r - (H - 1) / 2 * MM * c
+                ipp = ctr - (W - 1) / 2 * mm * r - (H - 1) / 2 * mm * c
                 jj, ii = np.meshgrid(np.arange(W), np.arange(H))
-                P = ipp + jj[..., None] * MM * r + ii[..., None] * MM * c
-                a = phantom(P, centre, m)
+                P = ipp + jj[..., None] * mm * r + ii[..., None] * mm * c
+                a = phantom(P, centre, -m if mirrored else m)
                 fm = FileMetaDataset()
                 fm.TransferSyntaxUID = ExplicitVRLittleEndian
                 fm.MediaStorageSOPClassUID = "1.2.840.10008.5.1.4.1.1.4"
@@ -81,7 +85,7 @@ def write(root: Path) -> dict:
                 ds = Dataset()
                 ds.file_meta = fm
                 ds.Rows, ds.Columns = H, W
-                ds.PixelSpacing = [MM, MM]
+                ds.PixelSpacing = [mm, mm]
                 ds.ImageOrientationPatient = [float(x) for x in (*r, *c)]
                 ds.ImagePositionPatient = [float(x) for x in ipp]
                 ds.InstanceNumber = random.randint(1, 10_000)
