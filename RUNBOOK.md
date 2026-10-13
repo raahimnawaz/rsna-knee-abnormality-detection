@@ -9,18 +9,21 @@
 | why the weak findings are weak | [`docs/REVIEW-2026-10-12.md`](docs/REVIEW-2026-10-12.md): the error budget |
 | anything before 10-11 | `git show 9c23daf:RUNBOOK.md` (also `:DATA.md`, `:REFERENCE.md`, `:docs/REVIEW-2026-10-04.md`) |
 
-Last updated 2026-10-13 10:36 PDT.
+Last updated 2026-10-13 11:55 PDT.
 
 ## 0. Right now
 
 - **Nothing is running on Kaggle.** The pseudo-label student finished (held-out +0.0021 ± 0.0013 over the 0.944
   model, report only).
-- **Next action: submit the four approved reads at the 17:00 PDT reset today** (§4; all four kernels are gated, the
-  commands are under the table). The session of 10-13 morning armed a background submitter for 17:00; **check
-  `kaggle competitions submissions` after 17:00 and submit by hand whatever is missing.** The Mac sleeps with the
-  lid shut and every watcher stops (this cost eight hours on 10-13).
+- **Next action: submit the four approved reads after the 17:00 PDT reset today** (§4; all four kernels read COMPLETE
+  at 11:50, the commands are under the table). **⚠️ NOTHING IS ARMED: the morning session's background submitter is
+  gone** (checked 11:50: no process, no scheduled task, no cron). The slots of the new UTC day last until 17:00 on
+  10-14, so there is no deadline at 17:00 sharp: submit by hand, or have a session do it with the lid open.
 - **Then:** read the four scores by their rules, record them in §2–§4, and ask the owner how to ensemble.
-- **Waiting for GPU hours** (Friday 17:00's reset, or a rented GPU): spatial attention, the fine-tune, `--k 24`.
+- **The second audit of 10-13 (11:55; LOG, last block) changes three things on this page:** the board (§2: the free
+  public recipe is now a 583-team block at 0.956, we are rank 1,792), what the 847 and the LB can judge (§6), and
+  the GPU queue (§4: the fine-tune and `--k 24` recommended to drop, spatial attention to hold; the owner decides).
+- **Waiting for GPU hours** (Friday 17:00's reset, or a rented GPU): see §4's table and the recommendation under it.
 
 ## 1. Goal and the owner's directions
 
@@ -36,11 +39,13 @@ Last updated 2026-10-13 10:36 PDT.
 
 | | LB | |
 |---|--:|---|
-| #1 | 0.966 | three teams at 0.965; 0.963 at rank ~7–11 (pulled 10-12 21:41; re-pull before quoting) |
-| medal lines, from a public notebook | | gold to rank 21 (0.962), silver to 290, bronze to 581; ~5,880 teams |
-| free public blends | 0.954–0.957 | the 0.954 tie group runs from rank 193 to 870 |
-| public single model (`nartaa` CoAtNet, trained with 2,399 OAI knees) | 0.949 | |
-| **ours: five folds, consensus labels** | **0.945** | ref `57112913`, rank ~1,690. Our best submission |
+| #1 | 0.966 | two teams; three at 0.965, three at 0.964, 0.963 at rank 9–19 (pulled 10-13 11:42; re-pull before quoting) |
+| medal lines, by Kaggle's rule on 5,938 teams | | gold to rank ~21 (0.962), silver to ~297, bronze to ~594. **Both the silver and the bronze line are inside the 0.956 block** |
+| best single models reported on the forum | 0.953–0.960 | five-fold ConvNeXt-T 0.959 (rank 5–6, "only the competition data"), a single-fold 0.956, a "basically single" 0.960. Those that say how: pseudo-labels, no outside data (0.953), labels alone (0.938 → 0.949) |
+| **the free public recipe** (`nartaa` 384 px + `heliosli` R7, 50/50 rank blend at full precision) | **0.956** | **583 teams, rank 152–734**; 14 public notebooks, none higher. 0.957 is rank 90–151 |
+| older free blends (S6 at 30%, or written at six decimals) | 0.954 | 447 teams, rank 799–1,245 |
+| public single model (`nartaa` CoAtNet, trained with 2,399 OAI knees) | 0.949 | its 224 px sibling in the same dataset: 0.945 |
+| **ours: five folds, consensus labels** | **0.945** | ref `57112913`, **rank 1,792 of 5,938**. Our best submission, and our only OAI-free one |
 | **ours: one model, teacher labels** | **0.944** | ref `57122696`. Our best single model |
 | ours: one model, consensus labels | 0.938 | ref `57098827`. **The baseline every recipe change is paired against** |
 | ours: one model, `dread_soft` labels | 0.933 | ref `57117178` |
@@ -78,6 +83,23 @@ under the rest, so the grouping holds; their order does not.
 0.97 needs those first three near 0.95 with everything else near 0.975. They are also the three findings the public
 0.949 model's OAI knees supervised (its author's write-up). Gold-58 gives the same order but reads every weak finding
 0.03–0.07 lower: do not size anything from gold.
+
+**Where we stand against the outside (audit 10-13 11:55).**
+- **OAI is not what separates the top from us.** Rank 5 and rank 6 both state competition data only (thread 748295),
+  and the forum's best singles read 0.953–0.960; the ones that say how name pseudo-labels and label work, with no
+  outside data. The review's "0.97 needs image-graded supervision" (§0.6, §6) is corrected there.
+- **Our models are ~0.015 behind those pipelines on every instrument we share with them.** A rank-29 team reports
+  five-fold OOF 0.937 against its LLM labels and gold-58 0.938 for LB 0.961 (thread 748011). Ours: five consensus
+  folds OOF 0.900 against `dread_soft` and 0.905 against their own targets, gold-58 0.931, LB 0.945; five teacher
+  folds 0.907 / 0.915 / 0.931, LB read tonight. Other tables than theirs, so indicative only.
+- **What a member like ours adds to the free 0.956 recipe is ~0, measured by others:** a 0.929 reader at full weight
+  cost its own author ~0.002 on that base (he now runs it at a tenth); `nartaa`'s 224 px checkpoint (0.945 alone)
+  moved a rank inside the block and not the displayed score; ours at 1/3 on the older stack was 0.941 against 0.943
+  (10-04). Nothing we own is shown to beat or to lift what is free.
+- **Rules risk on everything OAI-derived** (the free recipe, and our `targets_teacher_v1/v2` and teacher folds):
+  thread 748276 (10-11, 15 votes, no host reply) argues that NDA has barred China and five other countries since
+  04-2025, that rule 2.6.b names geo-restrictions, and that KneeCoT was ruled out for uneven access. A participant's
+  argument, not a ruling. Keep one final OAI-free.
 
 ## 3. Decided (each by a rule written before its result; detail in the LOG)
 
@@ -135,6 +157,17 @@ in its own preprocessing, and blends per-finding percentile ranks. For us that i
 `build_submit_kernel.py` (last used 10-03, needs pointing at `nartaa/rsna-knee-0949-anatomical-mirror`), with
 weights fixed beforehand and theirs heavier on PF OA, Lateral OA and Synovitis.
 
+**Added by the audit of 10-13 11:55 (proposed, NOT approved; no training GPU):** the base to build on is no longer
+the 0.949 notebook but the free 0.956 recipe (`heliosli/0-957-latest-dataset-score-in-one-click`: `nartaa` 384 px +
+R7's four folds, per-finding ranks 50/50, **scores written at full precision**: six decimals tie R7's small
+probabilities and cost 0.002, which is the whole 0.954 → 0.956 step), with `nartaa`'s 224 px checkpoint at 35% of
+the CoAtNet slot (`varshithakolupuri/rsna-knee-one-unused-checkpoint-lifts-the-0-956`). Our five folds would join at
+a small weight fixed beforehand (≤ 20%; rule 4). **The read:** a submission that becomes our best shows its rank
+inside the 0.956 block, which follows the unrounded score (the 224 px checkpoint moved 233 → 156 there), so the
+recipe with and without ours can be told apart below 0.001. That needs the unchanged recipe once as the paired
+baseline, which the owner has called useless as a submission: ask. Our own CSV is already written at full precision
+and our outputs sit in 0.06–0.99 (checked: ≤ 4 ties of 847 at six decimals).
+
 **After the scores (written 10-13 10:40, before any of them).** Read 1 at ≥ 0.945 → the five teacher folds are the
 finals' candidate until something beats them; with read 6a's +0.006 it is the second read of the same label change.
 Read 4: the student's held-out gain is +0.0021, under one SD of what the LB can read, so **"kept" by its rule buys
@@ -146,10 +179,19 @@ or other teachers per finding, as the forum describes) is a different arm and wo
 
 | arm | cost | state | rule |
 |---|--:|---|---|
-| spatial attention (`--spatial-attn`), for Lateral OA and PF OA | ~1.9 h | built, CPU smoke clean; the owner moved it to Friday | paired on the 847 against the 0.938 model: macro ≥ +0.004, or the mean of Lateral OA and PF OA ≥ +0.015 → into the finals |
-| fine-tune of the public CoAtNet on our input and `targets_teacher_v1`, all data, 6 epochs | ~3.5 h (estimate) | CPU smoke clean; one push away. **Recommended to drop (10-13 audit; the owner asked for it, so the owner confirms):** its best case is the checkpoint's own 0.949 + ≤ 0.005, which the LB cannot read, and running the public notebook unchanged as stage 1 gives the known 0.949 for no GPU hours | LB only (its init saw every study): ≥ +0.005 over read 3, or it did not pay |
-| `--k 24` | ~3.3 h | not built; **last in the queue**: the public 0.949 model also trains at 12 windows a study | macro ≥ +0.004 → finals; below +0.002 closes bag size |
+| spatial attention (`--spatial-attn`), for Lateral OA and PF OA | ~1.9 h | built, CPU smoke clean; the owner moved it to Friday. **Recommended to hold (audit 11:55):** the public R7 already ships this on our backbone, with its trainer; and the bar is 2 SE of study sampling alone, run-to-run noise never having been measured (§6) | paired on the 847 against the 0.938 model: macro ≥ +0.004, or the mean of Lateral OA and PF OA ≥ +0.015 → into the finals |
+| fine-tune of the public CoAtNet on our input and `targets_teacher_v1`, all data, 6 epochs | ~3.5 h (estimate) | CPU smoke clean; one push away. **Recommended to drop (10-13 audit; the owner asked for it, so the owner confirms):** its best case is the checkpoint's own 0.949 + ≤ 0.005, which the LB cannot read, and running the public notebook unchanged as stage 1 gives the known 0.949 for no GPU hours. **And it is already public:** `syouyatobita/rsna-knee-g231-nf1-weights` (10-11) is this checkpoint fine-tuned 6 epochs on all data; no public notebook uses it and it carries no score | LB only (its init saw every study): ≥ +0.005 over read 3, or it did not pay |
+| `--k 24` | ~3.3 h | not built. **Recommended to drop (audit 11:55):** its expected gain is under what the 847 can resolve, and the public 0.949 model also trains at 12 windows a study | macro ≥ +0.004 → finals; below +0.002 closes bag size |
 | finals: five new folds | ~9.5 h | **only if an arm above passes** (or read 4 ≥ +0.006); otherwise the five teacher folds already trained are the finals | alone on the LB |
+
+**What the audit of 11:55 recommends the hours go to instead (proposed, NOT approved).** Every recipe arm above is
+worth +0.004 at best on a 0.945 ensemble that sits 0.011 under the free recipe; as a ≤ 20% member of a blend that is
+under 0.001. The one lever with outside evidence of +0.010 or more is the labels: `Raymond Yuen` 0.938 → 0.949 on
+labels alone, the 0.951–0.953 singles that say how are pseudo-labelled, rank 5 and 6 use competition data only (their
+method is not public). Our one round
+(read 4) was a half dose on one fold, judged on the 847 against a report reader, which cannot credit a model for
+out-ranking the report (§6). So: after tonight's reads, **one full pseudo-label round as five folds (~9.5 h)**, read
+five folds against five folds on the LB (readable from +0.006). The dose and the teachers need writing down first.
 
 ## 5. Budget
 
@@ -212,9 +254,19 @@ $PY notebooks/canon_fixture.py --out <dir> && $PY notebooks/infer_parity_fixture
 **Judging a change.**
 - *Recipe or input, labels fixed:* fold 0, paired with `score_oof.py` against the 0.938 model on the same 847
   held-out studies. Bar so far: macro ≥ +0.004 (paired SE ≈ 0.002). The LB then confirms only the final ensemble.
+  **⚠️ That SE is study sampling only (audit 10-13 11:55): no recipe has ever been run twice, so run-to-run noise is
+  unmeasured.** One hint that it is not small: the 0.944 model and the pseudo-label student share seed, split and
+  recipe, their targets differ by 0.02–0.05 a cell, and single findings moved −0.009 to +0.011 between them. Until a
+  repeat of the baseline exists (~1.9 h), read +0.004 as "not shown" in both directions: the dense arm's +0.0030
+  "fail" and a +0.004 "pass" are the same reading.
 - *Labels:* the held-out number overstates (it is scored against another report reader). The LB decides, one model
   against one model: kept unless ≥ 0.005 below, shown at ≥ +0.010. The LB's noise for such a pair is ~0.003 (§2), so
   "kept" alone is not evidence of a gain and must not buy GPU hours; ~+0.006 is the smallest readable gain.
+  **For pseudo-labels the 847 errs the other way:** the reference is a report reader, so a student that out-ranks
+  the report from the image is scored as wrong there. The pseudo-label student's +0.0021 is not a size for that
+  lever, and nothing we have can see a label gain under +0.006.
+- *The repo's numbers reproduce* (same audit): the four paired reads of §3 to the fourth decimal, the noise table of
+  §2 (0.0075 one score, 0.0030 a label-only pair at 390 studies), gold in no OOF file (0 of 58).
 - *One finding:* `--probe`; score = (5.5 + AUROC) / 12, one tick = 0.012 on that finding, two ticks decide.
 
 **Things that have already cost a run or an hour.**
