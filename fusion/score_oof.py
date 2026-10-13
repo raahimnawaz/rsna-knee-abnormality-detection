@@ -81,9 +81,12 @@ def main() -> None:
         print("  arms cover " + " / ".join(f"{len(s):,}" for s in sets) +
               f" studies -> scoring all of them on the {len(restrict):,} they share\n")
 
-    names = [Path(r).name for r in a.runs]
-    if len(set(names)) < len(names):
-        names = [f"{Path(r).parent.name}/{Path(r).name}" for r in a.runs]
+    parts = [Path(r).resolve().parts for r in a.runs]
+    names = [p[-1] for p in parts]
+    for up in range(2, min(map(len, parts)) + 1):           # same folder names (.../fold0): the first parent that differs
+        if len(set(names)) == len(names):
+            break
+        names = [p[-up] for p in parts]
     res = {}
     for r, nm in zip(a.runs, names):
         run = Path(r)
