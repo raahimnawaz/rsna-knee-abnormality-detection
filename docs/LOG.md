@@ -1164,3 +1164,25 @@ there for the owner to discard. Nothing sent.
   request asks for an institution's signing official is still not seen by us; the host's ruling (741819) makes that
   the rules question.
 
+## 10-14 ~00:30: OAI access, read on nda.nih.gov with the owner signed in (their Login.gov + a new NDA account)
+
+- **The rules question, answered from the source:** NDA's Data Permissions table lists the Osteoarthritis Initiative
+  permission group with **"Institutional approval required: No"** and "Data Access Requests do not require
+  Institutional sponsorship and will be approved immediately upon submission of a completed request." The host's
+  condition (741819: free, no institutional review / sign-off) is met for us. Thread 748276's point (NDA's limits on
+  some countries since 2025) is about equal access for others and still has no host reply.
+- **The Data Use Certification, the clauses that bind this project** (one year; the owner certifies, not us):
+  §3 no distribution or moving of the data to any third party or third-party system except DUC-listed collaborators;
+  §8 security plan, explicitly "local machines or with a cloud service provider": accounts not shared, data never
+  exposed to the internet, encryption / strong passwords, patched software; §9 delete from every machine when done
+  or at expiry; §5 no re-identification and no publishing derived data that could re-identify (structural MRI);
+  §11 an NDA Study for each publication, computational pipeline or other public disclosure of results; §12 the OAI
+  acknowledgement and DOI in any presentation or publication (as `nartaa`'s and `jingshuifu`'s notebooks carry);
+  §15 NDA may publish the owner's name and affiliation with a summary of the use.
+- **What that means here:** the images stay off Kaggle; a rented GPU is a cloud machine under §8 (a datacenter tier,
+  encrypted disk, no public ports, wiped at the end is my reading, not legal advice); trained weights are not
+  subject-level data (the public OAI-trained weights exist on the same basis); the 10-22 public repo and any write-up
+  need the acknowledgement and an NDA Study.
+- State at the time of writing: the request form is open at its last step (one certification checkbox + Confirm),
+  left for the owner to sign.
+
