@@ -1107,3 +1107,25 @@ there for the owner to discard. Nothing sent.
   winning team). One draft for those, with no recipient (they publish no address; LinkedIn or Kaggle is the channel)
   and a line asking anyone who is entered to ignore it. Their challenges had radiologist labels, so what they know
   best is the pipeline (find the joint, crop, classify), not label noise.
+
+## 10-13 19:20: tonight's five are sent, two have scored; the public state re-checked (owner: "can we put the .966 in the public")
+
+- **Sent:** all five by the 17:06 submitter (`data/submitter.log`: two connection resets and two failed listings
+  retried, done 18:45). No slot is left until 10-14 17:00 PDT.
+- **Five teacher folds alone: 0.949** (`57161107`) against the five consensus folds' 0.945: +0.004. Kept, not shown
+  (bar +0.010); by read 1's rule the finals' candidate of our own family. Level with the public CoAtNet alone, so
+  the 0.25 / 0.10 weights of read 5 were set for a weaker member than this one read as.
+- **Pseudo-label student: 0.946** (`57162950`) against 0.944: +0.002, one SD of a label-only pair is 0.003. Kept;
+  under the +0.006 that would train five folds on `targets_teacher_v2`, so they are not trained.
+- **Pending at 19:20:** R7 alone (`57160504`), the free recipe + our folds (`57160505`), R7 + mirror pass
+  (`57160736`).
+- **Nothing above the free recipe is public** (pulled 19:11-19:15, notebook source only, nothing run). The board's
+  top is three teams at 0.966 (CentralyDS, Sergey Bryansky, RB & Matheus & Tucker & Tony), three at 0.965, five at
+  0.964; none has published weights or a notebook. Today's new public notebooks are the same recipe:
+  `evgendvorkin/rsna-versia-7`, `degnonguidi/rsna-knee-abnormality-detection`, `medvax/rsna-knee-r7-source-trial`,
+  `le4ves/rsna-knee-0-957-r7-blend` and `jingshuifu/rsna-knee-flip-tta` all attach R7's bundle, `nartaa`'s weights
+  and `heliosli`'s encoder with `W_RAPTOR, W_OURS = 0.5, 0.5`; `lavinwins/rsna-gold-medal` is the 0.950 CoAtNet +
+  `goodpjw2008` reader. `jingshuifu`'s forces `flip_tta` on (16:34, no score in its source): the same read as ours.
+  `karttikjangid05`'s map and `varshithakolupuri`'s "what the top notebooks are made of" say the same in their own
+  words: a handful of model datasets under every public notebook at 0.950 and above.
+
