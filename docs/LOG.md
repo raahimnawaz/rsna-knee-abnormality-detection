@@ -1129,3 +1129,22 @@ there for the owner to discard. Nothing sent.
   `karttikjangid05`'s map and `varshithakolupuri`'s "what the top notebooks are made of" say the same in their own
   words: a handful of model datasets under every public notebook at 0.950 and above.
 
+## 10-13 22:10: two more read; the free recipe + our five folds is our best, 0.956, rank 198 of 5,955
+
+- **R7 alone: 0.949** (`57160504`). By read A's rule (under 0.950) the OAI-free final stays our five consensus folds
+  (0.945); the two are one level within ± 0.008. Level with the public CoAtNet alone and with our five teacher folds
+  (both 0.949). It is the baseline for R7's recipe on a pseudo-label table: shown at ≥ 0.955.
+- **The free recipe + our five teacher folds: 0.956** (`57160505`). By read 5's rule: read the rank inside the block,
+  nothing claimed. Board pulled 22:06: 5,955 teams; the 0.956 block is 724 teams, ranks 188-911; **ours 198**. The
+  recipe's author (`varshithakolupuri`) 333, R7's author (`heliosli`) 199, `karttikjangid05` / `hitarthjain0` 319,
+  `jessky` 327, `nartaa` 954 (0.955). So our folds do not cost the recipe, and it sits above its author's rank:
+  under one displayed tick, not a claim (an author's best on the board is not known to be this exact recipe). **Our
+  best submission and a final candidate**; it holds OAI-derived models (the CoAtNet; our teacher labels).
+- **Medal lines by Kaggle's rule on 5,955:** gold to ~21 (0.962 at 21-27), silver to ~297, bronze to ~595. Rank 198
+  is inside the public board's silver; the block spans silver and bronze, so the private part's order decides.
+- **R7 + mirror pass (`57160736`): still pending at 22:08**, ~5 h after it was sent. It runs two passes of four folds
+  and raises (no score) if it runs late.
+- **Checked and closed: "the 384-trained CoAtNet is inferred at 320 px"** (`karttikjangid05`'s ensemble map). True
+  and intended: the base notebook (`6406e923`) sets `INPUT_MODE = "crop"`, `INPUT_RES = 320` on the 384 px corpus,
+  "must match training exactly": the model trained on 320 crops. Not a free lever.
+

@@ -9,16 +9,15 @@
 | why the weak findings are weak | [`docs/REVIEW-2026-10-12.md`](docs/REVIEW-2026-10-12.md): the error budget |
 | anything before 10-11 | `git show 9c23daf:RUNBOOK.md` (also `:DATA.md`, `:REFERENCE.md`, `:docs/REVIEW-2026-10-04.md`) |
 
-Last updated 2026-10-13 19:20 PDT.
+Last updated 2026-10-13 22:10 PDT.
 
 ## 0. Right now
 
-- **19:20: all five of tonight's submissions are sent** (the 17:06 submitter, done 18:45). **Scored: the five teacher
-  folds alone 0.949** (`57161107`; +0.004 on the consensus folds, kept, not shown; level with the public CoAtNet
-  alone) and **the pseudo-label student 0.946** (`57162950`; +0.002, under the +0.006 that would buy five folds on
-  `targets_teacher_v2`: not trained). **Still pending: R7 alone (`57160504`), the blend + our folds (`57160505`),
-  R7 + mirror pass (`57160736`): read them by §4's rules.** Public state re-checked 19:15: nothing above the
-  0.956-0.957 recipe is public; the 0.966 teams have released nothing (LOG, last block).
+- **22:10: our best is now 0.956, rank 198 of 5,955** (`57160505`: the free recipe + our five teacher folds; the
+  0.956 block is ranks 188-911, the recipe's author 333, R7's author 199; inside public silver, which ends ~297).
+  **R7 alone 0.949** (`57160504`: under 0.950, so the OAI-free final stays our consensus folds 0.945). Five teacher
+  folds alone 0.949, pseudo-label student 0.946 (19:20; LOG). **Pending: R7 + mirror pass (`57160736`).** Nothing
+  above the recipe is public (19:15). No slot until 10-14 17:00 PDT.
 - **Owner 10-13 ~12:37: "Change of approach for the last 9 days: stop testing one change at a time."** One combined
   recipe, **v3**, on the ConvNeXt-small trainer: stronger pseudo-labels, spatial attention, mirror augmentation with
   a mirrored pass at inference, 24 windows, 16 epochs, the averaged weights (§4 has the recipe, the dose and the
@@ -90,7 +89,9 @@ Last updated 2026-10-13 19:20 PDT.
 | **the free public recipe** (`nartaa` 384 px + `heliosli` R7, 50/50 rank blend at full precision) | **0.956** | **583 teams, rank 152–734**; 14 public notebooks, none higher. 0.957 is rank 90–151 |
 | older free blends (S6 at 30%, or written at six decimals) | 0.954 | 447 teams, rank 799–1,245 |
 | public single model (`nartaa` CoAtNet, trained with 2,399 OAI knees) | 0.949 | its 224 px sibling in the same dataset: 0.945 |
-| **ours: five folds, teacher labels** | **0.949** | ref `57161107` (10-13). **Our best submission**; its labels hold the OAI-trained CoAtNet, so not OAI-free |
+| **ours: the free recipe + our five teacher folds** | **0.956** | ref `57160505` (10-13), **rank 198 of 5,955** (block 188-911; the recipe's author 333). **Our best submission**; OAI-derived |
+| the public R7 x4 alone (`heliosli`) | 0.949 | ref `57160504` (10-13). OAI-free; level with the public CoAtNet |
+| **ours: five folds, teacher labels** | **0.949** | ref `57161107` (10-13). Our best own model; its labels hold the OAI-trained CoAtNet, so not OAI-free |
 | ours: one model, pseudo-label round (`targets_teacher_v2`) | 0.946 | ref `57162950` (10-13); +0.002 on the 0.944 model, inside the noise |
 | **ours: five folds, consensus labels** | **0.945** | ref `57112913`, rank 1,792 of 5,938 when it was our best. Our only OAI-free one |
 | **ours: one model, teacher labels** | **0.944** | ref `57122696`. Our best single model |
