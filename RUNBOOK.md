@@ -9,14 +9,14 @@
 | why the weak findings are weak | [`docs/REVIEW-2026-10-12.md`](docs/REVIEW-2026-10-12.md): the error budget |
 | anything before 10-11 | `git show 9c23daf:RUNBOOK.md` (also `:DATA.md`, `:REFERENCE.md`, `:docs/REVIEW-2026-10-04.md`) |
 
-Last updated 2026-10-13 22:10 PDT.
+Last updated 2026-10-13 22:27 PDT.
 
 ## 0. Right now
 
 - **22:10: our best is now 0.956, rank 198 of 5,955** (`57160505`: the free recipe + our five teacher folds; the
   0.956 block is ranks 188-911, the recipe's author 333, R7's author 199; inside public silver, which ends ~297).
   **R7 alone 0.949** (`57160504`: under 0.950, so the OAI-free final stays our consensus folds 0.945). Five teacher
-  folds alone 0.949, pseudo-label student 0.946 (19:20; LOG). **Pending: R7 + mirror pass (`57160736`).** Nothing
+  folds alone 0.949, pseudo-label student 0.946 (19:20; LOG). **R7 + mirror pass 0.949** (`57160736`, 22:27): no effect shown, the pass stays off. Nothing
   above the recipe is public (19:15). No slot until 10-14 17:00 PDT.
 - **Owner 10-13 ~12:37: "Change of approach for the last 9 days: stop testing one change at a time."** One combined
   recipe, **v3**, on the ConvNeXt-small trainer: stronger pseudo-labels, spatial attention, mirror augmentation with

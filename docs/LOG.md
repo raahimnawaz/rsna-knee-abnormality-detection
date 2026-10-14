@@ -1147,4 +1147,6 @@ there for the owner to discard. Nothing sent.
 - **Checked and closed: "the 384-trained CoAtNet is inferred at 320 px"** (`karttikjangid05`'s ensemble map). True
   and intended: the base notebook (`6406e923`) sets `INPUT_MODE = "crop"`, `INPUT_RES = 320` on the 384 px corpus,
   "must match training exactly": the model trained on 320 crops. Not a free lever.
+- **22:27: R7 + mirror pass 0.949** (`57160736`) against R7 alone 0.949: by read B's rule (-0.001 to +0.001) no effect
+  shown, **the pass stays off** (it doubles R7's GPU time). All five of tonight's are read.
 
