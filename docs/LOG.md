@@ -1150,3 +1150,17 @@ there for the owner to discard. Nothing sent.
 - **22:27: R7 + mirror pass 0.949** (`57160736`) against R7 alone 0.949: by read B's rule (-0.001 to +0.001) no effect
   shown, **the pass stays off** (it doubles R7's GPU time). All five of tonight's are read.
 
+## Owner 10-13 ~22:30: "casmi i will just not do dont consider it"; "stock that blend for later"; how to make an OAI account; "what is the strongest possible plan forward"
+
+- **casmi26 is dropped:** the last Kaggle week (30 h from 10-16 17:00) is all this competition's. v3's five folds
+  (~24.5 h) now fit beside nothing else.
+- **The 0.956 blend (`57160505`) is kept as a final candidate.** Every submission stays selectable until 10-22 16:59;
+  with none selected Kaggle takes the best public scores.
+- **OAI access, read 22:40 on nda.nih.gov (the pages behind login were not seen):** sign in through NIH's Research
+  Auth Service (eRA Commons, Login.gov or PIV/CAC) or create a Login.gov account; then the OAI permission group and
+  its data-use terms (a third-party FAQ: My Account → Data Permissions → "Request Access to a Permission Group" →
+  Osteoarthritis Initiative). Images are a separate, login-only page (`/oai/accessing_images`). The site carries a
+  banner: "under review for potential modification in compliance with Administration directives". Whether the
+  request asks for an institution's signing official is still not seen by us; the host's ruling (741819) makes that
+  the rules question.
+

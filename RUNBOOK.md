@@ -302,10 +302,10 @@ five folds against five folds on the LB (readable from +0.006). The dose and the
 
 - **GPU:** 30 h/week on Kaggle, reset Fri 17:00 PDT; **10-16 is the last reset**. By our count ~0.7 h is left until
   then once the student finishes (the owner's quota page read 10.2 h on 10-12 20:46; that page is the truth).
-  **casmi26 shares the quota.** Two GPU sessions at once, five CPU sessions.
+  **All of it is this competition's: the owner dropped casmi26 (10-13 ~22:30, "dont consider it").** Two GPU
+  sessions at once, five CPU sessions.
 - **Submissions:** 5 a day, reset 17:00 PDT (00:00 UTC). 25 used before today's four.
-- **v3 against that:** ~4.9 h a fold on Kaggle (estimate), ~24.5 h for five, of the last 30 h week, which casmi26
-  shares. A second label round or the OAI-free twin (~24.5 h each) does not fit on Kaggle beside it.
+- **v3 against that:** ~4.9 h a fold on Kaggle (estimate), ~24.5 h for five, of the last 30 h week. A second label round or the OAI-free twin (~24.5 h each) does not fit on Kaggle beside it.
 - **A GPU off Kaggle** (the owner's 12:37 message says one is coming, not which): `notebooks/offkaggle.py` (§6).
   It needs this repo, `~/.kaggle` credentials, `data/train.csv`, the private targets dataset (tables and
   `folds_site_stage_b.csv`) and the Stage B cache, **~62 GB** as eight kernel outputs (4,407 studies × 96 × 384²
