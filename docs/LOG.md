@@ -1301,3 +1301,27 @@ there for the owner to discard. Nothing sent.
   (1/5)` … `(5/5)` · `OURS DONE: 3 test studies in 2.6 min` · `OURS_STAGE ok=True seconds 156 left_at_start_min 507`
   · `[public+ours] ARMS: …` · 0 tracebacks. `submission.csv`: 3 rows, 12 findings, in [0, 1], the public file's order.
 - **Submitted 11:55, ref `57241351`.** Read by the rule written at 10:20 above. Pending.
+
+## 10-15 afternoon: owner asks for a mixture-of-experts brainstorm; five independent read-only reviews
+
+- **Brief:** one shared file (every number, the pipeline, constraints, closed routes; R6 + R7 listed as untested, not
+  closed, after the owner asked whether it had been cut on evidence: it had not, it was an estimate). Five reviewers,
+  read-only (no pushes, submits or edits): MSK radiologist, weak supervision / labels, medical-imaging modeling, Kaggle
+  ensembling, inference systems.
+- **Where they agree:** blending the public members is near its ceiling (~0.960; within-class ρ ≈ 0.83–0.89); our
+  member at 10–25% caps any gain from improving it at ~+0.002 unless it reaches ~0.953 alone; R6 + R7 is worth one
+  slot (four of five; systems: only through the worker's two-model path in one decode); never tune weights on the
+  public board; realistic total +0.001 to +0.003 on the main final.
+- **New, measured by the reviewers (report only, nothing selected):** teacher labels raised our folds' within-class
+  correlation with Raptor 0.843 → 0.888 on gold-58 (Synovitis 0.846 → 0.955); our model ties Synovitis to Effusion
+  at Spearman 0.91 against 0.70 in its own targets; cross-finding consistency rules (Synovitis + Effusion, Baker's +
+  Effusion, OA compartments, Lateral Meniscus + Lateral OA, ACL + Contusion, …) are flat or negative on gold-58 and
+  on the 4,349 held-out; R6's version-1 manifest has `mirror: None` (its flip pass shows it unmirrored-trained knees
+  mirrored); R6/R7's fold split is not in the bundles; heliosli's "the hidden test has compressed DICOMs" claim:
+  `goodpjw2008` installs decoders for it.
+- **Checked by me on CPU (`raahimnawaz/rsna-knee-decodetest`, the public notebook's image, no decoders installed):**
+  400 sampled training series and all 15 visible test series are Explicit VR Little Endian and decode 400 / 400 and
+  15 / 15. The hidden test cannot be checked; our stage tolerates up to 10% unreadable studies.
+- **Not yet verified:** `nartaa/rsna-knee-s6fall-weights` (an all-data S6 the modeling reviewer found; OAI status
+  unknown); what `plr6` / `plr7` in R6 / R7's label files are (possibly pseudo-labels from an unnamed teacher).
+- **The ranked plan** is RUNBOOK §3 ("Expert panel"). Nothing from it has been built or run.

@@ -11,7 +11,7 @@ tree of 10-03 (the ViT-L pipeline): no work goes there.
 | this page as it was on 10-13 (that day's per-read rules, the arms v3 replaced, the audits' proposals) | `git show c5ab90c:RUNBOOK.md` |
 | anything before 10-11 | `git show 9c23daf:RUNBOOK.md` (also `:DATA.md`, `:REFERENCE.md`) |
 
-Last updated 2026-10-15 11:58 PDT.
+Last updated 2026-10-15 13:55 PDT.
 
 ## 0. Right now
 
@@ -35,7 +35,7 @@ Last updated 2026-10-15 11:58 PDT.
 - **Kaggle GPU:** what is left before the last reset (**Fri 10-16 17:00 PDT**) is small (≤ 0.7 h counted on 10-13,
   less after that day's reads and today's commit run: the quota page is the truth); then 30 h, two sessions at
   once. Submissions: 5 a day, reset 17:00 PDT. **Finals 10-22 16:59 PDT.**
-- **Waiting on:** tonight's score of `57241351`. v3 needs no go; the R6-alone read is asked (§3).
+- **Waiting on:** tonight's score of `57241351`; the owner's go on B, C and D of the panel's plan (§3).
 
 ## 1. Goal and the owner's directions
 
@@ -86,6 +86,21 @@ from "no effect".
 **What tonight's score decides (written before it).** Our five folds are a 0.949 member. ≥ 0.958 → a member of our
 strength adds to this base, and v3 (a stronger one) is worth its hours. 0.957 or lower → a 0.949 member adds
 nothing here, and only a clearly stronger v3 would.
+
+**Expert panel, 10-15 afternoon** (five independent read-only reviews from one brief: radiologist, labels, modeling,
+ensembling, systems; LOG has the detail; the page "Knee Blend Review" draws the pipeline). **Ranked plan, proposed:**
+- **A. Fail loudly (do now, ~3 h work, ~12 GPU-min):** private sha-checked copies of every third-party dataset the
+  blend mounts; a read mode that raises when our stage is skipped; in finals our bounded stage before R6. Decoders
+  checked on CPU 10-15: 400 train + 15 visible test series all uncompressed, decode in the public image.
+- **B. R6 + R7 read once** (the public worker's own two-model path, `--models2`, flip off): +0.0005–0.0015, 1 slot.
+  **Not** by running the R6 cell twice: that re-decodes everything (+3.4–4 h) and pushes our stage out. Asked.
+- **C. v3 on `targets_consensus_v3` (OAI-free) instead of `teacher_v3`**, `--time-budget-h 10`, plain pass at test
+  if time is short: same ~25 GPU-h; two reviewers independently; serves both finals. Changes the standing go: asked.
+- **D. OAI-free final as a blend:** R7 (+ R6 if its `plr` labels are clean) + our consensus folds, no Raptor:
+  0.945 → 0.950–0.955 (estimate). Check the `plr6/plr7` sources first. Asked.
+- **E. Our weight from v3's standalone score, set before reading it:** ≥ 0.953 alone → 0.33 / 0.15, else 0.25 / 0.10.
+- Every reviewer's ceiling: **+0.001 to +0.003 true on the main final (~0.958–0.960)**; gold needs several
+  independent ≥ 0.955 members; 0.97 is not reachable with what exists this week.
 
 **Cut 10-15 (owner: "cut what isn't helping … for the cnn find one we don't have to build"):**
 - *Building a small or crop CNN:* out. *A public small CNN instead:* `goodpjw2008`'s 2.5D ConvNeXt MIL reader (public
