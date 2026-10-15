@@ -9,7 +9,8 @@ The public notebook's cells run unchanged and write /kaggle/working/submission.c
 PUBLIC; the build refuses another slug, and any version whose seams below have moved).
 Two cells follow: our model's stage (build_submit_kernel's OURS cell, under a deadline) and a per-finding rank blend
 at the weights fixed below. In the scored rerun a failure or a timeout of our stage leaves the public submission as
-it is; in the commit run it stops the notebook, so a fault is seen before anything is submitted.
+it is (a final), or raises so the submission errors (a read, --read: a score then always includes our member); in the
+commit run it stops the notebook, so a fault is seen before anything is submitted.
 
 Read in the commit log before submitting: `sha256 ok` · `GATE PASSED (n/n)` · `OURS_STAGE ok=True` ·
 `[public+ours] ARMS:` · 0 tracebacks.
@@ -69,19 +70,22 @@ def _pver(n):
 print("OURS_ENV " + " ".join(f"{_n}={_pver(_n)}" for _n in (
     "torch", "timm", "pydicom", "pylibjpeg", "pylibjpeg-libjpeg", "pylibjpeg-openjpeg", "python-gdcm", "numpy",
     "pandas")), flush=True)
+_P_READ = __READ__   # a leaderboard read: no score at all rather than a public-only score under our name
 _P_LEFT = 9 * 3600 - (_P_T0 - NB_T0) - __MARGIN_MIN__ * 60        # of the 9 h, less the margin for the blend
 _O_DEADLINE = _P_T0 + _P_LEFT                                      # the stage's subprocesses are killed past it
 with open(DATA / 'test.csv') as _f:
     _P_COMMIT = sum(1 for _ in _pcsv.DictReader(_f)) < 100
 OURS_OK = False
 if _P_LEFT < __MIN_LEFT_MIN__ * 60 and not _P_COMMIT:
+    if _P_READ:
+        raise RuntimeError(f"READ: our stage would be skipped ({_P_LEFT / 60:.0f} min left)")
     print(f"OURS_SKIPPED only {_P_LEFT / 60:.0f} min left", flush=True)
 else:
     try:
         exec(compile(__OURS_SRC__, "ours_stage", "exec"), globals())
         OURS_OK = True
     except Exception as _e:                                        # noqa: BLE001
-        if _P_COMMIT:
+        if _P_COMMIT or _P_READ:
             raise
         print("OURS_FAILED", repr(_e)[:300], "-- the public blend stands", flush=True)
 print(f"OURS_STAGE ok={OURS_OK} seconds {_ptime.time() - _P_T0:.0f} left_at_start_min {_P_LEFT / 60:.0f}", flush=True)
@@ -139,10 +143,12 @@ if OURS_OK:
               + ", ".join(f"{_c} {_Q_W[_c]:.2f}" for _c in _q_lab) + f"; {len(_q_pub)} studies, "
               f"{int((~_q_ok).sum())} on the public rank alone; mean Spearman(ours, public) {_q_mrho:.3f}", flush=True)
     except Exception as _e:                                        # noqa: BLE001
-        if _P_COMMIT:
+        if _P_COMMIT or _P_READ:
             raise
         print("OURS_BLEND_FAILED", repr(_e)[:300], "-- the public blend stands", flush=True)
 else:
+    if _P_READ:
+        raise RuntimeError("READ: our stage did not run to the end; no public-only score under our name")
     print("[public+ours] our stage did not run to the end: the public blend stands unchanged", flush=True)
 '''
 
@@ -195,6 +201,8 @@ def main() -> None:
     ap.add_argument("--n-check", type=int, default=15, help="gate studies in all (at least 3 a member)")
     ap.add_argument("--margin-min", type=int, default=25, help="kept of the 9 h after our stage's deadline")
     ap.add_argument("--min-left-min", type=int, default=60, help="skip our stage with less than this left")
+    ap.add_argument("--read", action="store_true", help="a leaderboard read: in the scored rerun a skipped, late or "
+                    "failed stage of ours raises (no score) instead of keeping the public file. Finals leave it off")
     ap.add_argument("--replace-dataset", action="append", default=[], help="owner/slug of our copy, in place of "
                     "the public source with the same slug (a dataset its author has since overwritten); repeatable")
     ap.add_argument("--out", type=Path, required=True)
@@ -247,6 +255,7 @@ def main() -> None:
             .replace("__N_WINDOWS__", "0").replace("__CHECK_ALWAYS__", "False")
             .replace("__WEIGHTS_SHAS__", repr(shas)).replace("__WEIGHTS_KERNEL__", ",".join(wkernels + wdatasets)))
     stage = (STAGE.replace("__MARGIN_MIN__", str(a.margin_min)).replace("__MIN_LEFT_MIN__", str(a.min_left_min))
+             .replace("__READ__", repr(bool(a.read)))
              .replace("__OURS_SRC__", repr(ours)))
     blend = BLEND.replace("__W_OURS__", repr(W_OURS)).replace("__BUILT_FROM__", built_from)
     for k, c in enumerate([ours, stage, blend]):

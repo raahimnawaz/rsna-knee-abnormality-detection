@@ -24,8 +24,8 @@ import build_submit_kernel as B  # noqa: E402
 L = B.LABELS
 
 
-def cells(tmp: Path, ours_src: str) -> tuple[str, str]:
-    stage = (P.STAGE.replace("__MARGIN_MIN__", "25").replace("__MIN_LEFT_MIN__", "60")
+def cells(tmp: Path, ours_src: str, read: bool = False) -> tuple[str, str]:
+    stage = (P.STAGE.replace("__MARGIN_MIN__", "25").replace("__MIN_LEFT_MIN__", "60").replace("__READ__", repr(read))
              .replace("__OURS_SRC__", repr(ours_src)))
     blend = P.BLEND.replace("__W_OURS__", repr(P.W_OURS)).replace("__BUILT_FROM__", "fixture")
     return tuple(c.replace("/kaggle/working", str(tmp / "working")).replace("/tmp/ortho_sub", str(tmp / "ortho_sub"))
@@ -50,9 +50,9 @@ def world(tmp: Path, n: int, seed: int = 0, agree: float = 0.7) -> tuple[pd.Data
     return pub, ours, bad
 
 
-def run(tmp: Path, ours_src: str, elapsed_h: float = 0.5) -> dict:
+def run(tmp: Path, ours_src: str, elapsed_h: float = 0.5, read: bool = False) -> dict:
     g = {"NB_T0": time.time() - elapsed_h * 3600, "DATA": tmp / "data"}
-    stage, blend = cells(tmp, ours_src)
+    stage, blend = cells(tmp, ours_src, read)
     exec(compile(stage, "stage", "exec"), g)
     exec(compile(blend, "blend", "exec"), g)
     return g
@@ -112,6 +112,30 @@ for src, spoil in (("raise RuntimeError('boom')", False), (OK_SRC, True)):
             n_pass += 1
         else:
             raise AssertionError("the commit run did not stop")
+
+# 3b. a read (--read), scored rerun: the same four faults raise instead of keeping the public file, and a clean run
+#     still writes the mix
+for what, src, hours, spoil, agree in (("stage fails", "raise RuntimeError('boom')", 0.5, False, 0.7),
+                                       ("late", OK_SRC, 8.2, False, 0.7),
+                                       ("predictions missing", OK_SRC, 0.5, True, 0.7),
+                                       ("misaligned", OK_SRC, 0.5, False, 0.0)):
+    with tempfile.TemporaryDirectory() as d:
+        tmp = Path(d)
+        world(tmp, 400, agree=agree)
+        if spoil:
+            (tmp / "ortho_sub" / "ortho_preds.csv").unlink()
+        try:
+            run(tmp, src, hours, read=True)
+        except (RuntimeError, FileNotFoundError):
+            n_pass += 1
+        else:
+            raise AssertionError(f"read mode kept the public file: {what}")
+with tempfile.TemporaryDirectory() as d:
+    tmp = Path(d)
+    pub, _, _ = world(tmp, 400)
+    g = run(tmp, OK_SRC, read=True)
+    assert g["OURS_OK"] and (tmp / "working" / "public_plus_ours_receipt.json").is_file()
+    n_pass += 1
 
 # 4. the deadline patch: _owait kills a subprocess that runs past _O_DEADLINE
 patched = P.with_deadline(B.OURS)
