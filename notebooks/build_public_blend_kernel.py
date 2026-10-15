@@ -32,7 +32,12 @@ PUBLIC = {
         "heliosli's R7 ConvNeXt-small (four folds), per-finding ranks 50/50",
     "heliosli/this-is-new-version-0-9576-in-one-click":
         "the free 0.957 recipe (10-14): nartaa's OAI-trained CoAtNet (384 px, and its 224 px sibling at 35% of that "
-        "half), heliosli's R6 bundle (four folds) with its flip pass on, per-finding ranks 50/50",
+        "half), heliosli's R6 bundle (four folds) with its flip pass on, per-finding ranks 50/50. Its R6 dataset "
+        "was overwritten with R7 on 10-14 18:12 (a kernel cannot pin a dataset version): pass --replace-dataset with "
+        "a copy of version 1 under the same slug",
+    "heliosli/this-one-is-old-version-0-957-new-one-you-can-use":
+        "the free 0.957 recipe with R7 (10-14 18:13): nartaa's OAI-trained CoAtNet (384 px, and its 224 px sibling at "
+        "35% of that half), heliosli's R7 bundle 8c7b666e (four folds, no flip pass), per-finding ranks 50/50",
 }
 
 # Our folds' share of each finding's rank, fixed 10-13 before any run and fitted to nothing. 0.25 where the
@@ -166,6 +171,18 @@ def with_deadline(ours: str) -> str:
     return ours.replace(WAIT, WAIT_DEADLINE)
 
 
+def replaced(sources: list[str], copies: list[str]) -> list[str]:
+    """The public notebook's dataset sources, each one we hold a copy of (same slug, another owner) swapped for it.
+    The notebook finds a mount by its slug alone, so its cells stay unchanged."""
+    out = list(sources)
+    for copy in copies:
+        hits = [i for i, s in enumerate(out) if s.split("/")[-1] == copy.split("/")[-1]]
+        if copy.count("/") != 1 or len(hits) != 1:
+            raise SystemExit(f"--replace-dataset {copy}: owner/slug, its slug that of exactly one of {sources}")
+        out[hits[0]] = copy
+    return out
+
+
 def main() -> None:
     ap = argparse.ArgumentParser(description=__doc__.splitlines()[0])
     ap.add_argument("--public-dir", type=Path, required=True, help="`kaggle kernels pull <one of PUBLIC> -m`")
@@ -178,6 +195,8 @@ def main() -> None:
     ap.add_argument("--n-check", type=int, default=15, help="gate studies in all (at least 3 a member)")
     ap.add_argument("--margin-min", type=int, default=25, help="kept of the 9 h after our stage's deadline")
     ap.add_argument("--min-left-min", type=int, default=60, help="skip our stage with less than this left")
+    ap.add_argument("--replace-dataset", action="append", default=[], help="owner/slug of our copy, in place of "
+                    "the public source with the same slug (a dataset its author has since overwritten); repeatable")
     ap.add_argument("--out", type=Path, required=True)
     a = ap.parse_args()
 
@@ -248,7 +267,7 @@ def main() -> None:
             "language": "python", "kernel_type": "notebook", "is_private": True,
             "enable_gpu": True, "enable_tpu": False, "enable_internet": False, "keywords": [],
             "competition_sources": ["rsna-knee-abnormality-detection"],
-            "dataset_sources": pmeta["dataset_sources"] + wdatasets, "kernel_sources": wkernels, "model_sources": [],
+            "dataset_sources": replaced(pmeta["dataset_sources"], a.replace_dataset) + wdatasets, "kernel_sources": wkernels, "model_sources": [],
             "docker_image": pmeta["docker_image"], "machine_shape": "NvidiaTeslaT4"}
     (a.out / "kernel-metadata.json").write_text(json.dumps(meta, indent=2), encoding="utf-8")
     print(f"built {a.out / (slug + '.ipynb')}: {len(new)} cells ({len(cells)} public, unchanged; + intro, our stage, "

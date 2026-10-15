@@ -89,7 +89,7 @@ hours. 0.957 or lower → a 0.949 member adds nothing here: v3 first, the small 
 | session | what | hours (estimate) | go |
 |---|---|--:|---|
 | 1 | v3 fold 0 (the not-broken check, §4), then folds 1–4 | ~4.9 a fold, ~24.5 | standing |
-| 2 | **the smaller CNN, fold 0 screen:** ConvNeXt-Tiny at 224 px (`--arch convnext_tiny --res 224`), v3's labels and flags. Not `--zoom` (the trainer's centre-crop view): `build_submit_kernel.py` refuses a zoom model, so serving one is code work. Needs a CPU smoke first | ~1–1.5 | **asked** |
+| 2 | **the smaller CNN, fold 0 screen:** ConvNeXt-Tiny at 224 px (`--arch convnext_tiny --res 224`), v3's labels and flags. Not `--zoom` (the trainer's centre-crop view): `build_submit_kernel.py` refuses a zoom model, so serving one is code work. Needs a small builder change first (`--recipe v3` is pinned to convnext_small) and a CPU smoke | ~1–1.5 | **asked** |
 | 2 | if the screen passes: its folds 1–4 | ~4–6 | asked with the screen |
 
 That is ~30–32 h, a little over the 30: if both go, v3's fold 4 is the part that may not fit. **Screen rule (written

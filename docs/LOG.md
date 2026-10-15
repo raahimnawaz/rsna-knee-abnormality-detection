@@ -1246,7 +1246,8 @@ there for the owner to discard. Nothing sent.
   Kaggle (DUC §3), so the MOAKS table (`~/oai_data/derived/oai_moaks_targets_v1.csv`) stays local and unused. The
   owner's point stands on the evidence: OAI's knees are already in the free recipe, through `nartaa`'s two CoAtNets
   (2,399 OAI knees in training), half of every public blend.
-- **R6, read from its manifest (`heliosli/rsna-knee-r6-frozen-fe055406`, tag `cnx_r7`, arm `E_lrprior`):** the R7
+- **⛔ CORRECTED 11:00: the manifest read here was R7's, not R6's** (the dataset's version 2 holds R7 under R6's file
+  names; see the next block). As first written: **R6, read from its manifest (`heliosli/rsna-knee-r6-frozen-fe055406`, tag `cnx_r7`, arm `E_lrprior`):** the R7
   family again: ConvNeXt-small 384 / crop 352, 176 windows, 16 epochs, 4 folds, first 16 blocks frozen, spatial
   attention, mirror 0.5, a fastMRI+ side task, report-derived targets; "No KneeCoT inputs or derivatives; gold never
   trained"; no OAI. So R6 is OAI-free, and with its flip pass it costs about what R7 with the flip pass did (the
@@ -1261,3 +1262,30 @@ there for the owner to discard. Nothing sent.
   **Rule: ≥ 0.958 → our folds stay in; 0.957 → read our rank inside the 0.957 block against the recipe's author's,
   nothing claimed; ≤ 0.956 → our folds cost it and come out.** Caveat: if our stage runs out of the 9 h in the
   scored rerun the public file stands, and that reads as a 0.957 we cannot tell apart from "no effect".
+
+## 10-15 ~10:50–11:10: the 0.957 kernel failed in the public R6 cell; heliosli overwrote R6 with R7; what is public at 0.957
+
+- **`raahimnawaz/rsna-knee-sub-pub957-teach1cv5` v1: ERROR**, in the public notebook's own R6 cell, unchanged:
+  `AssertionError: ('8c7b666e27dc0e8f', 'fe055406fad6a12f')` (manifest bundle against the notebook's `BUNDLE_ID`),
+  after `RAPTOR_STAGE_DONE seconds 54` and `RAPTOR224_STAGE_DONE seconds 25`. Our stage never ran. Nothing submitted.
+- **Why, from the dataset's own description:** `heliosli/rsna-knee-r6-frozen-fe055406` version 2 (10-14 18:12) is
+  "R7 ConvNeXt-small inference bundle 8c7b666e27dc0e8f … under the same file names as version 1. Version 1 held R6
+  fe055406fad6a12f (manifest.json sha256 6508ce69…)". The 0.9576 notebook ran at 12:21 against version 1; re-run now
+  it fails for everyone. The manifest read at ~10:20 (tag `cnx_r7`) was version 2's, so it described R7.
+- **R6 itself (version 1's manifest, read 11:00):** tag `cnx_r6fm_c352`, ConvNeXt-small 384 / crop 352, 176 windows,
+  16 epochs, 4 folds, first 16 blocks frozen, targets `probe_targets_opusv11b_rr6_plr6_cdr.csv` ("report-derived
+  targets"), built 10-11; no OAI named (whether its labels hold an OAI-trained teacher's opinions is not stated).
+- **A kernel cannot pin a dataset version:** a CPU kernel (`raahimnawaz/rsna-knee-pintest-r6v1`, no GPU) with
+  `dataset_sources: ["heliosli/rsna-knee-r6-frozen-fe055406/1"]` was accepted at push and mounted version 2
+  (`bundle_id 8c7b666e…, tag cnx_r7`). So R6 needs our own private copy of version 1 under the same slug (the notebook
+  finds a mount by slug); `build_public_blend_kernel.py --replace-dataset` swaps the source. `picond`'s "9576 R6 V1
+  Fixed" does the same with a private `…-fe055406-v1`.
+- **What is public at 0.957 (the code page sorted by score, 10:58; nothing public above 0.957):** heliosli's
+  "old version 0.957" and `yuvrajlamba01`'s "Research Optimized" = Raptor 384 + 224 (0.35) + the R7 bundle
+  `8c7b666e` (version 2), **no flip pass**, 50/50: runs as published today. heliosli's "0.9576" = the same with R6 +
+  flip (claimed 0.9576, displayed 0.957). `bliverrigpdoge` = the old 0.956 at 0.8 + private crop models at 0.2.
+  `leoprovorov` v2 = Raptor 384, Raptor 224 (plain + mirror), R7 and S6 (all data), private dataset. Below, at 0.956:
+  `goodpjw2008`'s 2.5D ConvNeXt MIL reader (public weights `goodpjw2008/rsna-knee-2-5d-convnext-reader`, 0.929
+  alone) at 1/10 on the old base. **Its author's own reads: at full weight or 1/4 it no longer adds to the 0.956
+  base, "keep it at 0.01 to 0.05 or leave it out".** So a public small CNN exists and needs no building, and its
+  author has measured that it does not help this base.
