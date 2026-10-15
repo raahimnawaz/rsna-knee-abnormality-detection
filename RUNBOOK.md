@@ -11,7 +11,7 @@ tree of 10-03 (the ViT-L pipeline): no work goes there.
 | this page as it was on 10-13 (that day's per-read rules, the arms v3 replaced, the audits' proposals) | `git show c5ab90c:RUNBOOK.md` |
 | anything before 10-11 | `git show 9c23daf:RUNBOOK.md` (also `:DATA.md`, `:REFERENCE.md`) |
 
-Last updated 2026-10-15 12:50 PDT.
+Last updated 2026-10-15 14:40 PDT.
 
 ## 0. Right now
 
@@ -35,9 +35,11 @@ Last updated 2026-10-15 12:50 PDT.
 - **Kaggle GPU:** what is left before the last reset (**Fri 10-16 17:00 PDT**) is small (≤ 0.7 h counted on 10-13,
   less after that day's reads and today's commit run: the quota page is the truth); then 30 h, two sessions at
   once. Submissions: 5 a day, reset 17:00 PDT. **Finals 10-22 16:59 PDT.**
-- **Submitted today, pending:** `57241351` (0.957 recipe + our five folds) and **`57244451` (B: R6 + R7 in one decode,
-  `notebooks/build_r6r7_kernel.py`)**; D (the OAI-free blend) is in its commit run. The owner approved A, B and D
-  (10-15 ~13:00), not C: v3 stays on `targets_teacher_v3` under the standing go.
+- **Submitted today, pending (read by the rules in the LOG):** `57241351` (0.957 recipe + our five teacher folds);
+  **`57244451` = B** (the same with R6 + R7 in one decode in place of R6 + flip; `notebooks/build_r6r7_kernel.py`);
+  **`57244659` = D, the OAI-free candidate** (no Raptor at all; R6 + R7 + our five consensus folds at 0.35 / 0.20).
+  The owner approved A, B and D (10-15 ~13:00), not C: v3 stays on `targets_teacher_v3` under the standing go.
+- **Private copies of every outside dataset the finals mount** exist (LOG 10-15, A); the code copy's mount is untested.
 
 ## 1. Goal and the owner's directions
 

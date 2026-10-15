@@ -1384,3 +1384,15 @@ there for the owner to discard. Nothing sent.
   `NOTEBOOK_COMPLETE` · ours `5 checkpoint(s), sha256 ok` · `GATE PASSED (5/5)` · `OURS_STAGE ok=True … left_at_start_min
   506` · `[public+ours] ARMS: …` · 0 tracebacks. **Submitted 14:26, ref `57244451`**, read by the 13:58 rule against
   `57241351`. Pending.
+- **✅ D COMPLETE 14:38** (`raahimnawaz/rsna-knee-sub-oaifree-r6r7-cons5` v1, from `46cc73b`): no Raptor line and no
+  Raptor file anywhere in the run · `ASSETS_READY … rsna-knee-r6r7-dual … flip_tta False` · R6+R7 `OURS_STAGE_COMPLETE
+  {"status": "PASS", "scored": 3, "fallback_studies": 0}` · `NOTEBOOK_COMPLETE {"submission_from": "ours_sub.csv"}` ·
+  ours (the five consensus folds) `5 checkpoint(s), sha256 ok` · `GATE PASSED (5/5)` · `OURS_STAGE ok=True …
+  left_at_start_min 508` · `ARMS: … w_ours … 0.35 / … 0.20` · 0 tracebacks. **Submitted 14:38, ref `57244659`**, read
+  by the 14:01 rule. Pending. (The ARMS line's "the public blend as published" is the template's wording; here the
+  base is the R-family alone.)
+- **A, what exists now:** private copies `raahimnawaz/rsna-knee-r6-frozen-fe055406` (R6 v1, mounted and checked on
+  CPU), `raahimnawaz/rsna-knee-r6r7-dual` (checked on CPU, used by B and D), `raahimnawaz/rsna-knee-publication-swa-
+  weights-20261007` (Raptor), `raahimnawaz/rsna-knee-s6fall-weights`, `raahimnawaz/rsna-orthofoundation-fold0-epoch7-
+  20261004` (code; subfolders uploaded as zips, which the notebook reads; **its mount not yet tested**). The finals
+  switch to them with `--replace-dataset`; `--read` exists for reads.
