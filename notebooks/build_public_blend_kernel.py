@@ -221,6 +221,14 @@ def main() -> None:
                     "public/slug=ours/slug for a copy under another name; repeatable")
     ap.add_argument("--cell-patch", action="append", default=[], help="OLD=>NEW: one exact line change in the public "
                     "cells; OLD must occur exactly once across them; repeatable. Every patch is listed in the intro")
+    ap.add_argument("--drop-cells", default="", help="comma-joined indices of public cells to drop (e.g. a member's "
+                    "stages); a clock cell (NB_T0) is put in their place if one of them held it")
+    ap.add_argument("--final-from", default="", help="replace the public blend cell: the submission is this file of "
+                    "/kaggle/working as one stage wrote it (e.g. ours_sub.csv, the R-family's own predictions)")
+    ap.add_argument("--drop-dataset", action="append", default=[], help="owner/slug not to mount (a dropped member's "
+                    "weights); repeatable")
+    ap.add_argument("--w-ours", default="", help="STRONG,WEAK: our share on the eight findings / on Lateral Meniscus, "
+                    "Lateral OA, PF OA, Synovitis, in place of W_OURS (0.25,0.10)")
     ap.add_argument("--out", type=Path, required=True)
     a = ap.parse_args()
 
@@ -234,7 +242,11 @@ def main() -> None:
     slug = f"rsna-knee-sub-{a.tag}"
     if len(slug) > 50 or not re.fullmatch(r"[a-z0-9][a-z0-9-]*", a.tag):
         raise SystemExit(f"slug {slug} ({len(slug)} characters): Kaggle refuses more than 50; lowercase, digits, '-'")
-    if set(W_OURS) != set(B.LABELS) or not all(0.0 <= w <= 0.5 for w in W_OURS.values()):
+    w_ours = dict(W_OURS)
+    if a.w_ours:
+        strong, weak = (float(x) for x in a.w_ours.split(","))
+        w_ours = {c: (weak if W_OURS[c] < 0.2 else strong) for c in W_OURS}
+    if set(w_ours) != set(B.LABELS) or not all(0.0 <= w <= 0.5 for w in w_ours.values()):
         raise SystemExit("W_OURS must name the twelve findings, each weight in [0, 0.5]")
 
     pmeta = json.loads((a.public_dir / "kernel-metadata.json").read_text())
@@ -267,6 +279,31 @@ def main() -> None:
     cells = [dict(c, source=_patched("".join(c["source"]), patches).splitlines(keepends=True))
              if c["cell_type"] == "code" else c for c in cells]
 
+    notes = []
+    drop = sorted({int(x) for x in a.drop_cells.split(",") if x.strip()})
+    if drop:
+        if any(not 0 <= i < len(cells) - 1 for i in drop):
+            raise SystemExit(f"--drop-cells {drop}: indices of public cells before the last one")
+        clock = any(re.search(r"^NB_T0 = time\.time\(\)$", "".join(cells[i]["source"]), re.M) for i in drop)
+        if any("DATA = find_mount(COMPETITION" in "".join(cells[i]["source"]) for i in drop):
+            raise SystemExit("--drop-cells: a dropped cell defines DATA, which our stage needs")
+        kept = [c for i, c in enumerate(cells) if i not in drop]
+        if clock:
+            kept.insert(drop[0], {"cell_type": "code", "execution_count": None, "metadata": {}, "outputs": [], "source": [
+                "import time\n", "NB_T0 = time.time()   # [ours] the notebook clock, from a dropped cell\n"]})
+        notes.append(f"dropped public cells {drop}" + (" (the clock NB_T0 kept in a cell of its own)" if clock else ""))
+        cells = kept
+    if a.final_from:
+        last = max(i for i, c in enumerate(cells) if c["cell_type"] == "code")
+        cells[last] = {"cell_type": "code", "execution_count": None, "metadata": {}, "outputs": [], "source": [
+            "# [ours] the public blend cell is replaced: the submission is one stage's own predictions\n",
+            "import json as _fj, shutil as _fs\n", "from pathlib import Path as _FP\n",
+            f"_fs.copyfile(_FP('/kaggle/working') / {a.final_from!r}, _FP('/kaggle/working') / 'submission.csv')\n",
+            f"print('NOTEBOOK_COMPLETE', _fj.dumps({{'submission_from': {a.final_from!r}}}), flush=True)\n"]}
+        notes.append(f"the public blend cell replaced: the submission is `{a.final_from}`")
+    if a.drop_dataset:
+        notes.append("not mounted: " + ", ".join(a.drop_dataset))
+
     B._check_import_closure(B.EMBED)
     files = {}
     for rel in B.EMBED:
@@ -283,7 +320,7 @@ def main() -> None:
     stage = (STAGE.replace("__MARGIN_MIN__", str(a.margin_min)).replace("__MIN_LEFT_MIN__", str(a.min_left_min))
              .replace("__READ__", repr(bool(a.read)))
              .replace("__OURS_SRC__", repr(ours)))
-    blend = BLEND.replace("__W_OURS__", repr(W_OURS)).replace("__BUILT_FROM__", built_from)
+    blend = BLEND.replace("__W_OURS__", repr(w_ours)).replace("__BUILT_FROM__", built_from)
     for k, c in enumerate([ours, stage, blend]):
         compile(c, f"ours{k}", "exec")                  # fail here, not after the queue wait
 
@@ -291,9 +328,9 @@ def main() -> None:
         return {"cell_type": "code", "execution_count": None, "metadata": {}, "outputs": [],
                 "source": s.strip("\n").splitlines(keepends=True)}
 
-    if patches:
-        intro_patch = "\n\nChanged in the public cells (each line exactly once, nothing else):\n" + "".join(
-            f"\n- `{o.strip()[:90]}` → `{n.strip()[:90]}`" for o, n in patches)
+    if patches or notes:
+        intro_patch = "\n\nChanged in the public notebook (nothing else):\n" + "".join(
+            f"\n- `{o.strip()[:90]}` → `{n.strip()[:90]}`" for o, n in patches) + "".join(f"\n- {n}" for n in notes)
     else:
         intro_patch = ""
     intro = (INTRO.replace("__N_PUB__", str(len(cells))).replace("__PUBLIC__", pmeta["id"]).replace("__PUB_DESC__", PUBLIC[pmeta["id"]])
@@ -307,12 +344,15 @@ def main() -> None:
             "language": "python", "kernel_type": "notebook", "is_private": True,
             "enable_gpu": True, "enable_tpu": False, "enable_internet": False, "keywords": [],
             "competition_sources": ["rsna-knee-abnormality-detection"],
-            "dataset_sources": replaced(pmeta["dataset_sources"], a.replace_dataset) + wdatasets, "kernel_sources": wkernels, "model_sources": [],
+            "dataset_sources": [d for d in replaced(pmeta["dataset_sources"], a.replace_dataset)
+                                if d not in a.drop_dataset] + wdatasets, "kernel_sources": wkernels, "model_sources": [],
             "docker_image": pmeta["docker_image"], "machine_shape": "NvidiaTeslaT4"}
     (a.out / "kernel-metadata.json").write_text(json.dumps(meta, indent=2), encoding="utf-8")
     print(f"built {a.out / (slug + '.ipynb')}: {len(new)} cells ({len(cells)} public, unchanged; + intro, our stage, "
           f"the blend)")
-    print(f"  members {len(shas)} | w_ours " + ", ".join(f"{k} {v:.2f}" for k, v in W_OURS.items()))
+    print(f"  members {len(shas)} | w_ours " + ", ".join(f"{k} {v:.2f}" for k, v in w_ours.items()))
+    for n in notes:
+        print(f"  {n}")
     print(f"  from {built_from}")
     if "uncommitted" in built_from:
         print("  ⚠️ embedded files differ from HEAD -- commit first so the run is reproducible")

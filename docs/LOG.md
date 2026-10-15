@@ -1358,3 +1358,13 @@ there for the owner to discard. Nothing sent.
   pass): the same displayed score or higher → R6 + R7 is the ConvNeXt half from now on; one tick or more below → R6
   with its flip pass stays.** The pair differs only in that half, so it is tight (blend-weight pairs ±0.0007); one
   tick is the smallest readable step. Expected +0.0005 to +0.0015 (the panel), i.e. most likely the same tick.
+- **D, written 14:01 before any build or run: the OAI-free final as a blend.** The 0.9576 notebook with its four
+  Raptor cells dropped (the clock `NB_T0` kept in a cell of its own), Raptor's weights not mounted, and its blend cell
+  replaced by the R-family's own predictions (`ours_sub.csv`); the R-family = B's bundle (R6 + R7, one decode, no flip);
+  then our **five consensus folds** (`targets_consensus_v2`, no OAI-trained teacher; LB 0.945) by per-finding ranks at
+  **0.35 on the eight findings and 0.20 on Lateral Meniscus, Lateral OA, PF OA, Synovitis**, fixed now. Basis: ours
+  0.945 against R7 0.949 alone, within-class correlation with a public family ~0.84 (ours vs Raptor, gold-58), so the
+  binormal optimum is ~0.35–0.40; lower on the four where the R-family's compartment views see what ours does not.
+  Submitted with `--read`. **Rule: ≥ 0.950 → D is the OAI-free final in place of the five consensus folds (0.945);
+  0.948–0.949 → kept only over R7 alone's 0.949 if strictly above it, else R7 alone is; < 0.948 → something is broken,
+  look before using it.** Every member's stated sources name no OAI; R6 / R7's are statements, not proof.
