@@ -1317,8 +1317,8 @@ there for the owner to discard. Nothing sent.
   at Spearman 0.91 against 0.70 in its own targets; cross-finding consistency rules (Synovitis + Effusion, Baker's +
   Effusion, OA compartments, Lateral Meniscus + Lateral OA, ACL + Contusion, …) are flat or negative on gold-58 and
   on the 4,349 held-out; R6's version-1 manifest has `mirror: None` (its flip pass shows it unmirrored-trained knees
-  mirrored); R6/R7's fold split is not in the bundles; heliosli's "the hidden test has compressed DICOMs" claim:
-  `goodpjw2008` installs decoders for it.
+  mirrored); R6/R7's fold split is not in the bundles; the claim "the hidden test has compressed DICOMs" is `goodpjw2008`'s, and
+  their notebook installs decoders for it.
 - **Checked by me on CPU (`raahimnawaz/rsna-knee-decodetest`, the public notebook's image, no decoders installed):**
   400 sampled training series and all 15 visible test series are Explicit VR Little Endian and decode 400 / 400 and
   15 / 15. The hidden test cannot be checked; our stage tolerates up to 10% unreadable studies.

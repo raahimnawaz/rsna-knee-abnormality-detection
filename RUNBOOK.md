@@ -11,7 +11,7 @@ tree of 10-03 (the ViT-L pipeline): no work goes there.
 | this page as it was on 10-13 (that day's per-read rules, the arms v3 replaced, the audits' proposals) | `git show c5ab90c:RUNBOOK.md` |
 | anything before 10-11 | `git show 9c23daf:RUNBOOK.md` (also `:DATA.md`, `:REFERENCE.md`) |
 
-Last updated 2026-10-15 13:55 PDT.
+Last updated 2026-10-15 12:50 PDT.
 
 ## 0. Right now
 
