@@ -282,5 +282,12 @@ Caches: Stage B = `raahimnawaz/rsna-knee-stage-b-s{0..7}of8` (in use, ~62 GB). S
 
 Removed 10-15 (in history at `c5ab90c` and on `showcase`): the same-report CNN teachers
 (`local_teacher_folds.py`, `build_student_targets.py`), the public-stack core fixtures and their run records, the
-ViT-L student run records. Local-only legacy run folders (weights and logs, ~1.5 GB) moved to
-`~/rsna-knee-legacy-runs/`.
+ViT-L student run records. Local-only legacy run folders (weights and logs, ~1.5 GB) and unused local tables (Qwen
+labels, NYU pseudo-labels, round-1 CNN targets, the synbase control, an old CoAtNet v5 checkpoint; ~295 MB) moved to
+`~/rsna-knee-legacy-runs/`. `data/` now holds only what live code reads.
+
+**Left on purpose until after 10-22** (tech-debt pass, 10-15): the ViT-L / Qwen / DINOv3 branches and their modules
+inside the live trainer (~450 lines, imported only when those archs are chosen, embedded by the builders): removing
+them changes the code v3 and every submission kernel run, days before the deadline. The README's 10-03 body, to be
+rewritten with the public release (OAI acknowledgement included). Four stale remote branches (`claude/*`,
+`readme-handoff-rewrite`): deleting them is the owner's call.
