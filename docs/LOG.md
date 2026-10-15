@@ -1186,3 +1186,31 @@ there for the owner to discard. Nothing sent.
 - State at the time of writing: the request form is open at its last step (one certification checkbox + Confirm),
   left for the owner to sign.
 
+## 10-15 ~09:30: OAI access granted; MOAKS -> our twelve findings (`labeling/oai_moaks_targets.py`)
+
+- **Access:** DAR **26933**, Osteoarthritis Initiative, approved 2026-10-15, expires 2026-10-15 + 1 year; the owner
+  ticked and confirmed the DUC in their own Chrome (the certification is theirs; my attempt to tick it was blocked
+  and was right to be). Downloaded through their Chrome: `MR Image Assessment_ASCII.zip`, 27 MB, from NDA's OAI
+  Full Downloads page, into `~/oai_data/` (mode 700; `oai_data/` added to the home folder's local
+  `.git/info/exclude`, since `~` is a remote-less git work tree). **Nothing OAI goes into this repo**; the script
+  refuses a work tree with a remote and any non-ignored path.
+- **The table:** `kMRI_SQ_MOAKS_BICL00.txt`, baseline BICL MOAKS reads: 3,017 reads of **2,400 knees** (2,030
+  people; `nartaa` reports 2,399). Projects score different blocks: cartilage, bone marrow lesions and menisci on all;
+  ACL, effusion-synovitis and Hoffa-synovitis on projects 22 + 65 (~1,660 knees); popliteal cyst on 22 alone (600).
+- **The mapping, constants fixed from the two definitions before any model sees it** (REFERENCE.md §2 at
+  `9c23daf`; OAI's MOAKS Descrip): OA per compartment = max over its subregions (full-thickness extent 1/2/3 ->
+  0.60/0.92/0.97; any-depth size without full thickness 0/1/2/3 -> 0.02/0.08/0.30/0.45, since MOAKS does not grade
+  partial depth); meniscus tear or maceration or root tear 0.93, "signal, not a tear" 0.08; ACL complete 0.97,
+  partial 0.45, a repaired knee masked; Effusion 0/1/2/3 -> 0.02/0.10/0.90/0.98; Synovitis = max(Hoffa
+  0.03/0.20/0.60/0.85, effusion-synovitis 0.02/0.10/0.45/0.70), the least certain row; Baker's yes 0.55 / no 0.03
+  (presence, no size); Contusion 0.03 only where no lesion is seen anywhere, else masked; MCL and Fracture masked.
+- **Output** `~/oai_data/derived/oai_moaks_targets_v1.csv` (local only), cells and share >= 0.5: ACL 1,654 / 3.4%;
+  Medial Meniscus 2,399 / 41%; Lateral Meniscus 2,399 / 21%; Medial OA 2,399 / 21%; Lateral OA 2,399 / 19%; PF OA
+  2,399 / 43%; Effusion 1,660 / 20%; Synovitis 1,659 / 14%; Baker's 600 / 42%; Contusion 444 / 0%.
+- **Noise, measured on the 544 knees two projects read:** agreement at 0.5 Medial Meniscus 0.890, Lateral Meniscus
+  0.939, Medial OA 0.912, Lateral OA 0.904, PF OA 0.910 (Spearman 0.77-0.88); Effusion 0.979 and Synovitis 0.957 on
+  47 pairs. The same lab read both, so this bounds noise from below. Our report labels agree with gold ~0.85.
+- **Open, for the training run:** which findings to supervise from OAI. The one measured use (`nartaa`, +0.003 to
+  +0.005) supervised PF OA, Lateral OA and Synovitis only; the menisci map as cleanly. The images: the baseline
+  visit's series for these 2,400 knees, downloaded to the rented GPU only.
+
