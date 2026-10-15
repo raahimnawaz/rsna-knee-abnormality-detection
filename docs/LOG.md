@@ -1377,3 +1377,10 @@ there for the owner to discard. Nothing sent.
   (R6's four fold logits, as fitted), and the worker's `SOURCE_SHA` entry replaced by the patched file's sha256
   (`8401812c…` → `daed0256…`), every embedded source checked against `SOURCE_SHA` and compiled offline. With w2 = 0 on
   Baker's, Baker's is R6's own output again. B v2 pushed 14:13; D built from the same script.
+- **✅ B v2 COMPLETE 14:26** (from `46cc73b`): `ASSETS_READY … rsna-knee-r6r7-dual … flip_tta False` · both workers
+  `STATE_STACKER_READY {… "Baker's" …}` and `MODEL_READY {"models": 4, "models2": 4, "spatial_models": 8, …,
+  "compile_requested": true, "trainer_md5": "8622009e…"}` · `WORKER_DONE … fallback 0` · R6+R7 `OURS_STAGE_COMPLETE
+  {"status": "PASS", "scored": 3, "fallback_studies": 0, per study decode 38.6 s, GPU 20.4 s}` (R6 + flip: 18.7 s) ·
+  `NOTEBOOK_COMPLETE` · ours `5 checkpoint(s), sha256 ok` · `GATE PASSED (5/5)` · `OURS_STAGE ok=True … left_at_start_min
+  506` · `[public+ours] ARMS: …` · 0 tracebacks. **Submitted 14:26, ref `57244451`**, read by the 13:58 rule against
+  `57241351`. Pending.

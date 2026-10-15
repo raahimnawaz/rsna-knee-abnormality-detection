@@ -35,7 +35,9 @@ Last updated 2026-10-15 12:50 PDT.
 - **Kaggle GPU:** what is left before the last reset (**Fri 10-16 17:00 PDT**) is small (≤ 0.7 h counted on 10-13,
   less after that day's reads and today's commit run: the quota page is the truth); then 30 h, two sessions at
   once. Submissions: 5 a day, reset 17:00 PDT. **Finals 10-22 16:59 PDT.**
-- **Waiting on:** tonight's score of `57241351`; the owner's go on B, C and D of the panel's plan (§3).
+- **Submitted today, pending:** `57241351` (0.957 recipe + our five folds) and **`57244451` (B: R6 + R7 in one decode,
+  `notebooks/build_r6r7_kernel.py`)**; D (the OAI-free blend) is in its commit run. The owner approved A, B and D
+  (10-15 ~13:00), not C: v3 stays on `targets_teacher_v3` under the standing go.
 
 ## 1. Goal and the owner's directions
 
