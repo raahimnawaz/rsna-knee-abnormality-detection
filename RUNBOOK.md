@@ -35,7 +35,7 @@ Last updated 2026-10-15 11:58 PDT.
 - **Kaggle GPU:** what is left before the last reset (**Fri 10-16 17:00 PDT**) is small (≤ 0.7 h counted on 10-13,
   less after that day's reads and today's commit run: the quota page is the truth); then 30 h, two sessions at
   once. Submissions: 5 a day, reset 17:00 PDT. **Finals 10-22 16:59 PDT.**
-- **Waiting on the owner:** R6 + R7 as the ConvNeXt half, and the R6-alone read (§3); v3 needs no go.
+- **Waiting on:** tonight's score of `57241351`. v3 needs no go; the R6-alone read is asked (§3).
 
 ## 1. Goal and the owner's directions
 
@@ -94,7 +94,7 @@ nothing here, and only a clearly stronger v3 would.
   only member shown to lift a base (+0.001 at 0.2), are private. So no small CNN goes in.
 - *R7's mirror pass* (0.949 = 0.949), *OAI's images* and *a rented GPU*: already out.
 
-**Found, needs no training (proposed, not built):** **R6 and R7 together as the ConvNeXt half**, each without its
+**⛔ Not recommended (10-15 ~12:05, on the owner's "does that have any real benefit"): expected under one displayed tick, and the nearest public test (`leoprovorov`: Raptor + R7 + S6, two ConvNeXt bundles) also reads 0.957. As first proposed:** **R6 and R7 together as the ConvNeXt half**, each without its
 flip pass. Two separately trained four-fold bundles on different label versions (rr6, rr7), both public and both
 in hand now. Two plain passes cost about what R6 with its flip pass costs, so it fits where today's kernel fits; no
 public notebook is known to run both. It needs one change to the public notebook (the R6 cell run a second time on
@@ -104,7 +104,7 @@ blend.
 **Kaggle GPU from Fri 10-16 17:00 (30 h, two sessions at once):** v3's five folds, the only training left (§4;
 standing go), ~24.5 h. Its blend value is small unless it comes out clearly stronger than our 0.949 folds.
 
-**Later submissions:** v3 alone and v3 in the blend (standing go); R6 + R7 as the ConvNeXt half (asked); **R6
+**Later submissions:** v3 alone and v3 in the blend (standing go); **R6
 alone, as an OAI-free read** (asked; its manifest says report-derived targets and names no OAI; R7 alone read
 0.949).
 
