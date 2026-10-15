@@ -154,7 +154,7 @@ else:
 
 INTRO = """# RSNA Knee -- the free public blend, with our five folds added
 
-Cells 1-__N_PUB__ are `__PUBLIC__` as published (notebook sha256 `__PUB_SHA__`), unchanged: __PUB_DESC__.
+Cells 1-__N_PUB__ are `__PUBLIC__` as published (notebook sha256 `__PUB_SHA__`), unchanged except any line listed at the end: __PUB_DESC__.
 The two cells after them are ours: __DESC__ as one more stage, then a per-finding rank blend at weights
 fixed before any run (`W_OURS` in `notebooks/build_public_blend_kernel.py`). If our stage fails or would run late in
 the scored rerun, the public submission is kept as it is. Built from `__BUILT_FROM__`.
@@ -179,14 +179,27 @@ def with_deadline(ours: str) -> str:
 
 def replaced(sources: list[str], copies: list[str]) -> list[str]:
     """The public notebook's dataset sources, each one we hold a copy of (same slug, another owner) swapped for it.
-    The notebook finds a mount by its slug alone, so its cells stay unchanged."""
+    The notebook finds a mount by its slug alone, so its cells stay unchanged. `public=ours` names the source to swap
+    when our copy has another slug (then a --cell-patch points the notebook at it)."""
     out = list(sources)
     for copy in copies:
+        if "=" in copy:
+            old, copy = copy.split("=", 1)
+            if old not in out or copy.count("/") != 1:
+                raise SystemExit(f"--replace-dataset {old}={copy}: {old} is not one of {sources}")
+            out[out.index(old)] = copy
+            continue
         hits = [i for i, s in enumerate(out) if s.split("/")[-1] == copy.split("/")[-1]]
         if copy.count("/") != 1 or len(hits) != 1:
             raise SystemExit(f"--replace-dataset {copy}: owner/slug, its slug that of exactly one of {sources}")
         out[hits[0]] = copy
     return out
+
+
+def _patched(src: str, patches: list[tuple[str, str]]) -> str:
+    for old, new in patches:
+        src = src.replace(old, new)
+    return src
 
 
 def main() -> None:
@@ -204,7 +217,10 @@ def main() -> None:
     ap.add_argument("--read", action="store_true", help="a leaderboard read: in the scored rerun a skipped, late or "
                     "failed stage of ours raises (no score) instead of keeping the public file. Finals leave it off")
     ap.add_argument("--replace-dataset", action="append", default=[], help="owner/slug of our copy, in place of "
-                    "the public source with the same slug (a dataset its author has since overwritten); repeatable")
+                    "the public source with the same slug (a dataset its author has since overwritten); or "
+                    "public/slug=ours/slug for a copy under another name; repeatable")
+    ap.add_argument("--cell-patch", action="append", default=[], help="OLD=>NEW: one exact line change in the public "
+                    "cells; OLD must occur exactly once across them; repeatable. Every patch is listed in the intro")
     ap.add_argument("--out", type=Path, required=True)
     a = ap.parse_args()
 
@@ -241,6 +257,16 @@ def main() -> None:
     if any(n in s for s in code_cells for n in ("_O_DEADLINE", "OURS_OK", "/tmp/ortho_sub")):
         raise SystemExit("public notebook already uses one of our names -- re-read it")
 
+    patches = []
+    for spec in a.cell_patch:
+        old, sep, new = spec.partition("=>")
+        n = sum(s.count(old) for s in code_cells)
+        if not sep or not old or n != 1:
+            raise SystemExit(f"--cell-patch {spec[:80]!r}: OLD occurs {n} times in the public code cells (must be 1)")
+        patches.append((old, new))
+    cells = [dict(c, source=_patched("".join(c["source"]), patches).splitlines(keepends=True))
+             if c["cell_type"] == "code" else c for c in cells]
+
     B._check_import_closure(B.EMBED)
     files = {}
     for rel in B.EMBED:
@@ -265,8 +291,13 @@ def main() -> None:
         return {"cell_type": "code", "execution_count": None, "metadata": {}, "outputs": [],
                 "source": s.strip("\n").splitlines(keepends=True)}
 
+    if patches:
+        intro_patch = "\n\nChanged in the public cells (each line exactly once, nothing else):\n" + "".join(
+            f"\n- `{o.strip()[:90]}` → `{n.strip()[:90]}`" for o, n in patches)
+    else:
+        intro_patch = ""
     intro = (INTRO.replace("__N_PUB__", str(len(cells))).replace("__PUBLIC__", pmeta["id"]).replace("__PUB_DESC__", PUBLIC[pmeta["id"]])
-             .replace("__PUB_SHA__", pub_sha[:16]).replace("__DESC__", a.desc).replace("__BUILT_FROM__", built_from))
+             .replace("__PUB_SHA__", pub_sha[:16]).replace("__DESC__", a.desc).replace("__BUILT_FROM__", built_from)) + intro_patch
     body = [dict(c, outputs=[], execution_count=None) if c["cell_type"] == "code" else c for c in cells]
     new = ([{"cell_type": "markdown", "metadata": {}, "source": intro.splitlines(keepends=True)}]
            + body + [code(stage), code(blend)])

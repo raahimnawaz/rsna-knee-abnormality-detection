@@ -1325,3 +1325,36 @@ there for the owner to discard. Nothing sent.
 - **Not yet verified:** `nartaa/rsna-knee-s6fall-weights` (an all-data S6 the modeling reviewer found; OAI status
   unknown); what `plr6` / `plr7` in R6 / R7's label files are (possibly pseudo-labels from an unnamed teacher).
 - **The ranked plan** is RUNBOOK §3 ("Expert panel"). Nothing from it has been built or run.
+
+## Owner 10-15 ~13:00: "which ones most aggressively target the 4 lowest findings … test the not considered until now and cut what should be cut … then A, B then D"
+
+- **The "not considered until now" list, tested (CPU, report only, nothing selected):**
+  - *Knee side* (the Stage B cache: DICOM tag, else the −62 mm geometry rule; per-study side from the eight shards'
+    `slots.csv`): of 1,503 studies whose report names one side, **46 disagree (3.1%)**: 35 of 712 where the side came
+    from geometry (4.9%), 11 of 791 from the tag (1.4%); the examples are plain ("MRI of right Knee …", cache L). **It
+    costs nothing:** swapping Medial↔Lateral predictions on those studies lowers every held-out AUROC (teacher folds:
+    Medial / Lateral Meniscus −0.0014 / −0.0012, Medial / Lateral OA −0.0003 / −0.0003; consensus folds alike), and on
+    them the model ranks medial against lateral the report's way in 62–88% of discordant studies: it reads the
+    compartments from anatomy, not from the image side. **Cut.**
+  - *"Tricompartmental" reports:* 272 of 4,407. Lateral OA targets ≥ 0.5 in 50% of them (10.8% elsewhere), PF OA
+    74%; the model is below 0.3 on a positive target in 1.5% of them against 3.0% elsewhere; gold has 4 such studies,
+    Lateral OA positive in 2. No excess label noise there. **Cut.**
+  - *v3 fold 0's check is contaminated* (its targets hold teacher folds 1–4's predictions, which trained on fold 0's
+    847): true by construction. It stays a not-broken check only, as written.
+  - *Run-to-run noise:* needs GPU hours this week does not have. **Cut.**
+  - *`nartaa/rsna-knee-s6fall-weights`:* real. One all-data S6 ConvNeXt-small checkpoint, report-derived JEV-blend
+    labels, "No OAI data was used for this model", **0.950 public alone** by its author (`nartaa/rsna-knee-s6fall-solo`;
+    that notebook falls back to the OAI-trained CoAtNet only for a study the ConvNeXt cannot read). CC BY-NC 4.0.
+  - *R6 / R7 label sources:* heliosli's tree (`jessky/rsna-knee-local-cv-cnx50`, `label_source_policy.py`):
+    `own_reports_and_official_gold_only_v1`, "community targets are excluded"; the manifests say report-derived and
+    gold never trained. **OAI-free as every stated source says; not proven.**
+- **B, written 13:58 before any build or run.** heliosli's R6 + R7 in one decode through their worker's two-group
+  path (`--models2`), in place of R6's flip pass, everything else as `57241351`: `notebooks/build_r6r7_bundle.py`
+  makes bundle `0aa1bca3fbde76e6` (R6 bundle fe055406 + R7 bundle 8c7b666e, each checked against its manifest; same
+  trainer md5, views, size/crop, anchors, state layout); z = (1 − w2) z_R6 + w2 z_R7 with w2 = 0.5, and 0 on Effusion
+  and Baker's (R6's stackers; its Effusion stacker now declares R7 as a second line at weight 0, which leaves R6's
+  Effusion as it was; its Baker's stacker reads group 1 only). Three public lines change: `FLIP_TTA` False, the
+  `BUNDLE_ID`, the `C_SLUG`. Submitted with `--read`. **Rule: against `57241351` (same members but R6 with its flip
+  pass): the same displayed score or higher → R6 + R7 is the ConvNeXt half from now on; one tick or more below → R6
+  with its flip pass stays.** The pair differs only in that half, so it is tight (blend-weight pairs ±0.0007); one
+  tick is the smallest readable step. Expected +0.0005 to +0.0015 (the panel), i.e. most likely the same tick.
