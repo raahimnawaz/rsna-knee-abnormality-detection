@@ -1289,3 +1289,15 @@ there for the owner to discard. Nothing sent.
   alone) at 1/10 on the old base. **Its author's own reads: at full weight or 1/4 it no longer adds to the 0.956
   base, "keep it at 0.01 to 0.05 or leave it out".** So a public small CNN exists and needs no building, and its
   author has measured that it does not help this base.
+- **Our copy of R6 (version 1):** downloaded file by file (a whole-version download came back empty), all 8 files
+  against the manifest's sha256 table, 0 mismatches, manifest sha256 `6508ce69…` as the dataset's description gives;
+  uploaded private as `raahimnawaz/rsna-knee-r6-frozen-fe055406` (credit and source in its description). The CPU
+  kernel on it: `MOUNT /kaggle/input/rsna-knee-r6-frozen-fe055406 bundle_id fe055406fad6a12f tag cnx_r6fm_c352`.
+- **✅ `raahimnawaz/rsna-knee-sub-pub957-teach1cv5` v2 COMPLETE 11:54** (pushed 11:43, built from `cb9562a`, the
+  public notebook sha256 `16a9d953…` with our R6 copy in place of heliosli's source). `RAPTOR_STAGE_DONE seconds 49`
+  · `RAPTOR224_STAGE_DONE seconds 22` · `ASSETS_READY … /kaggle/input/rsna-knee-r6-frozen-fe055406 … flip_tta True`
+  · R6 `OURS_STAGE_COMPLETE {"status": "PASS", … "scored": 3, "fallback_studies": 0, "seconds": 360.2, per study
+  decode 38.2 s, GPU 18.7 s, 529 windows}` · `NOTEBOOK_COMPLETE` · ours: `5 checkpoint(s), sha256 ok` · `GATE PASSED
+  (1/5)` … `(5/5)` · `OURS DONE: 3 test studies in 2.6 min` · `OURS_STAGE ok=True seconds 156 left_at_start_min 507`
+  · `[public+ours] ARMS: …` · 0 tracebacks. `submission.csv`: 3 rows, 12 findings, in [0, 1], the public file's order.
+- **Submitted 11:55, ref `57241351`.** Read by the rule written at 10:20 above. Pending.

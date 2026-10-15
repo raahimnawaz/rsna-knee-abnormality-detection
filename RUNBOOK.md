@@ -11,7 +11,7 @@ tree of 10-03 (the ViT-L pipeline): no work goes there.
 | this page as it was on 10-13 (that day's per-read rules, the arms v3 replaced, the audits' proposals) | `git show c5ab90c:RUNBOOK.md` |
 | anything before 10-11 | `git show 9c23daf:RUNBOOK.md` (also `:DATA.md`, `:REFERENCE.md`) |
 
-Last updated 2026-10-15 10:35 PDT.
+Last updated 2026-10-15 11:58 PDT.
 
 ## 0. Right now
 
@@ -27,12 +27,15 @@ Last updated 2026-10-15 10:35 PDT.
 - **Owner 10-15 ~10:15: no rented GPU.** So OAI's images are out (they cannot go on Kaggle) and retraining an
   R-family model is closed; the owner's point holds: OAI's knees are already in the free recipe, through `nartaa`'s two
   CoAtNets. OAI access stays granted (DAR 26933); the MOAKS table (`~/oai_data/`, 2,400 knees) stays local, unused.
-- **Today's submission is approved and building:** the free 0.957 recipe + our five teacher folds,
-  `raahimnawaz/rsna-knee-sub-pub957-teach1cv5` (§3 has its rule). Nothing has trained since 10-13.
+- **Submitted 11:55, ref `57241351`, pending:** the free 0.957 recipe + our five teacher folds,
+  `raahimnawaz/rsna-knee-sub-pub957-teach1cv5` v2, every gate clean (§3 has its rule). The first build failed in heliosli's own R6 cell:
+  **heliosli overwrote the R6 dataset with R7 on 10-14 18:12**, so the 0.9576 notebook fails as published. The second
+  runs on our private copy of R6 (version 1, every file checked against its manifest):
+  `raahimnawaz/rsna-knee-r6-frozen-fe055406`. Four slots left today. Nothing has trained since 10-13.
 - **Kaggle GPU:** what is left before the last reset (**Fri 10-16 17:00 PDT**) is small (≤ 0.7 h counted on 10-13,
   less after that day's reads and today's commit run: the quota page is the truth); then 30 h, two sessions at
   once. Submissions: 5 a day, reset 17:00 PDT. **Finals 10-22 16:59 PDT.**
-- **Waiting on the owner:** the small-CNN screen (§3) and the R6-alone read; v3 needs no go.
+- **Waiting on the owner:** R6 + R7 as the ConvNeXt half, and the R6-alone read (§3); v3 needs no go.
 
 ## 1. Goal and the owner's directions
 
@@ -81,32 +84,29 @@ out.** If our stage runs out of the 9 h in the scored rerun the public file stan
 from "no effect".
 
 **What tonight's score decides (written before it).** Our five folds are a 0.949 member. ≥ 0.958 → a member of our
-strength adds to this base, so a stronger one (v3) and a second, different one (the small CNN) are both worth the
-hours. 0.957 or lower → a 0.949 member adds nothing here: v3 first, the small CNN only if its screen reads at par.
+strength adds to this base, and v3 (a stronger one) is worth its hours. 0.957 or lower → a 0.949 member adds
+nothing here, and only a clearly stronger v3 would.
 
-**Kaggle GPU from Fri 10-16 17:00 (30 h, two sessions at once):**
+**Cut 10-15 (owner: "cut what isn't helping … for the cnn find one we don't have to build"):**
+- *Building a small or crop CNN:* out. *A public small CNN instead:* `goodpjw2008`'s 2.5D ConvNeXt MIL reader (public
+  weights, 0.929 alone) is the one with a measured effect, and its author measured that it no longer adds to the
+  0.956 base at full weight or 1/4 ("keep it at 0.01 to 0.05 or leave it out"). `bliverrigpdoge`'s crop models, the
+  only member shown to lift a base (+0.001 at 0.2), are private. So no small CNN goes in.
+- *R7's mirror pass* (0.949 = 0.949), *OAI's images* and *a rented GPU*: already out.
 
-| session | what | hours (estimate) | go |
-|---|---|--:|---|
-| 1 | v3 fold 0 (the not-broken check, §4), then folds 1–4 | ~4.9 a fold, ~24.5 | standing |
-| 2 | **the smaller CNN, fold 0 screen:** ConvNeXt-Tiny at 224 px (`--arch convnext_tiny --res 224`), v3's labels and flags. Not `--zoom` (the trainer's centre-crop view): `build_submit_kernel.py` refuses a zoom model, so serving one is code work. Needs a small builder change first (`--recipe v3` is pinned to convnext_small) and a CPU smoke | ~1–1.5 | **asked** |
-| 2 | if the screen passes: its folds 1–4 | ~4–6 | asked with the screen |
+**Found, needs no training (proposed, not built):** **R6 and R7 together as the ConvNeXt half**, each without its
+flip pass. Two separately trained four-fold bundles on different label versions (rr6, rr7), both public and both
+in hand now. Two plain passes cost about what R6 with its flip pass costs, so it fits where today's kernel fits; no
+public notebook is known to run both. It needs one change to the public notebook (the R6 cell run a second time on
+the R7 bundle, then the two averaged by rank) and the 9 h check from today's commit-run log. Read against today's
+blend.
 
-That is ~30–32 h, a little over the 30: if both go, v3's fold 4 is the part that may not fit. **Screen rule (written
-10-15, before any run):** fold 0's `avg3` macro on the 847 within 0.010 of the 0.944 model's 0.8804 → five folds,
-then into the blend beside ours at 0.10 a finding (fixed now); more than 0.010 below → dropped (a weak member costs a
-blend). The 847 under-credits pseudo-labels, so this errs against the tiny, not for it.
+**Kaggle GPU from Fri 10-16 17:00 (30 h, two sessions at once):** v3's five folds, the only training left (§4;
+standing go), ~24.5 h. Its blend value is small unless it comes out clearly stronger than our 0.949 folds.
 
-**How the other 0.957 was made** (`bliverrigpdoge`, from his description; his code and weights are private, dataset
-`rsna-knee-kcd25leg`): ConvNeXt-small + EfficientNetV2-S on knee-centred crops (the medial and lateral compartments
-of the sagittal and coronal series, plus the axial), trained on `dread_soft`, at 0.2 of a rank blend over the 0.956
-base → 0.957. Our own record: a centre-crop "zoom" arm on ResNet34 (09-29) was +0.016 over its 224 px base but only
-+0.007 (P 0.943, under its bar) over the same model at 336 px; most of it was resolution, the crop-specific gain
-MCL. True compartment crops need a knee localizer; the R-family bundles ship one (`anatomy.pt`, knee anchors), not
-read by us.
-
-**Later submissions:** v3 alone and v3 in the blend (standing go); the small CNN in the blend (asked with the
-screen); **R6 alone, as an OAI-free read** (asked; R6 is OAI-free by its manifest, and R7 alone read 0.949).
+**Later submissions:** v3 alone and v3 in the blend (standing go); R6 + R7 as the ConvNeXt half (asked); **R6
+alone, as an OAI-free read** (asked; its manifest says report-derived targets and names no OAI; R7 alone read
+0.949).
 
 **Finals:** the best blend, and one OAI-free (today the five consensus folds 0.945; R6 alone or v3's OAI-free twin
 if either reads higher).
