@@ -1239,3 +1239,25 @@ there for the owner to discard. Nothing sent.
   run folders (weights and logs, ~1.5 GB) moved out to `~/rsna-knee-legacy-runs/`. Kept although legacy, because
   the kernel builders embed them: `orthofoundation_model.py`, `qwen_vlm.py`, `window_curve.py`, `slots64/118`,
   `runs_c6_ortho`, `runs_port_repro`.
+
+## Owner 10-15 ~10:40: "why would we train the knees when aren't there models that already have them trained, see how that guy got .957, consider an even smaller cnn in our blend, sure we can submit the .957 and ours, don't rent the gpus"
+
+- **No rented GPU: track A (an R-family model retrained with OAI's knees) is closed.** OAI's images cannot go on
+  Kaggle (DUC §3), so the MOAKS table (`~/oai_data/derived/oai_moaks_targets_v1.csv`) stays local and unused. The
+  owner's point stands on the evidence: OAI's knees are already in the free recipe, through `nartaa`'s two CoAtNets
+  (2,399 OAI knees in training), half of every public blend.
+- **R6, read from its manifest (`heliosli/rsna-knee-r6-frozen-fe055406`, tag `cnx_r7`, arm `E_lrprior`):** the R7
+  family again: ConvNeXt-small 384 / crop 352, 176 windows, 16 epochs, 4 folds, first 16 blocks frozen, spatial
+  attention, mirror 0.5, a fastMRI+ side task, report-derived targets; "No KneeCoT inputs or derivatives; gold never
+  trained"; no OAI. So R6 is OAI-free, and with its flip pass it costs about what R7 with the flip pass did (the
+  `57160736` kernel ran the whole public notebook with it and scored).
+- **The go: one submission, the free 0.957 recipe + our five teacher folds.** Written 10:45, before the build:
+  `notebooks/build_public_blend_kernel.py` now takes either checked public notebook (`PUBLIC` is a table of the two;
+  the seams it checks all hold for the new one: one `NB_T0` cell, the competition mount, the last cell writes
+  `submission.csv` and prints `NOTEBOOK_COMPLETE`, none of our names used). Base:
+  `heliosli/this-is-new-version-0-9576-in-one-click` as pulled 10-15 10:05, run unchanged. Ours: the same five folds
+  and the same weights as `57160505` (fixed 10-13: 0.25 on ACL, MCL, Medial Meniscus, Medial OA, Effusion, Baker's,
+  Contusion, Fracture; 0.10 on Lateral Meniscus, Lateral OA, PF OA, Synovitis), nothing refitted.
+  **Rule: ≥ 0.958 → our folds stay in; 0.957 → read our rank inside the 0.957 block against the recipe's author's,
+  nothing claimed; ≤ 0.956 → our folds cost it and come out.** Caveat: if our stage runs out of the 9 h in the
+  scored rerun the public file stands, and that reads as a 0.957 we cannot tell apart from "no effect".

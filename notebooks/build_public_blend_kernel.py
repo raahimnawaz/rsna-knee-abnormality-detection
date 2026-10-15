@@ -1,12 +1,12 @@
 r"""Build the submission kernel that adds our folds to a public blend notebook, as one more stage.
 
-    kaggle kernels pull varshithakolupuri/rsna-knee-one-unused-checkpoint-lifts-the-0-956 -p <pub> -m
+    kaggle kernels pull heliosli/this-is-new-version-0-9576-in-one-click -p <pub> -m      # any slug in PUBLIC
     python notebooks/build_public_blend_kernel.py --public-dir <pub> --weights-kernel <k1>,<k2>,<k3> \
-        --weights-sha <64 hex>,<64 hex>,... --tag pub956-teach1 --out <dir>
+        --weights-sha <64 hex>,<64 hex>,... --tag pub957-teach1 --out <dir>
     python -m kaggle kernels push -p <dir>
 
-The public notebook's cells run unchanged and write /kaggle/working/submission.csv (the free 0.956 recipe: nartaa's
-384 px CoAtNet with its 224 px sibling at 35% of that slot, heliosli's R7 four folds, per-finding ranks 50/50).
+The public notebook's cells run unchanged and write /kaggle/working/submission.csv (one of the free recipes in
+PUBLIC; the build refuses another slug, and any version whose seams below have moved).
 Two cells follow: our model's stage (build_submit_kernel's OURS cell, under a deadline) and a per-finding rank blend
 at the weights fixed below. In the scored rerun a failure or a timeout of our stage leaves the public submission as
 it is; in the commit run it stops the notebook, so a fault is seen before anything is submitted.
@@ -25,7 +25,15 @@ from pathlib import Path
 
 import build_submit_kernel as B
 
-PUBLIC = "varshithakolupuri/rsna-knee-one-unused-checkpoint-lifts-the-0-956"
+# The public blend notebooks this build has been checked against, and what each one is (for the intro cell).
+PUBLIC = {
+    "varshithakolupuri/rsna-knee-one-unused-checkpoint-lifts-the-0-956":
+        "the free 0.956 recipe: nartaa's OAI-trained CoAtNet (384 px, and its 224 px sibling at 35% of that slot), "
+        "heliosli's R7 ConvNeXt-small (four folds), per-finding ranks 50/50",
+    "heliosli/this-is-new-version-0-9576-in-one-click":
+        "the free 0.957 recipe (10-14): nartaa's OAI-trained CoAtNet (384 px, and its 224 px sibling at 35% of that "
+        "half), heliosli's R6 bundle (four folds) with its flip pass on, per-finding ranks 50/50",
+}
 
 # Our folds' share of each finding's rank, fixed 10-13 before any run and fitted to nothing. 0.25 where the
 # leaderboard probes of 10-12 put our five folds at 0.96 or more (MCL 0.968; the seven unprobed findings 0.966 on
@@ -135,9 +143,8 @@ else:
 
 INTRO = """# RSNA Knee -- the free public blend, with our five folds added
 
-Cells 1-__N_PUB__ are `__PUBLIC__` as published (notebook sha256 `__PUB_SHA__`), unchanged: nartaa's OAI-trained
-CoAtNet (384 px, and its 224 px sibling at 35% of that slot), heliosli's R7 ConvNeXt-small (four folds), per-finding
-ranks 50/50. The two cells after them are ours: __DESC__ as one more stage, then a per-finding rank blend at weights
+Cells 1-__N_PUB__ are `__PUBLIC__` as published (notebook sha256 `__PUB_SHA__`), unchanged: __PUB_DESC__.
+The two cells after them are ours: __DESC__ as one more stage, then a per-finding rank blend at weights
 fixed before any run (`W_OURS` in `notebooks/build_public_blend_kernel.py`). If our stage fails or would run late in
 the scored rerun, the public submission is kept as it is. Built from `__BUILT_FROM__`.
 """
@@ -161,7 +168,7 @@ def with_deadline(ours: str) -> str:
 
 def main() -> None:
     ap = argparse.ArgumentParser(description=__doc__.splitlines()[0])
-    ap.add_argument("--public-dir", type=Path, required=True, help=f"`kaggle kernels pull {PUBLIC} -m`")
+    ap.add_argument("--public-dir", type=Path, required=True, help="`kaggle kernels pull <one of PUBLIC> -m`")
     ap.add_argument("--weights-kernel", default="", help="our training kernels, comma-joined")
     ap.add_argument("--weights-dataset", default="", help="and / or private datasets holding run dirs trained off "
                     "Kaggle (notebooks/offkaggle.py pack), comma-joined")
@@ -188,8 +195,8 @@ def main() -> None:
         raise SystemExit("W_OURS must name the twelve findings, each weight in [0, 0.5]")
 
     pmeta = json.loads((a.public_dir / "kernel-metadata.json").read_text())
-    if pmeta["id"] != PUBLIC:
-        raise SystemExit(f"{a.public_dir} holds {pmeta['id']}, not {PUBLIC}")
+    if pmeta["id"] not in PUBLIC:
+        raise SystemExit(f"{a.public_dir} holds {pmeta['id']}, not one of {list(PUBLIC)}: read it, then add it")
     nb_path = a.public_dir / pmeta["code_file"]
     pub_sha = hashlib.sha256(nb_path.read_bytes()).hexdigest()
     pub = json.loads(nb_path.read_text())
@@ -230,7 +237,7 @@ def main() -> None:
         return {"cell_type": "code", "execution_count": None, "metadata": {}, "outputs": [],
                 "source": s.strip("\n").splitlines(keepends=True)}
 
-    intro = (INTRO.replace("__N_PUB__", str(len(cells))).replace("__PUBLIC__", PUBLIC)
+    intro = (INTRO.replace("__N_PUB__", str(len(cells))).replace("__PUBLIC__", pmeta["id"]).replace("__PUB_DESC__", PUBLIC[pmeta["id"]])
              .replace("__PUB_SHA__", pub_sha[:16]).replace("__DESC__", a.desc).replace("__BUILT_FROM__", built_from))
     body = [dict(c, outputs=[], execution_count=None) if c["cell_type"] == "code" else c for c in cells]
     new = ([{"cell_type": "markdown", "metadata": {}, "source": intro.splitlines(keepends=True)}]
