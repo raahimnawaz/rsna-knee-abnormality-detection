@@ -1240,7 +1240,7 @@ there for the owner to discard. Nothing sent.
   the kernel builders embed them: `orthofoundation_model.py`, `qwen_vlm.py`, `window_curve.py`, `slots64/118`,
   `runs_c6_ortho`, `runs_port_repro`.
 
-## Owner 10-15 ~10:40: "why would we train the knees when aren't there models that already have them trained, see how that guy got .957, consider an even smaller cnn in our blend, sure we can submit the .957 and ours, don't rent the gpus"
+## Owner 10-15 ~10:15: "why would we train the knees when aren't there models that already have them trained, see how that guy got .957, consider an even smaller cnn in our blend, sure we can submit the .957 and ours, don't rent the gpus"
 
 - **No rented GPU: track A (an R-family model retrained with OAI's knees) is closed.** OAI's images cannot go on
   Kaggle (DUC §3), so the MOAKS table (`~/oai_data/derived/oai_moaks_targets_v1.csv`) stays local and unused. The
@@ -1251,7 +1251,7 @@ there for the owner to discard. Nothing sent.
   attention, mirror 0.5, a fastMRI+ side task, report-derived targets; "No KneeCoT inputs or derivatives; gold never
   trained"; no OAI. So R6 is OAI-free, and with its flip pass it costs about what R7 with the flip pass did (the
   `57160736` kernel ran the whole public notebook with it and scored).
-- **The go: one submission, the free 0.957 recipe + our five teacher folds.** Written 10:45, before the build:
+- **The go: one submission, the free 0.957 recipe + our five teacher folds.** Written 10:20, before the build:
   `notebooks/build_public_blend_kernel.py` now takes either checked public notebook (`PUBLIC` is a table of the two;
   the seams it checks all hold for the new one: one `NB_T0` cell, the competition mount, the last cell writes
   `submission.csv` and prints `NOTEBOOK_COMPLETE`, none of our names used). Base:

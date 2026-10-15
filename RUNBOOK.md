@@ -11,7 +11,7 @@ tree of 10-03 (the ViT-L pipeline): no work goes there.
 | this page as it was on 10-13 (that day's per-read rules, the arms v3 replaced, the audits' proposals) | `git show c5ab90c:RUNBOOK.md` |
 | anything before 10-11 | `git show 9c23daf:RUNBOOK.md` (also `:DATA.md`, `:REFERENCE.md`) |
 
-Last updated 2026-10-15 10:30 PDT.
+Last updated 2026-10-15 10:35 PDT.
 
 ## 0. Right now
 
@@ -24,14 +24,15 @@ Last updated 2026-10-15 10:30 PDT.
   four folds) **with flip TTA on**, per-finding ranks 50/50 (the title claims 0.9576); and
   `bliverrigpdoge/r7-raptor-knee-centred-convnext` = the old 0.956 at 0.8 + knee-centred crop models (private
   weights) at 0.2. **Any blend of ours now starts from the 0.9576 notebook**, not the 0.956 one (`6406e923`).
-- **OAI: access granted 10-15** (DAR 26933, the owner's, to 2027-10-15). On disk: OAI's MRI assessment tables only
-  (27 MB, no images) in `~/oai_data/`. Baseline MOAKS reads → our findings by `labeling/oai_moaks_targets.py`:
-  **2,400 knees** → `~/oai_data/derived/oai_moaks_targets_v1.csv` (§7). **No OAI images yet:** the baseline image
-  package is ~983 GB zipped / ~2 TB unzipped (read on NDA 10-15, not re-checked) and goes to a rented GPU only.
-- **Nothing has trained since 10-13, and no GPU is rented.** Kaggle GPU: ~0.7 h until its last reset, **Fri 10-16
-  17:00 PDT**, then 30 h. No submission since 10-13 evening; 5 a day, reset 17:00 PDT. **Finals 10-22 16:59 PDT.**
-- **Waiting on the owner:** (1) which GPU, rented by them; (2) the OAI image download (their NDA login, on that
-  machine); (3) a go for each submission in §3 that has no standing go.
+- **Owner 10-15 ~10:15: no rented GPU.** So OAI's images are out (they cannot go on Kaggle) and retraining an
+  R-family model is closed; the owner's point holds: OAI's knees are already in the free recipe, through `nartaa`'s two
+  CoAtNets. OAI access stays granted (DAR 26933); the MOAKS table (`~/oai_data/`, 2,400 knees) stays local, unused.
+- **Today's submission is approved and building:** the free 0.957 recipe + our five teacher folds,
+  `raahimnawaz/rsna-knee-sub-pub957-teach1cv5` (§3 has its rule). Nothing has trained since 10-13.
+- **Kaggle GPU:** what is left before the last reset (**Fri 10-16 17:00 PDT**) is small (≤ 0.7 h counted on 10-13,
+  less after that day's reads and today's commit run: the quota page is the truth); then 30 h, two sessions at
+  once. Submissions: 5 a day, reset 17:00 PDT. **Finals 10-22 16:59 PDT.**
+- **Waiting on the owner:** the small-CNN screen (§3) and the R6-alone read; v3 needs no go.
 
 ## 1. Goal and the owner's directions
 
@@ -42,8 +43,7 @@ Last updated 2026-10-15 10:30 PDT.
   predictions; and two submissions, v3 five folds alone and v3 inside the public blend.
 - **Keep one final OAI-free** (thread 748276 challenges OAI's eligibility; no host reply).
 - This page stays a current-state page; dated detail goes to the LOG. No Claude attribution in this repo's commits.
-- **OAI data never enter this repo, GitHub or Kaggle** (DUC §3). They live in `~/oai_data/` (mode 700) and on the
-  rented machine. Any public write-up needs the OAI acknowledgement and an NDA Study (DUC §11–12; LOG 10-14).
+- **OAI data never enter this repo, GitHub or Kaggle** (DUC §3). They live in `~/oai_data/` (mode 700) only. Any public write-up needs the OAI acknowledgement and an NDA Study (DUC §11–12; LOG 10-14).
 
 ## 2. Where we are
 
@@ -71,42 +71,47 @@ those four. 0.97 needs them near 0.95.
 series slots, 96 slices, 140 mm field, left knees mirrored to right); windows of 3 slices → per-finding attention →
 12 logits; soft report targets, plain BCE; five folds held out by site; ~1.9 GPU-h a fold on two T4s.
 
-## 3. The plan for the last week (proposed 10-15; the owner decides the GPU and the submissions)
+## 3. The plan for the last week (Kaggle only: owner 10-15, "don't rent the gpus")
 
-**Track A — a rented GPU, the main bet: a public R-family model retrained on better labels, with OAI's knees.**
+**Today (approved 10-15):** the free 0.957 notebook run unchanged + our five teacher folds at `57160505`'s weights
+(0.25 on ACL, MCL, Medial Meniscus, Medial OA, Effusion, Baker's, Contusion, Fracture; 0.10 on Lateral Meniscus,
+Lateral OA, PF OA, Synovitis). Kernel `raahimnawaz/rsna-knee-sub-pub957-teach1cv5`, built from `250911c`. **Rule:
+≥ 0.958 our folds stay in; 0.957 read our rank inside the block against the recipe's author's; ≤ 0.956 they come
+out.** If our stage runs out of the 9 h in the scored rerun the public file stands: a 0.957 that cannot be told apart
+from "no effect".
 
-| step | state |
-|---|---|
-| Rent a 32 GB-class card (R7 trains 176 windows a study). Four cards run the four folds at once: the same GPU-hours, a quarter of the wall clock. DUC §8: encrypted disk, no public ports, wiped at the end | **not rented** |
-| Pick the model: R7's trainer is public (`jessky/rsna-knee-local-cv-cnx50`, LOG 10-13 14:15); R6 (the new recipe's member) is not yet read. Read R6's bundle first: no GPU needed | open |
-| Competition DICOMs onto the box (`kaggle` CLI), the model's own pixel cache from them (~3–6 h, estimate) | not started |
-| OAI baseline images onto the box (the owner's NDA login). First test there: download speed, and whether only the series of the 2,400 MOAKS knees can be pulled. The MOAKS knees through the same cache builder (OAI has sagittal + coronal, no 2-D axial) | not started; **the largest unknown** |
-| Labels: reports + the OAI-trained CoAtNet + the model's own held-out predictions + ours (`build_consensus_targets.py`); OAI knees from `oai_moaks_targets_v1.csv`, unscored cells masked | MOAKS done; the table not built |
-| Train four folds × 16 epochs (~55–65 GPU-h with OAI, estimate; ~$30–65) → `offkaggle.py pack` → a private Kaggle dataset → a submission kernel | not started |
+**What tonight's score decides (written before it).** Our five folds are a 0.949 member. ≥ 0.958 → a member of our
+strength adds to this base, so a stronger one (v3) and a second, different one (the small CNN) are both worth the
+hours. 0.957 or lower → a 0.949 member adds nothing here: v3 first, the small CNN only if its screen reads at par.
 
-Rule, written before any run: R7 retrained must read **≥ +0.006 over R7 alone (0.949)** to be shown; in the blend,
-it replaces the public member it was retrained from and is read against that blend. The one measured OAI gain is
-+0.003 to +0.005 on a single model (`nartaa`).
+**Kaggle GPU from Fri 10-16 17:00 (30 h, two sessions at once):**
 
-**Which findings OAI supervises (open):** proposed: the three OA, both menisci, Effusion, Synovitis and ACL;
-masked: MCL, Fracture (not graded), Baker's (presence only, one project) and Contusion (in an OA cohort a marrow
-lesion is mostly degenerative). `nartaa` used PF OA, Lateral OA and Synovitis only.
+| session | what | hours (estimate) | go |
+|---|---|--:|---|
+| 1 | v3 fold 0 (the not-broken check, §4), then folds 1–4 | ~4.9 a fold, ~24.5 | standing |
+| 2 | **the smaller CNN, fold 0 screen:** ConvNeXt-Tiny at 224 px (`--arch convnext_tiny --res 224`), v3's labels and flags. Not `--zoom` (the trainer's centre-crop view): `build_submit_kernel.py` refuses a zoom model, so serving one is code work. Needs a CPU smoke first | ~1–1.5 | **asked** |
+| 2 | if the screen passes: its folds 1–4 | ~4–6 | asked with the screen |
 
-**Track B — Kaggle, the fallback (standing go): v3 five folds** from Fri 10-16 17:00, two at a time (§4). ~24.5 h
-of the last 30 h.
+That is ~30–32 h, a little over the 30: if both go, v3's fold 4 is the part that may not fit. **Screen rule (written
+10-15, before any run):** fold 0's `avg3` macro on the 847 within 0.010 of the 0.944 model's 0.8804 → five folds,
+then into the blend beside ours at 0.10 a finding (fixed now); more than 0.010 below → dropped (a weak member costs a
+blend). The 847 under-credits pseudo-labels, so this errs against the tiny, not for it.
 
-**Submissions:**
-1. *Asked, not approved:* the 0.9576 notebook unchanged as stage 1 + our five teacher folds at `57160505`'s weights
-   (0.25 on ACL, MCL, Medial Meniscus, Medial OA, Effusion, Baker's, Contusion, Fracture; 0.10 on Lateral Meniscus,
-   Lateral OA, PF OA, Synovitis), built with `notebooks/build_public_blend_kernel.py`. **Needs a small change
-   first:** the builder pins the old notebook's slug (`PUBLIC`) and its intro text describes the old recipe. **And a
-   time check:** the new notebook doubles R6's GPU time with its flip pass; if our stage runs out of the 9 h, the
-   scored rerun keeps the public file and the slot reads a 0.957 that says nothing. ~10–15 Kaggle GPU-min for the
-   commit run. Read against 0.957: ≥ 0.958 ours stay in; 0.957 read the rank inside the block; ≤ 0.956 ours come out.
-2. *Standing go:* v3 five folds alone; v3 inside the blend in place of the teacher folds.
-3. *To be asked:* the retrained model alone, and in the blend.
+**How the other 0.957 was made** (`bliverrigpdoge`, from his description; his code and weights are private, dataset
+`rsna-knee-kcd25leg`): ConvNeXt-small + EfficientNetV2-S on knee-centred crops (the medial and lateral compartments
+of the sagittal and coronal series, plus the axial), trained on `dread_soft`, at 0.2 of a rank blend over the 0.956
+base → 0.957. Our own record: a centre-crop "zoom" arm on ResNet34 (09-29) was +0.016 over its 224 px base but only
++0.007 (P 0.943, under its bar) over the same model at 336 px; most of it was resolution, the crop-specific gain
+MCL. True compartment crops need a knee localizer; the R-family bundles ship one (`anatomy.pt`, knee anchors), not
+read by us.
 
-**Finals:** the best blend, and one OAI-free (today the five consensus folds 0.945; v3's OAI-free twin if trained).
+**Later submissions:** v3 alone and v3 in the blend (standing go); the small CNN in the blend (asked with the
+screen); **R6 alone, as an OAI-free read** (asked; R6 is OAI-free by its manifest, and R7 alone read 0.949).
+
+**Finals:** the best blend, and one OAI-free (today the five consensus folds 0.945; R6 alone or v3's OAI-free twin
+if either reads higher).
+
+**Closed 10-15:** retraining an R-family model with OAI's knees on a rented GPU (no rented GPU).
 
 ## 4. v3, the Kaggle recipe (owner 10-13 12:37; everything fixed before any run)
 
@@ -140,11 +145,11 @@ of the last 30 h.
 
 ## 6. Budget
 
-- **Kaggle GPU:** ~0.7 h until Fri 10-16 17:00 PDT (the owner's quota page is the truth), then 30 h for the last
-  week. Two GPU sessions at once. All of it is this competition's (casmi26 dropped 10-13).
+- **Kaggle GPU:** a small remainder until Fri 10-16 17:00 PDT (the owner's quota page is the truth), then 30 h for
+  the last week. Two GPU sessions at once. All of it is this competition's (casmi26 dropped 10-13).
 - **Submissions:** 5 a day, reset 17:00 PDT (00:00 UTC). A commit run is ~10–15 GPU-min; the scored rerun is free.
-- **Off Kaggle:** a rented 5090 ~$0.20–1.34/h (Vast.ai / RunPod snapshots, 07–08 2026). This M5 laptop is ~5×
-  slower than Kaggle (measured): not a training option.
+- **Off Kaggle: none** (owner 10-15: no rented GPU). This M5 laptop is ~5× slower than Kaggle (measured): not a
+  training option.
 
 ## 7. How to run things
 
