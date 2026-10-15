@@ -94,7 +94,7 @@ nothing here, and only a clearly stronger v3 would.
   only member shown to lift a base (+0.001 at 0.2), are private. So no small CNN goes in.
 - *R7's mirror pass* (0.949 = 0.949), *OAI's images* and *a rented GPU*: already out.
 
-**⛔ Not recommended (10-15 ~12:05, on the owner's "does that have any real benefit"): expected under one displayed tick, and the nearest public test (`leoprovorov`: Raptor + R7 + S6, two ConvNeXt bundles) also reads 0.957. As first proposed:** **R6 and R7 together as the ConvNeXt half**, each without its
+**Untested, on hold (10-15 ~12:05): never measured. Set aside on an estimate (same author, backbone, trainer and cache, so expected under one displayed tick; the nearest public analog, `leoprovorov`'s Raptor + R7 + S6, reads 0.957, though it differs in other ways). Cheap to read: 1 slot, ~12 GPU-min. As first proposed:** **R6 and R7 together as the ConvNeXt half**, each without its
 flip pass. Two separately trained four-fold bundles on different label versions (rr6, rr7), both public and both
 in hand now. Two plain passes cost about what R6 with its flip pass costs, so it fits where today's kernel fits; no
 public notebook is known to run both. It needs one change to the public notebook (the R6 cell run a second time on
