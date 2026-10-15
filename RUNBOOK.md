@@ -11,35 +11,36 @@ tree of 10-03 (the ViT-L pipeline): no work goes there.
 | this page as it was on 10-13 (that day's per-read rules, the arms v3 replaced, the audits' proposals) | `git show c5ab90c:RUNBOOK.md` |
 | anything before 10-11 | `git show 9c23daf:RUNBOOK.md` (also `:DATA.md`, `:REFERENCE.md`) |
 
-Last updated 2026-10-15 14:40 PDT.
+Last updated 2026-10-15 14:55 PDT.
 
-## 0. Right now
+## 0. Right now (10-15 14:40 PDT)
 
-- **Our best is 0.956, rank 408 of 6,037** (`57160505`: the free 0.956 recipe + our five teacher folds). It was rank
-  198 on 10-13; the board moved under it. Pulled 10-15 10:04: #1 0.967, gold to ~rank 22 (0.963), **silver to ~301
-  (0.957)**, bronze to ~603 (0.956).
-- **A free 0.957 has been public since 10-14** (246 teams at 0.957, ranks 136–381; 927 at 0.956). Two notebooks,
-  read and not run by us: `heliosli/this-is-new-version-0-9576-in-one-click` = `nartaa`'s Raptor CoAtNet 384 px
-  + its 224 px checkpoint (0.35 of that half) and heliosli's **R6** bundle (`heliosli/rsna-knee-r6-frozen-fe055406`,
-  four folds) **with flip TTA on**, per-finding ranks 50/50 (the title claims 0.9576); and
-  `bliverrigpdoge/r7-raptor-knee-centred-convnext` = the old 0.956 at 0.8 + knee-centred crop models (private
-  weights) at 0.2. **Any blend of ours now starts from the 0.9576 notebook**, not the 0.956 one (`6406e923`).
-- **Owner 10-15 ~10:15: no rented GPU.** So OAI's images are out (they cannot go on Kaggle) and retraining an
-  R-family model is closed; the owner's point holds: OAI's knees are already in the free recipe, through `nartaa`'s two
-  CoAtNets. OAI access stays granted (DAR 26933); the MOAKS table (`~/oai_data/`, 2,400 knees) stays local, unused.
-- **Submitted 11:55, ref `57241351`, pending:** the free 0.957 recipe + our five teacher folds,
-  `raahimnawaz/rsna-knee-sub-pub957-teach1cv5` v2, every gate clean (§3 has its rule). The first build failed in heliosli's own R6 cell:
-  **heliosli overwrote the R6 dataset with R7 on 10-14 18:12**, so the 0.9576 notebook fails as published. The second
-  runs on our private copy of R6 (version 1, every file checked against its manifest):
-  `raahimnawaz/rsna-knee-r6-frozen-fe055406`. Four slots left today. Nothing has trained since 10-13.
-- **Kaggle GPU:** what is left before the last reset (**Fri 10-16 17:00 PDT**) is small (≤ 0.7 h counted on 10-13,
-  less after that day's reads and today's commit run: the quota page is the truth); then 30 h, two sessions at
-  once. Submissions: 5 a day, reset 17:00 PDT. **Finals 10-22 16:59 PDT.**
-- **Submitted today, pending (read by the rules in the LOG):** `57241351` (0.957 recipe + our five teacher folds);
-  **`57244451` = B** (the same with R6 + R7 in one decode in place of R6 + flip; `notebooks/build_r6r7_kernel.py`);
-  **`57244659` = D, the OAI-free candidate** (no Raptor at all; R6 + R7 + our five consensus folds at 0.35 / 0.20).
-  The owner approved A, B and D (10-15 ~13:00), not C: v3 stays on `targets_teacher_v3` under the standing go.
-- **Private copies of every outside dataset the finals mount** exist (LOG 10-15, A); the code copy's mount is untested.
+- **Board (10-15 10:04):** #1 0.967, gold ~0.963 (rank ~22), **silver ~0.957 (rank ~301)**. A free 0.957 is public
+  (246 teams). **Our best scored: 0.956** (`57160505`, rank 408). Page with the pipeline drawn and the plan:
+  "Knee Blend Review", https://claude.ai/artifact/TiphXndYsMErAy497AYjnG (source in `~/rsna-knee-work/2026-10-15/`).
+- **Three submissions pending, each read by a rule written before it ran** (full text: LOG 10-15):
+
+  | ref | what | rule |
+  |---|---|---|
+  | `57241351` | the 0.957 recipe (Raptor 384 + 224, R6 with flip; R6 from our copy of its version 1) + our five teacher folds at 0.25 / 0.10 | ≥ 0.958 ours stay in; 0.957 read our rank in the block against the recipe author's; ≤ 0.956 ours come out |
+  | `57244451` | **B**: the same, with R6 + R7 in one decode (no flip) as the ConvNeXt half | same tick as `57241351` or higher → R6 + R7 is the ConvNeXt half from now on; ≥ 1 tick below → R6 + flip stays |
+  | `57244659` | **D, OAI-free**: no Raptor at all; R6 + R7 + our five consensus folds at 0.35 / 0.20 | ≥ 0.950 → the OAI-free final (in place of 0.945); 0.948–0.949 only if above R7 alone's 0.949; < 0.948 → broken, look first |
+
+  B and D ran with `--read`: a score always includes our member; an ERROR status means our stage did not run.
+- **Next, in order:**
+  1. **Read the three scores** (`$K competitions submissions $C`) by their rules; write the outcome in the LOG and here.
+  2. **Fri 10-16 17:00 PDT, Kaggle GPU reset (30 h, the last):** v3 fold 0 (standing go, §4), then folds 1–4 two at
+     a time. v3 stays on `targets_teacher_v3`: the panel's C (OAI-free labels) was **not** approved.
+  3. **S6fall into D** (`nartaa/rsna-knee-s6fall-weights`: 0.950 alone, "No OAI data was used"; its worker is in
+     `data/public_notebooks/nartaa-s6fall-solo/`): the strongest OAI-free member left. Proposed, **ask first**.
+  4. **Before the finals:** test the mount of our copy of heliosli's code dataset (free CPU kernel, as
+     `rsna-knee-pintest-r6v1`), then build both finals on our private copies (`--replace-dataset`) and **without**
+     `--read` (a final falls back to the public file rather than erroring).
+  5. **Finals by 10-22 16:59 PDT:** the best blend, and one OAI-free (D if it reads ≥ 0.950).
+- **Kaggle GPU before Fri 17:00:** little or none (four commit runs today; the owner's quota page is the truth).
+  Submissions: 5 a day, reset 17:00 PDT; today's last 2 are left unused.
+- **Owner's calls 10-15:** no rented GPU (OAI images closed; the MOAKS table stays in `~/oai_data/`, unused); no
+  building a small CNN; A, B, D approved, C not. Still theirs: S6fall into D; deleting 4 stale remote branches.
 
 ## 1. Goal and the owner's directions
 
@@ -78,59 +79,40 @@ those four. 0.97 needs them near 0.95.
 series slots, 96 slices, 140 mm field, left knees mirrored to right); windows of 3 slices → per-finding attention →
 12 logits; soft report targets, plain BCE; five folds held out by site; ~1.9 GPU-h a fold on two T4s.
 
-## 3. The plan for the last week (Kaggle only: owner 10-15, "don't rent the gpus")
+## 3. The plan for the last week (Kaggle only)
 
-**Today (approved 10-15):** the free 0.957 notebook run unchanged + our five teacher folds at `57160505`'s weights
-(0.25 on ACL, MCL, Medial Meniscus, Medial OA, Effusion, Baker's, Contusion, Fracture; 0.10 on Lateral Meniscus,
-Lateral OA, PF OA, Synovitis). Kernel `raahimnawaz/rsna-knee-sub-pub957-teach1cv5`, built from `250911c`. **Rule:
-≥ 0.958 our folds stay in; 0.957 read our rank inside the block against the recipe's author's; ≤ 0.956 they come
-out.** If our stage runs out of the 9 h in the scored rerun the public file stands: a 0.957 that cannot be told apart
-from "no effect".
+**What a submission is now** (`notebooks/build_public_blend_kernel.py`, `notebooks/build_r6r7_kernel.py`): the public
+0.9576 notebook (`data/public_notebooks/heliosli-0-9576-16a9d953/`, sha256 `16a9d953…`; build from this saved copy,
+heliosli may change theirs) → Raptor 384 + 224 (nartaa, OAI-trained) | the ConvNeXt half (R6 + flip, or R6 + R7 in one
+decode from `raahimnawaz/rsna-knee-r6r7-dual`) → their 50 / 50 rank blend → our five folds appended by per-finding
+rank (0.25 on eight findings, 0.10 on Lateral Meniscus, Lateral OA, PF OA, Synovitis). D drops the Raptor cells and
+mounts no Raptor weights.
 
-**What tonight's score decides (written before it).** Our five folds are a 0.949 member. ≥ 0.958 → a member of our
-strength adds to this base, and v3 (a stronger one) is worth its hours. 0.957 or lower → a 0.949 member adds
-nothing here, and only a clearly stronger v3 would.
+**The expert panel's plan (10-15; five independent reviews, LOG) and where each item stands:**
 
-**Expert panel, 10-15 afternoon** (five independent read-only reviews from one brief: radiologist, labels, modeling,
-ensembling, systems; LOG has the detail; the page "Knee Blend Review" draws the pipeline). **Ranked plan, proposed:**
-- **A. Fail loudly (do now, ~3 h work, ~12 GPU-min):** private sha-checked copies of every third-party dataset the
-  blend mounts; a read mode that raises when our stage is skipped; in finals our bounded stage before R6. Decoders
-  checked on CPU 10-15: 400 train + 15 visible test series all uncompressed, decode in the public image.
-- **B. R6 + R7 read once** (the public worker's own two-model path, `--models2`, flip off): +0.0005–0.0015, 1 slot.
-  **Not** by running the R6 cell twice: that re-decodes everything (+3.4–4 h) and pushes our stage out. Asked.
-- **C. v3 on `targets_consensus_v3` (OAI-free) instead of `teacher_v3`**, `--time-budget-h 10`, plain pass at test
-  if time is short: same ~25 GPU-h; two reviewers independently; serves both finals. Changes the standing go: asked.
-- **D. OAI-free final as a blend:** R7 (+ R6 if its `plr` labels are clean) + our consensus folds, no Raptor:
-  0.945 → 0.950–0.955 (estimate). Check the `plr6/plr7` sources first. Asked.
-- **E. Our weight from v3's standalone score, set before reading it:** ≥ 0.953 alone → 0.33 / 0.15, else 0.25 / 0.10.
-- Every reviewer's ceiling: **+0.001 to +0.003 true on the main final (~0.958–0.960)**; gold needs several
-  independent ≥ 0.955 members; 0.97 is not reachable with what exists this week.
+| | item | status |
+|---|---|---|
+| A | fail loudly: `--read` for reads; private copies of every outside dataset | built; the code dataset copy's mount untested |
+| B | R6 + R7 in one decode (heliosli's two-group worker path; two worker lines patched so R6's Baker's stacker runs) | **submitted `57244451`** |
+| C | v3 on `targets_consensus_v3` (OAI-free labels) | **not approved**: v3 stays on `teacher_v3` |
+| D | the OAI-free final as a blend: R6 + R7 + our consensus folds, no Raptor | **submitted `57244659`** |
+| E | our weight from v3's standalone score, fixed before reading it: ≥ 0.953 alone → 0.33 / 0.15, else 0.25 / 0.10 | a rule, for v3's read |
+| next | S6fall (0.950, OAI-free by its author) into D | proposed, ask |
 
-**Cut 10-15 (owner: "cut what isn't helping … for the cnn find one we don't have to build"):**
-- *Building a small or crop CNN:* out. *A public small CNN instead:* `goodpjw2008`'s 2.5D ConvNeXt MIL reader (public
-  weights, 0.929 alone) is the one with a measured effect, and its author measured that it no longer adds to the
-  0.956 base at full weight or 1/4 ("keep it at 0.01 to 0.05 or leave it out"). `bliverrigpdoge`'s crop models, the
-  only member shown to lift a base (+0.001 at 0.2), are private. So no small CNN goes in.
-- *R7's mirror pass* (0.949 = 0.949), *OAI's images* and *a rented GPU*: already out.
+Every reviewer's ceiling for the week: **+0.001 to +0.003 true on the main final (~0.958–0.960)**. Gold needs several
+independent members of 0.955 or better; 0.97 needs the weak four near 0.95 (today 0.88–0.93), i.e. image-graded labels
+for exactly those findings plus compartment-level models: not reachable with what exists this week.
 
-**Untested, on hold (10-15 ~12:05): never measured. Set aside on an estimate (same author, backbone, trainer and cache, so expected under one displayed tick; the nearest public analog, `leoprovorov`'s Raptor + R7 + S6, reads 0.957, though it differs in other ways). Cheap to read: 1 slot, ~12 GPU-min. As first proposed:** **R6 and R7 together as the ConvNeXt half**, each without its
-flip pass. Two separately trained four-fold bundles on different label versions (rr6, rr7), both public and both
-in hand now. Two plain passes cost about what R6 with its flip pass costs, so it fits where today's kernel fits; no
-public notebook is known to run both. It needs one change to the public notebook (the R6 cell run a second time on
-the R7 bundle, then the two averaged by rank) and the 9 h check from today's commit-run log. Read against today's
-blend.
+**Tested and cut (10-15; detail in the LOG):** building a small or crop CNN (owner) and the public small CNN
+(`goodpjw2008`'s reader: its author measured it adds nothing to this base); fixed half-crops of our cache (not
+knee-centred); fine-tuning with R7's trainer; distilling public members into ours; R7's mirror pass (0.949 = 0.949);
+blend-weight tuning on the public board (zero slots); single-finding probes for weights; consistency rules between
+findings (flat or negative on gold and the 4,349); fixing knee-side errors (3.1% disagree with the report, but the
+model reads anatomy: swapping is worse); "tricompartmental" label fixes (no excess noise); the second label round and
+the separate OAI-free v3 twin; run-to-run noise (no GPU for it); OAI images and a rented GPU (owner).
 
-**Kaggle GPU from Fri 10-16 17:00 (30 h, two sessions at once):** v3's five folds, the only training left (§4;
-standing go), ~24.5 h. Its blend value is small unless it comes out clearly stronger than our 0.949 folds.
-
-**Later submissions:** v3 alone and v3 in the blend (standing go); **R6
-alone, as an OAI-free read** (asked; its manifest says report-derived targets and names no OAI; R7 alone read
-0.949).
-
-**Finals:** the best blend, and one OAI-free (today the five consensus folds 0.945; R6 alone or v3's OAI-free twin
-if either reads higher).
-
-**Closed 10-15:** retraining an R-family model with OAI's knees on a rented GPU (no rented GPU).
+**Finals:** the best blend by the reads above, and one OAI-free (today: D if ≥ 0.950, else R7 alone 0.949 or the
+consensus folds 0.945). Both built on our private dataset copies, without `--read`.
 
 ## 4. v3, the Kaggle recipe (owner 10-13 12:37; everything fixed before any run)
 
@@ -179,7 +161,7 @@ on Kaggle. The images are only on Kaggle; `data/` here holds tables (git-ignored
 ```bash
 # one fold of v3 (folds 1..4: --folds k --tag v3-f<k>; slug < 50 chars). CPU smoke first: --smoke --tag v3s
 $PY notebooks/build_backbone_ab_kernel.py --arch convnext_small --corpus stage_b --folds 0 --n-train 0 --recipe v3 \
-    --time-budget-h 9.0 --targets data/student/targets_teacher_v3.csv \
+    --time-budget-h 10 --targets data/student/targets_teacher_v3.csv \
     --targets-from raahimnawaz/rsna-knee-student-targets --tag v3 --out <dir>
 $K kernels push -p <dir>          # then read `fit-budget: … -> 16 epoch(s)` in its first minutes
 
@@ -193,7 +175,19 @@ $PY notebooks/build_weights_sha_kernel.py --kernels raahimnawaz/<training kernel
 # a submission kernel: ours alone (an ensemble is comma lists), or inside a public blend
 $PY notebooks/build_submit_kernel.py --ours-only --weights-kernel raahimnawaz/<k1>[,<k2>] \
     --weights-sha <64 hex>[,<64 hex>] --tag <short> --desc "<what this is>" --out <dir>
-$PY notebooks/build_public_blend_kernel.py --help       # the public notebook unchanged as stage 1, ours as stage 2
+$PY notebooks/build_public_blend_kernel.py --help       # the public notebook as stage 1 (exact --cell-patch lines only), ours as stage 2
+#   --read: a read (our stage skipped / late / failed -> the submission errors); finals leave it off
+#   --replace-dataset [public/slug=]ours/slug: mount our private copy (heliosli overwrote R6 on 10-14; kernels cannot pin a version)
+#   --drop-cells / --final-from / --drop-dataset / --w-ours STRONG,WEAK: e.g. D (no Raptor, the R-family's output as the base)
+
+# on R6 + R7 in one decode (bundle raahimnawaz/rsna-knee-r6r7-dual, 0aa1bca3; rebuilt by build_r6r7_bundle.py):
+NB=data/public_notebooks/heliosli-0-9576-16a9d953        # the saved 0.9576 notebook (sha256 16a9d953), not a fresh pull
+$PY -I notebooks/build_r6r7_kernel.py $PWD $NB <out> --read --tag r6r7-teach1cv5 \
+    --desc "our five ConvNeXt-small folds on targets_teacher_v1"                     # B (57244451): teacher folds, 0.25 / 0.10
+$PY -I notebooks/build_r6r7_kernel.py $PWD $NB <out> --weights-kernel <cons2 kernels> --weights-sha <their 5 shas> \
+    --drop-cells 2,3,4,5 --final-from ours_sub.csv --drop-dataset nartaa/rsna-knee-publication-swa-weights-20261007 \
+    --w-ours 0.35,0.20 --read --tag oaifree-r6r7-cons5 --desc "…"                    # D (57244659): OAI-free
+# a final: the same lines without --read, plus --replace-dataset for each outside source (our copies, LOG 10-15 "A")
 # read in its log before submitting: `sha256 ok` · `GATE PASSED (n/n)` · 0 tracebacks
 $K competitions submit $C -k raahimnawaz/<kernel> -v <n> -f submission.csv -m "<what, against what, and the rule>"
 
@@ -226,7 +220,9 @@ $PY notebooks/public_blend_fixture.py                   # the blend kernel's cel
 - A kernel slug over 50 characters is refused with a bare 400. Keep `--tag` short.
 - Push a kernel that consumes another kernel's output only after the source reads COMPLETE. A third GPU kernel cannot
   start while two run.
-- `--fit-budget` cuts epochs on a slow first epoch: v3 gets `--time-budget-h 9.0` so it keeps 16.
+- `--fit-budget` cuts epochs on a slow first epoch: v3 gets `--time-budget-h 10` so it keeps 16 (the modeling review,
+  10-15: at k 24 the cold-cache probe projects ~8.4 h for 16 epochs, a 6% margin under 9.0; 10 still fits the 12 h
+  session). Read `fit-budget: … -> 16 epoch(s)` and fold 0's real epoch time: over ~19 min, five folds do not fit 30 h.
 - `--train-args=--flag` needs the `=` when the value is one token starting with `--`.
 - A CPU smoke does not reach GPU-only branches, GPU memory, fp16 or the epoch time.
 - `--k 24` with two studies a forward is over a T4's memory: `--micro 1`.
@@ -293,7 +289,8 @@ Caches: Stage B = `raahimnawaz/rsna-knee-stage-b-s{0..7}of8` (in use, ~62 GB). S
 | `labeling/oai_moaks_targets.py` | OAI MOAKS → our findings; its data never in a repo |
 | `extractor/metrics.py` | the competition metric |
 | `provenance/` | the site folds and input hashes the training kernels check |
-| `notebooks/build_*_kernel.py` | generators: training (`backbone_ab`), submission (`submit`, `public_blend`, `r7_read`), weights sha, the Stage A cache |
+| `notebooks/build_*_kernel.py` | generators: training (`backbone_ab`), submission (`submit`, `public_blend`, `r6r7`, `r7_read`), weights sha, the Stage A cache |
+| `notebooks/build_r6r7_bundle.py` | heliosli's R6 + R7 as one two-group bundle (each checked against its manifest) |
 | `notebooks/*_fixture.py` | offline tests on synthetic DICOMs |
 | `notebooks/offkaggle.py` | training on another GPU and the way back for its weights. Never run on a GPU |
 | `notebooks/submit_at_reset.py` | the detached submitter; `submit_plan_2026-10-13.json` is its format |
@@ -304,6 +301,13 @@ Removed 10-15 (in history at `c5ab90c` and on `showcase`): the same-report CNN t
 ViT-L student run records. Local-only legacy run folders (weights and logs, ~1.5 GB) and unused local tables (Qwen
 labels, NYU pseudo-labels, round-1 CNN targets, the synbase control, an old CoAtNet v5 checkpoint; ~295 MB) moved to
 `~/rsna-knee-legacy-runs/`. `data/` now holds only what live code reads.
+
+**Outside the repo, on this Mac:** `~/oai_data/` (OAI tables, mode 700, never in a repo); `data/public_notebooks/`
+(git-ignored: the saved public notebooks the builders take as `--public-dir`, and S6fall's solo notebook);
+`~/rsna-knee-work/2026-10-15/` (the panel brief, the page source, the one-off audit scripts; its README lists them);
+`~/rsna-knee-legacy-runs/` (moved-out legacy runs and tables). Private Kaggle datasets: `raahimnawaz/rsna-knee-r6r7-dual`,
+`…/rsna-knee-r6-frozen-fe055406` (R6 v1), `…/rsna-knee-publication-swa-weights-20261007`, `…/rsna-knee-s6fall-weights`,
+`…/rsna-orthofoundation-fold0-epoch7-20261004` (copies under the same slugs), `…/rsna-knee-student-targets`.
 
 **Left on purpose until after 10-22** (tech-debt pass, 10-15): the ViT-L / Qwen / DINOv3 branches and their modules
 inside the live trainer (~450 lines, imported only when those archs are chosen, embedded by the builders): removing

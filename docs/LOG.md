@@ -1396,3 +1396,16 @@ there for the owner to discard. Nothing sent.
   weights-20261007` (Raptor), `raahimnawaz/rsna-knee-s6fall-weights`, `raahimnawaz/rsna-orthofoundation-fold0-epoch7-
   20261004` (code; subfolders uploaded as zips, which the notebook reads; **its mount not yet tested**). The finals
   switch to them with `--replace-dataset`; `--read` exists for reads.
+
+## 10-15 ~14:55: handoff state (owner: "save all this so the next session can pick up cleanly")
+
+- **RUNBOOK §0 and §3 rewritten** as the current state: the three pending submissions and their rules in one table,
+  the next steps in order, the panel's plan with each item's status, one consolidated cut list.
+- **v3's time budget 9.0 → 10 h** (a budget, not a recipe change; the modeling review: at k 24 the cold-cache
+  `--fit-budget` probe projects ~8.4 h for 16 epochs, a 6% margin under 9.0, and dropping to 15 epochs would trip
+  fold 0's stop rule; 10 h still fits the 12 h session).
+- **Saved off-repo:** the 0.9576 notebook the builders take as `--public-dir` (sha256 `16a9d953…`, as B and D were
+  built) and three other pulled notebooks in `data/public_notebooks/` (git-ignored); the panel brief, the page source
+  and the one-off audit scripts in `~/rsna-knee-work/2026-10-15/` (README there).
+- **Still with the owner:** S6fall into D; the 4 stale remote branches. **Not done:** the mount test of our copy of
+  heliosli's code dataset; the finals' builds.
