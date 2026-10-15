@@ -1214,3 +1214,28 @@ there for the owner to discard. Nothing sent.
   +0.005) supervised PF OA, Lateral OA and Synovitis only; the menisci map as cleanly. The images: the baseline
   visit's series for these 2,400 knees, downloaded to the rented GPU only.
 
+
+## 10-15 ~10:05: the board moved, a free 0.957 is public; the RUNBOOK rewritten and the repo trimmed
+
+- **Leaderboard, pulled 10:04 PDT (6,037 teams):** #1 0.967 (two teams), 0.966 ×4; gold to ~rank 22 (0.963),
+  silver to ~301 (**0.957**), bronze to ~603 (0.956). A 0.957 block of 246 teams (ranks 136–381); the 0.956 block
+  927 (382–1,308). **Ours 0.956 (`57160505`) is rank 408** (198 on 10-13). No submission of ours since 10-14 01:43
+  UTC; today's five slots (to 17:00 PDT) unused.
+- **What makes the free 0.957 (source read 10:05, not run by us):** `heliosli/this-is-new-version-0-9576-in-one-click`
+  (10-14, title "0.9576"): stage 1 `nartaa`'s Raptor CoAtNet 384 px, stage 1b its 224 px checkpoint (0.35 of the
+  Raptor half), stage 2 heliosli's **R6** bundle (`heliosli/rsna-knee-r6-frozen-fe055406`, four folds, its own
+  Effusion / Baker's stackers) **with flip TTA forced on** (the R6 manifest predates the key), stage 3 per-finding
+  ranks 50/50 (OA findings 0.5 too). `bliverrigpdoge/r7-raptor-knee-centred-convnext` (top by score): the old 0.956
+  (R7 + Raptor) at 0.8 + the author's knee-centred ConvNeXt-small / EfficientNetV2-S crops (private weights) at 0.2.
+  R7's own flip pass read 0 for us (`57160736`); this one is on R6, a different model, and is not separated from the
+  224 px checkpoint in anything public.
+- **So the base for a blend of ours is now the 0.9576 notebook.** `build_public_blend_kernel.py` pins the old slug
+  (`PUBLIC`) and needs that changed first, plus a check that our stage still fits the 9 h beside R6's doubled pass.
+- **Repo trimmed (owner: "make sure the repo is lean and easily understandable"):** RUNBOOK rewritten as a one-page
+  current state (the 10-13 version: `git show c5ab90c:RUNBOOK.md`). Removed, nothing referencing them: the
+  same-report CNN teachers (`fusion/local_teacher_folds.py`, `labeling/build_student_targets.py`; on `showcase`),
+  `notebooks/core_alone_fixture.py` / `core_swap_fixture.py` and `fusion/runs_coatnet_raptor_check`, the ViT-L
+  student and `dread` ortho run records, the spent `submit_plan_2026-10-13-r7.json`. Local-only, git-ignored legacy
+  run folders (weights and logs, ~1.5 GB) moved out to `~/rsna-knee-legacy-runs/`. Kept although legacy, because
+  the kernel builders embed them: `orthofoundation_model.py`, `qwen_vlm.py`, `window_curve.py`, `slots64/118`,
+  `runs_c6_ortho`, `runs_port_repro`.

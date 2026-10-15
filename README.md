@@ -6,10 +6,10 @@ competition on Kaggle: twelve findings per knee MRI study, scored by macro AUROC
 The twelve findings are ACL, MCL, medial and lateral meniscus, medial / lateral / patellofemoral osteoarthritis,
 effusion, synovitis, Baker's cyst, contusion and fracture.
 
-> **Status of this branch (`labels-small-backbone`), 2026-10-12.** The text below describes the pipeline as of
-> 10-03. Since then the workhorse is a ConvNeXt-small on consensus and teacher-refined report labels: one model
-> reads 0.944 on the public leaderboard and five folds read 0.945, against 0.929 for the ViT-L below. The working
-> state, the open decisions and the commands are in [`RUNBOOK.md`](RUNBOOK.md).
+> **Status of this branch (`labels-small-backbone`), 2026-10-15.** The text below describes the pipeline as of
+> 10-03 (its code is on the `showcase` branch). Since then the workhorse is a ConvNeXt-small on consensus and
+> teacher-refined report labels: five folds read 0.949 alone, and 0.956 as one more member of the free public blend.
+> **For the working state, the plan and the commands, start at [`RUNBOOK.md`](RUNBOOK.md).**
 
 ## The problem
 
@@ -50,7 +50,7 @@ are mirrored onto right knees and scanner sign conventions are undone, so "media
 on knee images) embeds each window. A per-finding attention head pools the windows, with learned slot and depth
 embeddings that start at zero. Training draws 12 windows per study per step; inference scores every window.
 
-**3. Report labels refined by image teachers** (`labeling/`, `fusion/local_teacher_folds.py`). Four ResNet34 fold
+**3. Report labels refined by image teachers** (`labeling/`; the teacher trainer is on the `showcase` branch). Four ResNet34 fold
 models are trained on the report labels. Each predicts only the studies it never saw. Their predictions are
 rank-mapped onto the report label's own levels and averaged with it, giving the student's targets.
 
