@@ -1368,3 +1368,12 @@ there for the owner to discard. Nothing sent.
   Submitted with `--read`. **Rule: ≥ 0.950 → D is the OAI-free final in place of the five consensus folds (0.945);
   0.948–0.949 → kept only over R7 alone's 0.949 if strictly above it, else R7 alone is; < 0.948 → something is broken,
   look before using it.** Every member's stated sources name no OAI; R6 / R7's are statements, not proof.
+- **B v1 (`raahimnawaz/rsna-knee-sub-r6r7-teach1cv5`, from `06dbe25`): ERROR, nothing submitted.** The bundle mounted,
+  `FLUID_READY … "weights": [1.0, 0.0]` held, then both workers exited: `--state-stacker: one model group only (the
+  json is fitted on one line's z and state read-out)`; every study fell back, and the public blend cell raised on it.
+  ~5 GPU-min. My 13:58 reading ("its Baker's stacker reads group 1 only") was wrong: with two groups `score()` returns
+  both groups' fold logits and `apply_state_stacker` averaged all eight. **Fix (`notebooks/build_r6r7_kernel.py`, from
+  `46cc73b`):** two lines of heliosli's worker, the refusal removed and the stacker's z = `zs[:len(models)].mean(0)`
+  (R6's four fold logits, as fitted), and the worker's `SOURCE_SHA` entry replaced by the patched file's sha256
+  (`8401812c…` → `daed0256…`), every embedded source checked against `SOURCE_SHA` and compiled offline. With w2 = 0 on
+  Baker's, Baker's is R6's own output again. B v2 pushed 14:13; D built from the same script.
