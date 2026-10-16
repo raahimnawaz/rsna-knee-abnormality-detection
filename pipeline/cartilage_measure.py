@@ -149,7 +149,8 @@ JOINT_RADIUS_MM, PATELLA_RADIUS_MM = 45.0, 70.0
 
 def clean(seg: list[np.ndarray]) -> list[np.ndarray]:
     """Label-free gating: drop a border band, then keep joint tissue within JOINT_RADIUS_MM (patellar cartilage within
-    PATELLA_RADIUS_MM) in-plane of the median of the confident joint-tissue pixels of the whole series."""
+    PATELLA_RADIUS_MM) in-plane of the median of the confident joint-tissue pixels of the whole series that lie in the
+    central 15-85 % of their slice (edge firing on large-field scans otherwise pulls the centre to the edge)."""
     b = int(round(BORDER_MM / MM))
     out = []
     for s in seg:
@@ -159,7 +160,12 @@ def clean(seg: list[np.ndarray]) -> list[np.ndarray]:
         s[:, :, :b] = 0
         s[:, :, -b:] = 0
         out.append(s)
-    pts = [np.argwhere(s[1:4].max(0) > 204) for s in out]
+    pts = []
+    for s in out:                     # the centre from the central 15-85 % of each slice only (heliosli's window)
+        h, w = s.shape[1:]
+        q = np.argwhere(s[1:4].max(0) > 204)
+        keep = (q[:, 0] >= .15 * h) & (q[:, 0] <= .85 * h) & (q[:, 1] >= .15 * w) & (q[:, 1] <= .85 * w)
+        pts.append(q[keep])
     pts = np.concatenate(pts) if pts else np.zeros((0, 2))
     if len(pts) < 100:
         return out
