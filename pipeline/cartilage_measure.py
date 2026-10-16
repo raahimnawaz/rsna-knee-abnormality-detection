@@ -143,6 +143,35 @@ def group_features(probs: list[np.ndarray], masks: list[np.ndarray], spacing: fl
     return f
 
 
+BORDER_MM = 5.0                   # the segmenter fires along the image edge of large-field scans (smoke 10-16)
+JOINT_RADIUS_MM, PATELLA_RADIUS_MM = 45.0, 70.0
+
+
+def clean(seg: list[np.ndarray]) -> list[np.ndarray]:
+    """Label-free gating: drop a border band, then keep joint tissue within JOINT_RADIUS_MM (patellar cartilage within
+    PATELLA_RADIUS_MM) in-plane of the median of the confident joint-tissue pixels of the whole series."""
+    b = int(round(BORDER_MM / MM))
+    out = []
+    for s in seg:
+        s = s.copy()
+        s[:, :b, :] = 0
+        s[:, -b:, :] = 0
+        s[:, :, :b] = 0
+        s[:, :, -b:] = 0
+        out.append(s)
+    pts = [np.argwhere(s[1:4].max(0) > 204) for s in out]
+    pts = np.concatenate(pts) if pts else np.zeros((0, 2))
+    if len(pts) < 100:
+        return out
+    r0, c0 = np.median(pts[:, 0]), np.median(pts[:, 1])
+    for s in out:
+        rr, cc = np.mgrid[:s.shape[1], :s.shape[2]]
+        d = np.hypot(rr - r0, cc - c0) * MM
+        s[1:4, d > JOINT_RADIUS_MM] = 0
+        s[0, d > PATELLA_RADIUS_MM] = 0
+    return out
+
+
 def measure(seg: list[np.ndarray], pos: np.ndarray, spacing: float) -> dict:
     """seg: per slice uint8 [4,h,w] (lateral -> medial); pos: slice positions (mm, increasing lateral -> medial)."""
     P = [s.astype(np.float32) / 255. for s in seg]
@@ -226,7 +255,7 @@ def _check() -> None:
             s[2, 90:94, 80:120] = 0          # medial half: a 40 px gap in the tibial cartilage
         seg.append(s)
     pos = np.arange(20) * 3.0                # 3 mm slices
-    f = measure(seg, pos, 3.0)
+    f = measure(clean(seg), pos, 3.0)
     assert f["seg_ok"] == 1
     assert abs(f["lat_femoral_thick_med"] - 2.5) < 0.35, f["lat_femoral_thick_med"]
     assert abs(f["lat_tibial_thick_med"] - 1.25) < 0.35, f["lat_tibial_thick_med"]
@@ -279,7 +308,7 @@ def main() -> None:
         try:
             vol, pos, row_mm, col_mm, info = read_sagittal(a.root / f"{a.split}_series" / uid, by_study.get(uid, []))
             t2 = time.time()
-            seg = segment(model, vol, row_mm, col_mm)
+            seg = clean(segment(model, vol, row_mm, col_mm))
             t3 = time.time()
             row.update(info)
             row.update(measure(seg, pos, info["spacing_mm"]))
