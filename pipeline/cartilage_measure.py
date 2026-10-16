@@ -167,8 +167,8 @@ def clean(seg: list[np.ndarray]) -> list[np.ndarray]:
         keep = (q[:, 0] >= .15 * h) & (q[:, 0] <= .85 * h) & (q[:, 1] >= .15 * w) & (q[:, 1] <= .85 * w)
         pts.append(q[keep])
     pts = np.concatenate(pts) if pts else np.zeros((0, 2))
-    if len(pts) < 100:
-        return out
+    if len(pts) < 100:                # no confident joint tissue near the middle: a failed segmentation, not a knee
+        return [np.zeros_like(s) for s in out]
     r0, c0 = np.median(pts[:, 0]), np.median(pts[:, 1])
     for s in out:
         rr, cc = np.mgrid[:s.shape[1], :s.shape[2]]
@@ -274,6 +274,12 @@ def _check() -> None:
     gap_px = sum(1 for z in range(20) if z >= 10 and pos[z] - c > COMPARTMENT_MARGIN_MM) * 4 * 40
     want_med = (n_med * 4 * 160 - gap_px) * MM * MM * 3.0
     assert abs(f["med_tibial_vol"] - want_med) < 1e-6 * want_med + 1e-6, (f["med_tibial_vol"], want_med)
+    junk = []
+    for z in range(20):                      # firing only along the bottom edge, nothing near the middle
+        j = np.zeros((4, h, w), np.uint8)
+        j[1:4, 175:183, 20:180] = 255
+        junk.append(j)
+    assert measure(clean(junk), pos, 3.0)["seg_ok"] == 0
     print(f"check ok: {len(f)} features | lat femoral {f['lat_femoral_thick_med']:.2f} mm, lat tibial "
           f"{f['lat_tibial_thick_med']:.2f} mm, tibial components lat {f['lat_tibial_ncomp']:.0f} / med "
           f"{f['med_tibial_ncomp']:.0f}")
