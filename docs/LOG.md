@@ -1409,3 +1409,68 @@ there for the owner to discard. Nothing sent.
   and the one-off audit scripts in `~/rsna-knee-work/2026-10-15/` (README there).
 - **Still with the owner:** S6fall into D; the 4 stale remote branches. **Not done:** the mount test of our copy of
   heliosli's code dataset; the finals' builds.
+
+## 10-15 ~15:00–16:30 (written 10-16): the weak four, measured; a plan for them cut by its own critique
+
+- **Owner:** "attack our lowest score … train our own models when necessary (and not when there's a perfectly good one
+  available) … we can't just rely on submitting the public notebook". A plan was proposed (SKM-TEA segmenter →
+  cartilage measurements and a knee-centred compartment CNN; OAI images trained on the Mac for Synovitis); on the
+  owner's request for a critical analysis three of its parts were **cut as repeats**: OAI images (Raptor already trains
+  on 2,399 OAI knees for exactly PF OA, Lateral OA, Synovitis), the compartment CNN (R6 / R7 already read `views: v4`,
+  knee-anchored compartment locals placed by the same SKM-TEA segmenter, both manifests; `bliverrigpdoge`'s crops
+  +0.001), a fluid-volume feature (R6's fluid stacker). **Do not re-propose them.**
+- **Measured on gold-58 (report only; scripts in `~/rsna-knee-work/2026-10-15/weak4/`):** our five teacher folds
+  against the OAI-trained CoAtNet (`fusion/runs_coatnet_oai_teacher_pa`), AUROC and within-class Spearman ρ:
+
+  | | ours | OAI CoAtNet | ρ |
+  |---|--:|--:|--:|
+  | Lateral OA (11 pos) | 0.822 | 0.770 | 0.94 |
+  | PF OA (21) | 0.852 | 0.840 | 0.92 |
+  | Synovitis (27) | 0.853 | 0.828 | 0.955 |
+  | Lateral Meniscus (23) | 0.894 | 0.883 | 0.885 |
+
+  OAI's image grades did not lift the one model that has them on these findings, and two families with different
+  architecture, input and labels err on the same knees. **Blend arithmetic** (binormal, base 0.90 on a finding): a new
+  member adds +0.013 at AUROC 0.85 / ρ 0.5, +0.003 at ρ 0.7, ~0 at ρ 0.9 (where every CNN on these labels sits).
+- **"Traumatic cartilage loss counts as OA" (the criterion is ≥ ~1 cm of > 50 % loss, any cause): dead.** On gold
+  with injured = ACL, Contusion or Fracture, injured Lateral OA positives ranked 0.71 against 0.95 for the rest; with
+  injured = ACL or Fracture it is 0.84 against 0.81, and on the 4,349 held-out (consensus targets) injured positives
+  rank 0.879 against 0.857. PF OA keeps a held-out gap of ~0.03 on 154 knees (≈ +0.0002 macro). Six knees made it.
+- **Also closed:** Synovitis from Effusion (a perfect Effusion grade predicts gold Synovitis at 0.70; ours 0.85; gold
+  Synovitis is 27 / 58, 22 of them with Effusion); a free gain in Raptor's inference (it reads all 96 slices, as
+  trained); patient age (not in the headers) and repeat patients (one study per PatientID, 4,407 / 4,407).
+- **Public resource checked:** `anatomy.pt` in `heliosli/rsna-orthofoundation-fold0-epoch7-20261004` (112 MB) is a
+  MONAI 2-D V-Net trained on SKM-TEA, four sigmoid channels `patellar_cartilage, femoral_cartilage, tibial_cartilage,
+  meniscus` (`cloud_code/training/anatomy.py`), sagittal only, whole-series mean/std, 0.3125 mm, rows S→I and
+  columns A→P (our canonical sagittal frame). Its author: "qDESS to clinical-protocol transfer unvalidated". In the
+  blend it only places R6 / R7's views; **nothing in the blend measures cartilage or meniscus.**
+
+## 10-16 ~10:00: the three reads, by their rules; the board moved
+
+- **`57241351` = 0.957** (the 0.957 recipe + our five teacher folds). Rule: 0.957 → read our rank in the block against
+  the recipe author's. The block is 319 teams at ranks 556–874, ours 825; heliosli has left it (now 0.958, rank 434),
+  and ties sort by submission time, so the rank says nothing about our member. **Nothing claimed.** (Not read mode.)
+- **B `57244451` = 0.957**, the same tick → **R6 + R7 in one decode is the ConvNeXt half from now on.** Read mode, so
+  our member ran in it.
+- **D `57244659` = 0.954** ≥ 0.950 → **D is the OAI-free final** in place of the five consensus folds (0.945).
+- **Board (pulled 10-16 10:00 PDT, 6,098 teams):** #1 0.968; 0.963 at ranks 19–25 (gold ≈ rank 22); **0.958 is 433
+  teams at ranks 123–555, so silver (top 5 %, ~304) and bronze (top 10 %, ~609) both sit inside 0.958**; ours 0.957,
+  rank 825. New since 10-15: `heliosli/blend-mine-in-private-lb-luck-to-all-upvoters` (run 10-15 17:03) and dataset
+  `heliosli/rsna-knee-r6-frozen-fe055406-w1`; most likely the free 0.958, **not yet read**.
+
+## 10-16 ~10:30: the cartilage-measurement test — the rule, written before any build or run (owner's go)
+
+- **What:** the SKM-TEA V-Net above on the fluid-sensitive sagittal series (our `sag_1` choice, our canonical frame and
+  side) of a random 800 of the 4,349 non-gold training studies plus the 58 gold, on free Kaggle CPU kernels. Per study,
+  fixed now: per compartment (lateral / medial tibiofemoral by the side of the joint-tissue centroid ± 4 mm; patellar;
+  central femoral as trochlea) the volume, median and 10th-percentile thickness (distance transform at the skeleton),
+  fraction thinner than 1 mm, connected components per slice, mean probability inside the mask and the uncertain-band
+  fraction of femoral and tibial cartilage, meniscus and patellar cartilage; lateral / medial ratios; slice count,
+  spacing, pixel size. One gradient-boosted model per finding on these alone, five folds by site
+  (`folds_site_stage_b.csv`), targets `targets_consensus_v2` ≥ 0.5.
+- **Rule:** the route continues (into the submission) only if, on Lateral OA **or** PF OA, the measurement model's
+  held-out AUROC is **≥ 0.85 and** its within-class Spearman ρ with our five teacher folds' held-out predictions is
+  **≤ 0.5**. Otherwise it is closed. Reported but not part of the rule: gold-58 AUROC (look only), CPU seconds a study
+  (whether test-time segmentation fits the 9 h), the other two weak findings.
+- **Either way the week then locks (owner):** v3 five folds from Fri 17:00 (standing go), the main final on the best
+  free base with R6 + R7 as its ConvNeXt half plus our member, D as the OAI-free final. No new arms after this test.

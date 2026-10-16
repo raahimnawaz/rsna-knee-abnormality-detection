@@ -11,36 +11,33 @@ tree of 10-03 (the ViT-L pipeline): no work goes there.
 | this page as it was on 10-13 (that day's per-read rules, the arms v3 replaced, the audits' proposals) | `git show c5ab90c:RUNBOOK.md` |
 | anything before 10-11 | `git show 9c23daf:RUNBOOK.md` (also `:DATA.md`, `:REFERENCE.md`) |
 
-Last updated 2026-10-15 14:55 PDT.
+Last updated 2026-10-16 10:30 PDT.
 
-## 0. Right now (10-15 14:40 PDT)
+## 0. Right now (10-16 10:30 PDT)
 
-- **Board (10-15 10:04):** #1 0.967, gold ~0.963 (rank ~22), **silver ~0.957 (rank ~301)**. A free 0.957 is public
-  (246 teams). **Our best scored: 0.956** (`57160505`, rank 408). Page with the pipeline drawn and the plan:
-  "Knee Blend Review", https://claude.ai/artifact/TiphXndYsMErAy497AYjnG (source in `~/rsna-knee-work/2026-10-15/`).
-- **Three submissions pending, each read by a rule written before it ran** (full text: LOG 10-15):
-
-  | ref | what | rule |
-  |---|---|---|
-  | `57241351` | the 0.957 recipe (Raptor 384 + 224, R6 with flip; R6 from our copy of its version 1) + our five teacher folds at 0.25 / 0.10 | ≥ 0.958 ours stay in; 0.957 read our rank in the block against the recipe author's; ≤ 0.956 ours come out |
-  | `57244451` | **B**: the same, with R6 + R7 in one decode (no flip) as the ConvNeXt half | same tick as `57241351` or higher → R6 + R7 is the ConvNeXt half from now on; ≥ 1 tick below → R6 + flip stays |
-  | `57244659` | **D, OAI-free**: no Raptor at all; R6 + R7 + our five consensus folds at 0.35 / 0.20 | ≥ 0.950 → the OAI-free final (in place of 0.945); 0.948–0.949 only if above R7 alone's 0.949; < 0.948 → broken, look first |
-
-  B and D ran with `--read`: a score always includes our member; an ERROR status means our stage did not run.
-- **Next, in order:**
-  1. **Read the three scores** (`$K competitions submissions $C`) by their rules; write the outcome in the LOG and here.
-  2. **Fri 10-16 17:00 PDT, Kaggle GPU reset (30 h, the last):** v3 fold 0 (standing go, §4), then folds 1–4 two at
-     a time. v3 stays on `targets_teacher_v3`: the panel's C (OAI-free labels) was **not** approved.
-  3. **S6fall into D** (`nartaa/rsna-knee-s6fall-weights`: 0.950 alone, "No OAI data was used"; its worker is in
-     `data/public_notebooks/nartaa-s6fall-solo/`): the strongest OAI-free member left. Proposed, **ask first**.
-  4. **Before the finals:** test the mount of our copy of heliosli's code dataset (free CPU kernel, as
+- **Board (10-16 10:00, 6,098 teams):** #1 0.968, gold ~0.963 (rank ~22). **0.958 is 433 teams (ranks 123–555), so
+  silver (~304) and bronze (~609) both sit inside 0.958.** Ours: **0.957** (`57241351` and B), rank 825. A new free
+  base is likely public: `heliosli/blend-mine-in-private-lb-luck-to-all-upvoters` (10-15 17:03), **not yet read**.
+  Page with the pipeline drawn: "Knee Blend Review", https://claude.ai/artifact/TiphXndYsMErAy497AYjnG.
+- **Read 10-16 by their rules (LOG 10-16):** `57241351` 0.957 → nothing claimed · **B 0.957 → R6 + R7 in one decode is
+  the ConvNeXt half from now on** · **D 0.954 → D is the OAI-free final** (was 0.945).
+- **Running now: the cartilage-measurement test** (owner's go 10-16; rule in LOG 10-16 ~10:30, written before any
+  run): SKM-TEA segmenter → per-compartment cartilage / meniscus measurements → one boosted model per finding, on 800
+  training studies + gold, free CPU kernels. Continues only if Lateral OA or PF OA reaches held-out AUROC ≥ 0.85
+  **and** ρ ≤ 0.5 with our folds; else closed.
+- **Then the week locks (owner), whatever the test says:**
+  1. **Fri 10-16 17:00 PDT, Kaggle GPU reset (30 h, the last):** v3 fold 0 (standing go, §4), then folds 1–4 two at
+     a time, on `targets_teacher_v3`.
+  2. **Read the new free base** (pull the notebook, what it adds over the 0.9576 one) before building the main final.
+  3. **Before the finals:** test the mount of our copy of heliosli's code dataset (free CPU kernel, as
      `rsna-knee-pintest-r6v1`), then build both finals on our private copies (`--replace-dataset`) and **without**
-     `--read` (a final falls back to the public file rather than erroring).
-  5. **Finals by 10-22 16:59 PDT:** the best blend, and one OAI-free (D if it reads ≥ 0.950).
-- **Kaggle GPU before Fri 17:00:** little or none (four commit runs today; the owner's quota page is the truth).
-  Submissions: 5 a day, reset 17:00 PDT; today's last 2 are left unused.
-- **Owner's calls 10-15:** no rented GPU (OAI images closed; the MOAKS table stays in `~/oai_data/`, unused); no
-  building a small CNN; A, B, D approved, C not. Still theirs: S6fall into D; deleting 4 stale remote branches.
+     `--read`.
+  4. **Finals by 10-22 16:59 PDT:** the main final = the best free base with R6 + R7 as its ConvNeXt half + our member
+     (v3 if it passes its fold-0 check, else the five teacher folds); the OAI-free final = **D**. No new arms.
+- **Kaggle GPU before Fri 17:00:** little or none. Submissions: 5 a day, reset 17:00 PDT.
+- **Owner's calls:** no rented GPU; A, B, D approved, C not (10-15). 10-15 ~15:15: "train our own models when
+  necessary"; the weak-four plan of that afternoon was cut to this one test (LOG). Still theirs: S6fall into D;
+  deleting 4 stale remote branches.
 
 ## 1. Goal and the owner's directions
 
@@ -58,13 +55,16 @@ Last updated 2026-10-15 14:55 PDT.
 | | public LB | |
 |---|--:|---|
 | #1 / gold line / silver line | 0.967 / 0.963 / 0.957 | 10-15 10:04 |
-| **free public recipe** (0.9576 notebook, §0) | **0.957** | 246 teams |
-| **ours: the old free recipe + our five teacher folds** | **0.956** | `57160505`, rank 408. Our best; OAI-derived |
+| free public base, newest (heliosli, 10-15 17:03, not yet read) | 0.958? | 433 teams at 0.958 (10-16) |
+| **free public recipe** (0.9576 notebook, §0) | **0.957** | 246 teams (10-15) |
+| **ours: the 0.957 recipe + our five teacher folds** | **0.957** | `57241351`; B (R6 + R7 in one decode) the same, `57244451`. Our best; OAI-derived |
+| ours: the old free recipe + our five teacher folds | 0.956 | `57160505` |
+| **D: R6 + R7 + our five consensus folds, no Raptor** | **0.954** | `57244659`. **The OAI-free final** |
 | the public R7 x4 alone (`heliosli`) | 0.949 | `57160504`; OAI-free. Its mirror pass: 0.949 (`57160736`), stays off |
 | public single model (`nartaa` CoAtNet, 2,399 OAI knees in training) | 0.949 | |
 | ours: five folds, teacher labels | 0.949 | `57161107`; holds the CoAtNet's opinions, so not OAI-free |
 | ours: one model, pseudo-label round (`targets_teacher_v2`) | 0.946 | `57162950` |
-| **ours: five folds, consensus labels** | **0.945** | `57112913`. **Our only OAI-free model: today's OAI-free final** |
+| ours: five folds, consensus labels | 0.945 | `57112913`. OAI-free; D's member |
 | ours: one model, consensus labels | 0.938 | `57098827`, the paired baseline of recipe changes |
 
 **What a leaderboard number is worth** (resampling our held-out predictions at the public part's ~390 studies):
@@ -93,9 +93,9 @@ mounts no Raptor weights.
 | | item | status |
 |---|---|---|
 | A | fail loudly: `--read` for reads; private copies of every outside dataset | built; the code dataset copy's mount untested |
-| B | R6 + R7 in one decode (heliosli's two-group worker path; two worker lines patched so R6's Baker's stacker runs) | **submitted `57244451`** |
+| B | R6 + R7 in one decode (heliosli's two-group worker path; two worker lines patched so R6's Baker's stacker runs) | **0.957, same tick as `57241351`: adopted** |
 | C | v3 on `targets_consensus_v3` (OAI-free labels) | **not approved**: v3 stays on `teacher_v3` |
-| D | the OAI-free final as a blend: R6 + R7 + our consensus folds, no Raptor | **submitted `57244659`** |
+| D | the OAI-free final as a blend: R6 + R7 + our consensus folds, no Raptor | **0.954: the OAI-free final** |
 | E | our weight from v3's standalone score, fixed before reading it: ≥ 0.953 alone → 0.33 / 0.15, else 0.25 / 0.10 | a rule, for v3's read |
 | next | S6fall (0.950, OAI-free by its author) into D | proposed, ask |
 
