@@ -1481,3 +1481,17 @@ there for the owner to discard. Nothing sent.
   no basis stated; most likely chosen on the public board). Nothing new is trained. Lateral OA toward R6 agrees with
   gold-58, where the Raptor family is weakest there (0.770). For the main final this is the base to beat; whether its
   weights carry over to R6 + R7 as the ConvNeXt half is a read (one slot, owner's go), not a new arm.
+- **Cartilage test, smoke (10-16 ~10:12, `raahimnawaz/rsna-knee-cartilage-smoke` v1, 4 gold studies, from `31a6eeb`):**
+  `anatomy.pt sha256 ok` (R6's hash), 4 / 4 measured, 0 errors, **segmentation ~44 s a study on 4 CPUs** (decode ~1 s),
+  so 1,300 test studies would need a GPU (est. 1–2 s a study on a T4). The outline images: 2 of 4 clean (femoral,
+  tibial, patellar cartilage and meniscus on the right structures, in our canonical frame), **1 a large-field scan
+  where the segmenter fired along the image edge** (meniscus 7,188 mm³), 1 a low-quality scan with fragments only.
+  **Pre-run fix, no label read:** a 5 mm border band dropped and joint tissue kept within 45 mm (patellar cartilage
+  70 mm) in-plane of the median of the confident joint-tissue pixels (`9a5041e`). The fragments are the segmenter's
+  own limit on clinical scans: what the test measures, not fixed.
+- **Smoke v2–v3 (10-16 ~10:25–10:45, 8 gold):** v2's gating centre was pulled to the edge by the edge firing itself;
+  v3 takes the centre from the central 15–85 % of each slice (heliosli's window), and the outline images of 6 of 8
+  knees are clean (femoral, tibial, patellar cartilage and meniscus on the right structures). The large-field scan has
+  no confident tissue near the middle at all and fell through to "no gating": **now a failed segmentation**
+  (`seg_ok 0`, no measurements; `a10bb4d`), the low-quality scan keeps its fragments. ~29–65 s a study on 4 CPUs.
+  **Shards launched from `a10bb4d`: `raahimnawaz/rsna-knee-cartilage-s{0..5}of6`, 143 studies each (58 gold + 800).**
