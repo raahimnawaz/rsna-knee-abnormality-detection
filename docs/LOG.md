@@ -1517,3 +1517,26 @@ there for the owner to discard. Nothing sent.
      `read_sagittal` on `canon_fixture`'s synthetic DICOM knees (left / right, side by tag / geometry, reversed storage,
      shuffled files): slices run lateral → medial, rows S → I, columns A → P in all four.
   The measurement functions and constants are byte-identical to `a10bb4d`, which the shards run (checked by AST).
+- **✅ The cartilage-measurement test, read 10-16 14:25 by its rule: CLOSED.** Six CPU shards from `a10bb4d`, 858 / 858
+  measured, `anatomy.pt sha256 ok` in each, 0 errors, **27 failed segmentations (3.1 %)**, segmentation 30.8 s a study
+  (median, 4 CPUs). Scored with the review-fixed `fusion/cartilage_read.py` (every sampled study, failures blank):
+
+  | | measurement model | rule | ρ with our folds | our folds, same studies | gold-58 (look) meas / ours |
+  |---|--:|--:|--:|--:|--:|
+  | Lateral OA (129 pos) | **0.654** | ≥ 0.85 | 0.22 | 0.861 | 0.673 / 0.822 |
+  | PF OA (255) | **0.619** | ≥ 0.85 | 0.17 | 0.893 | 0.515 / 0.852 |
+  | Lateral Meniscus (report) | 0.620 | | 0.21 | 0.924 | 0.647 / 0.894 |
+  | Synovitis (report) | 0.471 | | 0.20 | 0.844 | 0.548 / 0.853 |
+  | Medial OA (report) | 0.648 | | 0.28 | 0.897 | 0.632 / 0.983 |
+
+  Its errors are independent of ours (ρ ≈ 0.2), its signal is not there. **Look only, after the verdict:** on the 500
+  knees whose split sits within 8 mm of the middle (finding 5; 12 % are 8 mm or more off) it reads 0.648 / 0.595, so
+  the split did not sink it; the best single measurements for Lateral OA are lateral-meniscus confidence and thickness
+  (0.638), cartilage thickness carries next to nothing (patellar / trochlear thickness ~0.59 for PF OA); at a 0.90 base
+  it would add +0.0009 to Lateral OA, **+0.00008 to the macro**. The SKM-TEA segmenter places cartilage on clinical
+  scans but does not measure its loss. Measurements and verdict: `~/rsna-knee-work/2026-10-16/cartilage/`.
+  **Closed, do not re-propose: cartilage / meniscus measurements from the SKM-TEA segmenter as a member.**
+- **The week is locked (owner, 10-16):** no new arms. What is left: v3 five folds from the 17:00 GPU reset (standing
+  go; §4 of the RUNBOOK); the main final on the free 0.958 base (whether R6 + R7 replaces its R6 + flip is one read,
+  owner's go for the slot) plus our member (v3 if it passes its fold-0 check, else the five teacher folds); D as the
+  OAI-free final; both on private dataset copies, without `--read`, with the vendored-code check of review finding 3.

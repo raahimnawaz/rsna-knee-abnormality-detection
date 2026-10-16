@@ -11,27 +11,29 @@ tree of 10-03 (the ViT-L pipeline): no work goes there.
 | this page as it was on 10-13 (that day's per-read rules, the arms v3 replaced, the audits' proposals) | `git show c5ab90c:RUNBOOK.md` |
 | anything before 10-11 | `git show 9c23daf:RUNBOOK.md` (also `:DATA.md`, `:REFERENCE.md`) |
 
-Last updated 2026-10-16 10:30 PDT.
+Last updated 2026-10-16 14:40 PDT.
 
-## 0. Right now (10-16 10:30 PDT)
+## 0. Right now (10-16 14:40 PDT)
 
 - **Board (10-16 10:00, 6,098 teams):** #1 0.968, gold ~0.963 (rank ~22). **0.958 is 433 teams (ranks 123–555), so
   silver (~304) and bronze (~609) both sit inside 0.958.** Ours: **0.957** (`57241351` and B), rank 825. A new free
-  base is likely public: `heliosli/blend-mine-in-private-lb-luck-to-all-upvoters` (10-15 17:03), **not yet read**.
+  base is public: `heliosli/blend-mine-in-private-lb-luck-to-all-upvoters` (10-15 17:03), read 10-16: the 0.9576
+  notebook with per-finding Raptor weights changed (Lateral OA 0.2, PF OA 0.6, Synovitis 0.8, Baker's 0.35), nothing new trained.
   Page with the pipeline drawn: "Knee Blend Review", https://claude.ai/artifact/TiphXndYsMErAy497AYjnG.
 - **Read 10-16 by their rules (LOG 10-16):** `57241351` 0.957 → nothing claimed · **B 0.957 → R6 + R7 in one decode is
   the ConvNeXt half from now on** · **D 0.954 → D is the OAI-free final** (was 0.945).
-- **Running now: the cartilage-measurement test** (owner's go 10-16; rule in LOG 10-16 ~10:30, written before any
-  run): SKM-TEA segmenter → per-compartment cartilage / meniscus measurements → one boosted model per finding, on 800
-  training studies + gold, free CPU kernels. Continues only if Lateral OA or PF OA reaches held-out AUROC ≥ 0.85
-  **and** ρ ≤ 0.5 with our folds; else closed.
-- **Then the week locks (owner), whatever the test says:**
+- **The cartilage-measurement test: CLOSED (read 10-16 14:25, LOG).** On 800 held-out training knees the measurement
+  model reads Lateral OA 0.654 and PF OA 0.619 (rule ≥ 0.85); independent of ours (ρ ≈ 0.2) but nearly no signal:
+  +0.00008 on the macro. Nothing is left that targets the weak four this week.
+- **The week is locked (owner 10-16): no new arms.**
   1. **Fri 10-16 17:00 PDT, Kaggle GPU reset (30 h, the last):** v3 fold 0 (standing go, §4), then folds 1–4 two at
      a time, on `targets_teacher_v3`.
-  2. **Read the new free base** (pull the notebook, what it adds over the 0.9576 one) before building the main final.
+  2. **The main final's base is the free 0.958** (read, LOG 10-16). Whether B's R6 + R7 replaces its R6 + flip under
+     its weights is one read: **one slot, owner's go**.
   3. **Before the finals:** test the mount of our copy of heliosli's code dataset (free CPU kernel, as
      `rsna-knee-pintest-r6v1`), then build both finals on our private copies (`--replace-dataset`) and **without**
-     `--read`.
+     `--read`, with the vendored-MONAI tree check (review finding 3, `cartilage_measure.VENDOR_TREE_SHA`) added to
+     the R6 / R7 worker's path.
   4. **Finals by 10-22 16:59 PDT:** the main final = the best free base with R6 + R7 as its ConvNeXt half + our member
      (v3 if it passes its fold-0 check, else the five teacher folds); the OAI-free final = **D**. No new arms.
 - **Kaggle GPU before Fri 17:00:** little or none. Submissions: 5 a day, reset 17:00 PDT.
@@ -142,6 +144,8 @@ consensus folds 0.945). Both built on our private dataset copies, without `--rea
 | denser slices (Stage C) | fail: **Stage B stays** |
 | R7's mirror pass at inference | 0.949 = 0.949: **off** |
 | training on the 58 gold studies | ~+0.0005: **not done; gold stays held out** |
+| cartilage / meniscus measurements (SKM-TEA segmenter) as a member | 0.654 / 0.619 alone on Lateral / PF OA, ρ 0.2: +0.00008 macro. **Closed** (10-16) |
+| OAI images, a compartment CNN, traumatic-cartilage relabels, Synovitis from Effusion | repeats or measured dead (LOG 10-15 / 10-16) |
 | closed, do not re-propose | a bigger backbone; a stronger LLM re-reading the reports; centre crops; an nnU-Net crop; Qwen report labels; a per-site prior |
 
 ## 6. Budget
