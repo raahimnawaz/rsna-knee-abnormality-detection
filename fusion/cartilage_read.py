@@ -33,7 +33,7 @@ RULE_FINDINGS = ["Lateral OA", "PF OA"]
 REPORT_FINDINGS = ["Lateral Meniscus", "Synovitis", "Medial OA"]
 AUC_MIN, RHO_MAX = 0.85, 0.5
 NOT_FEATURES = {"StudyInstanceUID", "series", "side", "side_src", "error", "decode_s", "segment_s", "measure_s",
-                "seg_ok", "source"}
+                "seg_ok", "source", "slab_k"}
 GBM = dict(max_depth=3, learning_rate=0.05, max_iter=200, min_samples_leaf=20, l2_regularization=1.0, random_state=0)
 
 
@@ -107,6 +107,11 @@ def main() -> None:
     for c in ("decode_s", "segment_s", "measure_s"):
         if c in m:
             print(f"  {c}: median {m.loc[readable, c].median():.1f} s, p90 {m.loc[readable, c].quantile(.9):.1f} s")
+    if {"lat_extent_mm", "med_extent_mm"} <= set(m.columns):    # review 10-16, finding 5: is the split near the middle?
+        imb = (m.loc[readable, "med_extent_mm"] - m.loc[readable, "lat_extent_mm"]).dropna()
+        print(f"  medial minus lateral extent from the split (mm): median {imb.median():+.1f}, IQR "
+              f"[{imb.quantile(.25):+.1f}, {imb.quantile(.75):+.1f}], |imbalance| > 16 mm in {(imb.abs() > 16).mean():.1%} "
+              f"(a split 8 mm or more off the middle; the compartments skip +-{4:.0f} mm around it)")
     feats = [c for c in m.columns if c not in NOT_FEATURES and pd.api.types.is_numeric_dtype(m[c])]
     F = m[feats].astype(float)
     F.loc[~readable] = np.nan                                 # a failed study ships with nothing

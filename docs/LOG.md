@@ -1495,3 +1495,25 @@ there for the owner to discard. Nothing sent.
   no confident tissue near the middle at all and fell through to "no gating": **now a failed segmentation**
   (`seg_ok 0`, no measurements; `a10bb4d`), the low-quality scan keeps its fragments. ~29–65 s a study on 4 CPUs.
   **Shards launched from `a10bb4d`: `raahimnawaz/rsna-knee-cartilage-s{0..5}of6`, 143 studies each (58 gold + 800).**
+- **Code review of the test (10-16 ~11:00–12:00, owner: "fix everything"), every fix before any result is read:**
+  1. *The scorer counted only knees the segmenter could read* (it dropped `seg_ok 0` and errors). A submission has to
+     rank every knee, so **every sampled non-gold study now counts, a failed one with blank features**; the failure
+     rate is printed; readable-only numbers are look only. On fake data a planted signal reads 0.735 on all studies
+     against 0.761 readable-only: the size of the flattery removed. A missing study gives an INCOMPLETE verdict.
+  2. *Duplicate studies across input files were resolved silently by file order* (a smoke folder could have supplied
+     stale gold rows): **now a hard stop** naming the files. Pass the six shards' outputs only.
+  3. *The vendored MONAI code from heliosli's dataset was imported unchecked* (the weights were checked): **pinned**,
+     one sha256 over its 194 files, `1dcf1dab…` (dataset version of 10-04, downloaded and hashed 10-16), checked in
+     `load_segmenter` before the import; a one-byte change is caught. The six running shards predate the check. **The
+     blend kernels import the same vendored code through R6 / R7's worker unchecked: add the same check when the
+     finals are built.**
+  4. *Thin 3-D stacks* (9 of 159 sagittal series in the stage-0 sample have > 100 slices, up to 320; ~7 min a knee on
+     CPU): `--slab-mm` averages them into slabs (heliosli's way); **off in this test** (it changes those knees'
+     measurements, so the training rows would have to be re-measured the same way before it ships).
+  5. *The medial / lateral split sits at the joint-tissue centre, not the notch:* kept (pre-registered; re-running the
+     858 knees costs ~4 h), and **now checked on all 858**: the read prints the medial-minus-lateral extent around the
+     split and the share of knees with the split 8 mm or more off the middle.
+  6. *Tests:* `--check` now also covers the trochlea (exact distances), the patellar thickness, slab averaging, and
+     `read_sagittal` on `canon_fixture`'s synthetic DICOM knees (left / right, side by tag / geometry, reversed storage,
+     shuffled files): slices run lateral → medial, rows S → I, columns A → P in all four.
+  The measurement functions and constants are byte-identical to `a10bb4d`, which the shards run (checked by AST).

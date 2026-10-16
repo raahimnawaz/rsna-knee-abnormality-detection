@@ -33,9 +33,25 @@ MIN_COMPONENT_PX = 5
 
 
 # ----------------------------------------------------------------------------- the model
+VENDOR_TREE_SHA = "1dcf1dabb83ab80eec50a5c0abfc407b3ba785bf9f30ae6c0e25da124ef87b05"   # heliosli's monai060, 194 files, dataset version of 10-04 (pinned 10-16)
+
+
+def tree_sha256(root: str) -> str:
+    """One hash for a whole directory: sha256 over sorted 'relative path TAB file sha256' lines (no __pycache__)."""
+    import hashlib
+    lines = []
+    for f in sorted(Path(root).rglob("*")):
+        if f.is_file() and "__pycache__" not in f.parts:
+            lines.append(f"{f.relative_to(root).as_posix()}\t{hashlib.sha256(f.read_bytes()).hexdigest()}\n")
+    return hashlib.sha256("".join(lines).encode()).hexdigest()
+
+
 def load_segmenter(weights: str, vendor: str):
     """heliosli's `training.anatomy.load_segmenter`, without the rest of their package."""
     import torch
+    got = tree_sha256(vendor)                         # review 10-16, finding 3: the vendored code is checked too
+    if got != VENDOR_TREE_SHA:
+        raise SystemExit(f"vendored MONAI tree {got} is not the pinned {VENDOR_TREE_SHA}")
     sys.path.insert(0, str(Path(vendor).resolve()))
     from monai.networks.nets import VNet
     model = VNet(spatial_dims=2, in_channels=1, out_channels=4, act=("elu", {"inplace": True}),
@@ -107,6 +123,21 @@ def read_sagittal(study_dir: Path, series: list[dict]):
             "side_src": side_src, "n_slices": len(keep), "native_row_mm": float(np.median(row_mm)),
             "spacing_mm": float(np.median(np.diff(pos[keep]))) if len(keep) > 1 else float("nan")}
     return vol, pos[keep], row_mm[keep], col_mm[keep], info
+
+
+def slabs(vol: np.ndarray, pos: np.ndarray, row_mm: np.ndarray, col_mm: np.ndarray, slab_mm: float):
+    """Thin 3-D stacks (review 10-16, finding 4): average consecutive slices into ~slab_mm slabs, as heliosli's px_cache
+    does, so a 320-slice series costs ~30 segmenter passes. Off (slab_mm 0) in the 10-16 test: turning it on changes
+    the measurements of those studies, so the training rows must be re-measured the same way before it ships."""
+    if slab_mm <= 0 or len(pos) < 2:
+        return vol, pos, row_mm, col_mm, 1
+    k = int(round(slab_mm / max(float(np.median(np.diff(pos))), 1e-3)))
+    if k < 2:
+        return vol, pos, row_mm, col_mm, 1
+    n = len(pos) // k
+    cut = slice(0, n * k)
+    v = vol[cut].reshape(n, k, *vol.shape[1:]).mean(1)
+    return v, pos[cut].reshape(n, k).mean(1), row_mm[cut][::k], col_mm[cut][::k], k
 
 
 # ----------------------------------------------------------------------------- the measurements
@@ -259,6 +290,7 @@ def _check() -> None:
         s[3, 80:86, 30:60] = 255             # meniscus
         if z >= 10:
             s[2, 90:94, 80:120] = 0          # medial half: a 40 px gap in the tibial cartilage
+        s[0, 40:44, 20:60] = 255             # patellar cartilage, every slice
         seg.append(s)
     pos = np.arange(20) * 3.0                # 3 mm slices
     f = measure(clean(seg), pos, 3.0)
@@ -274,6 +306,20 @@ def _check() -> None:
     gap_px = sum(1 for z in range(20) if z >= 10 and pos[z] - c > COMPARTMENT_MARGIN_MM) * 4 * 40
     want_med = (n_med * 4 * 160 - gap_px) * MM * MM * 3.0
     assert abs(f["med_tibial_vol"] - want_med) < 1e-6 * want_med + 1e-6, (f["med_tibial_vol"], want_med)
+    # trochlea: femoral cartilage within TROCHLEA_MM of the patellar cartilage, on central slices (exact distances)
+    pr, pc = np.nonzero(seg[0][0] > 127)
+    fr, fc = np.nonzero(seg[0][1] > 127)
+    near = (np.hypot(fr[:, None] - pr[None], fc[:, None] - pc[None]).min(1) * MM < TROCHLEA_MM).sum()
+    n_central = int((np.abs(pos - c) <= CENTRAL_MM).sum())
+    want_tro = n_central * near * MM * MM * 3.0
+    assert abs(f["trochlea_vol"] - want_tro) <= 0.02 * want_tro, (f["trochlea_vol"], want_tro)
+    assert abs(f["patellar_thick_med"] - 1.25) < 0.35, f["patellar_thick_med"]
+    # slabs: a 1 mm stack of 30 averages into 10 slabs of 3 mm; off leaves it alone
+    v1 = np.arange(30, dtype=np.float32)[:, None, None] * np.ones((30, 4, 4), np.float32)
+    p1, r1 = np.arange(30) * 1.0, np.full(30, .5)
+    v3, p3, _, _, k = slabs(v1, p1, r1, r1, 3.0)
+    assert k == 3 and len(p3) == 10 and np.allclose(p3, np.arange(10) * 3 + 1) and np.allclose(v3[:, 0, 0], p3)
+    assert slabs(v1, p1, r1, r1, 0.)[4] == 1
     junk = []
     for z in range(20):                      # firing only along the bottom edge, nothing near the middle
         j = np.zeros((4, h, w), np.uint8)
@@ -283,6 +329,32 @@ def _check() -> None:
     print(f"check ok: {len(f)} features | lat femoral {f['lat_femoral_thick_med']:.2f} mm, lat tibial "
           f"{f['lat_tibial_thick_med']:.2f} mm, tibial components lat {f['lat_tibial_ncomp']:.0f} / med "
           f"{f['med_tibial_ncomp']:.0f}")
+
+
+def _check_io() -> None:
+    """`read_sagittal` on canon_fixture's synthetic DICOM knees (left / right, tag / geometry, standard and reversed
+    storage): slices must run lateral -> medial, rows S -> I, columns A -> P, whatever the file order or the side."""
+    import tempfile
+    sys.path.insert(0, str(Path(__file__).resolve().parents[1] / "notebooks"))
+    import canon_fixture as CF
+    import pandas as pd
+    root = Path(tempfile.mkdtemp()) / "fx"
+    truth = CF.write(root)
+    ser = pd.read_csv(root / "train_series.csv")
+    for suid, t in truth.items():
+        rows = [{"SeriesInstanceUID": str(r.SeriesInstanceUID), "plane": r.Anatomical_Plane, "fluid": int(r.Fluid_Sensitive)}
+                for r in ser[ser.StudyInstanceUID == suid].itertuples()]
+        vol, pos, _, _, info = read_sagittal(root / "train_series" / suid, rows)
+        assert info["side"] == t["side"], (t, info["side"])
+        assert np.all(np.diff(pos) > 0), "positions must increase"
+        inside = [z for z in range(len(vol)) if (vol[z] > 0).mean() > .2]
+        means = [float(vol[z][(vol[z] > 0) & (vol[z] < 700)].mean()) for z in inside]
+        assert np.all(np.diff(means) > 0), f"{t['name']}: slices do not run lateral -> medial"
+        h, w = vol.shape[1:]
+        z1, r1, c1 = np.argwhere(vol == 1000).mean(0)      # medial-anterior-superior block
+        z7, r7, c7 = np.argwhere(vol == 700).mean(0)       # lateral-posterior-inferior block
+        assert z1 > z7 and r1 < h / 2 < r7 and c1 < w / 2 < c7, (t["name"], (z1, r1, c1), (z7, r7, c7))
+    print(f"check_io ok: {len(truth)} synthetic knees ({', '.join(t['name'] for t in truth.values())})")
 
 
 def main() -> None:
@@ -295,10 +367,13 @@ def main() -> None:
     ap.add_argument("--out", type=Path)
     ap.add_argument("--montages", type=int, default=0, help="save an outline montage for the first N studies")
     ap.add_argument("--deadline", type=float, default=0, help="unix time: stop starting new studies after it")
+    ap.add_argument("--slab-mm", type=float, default=0., help="average thin stacks into slabs this thick (0 = off, "
+                    "as the 10-16 test ran)")
     ap.add_argument("--check", action="store_true")
     a = ap.parse_args()
     if a.check:
         _check()
+        _check_io()
         return
     import pandas as pd
     import torch
@@ -319,6 +394,9 @@ def main() -> None:
         row = {"StudyInstanceUID": uid}
         try:
             vol, pos, row_mm, col_mm, info = read_sagittal(a.root / f"{a.split}_series" / uid, by_study.get(uid, []))
+            vol, pos, row_mm, col_mm, info["slab_k"] = slabs(vol, pos, row_mm, col_mm, a.slab_mm)
+            if info["slab_k"] > 1:
+                info["spacing_mm"] = float(np.median(np.diff(pos)))
             t2 = time.time()
             seg = clean(segment(model, vol, row_mm, col_mm))
             t3 = time.time()
