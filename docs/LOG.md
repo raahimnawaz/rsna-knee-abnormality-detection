@@ -1474,3 +1474,10 @@ there for the owner to discard. Nothing sent.
   (whether test-time segmentation fits the 9 h), the other two weak findings.
 - **Either way the week then locks (owner):** v3 five folds from Fri 17:00 (standing go), the main final on the best
   free base with R6 + R7 as its ConvNeXt half plus our member, D as the OAI-free final. No new arms after this test.
+- **The free 0.958, read (10-16 ~10:10, pulled into scratch):** `heliosli/blend-mine-in-private-lb-luck-to-all-upvoters`
+  is the 0.9576 notebook byte for byte in cells 2–5 and 7; cell 6 mounts `heliosli/rsna-knee-r6-frozen-fe055406-w1`
+  (a new copy of R6 v1, same manifest sha256 `6508ce69…`); cell 8 changes the per-finding Raptor weight (R6 gets the
+  rest): **Lateral OA 0.5 → 0.2, PF OA 0.5 → 0.6, Synovitis 0.5 → 0.8, Baker's 0.5 → 0.35** ("user decision 10-16",
+  no basis stated; most likely chosen on the public board). Nothing new is trained. Lateral OA toward R6 agrees with
+  gold-58, where the Raptor family is weakest there (0.770). For the main final this is the base to beat; whether its
+  weights carry over to R6 + R7 as the ConvNeXt half is a read (one slot, owner's go), not a new arm.
