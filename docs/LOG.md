@@ -1582,3 +1582,14 @@ there for the owner to discard. Nothing sent.
   segmenter the training-cache path and the submission path give the same predictions (max |dp| 5.6e-17).
   `infer_windows` runs K in two passes; `build_submit_kernel --ours-only --segmenter [--probe <finding>]` builds K's
   submission or a single-finding probe. The OURS gate rebuilds training studies from DICOMs, so it checks K end to end.
+
+## 10-16 ~21:00–: K's cache built; the training kernel's smoke; fold 0
+
+- **The five cache shards (`867c2c9`), read 10-16 ~21:10–21:55:** 4,407 / 4,407 training studies (882 / 881 / 882 /
+  881 / 881), **0 errors**, every shard `exited 0` (the segmenter's weights and the vendored MONAI tree are sha-checked
+  in `load_segmenter` and stop the run on a mismatch), 156–215 min a shard on 4 CPUs (10.3–14.0 s a study, median).
+  Region fill: lateral sagittal 100 %, lateral coronal 99.95 %, patellofemoral axial 99.9 %, anterior sagittal 100 %.
+  **Anchors, all 4,407:** joint and patella found 2,281 (51.8 %); joint found, patella not 1,875 (42.5 %, P = J + the
+  40 mm / 25 mm default); patella implausible 5; **no joint tissue 246 (5.6 %)**, J = the mean centre of the central
+  sagittal slices. Not a stop by any rule; a K weakness to keep in view: pf_ax and ant_sag sit on the default offset
+  in ~48 % of knees, and the lateral regions on a field-centre joint in ~6 %.
