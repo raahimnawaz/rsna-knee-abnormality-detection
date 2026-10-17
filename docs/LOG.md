@@ -1540,3 +1540,33 @@ there for the owner to discard. Nothing sent.
   go; §4 of the RUNBOOK); the main final on the free 0.958 base (whether R6 + R7 replaces its R6 + flip is one read,
   owner's go for the slot) plus our member (v3 if it passes its fold-0 check, else the five teacher folds); D as the
   OAI-free final; both on private dataset copies, without `--read`, with the vendored-code check of review finding 3.
+
+## 10-16 ~15:00–18:30: repo cleaned; W4 built and set aside; K, the weak-four model, built — its rule before any run
+
+- **Owner:** "remove everything from the repo that doesn't need to be there … delete the old branches … build something
+  targeted at those weak points and train it"; then, on whether it attacks the right thing: "whatever attacks the
+  weakest parts first, and only we do that" (no probes of public models).
+- **Repo:** branches 7 → 2 (`labels-small-backbone`, `main`; the five old ones bundled in
+  `~/rsna-knee-work/2026-10-16/old-branches-2026-10-16.bundle`, verified); `PLAN.md` (one page) replaces RUNBOOK.md and
+  the 10-12 review; closed-experiment code and runs removed (`967df5b`). Still embedded by live builders, so kept until
+  the finals build: `qwen_vlm.py`, `orthofoundation_model.py`, `window_curve.py`, `slots118.py`.
+- **W4 (`--recipe w4` = v3 + loss ×3 on the four + a per-finding location bias), built and tested, NOT trained:** it
+  learns from the same report labels as every model in the blend, and those share their mistakes on the four
+  (ρ 0.89–0.955); it does nothing for Synovitis's label problem and puts no more pixels on the cartilage.
+- **K, the weak-four model (`7204653`):** `pipeline/kcache.py` finds the knee joint centre J and the patella P with the
+  SKM-TEA segmenter (9 sagittal slices, 0.3125 mm; weights and vendored MONAI sha-checked) and cuts four regions from
+  the original series, each on a fixed grid in the canonical frame: **lateral sagittal** (6–42 mm lateral of J) and
+  **lateral coronal** (the lateral half, 15 mm anterior to 20 mm posterior of J) for Lateral OA and Lateral Meniscus,
+  **axial through the patella** for PF OA, **central sagittal around the front** (suprapatellar recess to Hoffa's fat
+  pad) for Synovitis and PF OA; 8 slices each at 256 px (0.3125 mm; the front 0.375 mm). Trained at 384 px (the feature
+  cell 6.7 mm against Stage B's 11.7 mm), on the weak four only (`--only-weak4`), spatial attention per finding,
+  slot / depth embedding, all 24 windows each step, 16 epochs, `targets_teacher_v3`, folds by site. Tests: 24 geometry
+  checks on synthetic DICOM knees (block positions within 6 px of the analytic ones; no medial block in the lateral
+  regions; a left knee renders like a right one); a synthetic K cache trains end to end.
+- **The same idea was closed 10-15 as redundant with R6 / R7 *in the public blend* (`bliverrigpdoge`'s knee-centred crops
+  +0.001 there).** Reopened by the owner's direction: our own model aimed at the four, judged on them.
+- **K's rules, written now:** (1) *fold 0 is a not-broken check:* against `runs_cnxs_teach1_f0` on the same held-out
+  studies, stop and look if K's mean AUROC over the four is more than **0.03** below, or it ran fewer than 16 epochs;
+  otherwise folds 1–4 go (GPU: the owner's go of 10-16 to train it). (2) *K counts on a finding only if* its single-
+  finding LB probe beats our five teacher folds' probe on that finding (Synovitis 0.884, Lateral OA 0.896, PF OA 0.896,
+  Lateral Meniscus 0.932) by **≥ +0.03**; probes need the owner's go for the slots.

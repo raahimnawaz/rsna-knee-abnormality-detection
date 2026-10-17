@@ -31,14 +31,16 @@ score = (5.5 + AUROC) / 12); a +0.002 on the macro is not (one score ±0.008). *
 
 ## The plan (owner 10-16)
 
-1. **W4, the weak-four model** (training). Our trainer's v3 recipe (spatial attention per finding, slot / depth
-   embeddings, medial ↔ lateral mirroring, 24 windows, 16 epochs, `targets_teacher_v3`) **plus** the loss ×3 on the
-   four (`--focus 3`) and a learned per-finding location bias over (slot, depth) (`--loc-bias 8`). Five folds on the
-   Kaggle GPU (~25 of the last 30 h). Fold 0 first. **Stop rule:** against `runs_cnxs_teach1_f0` on the same 847
-   held-out studies, stop and look if the weak-four mean is ≥ 0.005 below, or it ran < 16 epochs.
+1. **K, the weak-four model** (building; LOG 10-16). The knee joint and patella found by the SKM-TEA segmenter; four
+   regions cut from the original series in the canonical frame: lateral sagittal and lateral coronal (Lateral OA,
+   Lateral Meniscus), axial through the patella (PF OA), central sagittal around the front (Synovitis, PF OA); 8
+   slices each at 256 px, trained at 384 on the four only. CPU kernels build the cache (`build_kcache_kernel.py`), then
+   five folds on the GPU (`--recipe k`). **Fold-0 rule:** stop and look if the mean over the four is > 0.03 below
+   `runs_cnxs_teach1_f0` on the same studies, or < 16 epochs. (W4, `--recipe w4`, is built but set aside: same labels,
+   same mistakes.)
 2. **Measure in the target currency.** Single-finding probes of the 0.958 base, of R7 alone and of W4: each weak
    finding's real AUROC. A build counts on a finding only if it beats the base there by **≥ +0.03**.
-3. **If W4 does not move the four**, the remaining lever is labels graded from images: OAI's MOAKS reads (2,399 knees;
+3. **If K does not move the four**, the remaining lever is labels graded from images: OAI's MOAKS reads (2,399 knees;
    1,659 graded for synovitis; table in `~/oai_data/`, never in this repo) with OAI's images on a rented GPU.
    **Owner's call** (NDA login for the image package; ~$50–150).
 4. **Finals by 10-22:** main = the 0.958 base with R6 + R7 + our members, per finding where they passed step 2;
@@ -74,7 +76,7 @@ score = (5.5 + AUROC) / 12); a +0.002 on the macro is not (one score ±0.008). *
 | `fusion/infer_windows.py` | the same model at test time (what our submission stage runs) |
 | `fusion/score_oof.py`, `fusion/score_gold.py` | paired scoring on held-out studies; gold-58 (report only) |
 | `fusion/runs_*/` | held-out predictions of our trained folds (teacher, consensus), the teacher's, and two scoring controls |
-| `pipeline/` | DICOM → the Stage B slice cache (seven series slots, 96 slices, 384 px, left knees mirrored); also run at test time |
+| `pipeline/` | DICOM → the Stage B slice cache (seven series slots, 96 slices, 384 px, left knees mirrored; also run at test time); `kcache.py`: K's knee-centred region crops |
 | `labeling/` | the training target tables; the OAI MOAKS → twelve-finding mapping (unused unless step 3) |
 | `notebooks/build_backbone_ab_kernel.py` | a training kernel (`--recipe v3` / `w4`) |
 | `notebooks/build_submit_kernel.py` | our model as a submission stage (sha-checked weights, a reproduction gate, a deadline) |
@@ -89,10 +91,11 @@ score = (5.5 + AUROC) / 12); a +0.002 on the macro is not (one score ±0.008). *
 holds tables (git-ignored).
 
 ```bash
-# one W4 fold (folds 1..4: --folds k --tag w4-f<k>); CPU smoke first: --smoke --tag w4s
-$PY notebooks/build_backbone_ab_kernel.py --arch convnext_small --corpus stage_b --folds 0 --n-train 0 --recipe w4 \
+# the K cache: five CPU shards (smoke first: --smoke 10), then one K fold (folds 1..4: --folds k --tag k-f<k>)
+$PY notebooks/build_kcache_kernel.py --shard <0..4> --out <dir> && $K kernels push -p <dir>
+$PY notebooks/build_backbone_ab_kernel.py --arch convnext_small --corpus stage_k --folds 0 --n-train 0 --recipe k \
     --time-budget-h 10 --targets data/student/targets_teacher_v3.csv \
-    --targets-from raahimnawaz/rsna-knee-student-targets --tag w4 --out <dir>
+    --targets-from raahimnawaz/rsna-knee-student-targets --tag k --out <dir>
 $K kernels push -p <dir>                       # then read `fit-budget: … -> 16 epoch(s)` in its first minutes
 
 # results (small files only) and the paired fold-0 check
