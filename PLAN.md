@@ -2,7 +2,7 @@
 
 Finals **2026-10-22 16:59 PDT**. Branch `labels-small-backbone` (the only work branch; `main` is the 10-03
 portfolio snapshot). **This page is the current state.** [`docs/LOG.md`](docs/LOG.md) is the dated archive of every
-run and the rule written before it: read it only for a past result. Last updated 2026-10-16.
+run and the rule written before it: read it only for a past result. Last updated 2026-10-17.
 
 ## Where the score is lost
 
@@ -31,10 +31,10 @@ score = (5.5 + AUROC) / 12); a +0.002 on the macro is not (one score ±0.008). *
 
 ## The plan (owner 10-16)
 
-1. **K, the weak-four model** (cache built 10-16, 4,407 studies, 0 errors; **fold 0 passed its rule 10-17**: mean of
-   the four 0.8628 vs the teacher's 0.8683, but ρ with the teacher 0.78–0.91; **folds 1–2 running from 07:20, 3–4
-   chained as GPU slots free (two at most), all done ~18:30 10-17**; ~5.4 GPU-h a fold, ~3 h of the week left after;
-   LOG 10-16 / 10-17). The knee joint and patella found by the SKM-TEA segmenter; four
+1. **K, the weak-four model** (cache built 10-16, 4,407 studies, 0 errors; **folds 0–2 tie the teacher on the four** (mean
+   −0.0055 / +0.0005 / −0.0030, ρ 0.78–0.91); **its Lateral OA probe (fold 0) read 0.533 = 0.896, the same tick as
+   the five-fold model: FAIL by the owner's +0.03 bar, folds 3–4 not launched, K stands at folds 0–2** (10-17 16:36;
+   ~16 GPU-h of the week left; LOG 10-16 / 10-17). The knee joint and patella found by the SKM-TEA segmenter; four
    regions cut from the original series in the canonical frame: lateral sagittal and lateral coronal (Lateral OA,
    Lateral Meniscus), axial through the patella (PF OA), central sagittal around the front (Synovitis, PF OA); 8
    slices each at 256 px, trained at 384 on the four only. CPU kernels build the cache (`build_kcache_kernel.py`), then
@@ -43,7 +43,8 @@ score = (5.5 + AUROC) / 12); a +0.002 on the macro is not (one score ±0.008). *
    same mistakes.)
 2. **Measure in the target currency: probes of K only** (owner 10-16: "whatever attacks the weakest parts first, and
    only we do that"; no probes of public models, W4 is not trained). K counts on a finding only if its single-finding
-   LB probe beats our five teacher folds' probe there (Synovitis 0.884, Lateral OA 0.896, PF OA 0.896, Lateral
+   LB probe beats our five-fold model's 10-12 probe there (the CONSENSUS folds, 0.945; Synovitis is consensus fold 0 alone;
+   the teacher folds were never probed per finding) (Synovitis 0.884, Lateral OA 0.896, PF OA 0.896, Lateral
    Meniscus 0.932) by **≥ +0.03**. Probes need the owner's go for the slots.
 3. **If K does not move the four**, the remaining lever is labels graded from images: OAI's MOAKS reads (2,399 knees;
    1,659 graded for synovitis; table in `~/oai_data/`, never in this repo). Review 10-17: the only label step that

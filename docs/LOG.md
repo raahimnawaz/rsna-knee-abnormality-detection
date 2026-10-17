@@ -1689,3 +1689,22 @@ there for the owner to discard. Nothing sent.
   Nothing on the list reaches 0.97 by any estimate here.
 - **A gap in the plan's bars, noted:** every bar is our teacher's probe, not the base's AUROC on that finding; the
   owner ruled out probes of public models (10-16), so this stays unmeasured unless the owner reopens it (4 slots).
+
+## 10-17 16:36: K's Lateral OA probe read — FAIL by its rule; folds 3–4 not launched
+
+- **❌ `57328804` (K fold 0 alone, `avg3`, sha `3697d158…`) READ 0.533 (seen 16:36 PDT) → Lateral OA AUROC 0.896**
+  (a shown 0.533 covers 0.890–0.902). The rule (`725e9a2`): ≥ 0.536 → folds 3–4; ≤ 0.535 → not launched. **FAIL:
+  folds 3–4 are not launched; K stands at folds 0–2** (held-out predictions and weights on Kaggle, nothing deleted).
+- **What it says:** on image-graded Lateral OA, one K fold lands on the same tick as the five-fold model (0.533 =
+  0.533). The one-vs-five handicap (~+0.003–0.007) is far smaller than the +0.03 the bar asked for, so five K folds
+  would not have cleared it either (estimate). With the three report-label folds (−0.0055 / +0.0005 / −0.0030) this
+  closes K's question on Lateral OA: **knee-centred crops did not see what the whole-series model misses.** PF OA,
+  Synovitis and Lateral Meniscus were never probed for K; the prior for +0.03 on them is the same weak one (estimate).
+- **A label to correct (traced 16:40):** the 0.896 / 0.896 / 0.932 bars in PLAN step 2 and in the rule above are the
+  **10-12 probes of the five consensus folds** (`57122701` / `57122722` / `57122728`, kernels `…-cv5-nall-p-*` built
+  from `cbfc5af`, the 0.945 model), and Synovitis 0.884 is consensus **fold 0 alone** (`57117247`), not "our five
+  teacher folds'" as PLAN and this LOG called them since 10-16. The teacher folds (0.949 alone) were never probed on a
+  single finding. The verdict does not move (the owner's bar was the number 0.926), but any later bar written as
+  "the teacher's probe" is the consensus model's.
+- **GPU:** folds 3–4 not run, so ~16 h of the week's 30 remain (resets Fri 10-23, after the finals). 3 submission
+  slots of today's 5 expire unused at 17:00.
