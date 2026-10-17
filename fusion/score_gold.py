@@ -1,6 +1,6 @@
 """Score a run on the 58 radiologist-graded (gold) studies.
 
-    python fusion/score_gold.py fusion/runs_c7_ortho
+    python fusion/score_gold.py fusion/runs_cnxs_teach1_f0
     python fusion/score_gold.py --paired <run A> <run B>
 """
 from __future__ import annotations

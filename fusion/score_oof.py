@@ -1,7 +1,7 @@
 """Score a run's out-of-fold predictions: macro AUROC, and a paired bootstrap comparison between two runs.
 
-    python fusion/score_oof.py fusion/runs_c7_ortho
-    python fusion/score_oof.py fusion/runs_c7_ortho fusion/runs_c6_ortho    # paired comparison
+    python fusion/score_oof.py fusion/runs_cnxs_teach1_f0
+    python fusion/score_oof.py fusion/runs_cnxs_teach1_f0 fusion/runs_c6_ortho    # paired comparison
 """
 from __future__ import annotations
 
