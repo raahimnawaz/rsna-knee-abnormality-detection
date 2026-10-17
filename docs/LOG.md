@@ -1665,3 +1665,27 @@ there for the owner to discard. Nothing sent.
   the four (−0.0055 / +0.0005 / −0.0030). The LB probe on image-graded labels is still the only test that can show
   K seeing something the teacher does not. **GPU used this week ~14 h of 30** (folds 0–2 ≈ 13.4 h + the probe and
   sha kernels), so ~16 h remain: room for folds 3–4 (~9 h) and the finals' commit runs if the probe passes.
+
+## 10-17 ~16:30: review of the plan for the weak four (owner: "find whatever is the best route to attack the 4 findings")
+
+- **What is free, checked today:** every public notebook new since 10-16 shows 0.958 (heliosli "0.9586",
+  kaiwalyaatulraut's "solution", lavinwins' "Top 1% Gold"); none beats our base. `leoprovorov`'s analysis notebook
+  reports the open family's shared-error ρ ≈ 0.86–0.89 and a family ceiling ≈ 0.960 (its estimate, equal-model math).
+- **Report-label routes on the four are at that ceiling (measured here):** K folds 0 / 1 / 2 against the teacher on
+  the four −0.0055 / +0.0005 / −0.0030, within-class ρ 0.78–0.91; before it W4 (not run: same labels), two pseudo-label
+  rounds (+0.005 / +0.006 LB, neither shown), LLM re-reads (tables cap ~0.90 on gold), cartilage measurements (0.65).
+- **Gold-58 splits the four (direction only, 11–27 positives each):** Synovitis is bound by its labels (reports
+  0.741, our model 0.853); Lateral OA and PF OA by the model (reports 0.872 / 0.905, model 0.822 / 0.852); Lateral
+  Meniscus both (0.874 / 0.894).
+- **The one outside signal with a measured gain:** OAI MOAKS (image-graded). The OAI-trained teacher round paid
+  +0.006 on the LB, `nartaa` reports +0.003–0.005 for OAI supervision of PF OA, Lateral OA and Synovitis. **Unused:
+  the menisci** (MOAKS tears / maceration on 2,399 knees, Lateral Meniscus 21 %, double-read agreement 0.939).
+- **What changed since the 10-15 cut of "OAI images on the Mac" (cut as a repeat of Raptor):** K showed the vision-only
+  route keeps the shared errors; Raptor never supervised the menisci; the trainer runs on MPS here (no rent; the owner
+  ruled out rented GPUs 10-15). **Proposed, not approved:** step 0 is a look only (the owner builds the NDA package
+  for the 2,400 knees' baseline MRIs and reads its size), then an OAI → cache adapter (CPU, ~half a day), one
+  fine-tune of the teacher on reports + MOAKS for the four and Medial Meniscus on this Mac (est. 10–15 h), packed by
+  `offkaggle.py`, gated, probed (2–4 slots). Expected +0.001–0.004 on the main final (estimate); D stays OAI-free.
+  Nothing on the list reaches 0.97 by any estimate here.
+- **A gap in the plan's bars, noted:** every bar is our teacher's probe, not the base's AUROC on that finding; the
+  owner ruled out probes of public models (10-16), so this stays unmeasured unless the owner reopens it (4 slots).

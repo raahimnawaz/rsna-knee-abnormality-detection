@@ -46,8 +46,12 @@ score = (5.5 + AUROC) / 12); a +0.002 on the macro is not (one score ±0.008). *
    LB probe beats our five teacher folds' probe there (Synovitis 0.884, Lateral OA 0.896, PF OA 0.896, Lateral
    Meniscus 0.932) by **≥ +0.03**. Probes need the owner's go for the slots.
 3. **If K does not move the four**, the remaining lever is labels graded from images: OAI's MOAKS reads (2,399 knees;
-   1,659 graded for synovitis; table in `~/oai_data/`, never in this repo) with OAI's images on a rented GPU.
-   **Owner's call** (NDA login for the image package; ~$50–150).
+   1,659 graded for synovitis; table in `~/oai_data/`, never in this repo). Review 10-17: the only label step that
+   ever paid on the LB came from OAI (+0.006, the OAI-trained teacher); Raptor used OAI for PF OA, Lateral OA and
+   Synovitis only, **never the menisci** (Lateral Meniscus 21 % positive, double-read agreement 0.939). **No rent
+   needed:** the trainer runs on this Mac (`--mps`; ~15 h for a full all-data model here, estimated), 705 GB free.
+   **Owner's call, first step only a look:** sign in to NDA, build the package for the 2,400 knees' baseline MRIs and
+   read its size (~200–400 GB is an estimate) before committing. Images stay on this Mac (DUC §3 / §8).
 4. **Finals by 10-22:** main = the 0.958 base with R6 + R7 + our members, per finding where they passed step 2;
    OAI-free = D. Built on our private dataset copies, without `--read`, and with the vendored-MONAI tree check
    (sha256 `1dcf1dabb83ab80eec50a5c0abfc407b3ba785bf9f30ae6c0e25da124ef87b05`, 194 files of heliosli's
