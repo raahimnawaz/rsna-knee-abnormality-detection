@@ -11,10 +11,10 @@ onto a fixed grid in the canonical frame (left knees mirrored: columns run later
 
   lat_sag   sagittal  the lateral compartment (6-42 mm lateral of J), 80 mm around J      Lateral OA, Lateral Meniscus
   lat_cor   coronal   slices 15 mm anterior to 20 mm posterior of J, the lateral half      Lateral OA, Lateral Meniscus
-  pf_ax     axial     slices within 15 mm of P, 80 mm around the patellofemoral joint    PF OA
+  pf_ax     axial     slices within 15 mm of P, 96 mm around the patellofemoral joint    PF OA
   ant_sag   sagittal  central slices (within 12 mm of J), 96 mm around the front          Synovitis, PF OA
 
-Eight slices a region, 256 x 256 px (0.3125 mm; ant_sag 0.375 mm). The output is the trainer's cache contract
+Eight slices a region, 256 x 256 px (0.3125 mm; pf_ax and ant_sag 0.375 mm). The output is the trainer's cache contract
 (`vols.npy` N x 32 x 256 x 256 uint8, `masks.npy`, `ids.npy`, `manifest.json` spec "k4-32slice-256", `slots.csv`).
 """
 from __future__ import annotations
@@ -38,9 +38,11 @@ X, Y, Z = np.eye(3)
 # name, plane, fluid preference, the slab along the slice normal (mm, relative to the anchor), spacing (mm/px)
 REGIONS = (("lat_sag", "Sagittal", 1, (-42.0, -6.0), 0.3125),
            ("lat_cor", "Coronal", 1, (-15.0, 20.0), 0.3125),
-           ("pf_ax", "Axial", 1, (-15.0, 15.0), 0.3125),
+           ("pf_ax", "Axial", 1, (-15.0, 15.0), 0.375),
            ("ant_sag", "Sagittal", 1, (-12.0, 12.0), 0.375))
-PATELLA_DEFAULT = np.array([0.0, -35.0, 25.0])   # P - J when the patella is not found: anterior (-y) and superior (+z)
+# P - J when the patella is not found: 40 mm anterior (-y), 25 mm superior (+z) -- heliosli's anchor default ("+30 cut
+# it" on the gold montages); 35 clipped the patella in K's smoke montages (10-16)
+PATELLA_DEFAULT = np.array([0.0, -40.0, 25.0])
 VENDOR_TREE_SHA = "1dcf1dabb83ab80eec50a5c0abfc407b3ba785bf9f30ae6c0e25da124ef87b05"
 ANATOMY_SHA = "5904dd16eb9a4fd7a1caf90ac977f8fe2ef364908598c23c209db3fe7fd1563e"
 
@@ -167,8 +169,10 @@ def anchors(model, sag: list[dict], imgs: dict, m: np.ndarray, dev: str = "cpu")
     idx = sorted(imgs)
     pts_j, w_j, pts_p, w_p = [], [], [], []
     h = (SEG_PX - 1) / 2.0
-    keep = np.zeros((SEG_PX, SEG_PX), bool)
+    keep = np.zeros((SEG_PX, SEG_PX), bool)                 # joint tissue: the central 70 % (edge firing, 10-16)
     keep[int(.15 * SEG_PX):int(.85 * SEG_PX), int(.15 * SEG_PX):int(.85 * SEG_PX)] = True
+    keep_p = np.zeros((SEG_PX, SEG_PX), bool)               # patella: everything but a 5 % border (it sits anterior)
+    keep_p[int(.05 * SEG_PX):int(.95 * SEG_PX), int(.05 * SEG_PX):int(.95 * SEG_PX)] = True
     with torch.inference_mode():
         for i in idx:
             s, c = sag[i], slice_centre(sag[i])
@@ -176,9 +180,9 @@ def anchors(model, sag: list[dict], imgs: dict, m: np.ndarray, dev: str = "cpu")
             t = torch.from_numpy(x)[None, None].to(dev)
             p = model(t).sigmoid()[0].float().cpu().numpy()
             joint = p[1:4].max(0) > .5
-            for mask, pts, ws in ((joint & keep, pts_j, w_j), ((p[0] > .5) & keep, pts_p, w_p)):
+            for mask, pts, ws, least in ((joint & keep, pts_j, w_j, 20), ((p[0] > .5) & keep_p, pts_p, w_p, 10)):
                 a, b = np.nonzero(mask)
-                if len(a) >= 20:
+                if len(a) >= least:
                     pts.append(world_of(c, s, -Z, Y, SEG_MM, SEG_PX, a, b).mean(0))
                     ws.append(len(a))
     mass = sum(w_j)
@@ -186,7 +190,7 @@ def anchors(model, sag: list[dict], imgs: dict, m: np.ndarray, dev: str = "cpu")
         centre = np.mean([slice_centre(sag[i]) for i in idx], 0)
         return centre, centre + PATELLA_DEFAULT, "fallback: no joint tissue"
     J = np.average(np.array(pts_j), 0, weights=np.array(w_j, float))
-    if sum(w_p) >= 120:
+    if sum(w_p) >= 60:
         P = np.average(np.array(pts_p), 0, weights=np.array(w_p, float))
         if not (P[1] < J[1] and P[2] > J[2] - 10):        # the patella sits anterior to the joint and not below it
             return J, J + PATELLA_DEFAULT, "segmenter; patella implausible"
@@ -250,7 +254,7 @@ def build_study(study_dir: Path, series: list[dict], model=None, dev: str = "cpu
         elif name == "lat_cor":
             ref, centre = J @ normal, J - 22.0 * m             # the lateral half of the joint
         elif name == "pf_ax":
-            ref, centre = P @ normal, P + 15.0 * Y              # between the patella and the trochlea
+            ref, centre = P @ normal, P + 12.0 * Y              # the patella, the joint and the trochlea
         else:
             ref, centre = J @ normal, P + 25.0 * Y              # the front: suprapatellar recess to Hoffa's fat pad
         picks = pick_slab(hdr, normal, ref, lo, hi, PER)
@@ -315,7 +319,7 @@ def _check() -> None:
     # expected block centres (row, column) on the grid, from the phantom's knee-local boxes (canon_fixture.phantom)
     want = {"lat_sag": (h + 22.5 / 0.3125, h + 20.0 / 0.3125),           # lateral block: si -22.5, ap +20
             "lat_cor": (h + 22.5 / 0.3125, h + (-32.5 + 22.0) / 0.3125),  # si -22.5, mu -32.5 (centre at mu -22)
-            "pf_ax": (h + (-30.0 + 20.0) / 0.3125, None)}                 # medial block: ap -30 (centre at ap -20)
+            "pf_ax": (h + (-30.0 - (PATELLA_DEFAULT[1] + 12.0)) / REGIONS[2][4], None)}   # medial block: ap -30
     renders = {}
     n = 0
     for suid, t in truth.items():
@@ -329,7 +333,7 @@ def _check() -> None:
             hdr = read_series(root / "train_series" / suid / uid_of[plane])
             normal, row_ax, col_ax = axes(plane, m)
             ref = (P if name == "pf_ax" else J) @ normal
-            centre = {"lat_sag": J, "lat_cor": J - 22.0 * m, "pf_ax": P + 15.0 * Y, "ant_sag": P + 25.0 * Y}[name]
+            centre = {"lat_sag": J, "lat_cor": J - 22.0 * m, "pf_ax": P + 12.0 * Y, "ant_sag": P + 25.0 * Y}[name]
             picks = pick_slab(hdr, normal, ref, lo, hi, PER)
             assert len(picks) >= 5, (t["name"], name, picks)
             tiles = np.stack([render(B.decode(hdr[i]["file"]), hdr[i], centre, row_ax, col_ax, mm, IMG) for i in picks])
