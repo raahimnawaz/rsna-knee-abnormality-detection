@@ -50,7 +50,8 @@ def load_meta(weights: Path) -> dict:
     p = Path(weights).parent / "last_meta.json"
     m = json.loads(p.read_text()) if p.exists() else {}
     layout = str(m.get("layout", "stage_a"))
-    spec = "c8" if layout.startswith("stage_c") else "c7" if layout.startswith("stage_b") else "c6"
+    spec = ("k4" if layout.startswith("stage_k") else "c8" if layout.startswith("stage_c")
+            else "c7" if layout.startswith("stage_b") else "c6")
     out = {"source": str(p) if p.exists() else "none (Stage A defaults)", "spec": spec,
            "canon": "canon True" in layout, "res": int(m.get("res", 336)), "img": int(m.get("img", 336)),
            "timm": m.get("timm", "vit_large_patch16_dinov3"), "pool": m.get("pool", "token"),
@@ -58,6 +59,11 @@ def load_meta(weights: Path) -> dict:
            "spatial": bool(m.get("spatial", False)), "mirror_tta": bool(m.get("mirror_tta", False)),
            "loc_slots": int(m.get("loc_slots", 0)), "loc_bins": int(m.get("loc_bins", 0)),
            "rope_periods": m.get("rope_periods"), "slot_sizes": tuple(m.get("slot_sizes") or SLOT_SIZES)}
+    if spec == "k4":                                        # K: pipeline/kcache.py's region crops
+        import kcache as K
+        if out["slot_sizes"] != (K.PER,) * len(K.REGIONS) or out["img"] != K.IMG:
+            raise SystemExit(f"{p}: slots {out['slot_sizes']} img {out['img']} are not K's")
+        return out
     Sp = B.SPECS[spec]
     if tuple(s.n_slices for s in Sp.SLOTS) != out["slot_sizes"] or Sp.IMG != out["img"]:
         raise SystemExit(f"{p}: slots {out['slot_sizes']} img {out['img']} are not spec {spec}'s "
@@ -95,6 +101,86 @@ class DicomStudies(torch.utils.data.Dataset):
         slot, pos = window_meta(cs, self.slot_sizes)
         return (uid, torch.from_numpy(np.ascontiguousarray(w)), torch.from_numpy(slot), torch.from_numpy(pos),
                 err, time.time() - t)
+
+
+def _identity(b):
+    return b
+
+
+class KAnchorInputs(torch.utils.data.Dataset):
+    """K, pass 1, in a decode worker: one study -> (uid, the segmenter's input or None, error or '', seconds)."""
+
+    def __init__(self, img_dir: Path, uids: list[str], by_study: dict[str, list[dict]]):
+        self.img_dir, self.uids, self.by_study = img_dir, uids, by_study
+
+    def __len__(self) -> int:
+        return len(self.uids)
+
+    def __getitem__(self, i: int):
+        import kcache as K
+        uid, t = self.uids[i], time.time()
+        try:
+            inp, err = K.study_anchor_inputs(self.img_dir / uid, [dict(s) for s in self.by_study.get(uid, [])]), ""
+        except Exception as e:                              # noqa: BLE001
+            inp, err = None, f"{type(e).__name__}: {e}"
+        return uid, inp, err, time.time() - t
+
+
+class KStudies(torch.utils.data.Dataset):
+    """K, pass 2, in a decode worker: the regions cut around the anchors pass 1 found -> DicomStudies' tuple."""
+
+    def __init__(self, img_dir: Path, uids: list[str], by_study: dict[str, list[dict]], anchors: dict):
+        import kcache as K
+        self.img_dir, self.uids, self.by_study, self.anchors = img_dir, uids, by_study, anchors
+        self.slot_sizes = (K.PER,) * len(K.REGIONS)
+
+    def __len__(self) -> int:
+        return len(self.uids)
+
+    def __getitem__(self, i: int):
+        import kcache as K
+        uid, t = self.uids[i], time.time()
+        n = sum(self.slot_sizes)
+        try:
+            J, P = self.anchors.get(uid, (None, None))
+            if J is None:                                   # no sagittal series: the cache build's empty row too
+                vol, mask, err = np.zeros((n, K.IMG, K.IMG), np.uint8), np.zeros(n, np.uint8), "no anchor"
+            else:
+                vol, mask, _ = K.build_study(self.img_dir / uid, [dict(s) for s in self.by_study.get(uid, [])],
+                                             override=(J, P))
+                err = ""
+        except Exception as e:                              # noqa: BLE001
+            vol, mask, err = np.zeros((n, K.IMG, K.IMG), np.uint8), np.zeros(n, np.uint8), f"{type(e).__name__}: {e}"
+        cs = window_centres(mask, self.slot_sizes) or [len(mask) // 2]     # Windows.__getitem__'s rule
+        w = np.stack([vol[c - 1:c + 2] for c in cs])
+        slot, pos = window_meta(cs, self.slot_sizes)
+        return (uid, torch.from_numpy(np.ascontiguousarray(w)), torch.from_numpy(slot), torch.from_numpy(pos),
+                err, time.time() - t)
+
+
+def k_anchors(root: Path, split: str, uids: list[str], by_study: dict, seg_weights: str, seg_vendor: str,
+              dev: str, workers: int) -> dict:
+    """K, pass 1: the segmenter on the GPU, fed by decode workers -> {uid: (J, P) or (None, None)}."""
+    import kcache as K
+    seg = K.load_segmenter(seg_weights, seg_vendor, dev)
+    dl = torch.utils.data.DataLoader(KAnchorInputs(root / f"{split}_series", uids, by_study), batch_size=None,
+                                     shuffle=False, num_workers=workers, collate_fn=_identity,
+                                     prefetch_factor=4 if workers else None)
+    out, how, t0 = {}, {}, time.time()
+    for k, (uid, inp, err, _) in enumerate(dl):
+        if inp is None:
+            out[uid], h = (None, None), f"none: {err or 'no sagittal series'}"[:60]
+        else:
+            J, P, h = K.anchors_from(seg, inp, dev)
+            out[uid] = (J, P)
+        how[h] = how.get(h, 0) + 1
+        if k % 200 == 0 or k == len(uids) - 1:
+            log(f"  K anchors {k + 1}/{len(uids)}  {(time.time() - t0) / 60:.1f} min")
+    log(f"K anchors: {how}")
+    del seg
+    if dev == "cuda":
+        torch.cuda.empty_cache()
+    return out
 
 
 def build_model(weights: Path, dev: str, meta: dict | None = None) -> WindowMIL:
@@ -138,6 +224,8 @@ def main() -> None:
     ap.add_argument("--n-windows", type=int, default=0,
                     help="thin to ~n windows per study (window_curve.thin); 0 = every window, as scored")
     ap.add_argument("--max-error-frac", type=float, default=0.02)
+    ap.add_argument("--seg-weights", help="K checkpoints: the SKM-TEA segmenter (heliosli's anatomy.pt)")
+    ap.add_argument("--seg-vendor", help="K checkpoints: its vendored MONAI 0.6 (cloud_code/training/vendor_runtime/monai060)")
     ap.add_argument("--check-against", type=Path, help="oof_all.csv: the gate (see docstring)")
     ap.add_argument("--max-abs-diff", type=float, default=0.03)
     ap.add_argument("--mean-abs-diff", type=float, default=0.005)
@@ -172,11 +260,24 @@ def main() -> None:
             raise SystemExit("a checkpoint asks for mirror averaging, but its cache is not canonical")
         log(f"mirror averaging (plain + mirrored pass, MCL plain only) for {sum(m['mirror_tta'] for m in metas)} "
             f"of {len(metas)} checkpoint(s), as each was scored")
-    sagittal = torch.tensor([s_.plane == "Sagittal" for s_ in B.SPECS[meta["spec"]].SLOTS], device=dev)
+    if meta["spec"] == "k4":
+        import kcache as K
+        sagittal = torch.tensor([r[1] == "Sagittal" for r in K.REGIONS], device=dev)
+    else:
+        sagittal = torch.tensor([s_.plane == "Sagittal" for s_ in B.SPECS[meta["spec"]].SLOTS], device=dev)
     if a.n_windows and a.check_against:
         raise SystemExit("--check-against compares with the OOF, which read every window: drop --n-windows")
-    ds = DicomStudies(a.root / f"{a.split}_series", uids, series_by_study(a.root, a.split), a.n_windows,
-                      spec=meta["spec"], canon=meta["canon"])
+    if meta["spec"] == "k4":
+        if not (a.seg_weights and a.seg_vendor):
+            raise SystemExit("a K checkpoint needs --seg-weights and --seg-vendor (the segmenter that finds the knee)")
+        if a.n_windows:
+            raise SystemExit("K reads every window (24); drop --n-windows")
+        by = series_by_study(a.root, a.split)
+        anchors = k_anchors(a.root, a.split, uids, by, a.seg_weights, a.seg_vendor, dev, a.workers)
+        ds = KStudies(a.root / f"{a.split}_series", uids, by, anchors)
+    else:
+        ds = DicomStudies(a.root / f"{a.split}_series", uids, series_by_study(a.root, a.split), a.n_windows,
+                          spec=meta["spec"], canon=meta["canon"])
     dl = torch.utils.data.DataLoader(ds, batch_size=None, shuffle=False, num_workers=a.workers,
                                      prefetch_factor=4 if a.workers else None)
     rows, errs, build_s, infer_s, nwin = [], {}, [], [], []

@@ -24,7 +24,7 @@ PUBLIC = "mattiaangeli/bend-the-knee-to-speedy-raptors-the-original"
 WEIGHTS_KERNEL = f"{OWNER}/rsna-knee-c6-train-ortho"
 WEIGHTS_SHA256 = "1fe51be2ff4deaae4dfd5fafd2354f3b9bbeb0c26cda3fd918a00699fd481b98"   # runs_ortho/last.pt
 DOCKER_IMAGE = "gcr.io/kaggle-private-byod/python@sha256:37c64f7dd9c54116ecd1bcc88817c5469b88387388fade02bfa8bf3fc647d461"
-EMBED = ["fusion/infer_windows.py", "fusion/train_windows.py", "fusion/window_curve.py",
+EMBED = ["fusion/infer_windows.py", "fusion/train_windows.py", "fusion/window_curve.py", "pipeline/kcache.py",
          "pipeline/build_slots64.py", "pipeline/slots64.py", "pipeline/slots96.py", "pipeline/slots118.py",
          "fusion/orthofoundation_model.py", "extractor/metrics.py",
          "fusion/qwen_vlm.py"]
@@ -107,6 +107,16 @@ except Exception as _e:                                    # noqa: BLE001
     _O_NGPU = 1
 _olog(f"GPUs: {_O_NGPU}")
 _O_PY = [_osys.executable, "-u", str(_O_REPO / "fusion" / "infer_windows.py"), "--root", str(_O_ROOT)]
+_o_seg_w = _o_seg_v = None                                 # K checkpoints need the segmenter that finds the knee
+for _d, _dirs, _fs in _oos.walk("/kaggle/input"):
+    _dirs[:] = [x for x in _dirs if x not in _SKIP]
+    if _o_seg_w is None and "anatomy.pt" in _fs:
+        _o_seg_w = _oos.path.join(_d, "anatomy.pt")
+    if _o_seg_v is None and _d.endswith(_oos.path.join("vendor_runtime", "monai060")):
+        _o_seg_v = _d
+if _o_seg_w and _o_seg_v:
+    _O_PY += ["--seg-weights", _o_seg_w, "--seg-vendor", _o_seg_v]
+    _olog(f"segmenter for K: {_o_seg_w} | {_o_seg_v}")
 _O_ALL = ["--weights"] + [str(_c) for _c in _O_CKPTS]
 
 
@@ -560,6 +570,8 @@ def main() -> None:
     ap.add_argument("--public-dir", type=Path, help=f"`kaggle kernels pull {PUBLIC} -m` (Submission B)")
     ap.add_argument("--out", type=Path, required=True)
     ap.add_argument("--ours-only", action="store_true", help="Submission A: our model alone")
+    ap.add_argument("--segmenter", action="store_true", help="mount heliosli's code dataset (the SKM-TEA segmenter and "
+                    "its vendored MONAI, both sha-checked): needed by K checkpoints")
     ap.add_argument("--n-windows", type=int, default=0, help="thin to ~n windows per study; 0 = all (as scored)")
     ap.add_argument("--w-ours", type=float, default=1 / 3, help="the rule gives 1/3; see docstring")
     ap.add_argument("--n-check", type=int, default=8)
@@ -670,7 +682,9 @@ def main() -> None:
             intro += (f"\n\n**This build:** {a.desc} Weights: `{wsrc}`, last.pt sha256 "
                       + ", ".join(f"`{h[:16]}`" for h in shas) + ".")
         new = [md(intro), code(ours), code(sub_a)]
-        sources = {"dataset_sources": wdatasets, "kernel_sources": wkernels, "model_sources": [],
+        sources = {"dataset_sources": wdatasets + (["heliosli/rsna-orthofoundation-fold0-epoch7-20261004"]
+                                                   if a.segmenter else []),
+                   "kernel_sources": wkernels, "model_sources": [],
                    "docker_image": DOCKER_IMAGE}
     elif a.core_alone:
         # the seams this build relies on -- refuse an upstream version that moved any of them

@@ -158,26 +158,31 @@ def load_segmenter(weights: str, vendor: str, dev: str = "cpu"):
     return model.eval().requires_grad_(False).to(dev)
 
 
-def anchors(model, sag: list[dict], imgs: dict, m: np.ndarray, dev: str = "cpu") -> tuple[np.ndarray, np.ndarray, str]:
-    """(J, P, method) from the fluid-sensitive sagittal series: N_ANCHOR slices over its central 80 %, each rendered at
-    the segmenter's 0.3125 mm with S at the top and A at the left; joint tissue (femoral / tibial cartilage, meniscus)
-    and patellar cartilage centroids in patient coordinates, weighted by confident area, inside the central 70 %."""
-    import torch
-    import torch.nn.functional as F
+def anchor_inputs(sag: list[dict], imgs: dict) -> dict:
+    """The CPU half of `anchors` (test time: in the decode workers): each anchor slice rendered at the segmenter's
+    0.3125 mm with S at the top and A at the left, normalised by the slices' mean / std, with its grid frame."""
     vals = np.concatenate([imgs[i].ravel() for i in imgs])
     mean, std = float(vals.mean()), max(float(vals.std()), 1.0)
     idx = sorted(imgs)
+    stack = np.stack([(render(imgs[i], sag[i], slice_centre(sag[i]), -Z, Y, SEG_MM, SEG_PX) - mean) / std
+                      for i in idx]).astype(np.float32)
+    frames = [(slice_centre(sag[i]), sag[i]) for i in idx]
+    return {"stack": stack, "frames": frames, "fallback": np.mean([slice_centre(sag[i]) for i in idx], 0)}
+
+
+def anchors_from(model, inp: dict, dev: str = "cpu") -> tuple[np.ndarray, np.ndarray, str]:
+    """The model half of `anchors` (test time: on the GPU, in the main process): joint tissue (femoral / tibial
+    cartilage, meniscus) inside the central 70 % and patellar cartilage inside all but a 5 % border, their centroids
+    in patient coordinates weighted by confident area."""
+    import torch
     pts_j, w_j, pts_p, w_p = [], [], [], []
-    h = (SEG_PX - 1) / 2.0
     keep = np.zeros((SEG_PX, SEG_PX), bool)                 # joint tissue: the central 70 % (edge firing, 10-16)
     keep[int(.15 * SEG_PX):int(.85 * SEG_PX), int(.15 * SEG_PX):int(.85 * SEG_PX)] = True
     keep_p = np.zeros((SEG_PX, SEG_PX), bool)               # patella: everything but a 5 % border (it sits anterior)
     keep_p[int(.05 * SEG_PX):int(.95 * SEG_PX), int(.05 * SEG_PX):int(.95 * SEG_PX)] = True
     with torch.inference_mode():
-        for i in idx:
-            s, c = sag[i], slice_centre(sag[i])
-            x = (render(imgs[i], s, c, -Z, Y, SEG_MM, SEG_PX) - mean) / std
-            t = torch.from_numpy(x)[None, None].to(dev)
+        for x, (c, s) in zip(inp["stack"], inp["frames"]):
+            t = torch.from_numpy(np.ascontiguousarray(x))[None, None].to(dev)
             p = model(t).sigmoid()[0].float().cpu().numpy()
             joint = p[1:4].max(0) > .5
             for mask, pts, ws, least in ((joint & keep, pts_j, w_j, 20), ((p[0] > .5) & keep_p, pts_p, w_p, 10)):
@@ -185,9 +190,8 @@ def anchors(model, sag: list[dict], imgs: dict, m: np.ndarray, dev: str = "cpu")
                 if len(a) >= least:
                     pts.append(world_of(c, s, -Z, Y, SEG_MM, SEG_PX, a, b).mean(0))
                     ws.append(len(a))
-    mass = sum(w_j)
-    if mass < 250:
-        centre = np.mean([slice_centre(sag[i]) for i in idx], 0)
+    if sum(w_j) < 250:
+        centre = inp["fallback"]
         return centre, centre + PATELLA_DEFAULT, "fallback: no joint tissue"
     J = np.average(np.array(pts_j), 0, weights=np.array(w_j, float))
     if sum(w_p) >= 60:
@@ -196,6 +200,31 @@ def anchors(model, sag: list[dict], imgs: dict, m: np.ndarray, dev: str = "cpu")
             return J, J + PATELLA_DEFAULT, "segmenter; patella implausible"
         return J, P, "segmenter"
     return J, J + PATELLA_DEFAULT, "segmenter; no patella"
+
+
+def anchors(model, sag: list[dict], imgs: dict, m: np.ndarray, dev: str = "cpu") -> tuple[np.ndarray, np.ndarray, str]:
+    """(J, P, method) from the fluid-sensitive sagittal series: N_ANCHOR slices over its central 80 %. One function
+    for the cache build; at test time its two halves run apart (`anchor_inputs` in a worker, `anchors_from` on the
+    GPU), the same arithmetic in the same order."""
+    return anchors_from(model, anchor_inputs(sag, imgs), dev)
+
+
+def study_anchor_inputs(study_dir: Path, series: list[dict]) -> dict | None:
+    """Test time, in a decode worker: everything `build_study` needs before the segmenter, for one study."""
+    import slots96
+    for s in series:
+        d = study_dir / s["SeriesInstanceUID"]
+        s["n_slices"] = len(list(d.glob("*.dcm"))) if d.is_dir() else 0
+    usable = [s for s in series if s["n_slices"] > 0]
+    sag_pick = slots96.assign_series(usable).get("sag_1")
+    if sag_pick is None:
+        return None
+    sag = read_series(study_dir / sag_pick["SeriesInstanceUID"])
+    if len(sag) < 5:
+        return None
+    lo, hi = int(.1 * len(sag)), max(int(.9 * len(sag)) - 1, int(.1 * len(sag)))
+    ai = sorted({int(round(v)) for v in np.linspace(lo, hi, N_ANCHOR)})
+    return anchor_inputs(sag, {i: B.decode(sag[i]["file"]) for i in ai})
 
 
 # ----------------------------------------------------------------------------- one study
@@ -358,6 +387,21 @@ def _check() -> None:
                 n += 1
         vol, mask, meta = build_study(root / "train_series" / suid, rows, override=(J, P))
         assert meta["side"] == t["side"] and mask.sum() >= 4 * 5, (t["name"], meta, mask)
+        n += 1
+    # the test-time split (anchor_inputs in a worker, anchors_from on the GPU) = the cache build, byte for byte
+    import torch
+
+    class Fake(torch.nn.Module):                            # deterministic stand-in for the segmenter
+        def forward(self, x):
+            return torch.cat([(x - 1.2) * 20, (x - 0.3) * 20, (x - 0.4) * 20, (x - 0.5) * 20], 1)
+    fake = Fake().eval()
+    for suid in truth:
+        rows = lambda: [{"SeriesInstanceUID": str(r.SeriesInstanceUID), "plane": r.Anatomical_Plane, "fluid": 1}  # noqa: E731
+                        for r in ser[ser.StudyInstanceUID == suid].itertuples()]
+        v1, m1, meta1 = build_study(root / "train_series" / suid, rows(), fake, "cpu")
+        J2, P2, how2 = anchors_from(fake, study_anchor_inputs(root / "train_series" / suid, rows()), "cpu")
+        v2, m2, _ = build_study(root / "train_series" / suid, rows(), override=(J2, P2))
+        assert meta1["anchor"] == how2 and np.array_equal(v1, v2) and np.array_equal(m1, m2), (suid, meta1, how2)
         n += 1
     for name, *_ in REGIONS:
         d = np.abs(renders[("R_tag", name)] - renders[("L_tag", name)]).max()
