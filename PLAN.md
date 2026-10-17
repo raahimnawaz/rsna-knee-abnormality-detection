@@ -31,7 +31,8 @@ score = (5.5 + AUROC) / 12); a +0.002 on the macro is not (one score ±0.008). *
 
 ## The plan (owner 10-16)
 
-1. **K, the weak-four model** (building; LOG 10-16). The knee joint and patella found by the SKM-TEA segmenter; four
+1. **K, the weak-four model** (cache built 10-16, 4,407 studies, 0 errors; **fold 0 running since 10-16 22:08, 16
+   epochs at ~18.7 min, done ~03:45 10-17**; ~5.3 GPU-h a fold; LOG 10-16). The knee joint and patella found by the SKM-TEA segmenter; four
    regions cut from the original series in the canonical frame: lateral sagittal and lateral coronal (Lateral OA,
    Lateral Meniscus), axial through the patella (PF OA), central sagittal around the front (Synovitis, PF OA); 8
    slices each at 256 px, trained at 384 on the four only. CPU kernels build the cache (`build_kcache_kernel.py`), then
