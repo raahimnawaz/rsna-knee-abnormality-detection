@@ -38,8 +38,10 @@ score = (5.5 + AUROC) / 12); a +0.002 on the macro is not (one score ±0.008). *
    five folds on the GPU (`--recipe k`). **Fold-0 rule:** stop and look if the mean over the four is > 0.03 below
    `runs_cnxs_teach1_f0` on the same studies, or < 16 epochs. (W4, `--recipe w4`, is built but set aside: same labels,
    same mistakes.)
-2. **Measure in the target currency.** Single-finding probes of the 0.958 base, of R7 alone and of W4: each weak
-   finding's real AUROC. A build counts on a finding only if it beats the base there by **≥ +0.03**.
+2. **Measure in the target currency: probes of K only** (owner 10-16: "whatever attacks the weakest parts first, and
+   only we do that"; no probes of public models, W4 is not trained). K counts on a finding only if its single-finding
+   LB probe beats our five teacher folds' probe there (Synovitis 0.884, Lateral OA 0.896, PF OA 0.896, Lateral
+   Meniscus 0.932) by **≥ +0.03**. Probes need the owner's go for the slots.
 3. **If K does not move the four**, the remaining lever is labels graded from images: OAI's MOAKS reads (2,399 knees;
    1,659 graded for synovitis; table in `~/oai_data/`, never in this repo) with OAI's images on a rented GPU.
    **Owner's call** (NDA login for the image package; ~$50–150).
