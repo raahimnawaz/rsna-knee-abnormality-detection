@@ -123,7 +123,8 @@ class Corpus:
 
     RAPTOR_PARTS = (("all_vols.npy", "all_masks.npy", "all_ids.npy"),
                     ("extra_vols.npy", "extra_masks.npy", "extra_ids.npy"))
-    SPECS = {"stage_a": "c6-64slice", "stage_b": "c7-96slice-384", "stage_c": "c8-118slice-384"}
+    SPECS = {"stage_a": "c6-64slice", "stage_b": "c7-96slice-384", "stage_c": "c8-118slice-384",
+             "stage_k": "k4-32slice-256"}                   # K: knee-centred region crops (pipeline/kcache.py)
 
     def __init__(self, root: Path, layout: str = "auto", extra: tuple = ()):
         """`extra`: more roots of the SAME layout (e.g. an external corpus beside the Stage A shards). Each root must be
@@ -575,7 +576,7 @@ def main() -> None:
     ap = argparse.ArgumentParser(description=__doc__.splitlines()[0])
     ap.add_argument("--arch", choices=sorted(ARCHS), required=True)
     ap.add_argument("--corpus", type=Path, default=Path("/kaggle/input"))
-    ap.add_argument("--layout", choices=["auto", "raptor44", "stage_a", "stage_b", "stage_c"], default="auto")
+    ap.add_argument("--layout", choices=["auto", "raptor44", "stage_a", "stage_b", "stage_c", "stage_k"], default="auto")
     ap.add_argument("--synthetic", type=int, default=0, help="N random studies instead of a corpus")
     ap.add_argument("--train", type=Path, help="csv with StudyInstanceUID")
     ap.add_argument("--val", type=Path, help="csv with StudyInstanceUID -- scored, never selected on")
@@ -628,6 +629,7 @@ def main() -> None:
                          "resized back; both views in one bag, train and eval (2x the windows). 0 = off")
     ap.add_argument("--enc-chunk", type=int, default=0,
                     help="evaluation only: encode this many windows per forward (a large encoder on ~80 windows); 0 = all")
+    ap.add_argument("--only-weak4", action="store_true", help="train on the weak four only (WEAK4); K's recipe")
     ap.add_argument("--focus", type=float, default=1.0, help="loss weight on the weak four (WEAK4); 1 = none (W4: 3)")
     ap.add_argument("--loc-bias", type=int, default=0, help="per-finding window-attention bias over (slot, this many "
                     "depth bins); 0 = off (W4: 8). Needs a canonical cache (Stage B / C)")
@@ -705,11 +707,16 @@ def main() -> None:
     log(f"train {len(tr)} (missing from corpus {len(miss_tr)}) | val {len(va)} "
         f"(missing {len(miss_va)}) | gold {len(gold_ids)}")
     ytr = tgt.loc[tr, LABELS].to_numpy(np.float32, copy=True)   # pandas CoW hands back read-only
+    if a.only_weak4:                                        # K: the other eight carry no loss
+        if not a.allow_missing_labels:
+            raise SystemExit("--only-weak4 needs --allow-missing-labels (the other findings become unknown)")
+        ytr[:, [i for i, f in enumerate(LABELS) if f not in WEAK4]] = np.nan
+        log(f"only-weak4: training targets kept for {', '.join(WEAK4)}; the other eight carry no loss")
     nwin = [len(thin_windows(window_centres(corpus.study(u)[1], corpus.slot_sizes), corpus.slot_sizes,
                              a.eval_windows)) for u in va]
     log(f"val windows per study: median {int(np.median(nwin))}, min {min(nwin)}, max {max(nwin)}"
         + (f" (thinned to ~{a.eval_windows})" if a.eval_windows else ""))
-    if a.pos_emb and not str(getattr(corpus, "layout", "")).startswith(("stage_b", "stage_c")):
+    if a.pos_emb and not str(getattr(corpus, "layout", "")).startswith(("stage_b", "stage_c", "stage_k")):
         log("⚠️ --pos-emb on a non-canonical corpus: a slot's depth means lateral on one knee, medial on another")
 
     # ---- model. Rank 0 fetches the encoder weights first; the others read the same file after it.
@@ -1035,7 +1042,7 @@ def main() -> None:
                    "bb_lr": a.bb_lr, "head_lr": a.head_lr, "wd": a.wd, "seed": a.seed, "res": res,
                    "drop_path": a.drop_path, "llrd": a.llrd, "pos_emb": a.pos_emb, "eval_windows": a.eval_windows,
                    "aug_affine": a.aug_affine, "zoom": a.zoom, "spatial_attn": a.spatial_attn, "conf_weight": a.conf_weight,
-                   "focus": a.focus, "loc_bias": a.loc_bias,
+                   "focus": a.focus, "loc_bias": a.loc_bias, "only_weak4": a.only_weak4,
                    "mirror": a.mirror, "mirror_tta": bool(a.mirror_tta), "init": str(a.init) if a.init else None, "slots": a.slots or None,
                    "allow_missing_labels": a.allow_missing_labels,
                    "init_sha256": getattr(a, "init_sha256", None),

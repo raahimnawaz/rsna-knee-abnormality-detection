@@ -34,7 +34,8 @@ DATASETS = ["dreaddevelopment/knee-raptor-corpus",           # 3,200 studies, CC
             "lixin73/rsna-knee-llm-report-labels-sol56"]     # the scoring reference
 KERNELS = ["zhukovoleksiy/rsna-metadata-probe"]              # headers.parquet -> site folds
 STAGE_A_SHARDS = [f"{OWNER}/rsna-knee-stage-a-s{i}of4" for i in range(4)]   # build_stage_a_kernel.py
-STAGE_B_SHARDS = [f"{OWNER}/rsna-knee-stage-b-s{i}of8" for i in range(8)]   # ... --stage b
+STAGE_B_SHARDS = [f"{OWNER}/rsna-knee-stage-b-s{i}of8" for i in range(8)]
+K_SHARDS = [f"{OWNER}/rsna-knee-kcache-s{i}of5" for i in range(5)]       # notebooks/build_kcache_kernel.py   # ... --stage b
 STAGE_C_SHARDS = [f"{OWNER}/rsna-knee-stage-c-s{i}of8" for i in range(8)]   # ... --stage c: dense coronal and axial
 PACKAGE = ["--res", "384", "--drop-path", "0.1", "--llrd", "0.9", "--bb-lr", "9e-5", "--pos-emb", "--fit-budget"]
 SPEED = ["--compile", "--ckpt-blocks", "12"]
@@ -54,6 +55,9 @@ V3_TRAIN_ARGS = ["--allow-missing-labels", "--spatial-attn", "--mirror", "0.5", 
 V3_EPOCHS = 16
 # W4 (owner 10-16, PLAN.md): v3 + the loss on the weak four x3 + a learned per-finding location bias (8 depth bins).
 W4_TRAIN_ARGS = V3_TRAIN_ARGS + ["--focus", "3", "--loc-bias", "8"]
+# K (owner 10-16, PLAN.md): the knee-centred region crops (32 slices, 24 windows: all of them each step), the weak four
+# only, spatial attention per finding; no mirror (the regions are lateral by construction).
+K_TRAIN_ARGS = ["--allow-missing-labels", "--only-weak4", "--spatial-attn", "--k", "24", "--micro", "1"]
 N_TRAIN, DRAW_SEED = 2871, 20260923
 QWEN_EXTRA = ["--fit-budget", "--k", "12", "--eval-windows", "12"]
 # The versions this arch was built and tested against locally; the image may carry neither.
@@ -278,7 +282,7 @@ TRAIN = r'''
 # Train: fusion/train_windows.py, the only place an arm differs is --arch.
 # ============================================================================ #
 NPROC = ((torch.cuda.device_count() if torch.cuda.is_available() else (1 if ARCH.startswith("qwen") else 2))
-         if LAYOUT in ("stage_b", "stage_c") or ARCH.startswith("qwen") else 1)
+         if LAYOUT in ("stage_b", "stage_c", "stage_k") or ARCH.startswith("qwen") else 1)
 _launch = ([sys.executable, "-m", "torch.distributed.run", "--nnodes", "1", "--node_rank", "0",
             "--master_addr", "127.0.0.1", "--master_port", "29511", "--nproc_per_node", str(NPROC)]
            if NPROC > 1 else [sys.executable, "-u"])
@@ -351,7 +355,7 @@ elif ALL_DATA:
     log("ALL DATA: nothing held out, so no 691 score; gold-58 is in summary.json (report only); the LB judges.")
 else:
     for _arm in [RUN] + ([RUN / "avg3"] if (RUN / "avg3" / "oof_all.csv").exists() else []):
-        _ctrl = "runs_c6_ortho" if LAYOUT in ("stage_b", "stage_c") or ARCH.startswith("qwen") else "runs_port_repro"
+        _ctrl = "runs_c6_ortho" if LAYOUT in ("stage_b", "stage_c", "stage_k") or ARCH.startswith("qwen") else "runs_port_repro"
         _pair = [] if TEACHER_FOLD or PREDICT_ALL else [str(REPO / "fusion" / _ctrl)]   # not the 691 alone
         _res = subprocess.run([sys.executable, str(REPO / "fusion" / "score_oof.py")] + _pair + [str(_arm)],
                               capture_output=True, text=True, cwd=str(REPO))
@@ -386,7 +390,7 @@ def main() -> None:
     ap.add_argument("--cpu", action="store_true", help="a CPU session even in full mode (an eval-only check: no GPU quota)")
     ap.add_argument("--train-args", default="", help="extra train_windows flags, one string (e.g. '--bb-lr 3e-4'): "
                     "for an arm that differs from its recipe by a named setting")
-    ap.add_argument("--recipe", choices=["v3", "w4"], help=f"v3: {' '.join(V3_TRAIN_ARGS)} at {V3_EPOCHS} epochs "
+    ap.add_argument("--recipe", choices=["v3", "w4", "k"], help=f"v3: {' '.join(V3_TRAIN_ARGS)} at {V3_EPOCHS} epochs "
                     "(convnext_small on stage_b; pass --targets and one fold per kernel)")
     ap.add_argument("--out", type=Path, required=True)
     g = ap.add_mutually_exclusive_group()
@@ -395,7 +399,7 @@ def main() -> None:
     g.add_argument("--bench", action="store_true", help="T4, ONE full epoch, scored. Prices the run.")
     ap.add_argument("--epochs", type=int, default=10, help="full run only")
     ap.add_argument("--time-budget-h", type=float, default=10.3, help="stage_b: training hours inside the 12 h session")
-    ap.add_argument("--corpus", choices=["raptor44", "stage_a", "stage_b", "stage_c"], default="raptor44",
+    ap.add_argument("--corpus", choices=["raptor44", "stage_a", "stage_b", "stage_c", "stage_k"], default="raptor44",
                     help="raptor44: the CC0 44-slice corpus (the A/B); stage_a: our 64-slice shards")
     ap.add_argument("--targets-from", default="", help="a Kaggle dataset holding --targets byte for byte: attach it "
                                                          "instead of embedding (notebooks over ~1 MB are refused)")
@@ -410,6 +414,11 @@ def main() -> None:
     a = ap.parse_args()
     if a.n_train is None:
         a.n_train = 0 if a.arch.startswith("qwen") else N_TRAIN
+    if a.recipe == "k":
+        if a.arch != "convnext_small" or a.corpus != "stage_k" or not a.targets:
+            raise SystemExit("--recipe k is convnext_small on --corpus stage_k with --targets")
+        a.train_args = " ".join(K_TRAIN_ARGS + a.train_args.split())
+        a.epochs = V3_EPOCHS
     if a.recipe in ("v3", "w4"):
         if a.arch != "convnext_small" or a.corpus != "stage_b" or not a.targets:
             raise SystemExit(f"--recipe {a.recipe} is convnext_small on --corpus stage_b with --targets")
@@ -425,7 +434,7 @@ def main() -> None:
                  if mode == "smoke" else QWEN_EXTRA + (QWEN_BENCH if mode == "bench" else [])) + \
             ["--time-budget-h", str(a.time_budget_h if mode == "full" else 0.6)]
         epochs = a.epochs if mode == "full" else 1
-    elif a.corpus in ("stage_b", "stage_c"):
+    elif a.corpus in ("stage_b", "stage_c", "stage_k"):
         folds = [int(x) for x in a.folds.split(",") if x != ""]
         budget = (a.time_budget_h / max(len(folds), 1)) if mode == "full" else 0.3
         extra = (["--res", "384"] if a.predict_all else SMALL_PACKAGE if a.arch in SMALL
@@ -435,7 +444,7 @@ def main() -> None:
         extra = []
     extra += a.train_args.split()
     folds = [int(x) for x in a.folds.split(",") if x != ""]
-    if folds and (a.corpus not in ("stage_b", "stage_c") or a.all_data or a.predict_all or a.teacher_fold or a.n_train
+    if folds and (a.corpus not in ("stage_b", "stage_c", "stage_k") or a.all_data or a.predict_all or a.teacher_fold or a.n_train
                   or sorted(set(folds)) != folds or not set(folds) <= set(range(5))):
         raise SystemExit("--folds: an increasing list from 0..4, on --corpus stage_b / stage_c with --n-train 0, and not with "
                          "--all-data, --predict-all or --teacher-fold")
@@ -497,13 +506,14 @@ def main() -> None:
     # the A/B keeps its slugs; a Stage A run is a different experiment and gets its own
     name = a.arch.replace("_", "-")                     # a Kaggle slug has no underscore
     slug = {"raptor44": f"rsna-knee-backbone-ab-{name}", "stage_a": f"rsna-knee-c6-train-{name}",
-            "stage_b": f"rsna-knee-c7-train-{name}", "stage_c": f"rsna-knee-c8-train-{name}"}[a.corpus] + (f"-{a.tag}" if a.tag else "") \
+            "stage_b": f"rsna-knee-c7-train-{name}", "stage_c": f"rsna-knee-c8-train-{name}",
+            "stage_k": f"rsna-knee-k-train-{name}"}[a.corpus] + (f"-{a.tag}" if a.tag else "") \
         + (f"-t{a.teacher_fold}" if a.teacher_fold else "") + ("-pa" if a.predict_all else "") \
         + ("-all" if a.all_data else "") + ("-cv" if folds else "")
     datasets = ((DATASETS if a.corpus == "raptor44" else DATASETS[2:]) + ([a.targets_from] if a.targets_from else [])
                 + a.extra_datasets)
     kernels = KERNELS + {"raptor44": [], "stage_a": STAGE_A_SHARDS, "stage_b": STAGE_B_SHARDS,
-                         "stage_c": STAGE_C_SHARDS}[a.corpus]
+                         "stage_c": STAGE_C_SHARDS, "stage_k": K_SHARDS}[a.corpus]
     nb = {"cells": [{"cell_type": "code", "execution_count": None, "metadata": {}, "outputs": [],
                      "source": c.strip("\n").splitlines(keepends=True)} for c in cells],
           "metadata": {"kernelspec": {"display_name": "Python 3", "language": "python", "name": "python3"},
