@@ -1649,3 +1649,19 @@ there for the owner to discard. Nothing sent.
   COMPLETE** (fold 2 ~11:25, fold 1 ~11:50); folds 3–4 wait on this read.
 - **Ops trap:** a `kaggle kernels push` whose reply is lost (the Mac slept mid-call) can still have pushed: check
   `kernels list --sort-by dateRun` before pushing again. `caffeinate -i` does not stop a closed-lid sleep.
+- **K folds 1–2, read 10-17 ~16:30 (look only; no rule was set for them beyond fold 0's):** 16 / 16 epochs each, 0
+  tracebacks, DDP checksums equal; fold 1 14.6–16.7 min an epoch, 4.45 h; fold 2 14.6–14.7 min, 3.98 h (both faster
+  than fold 0's 18.7). `score_oof.py` against `runs_cnxs_teach1_f12` on the same held-out studies, K = avg3:
+
+  | | teacher f1 | K f1 | teacher f2 | K f2 |
+  |---|--:|--:|--:|--:|
+  | Lateral Meniscus | 0.942 | 0.937 | 0.883 | 0.889 |
+  | Lateral OA | 0.853 | 0.850 | 0.861 | 0.859 |
+  | PF OA | 0.831 | 0.836 | 0.882 | 0.881 |
+  | Synovitis | 0.839 | 0.844 | 0.867 | 0.852 |
+  | **mean of the four** | **0.8663** | **0.8668** (+0.0005) | **0.8733** | **0.8703** (−0.0030) |
+
+  (821 and 918 studies.) Fold 0's picture holds on all three folds: on report-derived labels K ties the teacher on
+  the four (−0.0055 / +0.0005 / −0.0030). The LB probe on image-graded labels is still the only test that can show
+  K seeing something the teacher does not. **GPU used this week ~14 h of 30** (folds 0–2 ≈ 13.4 h + the probe and
+  sha kernels), so ~16 h remain: room for folds 3–4 (~9 h) and the finals' commit runs if the probe passes.
