@@ -21,6 +21,20 @@ between ours and the OAI-trained CoAtNet). Improving a model on what the base al
 A gain on one of the four big enough for 0.97 (+0.03 to +0.07) **is** visible in a single-finding probe (submission
 score = (5.5 + AUROC) / 12); a +0.002 on the macro is not (one score ±0.008). **Judge weak-four work on its finding.**
 
+## Backwards from 0.97 (10-17; math in the LOG)
+
+- **0.97 − 0.958 = +0.144 AUROC summed over the twelve.** The eight strong findings sit ~0.97–0.98 in the base
+  (estimate) and cannot carry it: **the four must average ~0.95–0.96, +0.036 each.**
+- **The 0.957/0.958 notebook is the base, not the route.** All its members learn from report labels; their errors
+  are shared (ρ 0.86–0.89, a public analysis; 0.78–0.955 our own measurements) and that family tops out ≈ 0.960.
+- **What a member must be to add +0.036 on a finding at 0.91** (two-score normal model, best non-negative weight):
+  ρ 0.8+ → it must already be ≥ 0.946 alone (impossible on report labels: K, Raptor, our folds all tie at ~0.90);
+  ρ 0.5 → ≥ 0.925; ρ 0.3 → ≥ 0.894. **Only labels the reports didn't produce can give ρ ≤ 0.5.**
+- **The route that fits:** K's knee-centred crops trained on **OAI MOAKS image-graded labels** for the four (plus
+  Medial Meniscus / Medial OA / Effusion as supplements), on this Mac. If it reaches 0.90 at ρ 0.5 on each of the four
+  (assumed, unmeasured) the four gain ~+0.025 each → ~0.966; supplements (other OAI-graded findings, K + teacher at
+  small weight) +0.002–0.004 → ~0.97. Every number in that line is to be measured.
+
 ## Where the submissions are
 
 | | LB | |

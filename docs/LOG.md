@@ -1708,3 +1708,20 @@ there for the owner to discard. Nothing sent.
   "the teacher's probe" is the consensus model's.
 - **GPU:** folds 3–4 not run, so ~16 h of the week's 30 remain (resets Fri 10-23, after the finals). 3 submission
   slots of today's 5 expire unused at 17:00.
+
+## 10-17 ~16:45: backwards from 0.97 (owner: "work backwards from having a .97 … is the .957 notebook something we can build to get there")
+
+- **Arithmetic:** 12 × (0.97 − 0.958) = **+0.144** summed AUROC. Our 0.945 model's probes: four 0.884 / 0.896 /
+  0.896 / 0.932, the other eight ~0.966. Where the base's +0.013 over us sits is unmeasured: spread evenly, the base's
+  four are 0.897 / 0.909 / 0.909 / 0.945 and its eight 0.979; weighted to the four, 0.909 / 0.921 / 0.921 / 0.957
+  and 0.973. Either way, with the eight unchanged **the four must gain +0.036 each** (to ~0.951 / ~0.963 mean).
+- **Member requirement** (binormal, unit noise, error correlation ρ with the base, best non-negative weight; base 0.91
+  → 0.946): ρ 0.2 ≥ 0.872 · 0.3 ≥ 0.894 · 0.4 ≥ 0.911 · 0.5 ≥ 0.925 · 0.6 ≥ 0.935 · 0.7 ≥ 0.942 · 0.8+ ≥ 0.946 (base 0.90 →
+  0.936: 0.856 / 0.879 / 0.897 / 0.912 / 0.923 / 0.931 / 0.935). What measured kinds add at base 0.91: K-like (par, ρ
+  0.85) +0.008 (held-out measured +0.004); cartilage measures (0.65, ρ 0.2) +0.001; Raptor-like mixed labels (par,
+  ρ 0.9) +0.006. Hypothetical OAI-supervised: 0.88 @ ρ 0.5 +0.018; 0.90 @ 0.5 +0.025; 0.92 @ 0.6 +0.028.
+- **So the 0.958 notebook is the base** (any final contains it) **but cannot be the source of the last +0.012**: its
+  members share the report labels' errors. The gain has to come from a member trained on labels the reports did not
+  produce; of those, only OAI MOAKS is in reach (2,399 image-graded knees, all four findings).
+- **K's Lateral OA probe (`57328804`) read 0.533 = 0.896 → FAIL** (recorded by the RSNA_2 session, `9fc1992`). K's
+  crops stay the candidate architecture for the OAI-labelled member: built, cache-tested, test-time parity checked.
