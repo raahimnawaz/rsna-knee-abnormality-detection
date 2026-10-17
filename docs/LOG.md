@@ -1570,3 +1570,15 @@ there for the owner to discard. Nothing sent.
   otherwise folds 1–4 go (GPU: the owner's go of 10-16 to train it). (2) *K counts on a finding only if* its single-
   finding LB probe beats our five teacher folds' probe on that finding (Synovitis 0.884, Lateral OA 0.896, PF OA 0.896,
   Lateral Meniscus 0.932) by **≥ +0.03**; probes need the owner's go for the slots.
+- **K, build and checks (10-16 ~17:00–18:30):** smoke v1 (`7204653`, 10 train studies): every region filled in 10 / 10,
+  ~12.5 s a study on 4 CPUs, the joint found in 9 / 10, the patella in 3 / 10; the montages showed the lateral
+  compartment in both lateral regions and the patella over the trochlea where it was found, and pf_ax clipping the
+  patella where the 35 mm default stood in. **Label-free fixes (`867c2c9`):** the default patella 40 mm anterior
+  (heliosli's), patella detection over the whole field less a 5 % border, pf_ax 96 mm; smoke v2: patella found 4 / 10,
+  found offsets 32–43 mm anterior, 21–50 mm superior; pf_ax shows patella and trochlea. **Shards launched 18:22 from
+  `867c2c9`:** `raahimnawaz/rsna-knee-kcache-s{0..4}of5` (~881 studies each, ~3 h).
+- **K at test time (`4bcb63c`):** the knee finder split into a CPU half (decode workers) and a GPU half, the same
+  arithmetic in the same order: byte-identical crops on synthetic knees (`kcache --check`, 28 checks); with the real
+  segmenter the training-cache path and the submission path give the same predictions (max |dp| 5.6e-17).
+  `infer_windows` runs K in two passes; `build_submit_kernel --ours-only --segmenter [--probe <finding>]` builds K's
+  submission or a single-finding probe. The OURS gate rebuilds training studies from DICOMs, so it checks K end to end.
