@@ -1640,3 +1640,12 @@ there for the owner to discard. Nothing sent.
   ⇔ score ≥ 0.5355: **a shown 0.536 or higher → PASS: push folds 3 and 4; a shown 0.535 or lower (AUROC < 0.926) →
   FAIL: folds 3–4 are not launched**, and K stands at folds 0–2. Handicap known before the read: one fold against
   the teacher's five-fold ensemble (worth ~+0.003–0.007 on the consensus model's macro); the owner's bar stands as set.
+- **⏳ The Lateral OA probe SUBMITTED 10-17 16:20 PDT, ref `57328804`, PENDING.** Kernel
+  `raahimnawaz/rsna-knee-sub-a-ortho-k-f0-nall-p-lateral-oa` v1, built from `725e9a2`, weights fold 0 `avg3/last.pt`
+  sha256 `3697d158d9db052f8334a22822df2da358e046ebca0000e33674366a9beef553` (fold 0's last epoch: `469979aa…`; read
+  on Kaggle, `rsna-knee-weights-sha` v8). Read in its log before the submit: `sha256 ok`, `GATE PASSED (1/1)` (8
+  training studies rebuilt from DICOMs, max |dp| 0.00039), `PROBE: only Lateral OA is the model's; the other 11
+  columns are 0.5`, `ARMS: convnext_small_stage_k only`, 0 tracebacks. 4 slots left to 17:00 PDT. **Folds 1 and 2
+  COMPLETE** (fold 2 ~11:25, fold 1 ~11:50); folds 3–4 wait on this read.
+- **Ops trap:** a `kaggle kernels push` whose reply is lost (the Mac slept mid-call) can still have pushed: check
+  `kernels list --sort-by dateRun` before pushing again. `caffeinate -i` does not stop a closed-lid sleep.
