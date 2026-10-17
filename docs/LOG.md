@@ -1593,3 +1593,16 @@ there for the owner to discard. Nothing sent.
   40 mm / 25 mm default); patella implausible 5; **no joint tissue 246 (5.6 %)**, J = the mean centre of the central
   sagittal slices. Not a stop by any rule; a K weakness to keep in view: pf_ax and ant_sag sit on the default offset
   in ~48 % of knees, and the lateral regions on a field-centre joint in ~6 %.
+- **The training kernel's CPU smoke (`raahimnawaz/rsna-knee-k-train-convnext-small-k-smoke-cv`, from `90f975e`):** the
+  five shards mount (4,407 studies, slots 8 / 8 / 8 / 8, canon), fold 0 = 3,502 train / 847 val (691 / 691 control
+  studies in fold 0), only the weak four carry loss, two epochs, loss 1.3566 → 0.8206, DDP weight checksums equal on
+  both ranks, `SMOKE: the whole path ran`, 0 tracebacks. (`grad-norm nan` at ep0 it0 is the value before the first
+  optimizer step under accumulation, not a NaN gradient.)
+- **K fold 0 launched 10-16 22:08 (`raahimnawaz/rsna-knee-k-train-convnext-small-k-cv`, from `1138775`, two T4s; the
+  owner's go to train K):** `fit-budget: 0.49 s per 1-study micro-step -> 19.4 min/epoch; 9.99 h left -> 16 epoch(s)
+  (cap 16)`; 437 steps an epoch (bs 8 = 1 × 2 GPU × 4), k 24, 384 px, fp16; epochs 0–1 measured 18.6 / 18.7 min, loss
+  0.9243 → 0.8343. **Projected ~5.0 h of training + eval, done ~03:45 PDT 10-17; ~5.3 GPU-h a fold, ~26.5 h for five of
+  the week's 30 h.** Its rule (written 10-16, above): stop and look if the mean AUROC over the four is > 0.03 below
+  `runs_cnxs_teach1_f0` on the same studies, or < 16 epochs; otherwise folds 1–4.
+- **Ops:** `kaggle kernels logs <kernel>` prints nothing while a run is live; `kaggle kernels logs -f <kernel>` streams
+  the whole log so far (wrap it in `perl -e 'alarm 40; …'` and grep).
