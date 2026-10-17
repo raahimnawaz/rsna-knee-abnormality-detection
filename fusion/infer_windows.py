@@ -56,6 +56,7 @@ def load_meta(weights: Path) -> dict:
            "timm": m.get("timm", "vit_large_patch16_dinov3"), "pool": m.get("pool", "token"),
            "pos_emb": bool(m.get("pos_emb", False)), "n_slots": int(m.get("n_slots", 0)),
            "spatial": bool(m.get("spatial", False)), "mirror_tta": bool(m.get("mirror_tta", False)),
+           "loc_slots": int(m.get("loc_slots", 0)), "loc_bins": int(m.get("loc_bins", 0)),
            "rope_periods": m.get("rope_periods"), "slot_sizes": tuple(m.get("slot_sizes") or SLOT_SIZES)}
     Sp = B.SPECS[spec]
     if tuple(s.n_slices for s in Sp.SLOTS) != out["slot_sizes"] or Sp.IMG != out["img"]:
@@ -103,7 +104,8 @@ def build_model(weights: Path, dev: str, meta: dict | None = None) -> WindowMIL:
     if meta["pool"] == "token":
         kw["img_size"] = meta["res"]
     enc = timm.create_model(meta["timm"].split(".")[0], **kw)      # the pretrained tag names weights, not the architecture
-    m = WindowMIL(enc, meta["res"], n_slots=meta["n_slots"] if meta["pos_emb"] else 0, spatial=meta["spatial"])
+    m = WindowMIL(enc, meta["res"], n_slots=meta["n_slots"] if meta["pos_emb"] else 0, spatial=meta["spatial"],
+                  loc_slots=meta["loc_slots"], loc_bins=meta["loc_bins"])
     m.load_state_dict(torch.load(weights, map_location="cpu", weights_only=True), strict=True)
     rope = getattr(m.encoder, "rope", None)
     if rope is None:                                        # CoAtNet, CNNs: no RoPE, nothing to restore

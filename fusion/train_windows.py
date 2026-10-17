@@ -29,6 +29,14 @@ sys.path.insert(0, str(HERE.parent / "extractor"))
 LABELS = ["ACL", "MCL", "Medial Meniscus", "Lateral Meniscus", "Medial OA", "Lateral OA",
           "PF OA", "Effusion", "Synovitis", "Baker's", "Contusion", "Fracture"]
 SLOT_SIZES = (12, 10, 8, 6, 8)
+# The four findings that hold the macro down (single-finding LB probes 10-12: 0.88-0.93; the other eight ~0.966).
+# W4 (PLAN.md) trains with their loss up-weighted (--focus) and a learned per-finding location bias (--loc-bias).
+WEAK4 = ("Lateral Meniscus", "Lateral OA", "PF OA", "Synovitis")
+
+
+def focus_weights(focus: float) -> np.ndarray:
+    """Per-finding loss weight: `focus` on WEAK4, 1 elsewhere."""
+    return np.array([focus if f in WEAK4 else 1.0 for f in LABELS], np.float32)
 MEAN = (0.485, 0.456, 0.406)
 STD = (0.229, 0.224, 0.225)
 ARCHS = {
@@ -353,9 +361,10 @@ class WindowMIL(nn.Module):
     """Encoder + per-finding attention over windows. Input is uint8; the device does the rest."""
 
     def __init__(self, encoder: nn.Module, res: int, n: int = len(LABELS), drop: float = 0.2,
-                 n_slots: int = 0, spatial: bool = False):
+                 n_slots: int = 0, spatial: bool = False, loc_slots: int = 0, loc_bins: int = 0):
         super().__init__()
         self.encoder, self.res, self.n_slots, self.spatial = encoder, res, n_slots, spatial
+        self.loc_slots, self.loc_bins = loc_slots, loc_bins
         self.affine = 0.0
         self.zoom = 0.0
         self.enc_chunk = 0                                  # eval only: windows per encoder forward; 0 = all at once
@@ -380,6 +389,11 @@ class WindowMIL(nn.Module):
                 raise SystemExit("--spatial-attn needs a conv encoder with a pooled head (convnext_*)")
             self.sq = nn.Parameter(torch.zeros(n, f))
             self.sq_norm = nn.LayerNorm(f)
+        if loc_bins:
+            # Where each finding reads (W4): a bias on its window-attention logit by the window's slot and depth bin
+            # (canonical cache: a sagittal slot's depth runs lateral -> medial). ZERO at start: step 0 is the model
+            # without it. A mirrored draw reads its depth backwards (mirror_windows), so the bias stays anatomical.
+            self.loc = nn.Parameter(torch.zeros(n, loc_slots, loc_bins))
         self.register_buffer("mean", torch.tensor(MEAN).view(1, 3, 1, 1), persistent=False)
         self.register_buffer("std", torch.tensor(STD).view(1, 3, 1, 1), persistent=False)
 
@@ -439,6 +453,11 @@ class WindowMIL(nn.Module):
         a = self.att(h)                                     # (B,K,12)
         if self.spatial:
             a = torch.diagonal(a, dim1=2, dim2=3)           # finding n scores the windows by its own token
+        if self.loc_bins:
+            if slot is None or pos is None:
+                raise ValueError("this model was built with a location bias: pass slot and pos")
+            bins = (pos.float().clamp(0, 1) * self.loc_bins).long().clamp_max(self.loc_bins - 1)
+            a = a + self.loc[:, slot, bins].permute(1, 2, 0).to(a.dtype)       # (n,B,K) -> (B,K,n)
         if mask is not None:
             a = a.masked_fill(~mask[..., None], float("-inf"))
         a = torch.softmax(a, dim=1)
@@ -609,6 +628,9 @@ def main() -> None:
                          "resized back; both views in one bag, train and eval (2x the windows). 0 = off")
     ap.add_argument("--enc-chunk", type=int, default=0,
                     help="evaluation only: encode this many windows per forward (a large encoder on ~80 windows); 0 = all")
+    ap.add_argument("--focus", type=float, default=1.0, help="loss weight on the weak four (WEAK4); 1 = none (W4: 3)")
+    ap.add_argument("--loc-bias", type=int, default=0, help="per-finding window-attention bias over (slot, this many "
+                    "depth bins); 0 = off (W4: 8). Needs a canonical cache (Stage B / C)")
     ap.add_argument("--spatial-attn", action="store_true",
                     help="per-finding attention over the positions of each window's feature map, in place of the global "
                          "average; starts as the average (convnext_* only)")
@@ -712,7 +734,12 @@ def main() -> None:
         barrier(world)
         if rank != 0:
             enc = build_encoder(a.arch, a.weights_dir, res, a.drop_path)
-        model = WindowMIL(enc, res, n_slots=len(corpus.slot_sizes) if a.pos_emb else 0, spatial=a.spatial_attn).to(dev)
+        if a.loc_bias and "canon True" not in str(getattr(corpus, "layout", "")):
+            raise SystemExit("--loc-bias needs a canonical cache (Stage B / C): a slot's depth must mean the same side")
+        model = WindowMIL(enc, res, n_slots=len(corpus.slot_sizes) if a.pos_emb else 0, spatial=a.spatial_attn,
+                          loc_slots=len(corpus.slot_sizes) if a.loc_bias else 0, loc_bins=a.loc_bias).to(dev)
+        if a.loc_bias:
+            log(f"location bias: per finding over {len(corpus.slot_sizes)} slots x {a.loc_bias} depth bins (zero-initialised)")
         if a.spatial_attn:
             log("spatial attention: a query per finding over each window's feature map (zero-initialised = the average)")
     if a.init:
@@ -802,6 +829,10 @@ def main() -> None:
         steps_per_epoch = min(steps_per_epoch, a.max_steps)
     scaler = torch.amp.GradScaler("cuda", enabled=amp)
 
+    fw = torch.from_numpy(focus_weights(a.focus)).to(dev)
+    if a.focus != 1.0:
+        log(f"focus: loss x{a.focus:g} on {', '.join(WEAK4)}")
+
     def micro_step(x, sl, ps, y, sync: bool):
         gain = 1.0 + (torch.rand(len(x), device=dev) - 0.5) * 0.2
         with (nullcontext() if sync or world == 1 else net.no_sync()):
@@ -810,11 +841,11 @@ def main() -> None:
             if a.allow_missing_labels:                  # an unknown target carries no loss (e.g. fastMRI+)
                 known = torch.isfinite(y)
                 y0 = torch.where(known, y, torch.zeros_like(y))
-                w = ((0.25 + 0.75 * (2 * y0 - 1).abs()) if a.conf_weight == "fork" else 1.0) * known
+                w = ((0.25 + 0.75 * (2 * y0 - 1).abs()) if a.conf_weight == "fork" else 1.0) * known * fw
                 loss = ((F.binary_cross_entropy_with_logits(logits.float(), y0, pos_weight=pos_w, reduction="none")
                          * w).sum() / known.sum().clamp_min(1))
             else:
-                w = (0.25 + 0.75 * (2 * y - 1).abs()) if a.conf_weight == "fork" else 1.0
+                w = ((0.25 + 0.75 * (2 * y - 1).abs()) if a.conf_weight == "fork" else 1.0) * fw
                 loss = (F.binary_cross_entropy_with_logits(logits.float(), y, pos_weight=pos_w,
                                                            reduction="none") * w).mean()
             if not torch.isfinite(loss):
@@ -966,6 +997,8 @@ def main() -> None:
             "layout": corpus.layout, "slot_sizes": list(corpus.slot_sizes), "img": getattr(corpus, "img", 336),
             "pos_emb": bool(a.pos_emb), "n_slots": model.n_slots, "llrd": a.llrd, "drop_path": a.drop_path,
             "zoom": a.zoom, "spatial": bool(getattr(model, "spatial", False)),
+            "loc_slots": int(getattr(model, "loc_slots", 0)), "loc_bins": int(getattr(model, "loc_bins", 0)),
+            "focus": a.focus,
             "mirror": a.mirror, "mirror_tta": bool(a.mirror_tta),
             "rope_periods": rope.periods.float().tolist() if rope is not None and hasattr(rope, "periods") else None,
             "mean": MEAN, "std": STD,
@@ -1002,6 +1035,7 @@ def main() -> None:
                    "bb_lr": a.bb_lr, "head_lr": a.head_lr, "wd": a.wd, "seed": a.seed, "res": res,
                    "drop_path": a.drop_path, "llrd": a.llrd, "pos_emb": a.pos_emb, "eval_windows": a.eval_windows,
                    "aug_affine": a.aug_affine, "zoom": a.zoom, "spatial_attn": a.spatial_attn, "conf_weight": a.conf_weight,
+                   "focus": a.focus, "loc_bias": a.loc_bias,
                    "mirror": a.mirror, "mirror_tta": bool(a.mirror_tta), "init": str(a.init) if a.init else None, "slots": a.slots or None,
                    "allow_missing_labels": a.allow_missing_labels,
                    "init_sha256": getattr(a, "init_sha256", None),
