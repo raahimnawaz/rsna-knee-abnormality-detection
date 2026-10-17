@@ -1606,3 +1606,26 @@ there for the owner to discard. Nothing sent.
   `runs_cnxs_teach1_f0` on the same studies, or < 16 epochs; otherwise folds 1–4.
 - **Ops:** `kaggle kernels logs <kernel>` prints nothing while a run is live; `kaggle kernels logs -f <kernel>` streams
   the whole log so far (wrap it in `perl -e 'alarm 40; …'` and grep).
+- **✅ K fold 0, read 10-17 ~07:15 by its rule: PASSES (not broken) → folds 1–4.** 16 / 16 epochs (18.4–18.7 min
+  each, loss 0.9243 → 0.6685), 0 tracebacks, DDP checksums equal, 301 min, done 03:29 PDT. `score_oof.py` against
+  `runs_cnxs_teach1_f0` on the same 847 held-out studies (sol56 reference, gold excluded), K = avg3:
+
+  | | teacher f0 | K f0 |
+  |---|--:|--:|
+  | Lateral Meniscus | 0.911 | 0.907 |
+  | Lateral OA | 0.827 | 0.826 |
+  | PF OA | 0.867 | 0.862 |
+  | Synovitis | 0.868 | 0.856 |
+  | **mean of the four** | **0.8683** | **0.8628** (−0.0055; the stop line was 0.8383) |
+
+  The other eight sit near 0.5 (no loss on them, as designed); K's gold-58 "macro" 0.672 is over all twelve and means
+  nothing. **Look only, after the verdict** (`~/…/scratchpad/k_look.py`, same 847): within-class ρ K~teacher
+  0.78–0.91 (negatives 0.79–0.83, positives 0.78–0.91), and a 50/50 rank average gains +0.007 / +0.007 / +0.004 /
+  −0.001 (mean +0.0043). **On report-derived labels K learned what the teacher knows and makes most of the same
+  mistakes**; whether its crops see an image-graded difference the proxy cannot is what the single-finding LB probe
+  (rule 2, ≥ +0.03) decides. The prior for that bar is now weak.
+- **Folds 1–4 (owner's go 10-17: "if it passes, launch folds 1–4"):** folds 1 and 2 pushed 07:20
+  (`…-k-f1-cv`, `…-k-f2-cv`, from `335d1a6`); **Kaggle runs at most two GPU sessions at once** ("Maximum batch GPU
+  session count of 2 reached" for 3 and 4), so a session script pushes fold 3, then 4, as slots free (~12:45), all
+  five done ~18:30 PDT 10-17. GPU: ~5.4 h a fold → ~27 of the week's 30 h, ~3 h left for probes and finals' commit runs:
+  **no room for a re-run**.
