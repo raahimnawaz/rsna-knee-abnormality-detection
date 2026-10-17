@@ -1629,3 +1629,14 @@ there for the owner to discard. Nothing sent.
   session count of 2 reached" for 3 and 4), so a session script pushes fold 3, then 4, as slots free (~12:45), all
   five done ~18:30 PDT 10-17. GPU: ~5.4 h a fold → ~27 of the week's 30 h, ~3 h left for probes and finals' commit runs:
   **no room for a re-run**.
+- **Owner 10-17 ~08:50: "Hold fold 3: … a fold-0-only single-finding probe of K on Lateral OA (one submission slot,
+  go given for that one). Launch folds 3–4 only if it beats 0.896 by +0.03."** The fold 3–4 chain was stopped before
+  it pushed anything; folds 1–2 keep running.
+- **The Lateral OA probe's rule, written before it runs:** kernel `build_submit_kernel.py --ours-only --segmenter
+  --probe "Lateral OA"` on K fold 0's `avg3/last.pt` (the checkpoint fold 0's rule scored), gated on its own
+  held-out predictions. Before the submit its log must show `sha256 ok`, `GATE PASSED`, the PROBE line (only Lateral
+  OA is the model's, the other eleven 0.5) and 0 tracebacks. The board shows three decimals: AUROC = 12 × score − 5.5,
+  so a shown score covers ±0.006 of AUROC. The bar is our five teacher folds' Lateral OA probe 0.896 + 0.03 = 0.926
+  ⇔ score ≥ 0.5355: **a shown 0.536 or higher → PASS: push folds 3 and 4; a shown 0.535 or lower (AUROC < 0.926) →
+  FAIL: folds 3–4 are not launched**, and K stands at folds 0–2. Handicap known before the read: one fold against
+  the teacher's five-fold ensemble (worth ~+0.003–0.007 on the consensus model's macro); the owner's bar stands as set.
