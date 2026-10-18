@@ -1824,3 +1824,9 @@ there for the owner to discard. Nothing sent.
   halves (0.41 → 0.21), but AUROC falls to 0.575 (early-stopped at 14 rounds); PF OA 0.653, ρ 0.29. The decoupled,
   compartment-specific signal is thin in hand-made features; the reference is report-derived and coupled, so it is
   biased against decoupled models. **This lowers the prior for KDC** (estimate), it does not decide it.
+- **KDC smoke passed** (`…-kdc-smoke-cv`, from `8859103`): `targets_teacher_v3_dc.csv` sha256 `173a5c55…` mounted from
+  the private dataset (new version: the eight earlier files byte-identical, still private), finite losses with the
+  masked cells (1.4520 → 0.6934), DDP checksums equal, `SMOKE: the whole path ran`, 0 tracebacks.
+- **KDC fold 0 launched 10-18 12:20** (`raahimnawaz/rsna-knee-k-train-convnext-small-kdc-cv`, from `059d8a7`, two T4s):
+  `fit-budget: 0.49 s per 1-study micro-step -> 19.4 min/epoch; 9.99 h left -> 16 epoch(s)`; done ~17:30 PDT. Read by
+  the rules above (epochs; decoupling ρ ≤ 0.60; not broken ≥ 0.75), then the probe needs the owner's go.

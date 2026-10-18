@@ -55,6 +55,10 @@ score = (5.5 + AUROC) / 12); a +0.002 on the macro is not (one score ±0.008). *
    five folds on the GPU (`--recipe k`). **Fold-0 rule:** stop and look if the mean over the four is > 0.03 below
    `runs_cnxs_teach1_f0` on the same studies, or < 16 epochs. (W4, `--recipe w4`, is built but set aside: same labels,
    same mistakes.)
+1b. **KDC: K on decoupled targets** (10-18; LOG): Lateral OA / PF OA from the report-only labels, masked so they no
+   longer track the other compartments (φ 0.35 → 0.000). **Fold 0 running from 12:20, done ~17:30**; rules in the LOG
+   (decoupling ρ ≤ 0.60, not broken ≥ 0.75, then a Lateral OA probe on the owner's go). Closed beside it: read-time
+   erasure (≤ ~0.01) and the cell screen (xgboost on location-fixed cells: 0.68–0.78, fail).
 2. **Measure in the target currency: probes of K only** (owner 10-16: "whatever attacks the weakest parts first, and
    only we do that"; no probes of public models, W4 is not trained). K counts on a finding only if its single-finding
    LB probe beats our five-fold model's 10-12 probe there (the CONSENSUS folds, 0.945; Synovitis is consensus fold 0 alone;
