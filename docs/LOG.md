@@ -1857,3 +1857,8 @@ there for the owner to discard. Nothing sent.
   (3) download with the owner present (NDA sessions expire in minutes) + adapter + 13–26 h of Mac training (speed never
   measured) + gating + probes lands Wednesday at best with no slack; (4) realistic gain +0.001–0.004 macro. Re-open
   only after the competition, with time to train OAI-only per-subregion heads properly.
+- **PCA view of the same shortcut (10-18, look only):** the first principal component of the three OA scores
+  (z-scored) explains **83 %** of their variance in our teacher folds' held-out logits, 61 % in the report labels,
+  55 % in the radiologists' gold-58 grades (three independent findings would give ~33 %); loadings equal across
+  Medial / Lateral / PF OA in all three. The model compresses the three compartments into one "OA-ness" axis well
+  beyond what either label source holds.
