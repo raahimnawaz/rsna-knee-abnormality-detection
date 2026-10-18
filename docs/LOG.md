@@ -1841,3 +1841,11 @@ there for the owner to discard. Nothing sent.
   tools and the 'image' structure"**: our 2,030 people (2,400 knees) × the series K needs (SAG IW TSE fat-suppressed,
   COR IW TSE; SAG 3D DESS for an axial reformat). Its size is not shown until such a package is built; my estimate
   (not measured): ~60 GB for the two TSE series, ~150–200 GB with DESS. Still the owner's call under the 1 GB rule.
+- **Building the custom package (owner's go, read only) did not finish:** NDA's documented route is Resolve Subject
+  Identifiers (a CSV of OAI IDs) → Get Subject Data → `image03` filters (`image_description` = series, `visnum` 0 =
+  baseline) → filter cart → Create Package (images download only through the Download Manager). The `image03` query
+  page would not render its row, and NDA expired the session mid-way ("Your session has expired. Page has reloaded"):
+  stopped there; nothing added to a cart, no package, no download.
+- **Subset size, ESTIMATED from the measured 983.1 GB / ~4,796 participants (~205 MB a participant, ~0.2 MB an
+  image) and the published protocol:** SAG IW TSE + COR IW TSE for the 2,400 knees **~35 GB**; with SAG 3D DESS
+  **~114 GB**. Not measured: an exact figure needs the package built while signed in.
