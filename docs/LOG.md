@@ -1756,3 +1756,30 @@ there for the owner to discard. Nothing sent.
   the member must find compartment-specific evidence; it enters the blend as a member whose errors are not the base's
   (the blend math wants ρ ≤ 0.5 at ~0.88–0.90). Report-label strata for Lateral OA: Medial OA+ 1,060 (Lateral+ 388),
   Medial OA− 3,289 (Lateral+ 248). Not built, not run; needs a GPU go (~5 h a fold, ~16 h of the week left).
+
+## 10-18: KDC — K on decoupled Lateral OA / PF OA targets (owner's go 10-18: build, rule first, CPU smoke, one fold ~5 GPU-h)
+
+- **The pseudo-label rounds made the shortcut:** hard-label φ (≥ 0.5) Lateral ~ Medial OA is 0.48 in
+  `targets_teacher_v3`, **0.35 in the report-only consensus** (`targets_consensus_v2`), 0.32 for the radiologists
+  (gold-58); PF ~ Medial 0.56 / 0.38 / 0.37. Isolated lateral OA (no Medial or PF OA): 27 of 2,703 knees in
+  teacher_v3, 101 of 2,484 in the reports.
+- **The table, `labeling/build_decoupled_targets.py` → `targets_teacher_v3_dc.csv`** (sha256 `173a5c55…`): Lateral OA
+  and PF OA from the report-only consensus as hard labels (0.35–0.65 masked), then masked at random (seed 20261018)
+  so every stratum of the other two compartments has the column's own rate (Lateral OA 0.131: 2,219 cells kept, 291
+  positive, 1,076 healthy negatives; PF OA 0.325: 2,525 kept, 820 positive); φ with the others 0.31–0.39 → 0.000. The
+  other ten columns are teacher_v3's byte for byte: **the run differs from K fold 0 in these two columns only.** A
+  first draft (teacher_v3's values at an information-maximising rate 0.53) kept 24 healthy negatives: not used.
+- **The run:** `--recipe k`, fold 0, these targets, tag `kdc` (`raahimnawaz/rsna-knee-k-train-convnext-small-kdc-cv`).
+- **Its rules, written before it runs:**
+  1. *Epochs:* fewer than 16 → stop and look.
+  2. *Did the decoupling take?* On fold 0's 847 held-out studies, Spearman(KDC Lateral OA, teacher f0 Medial OA) and
+     Spearman(KDC PF OA, teacher f0 Medial OA) must both be ≤ 0.60 (K: 0.81 / 0.80, teacher 0.82). Above → the model
+     re-learned the shortcut from the other columns: stop, no probe.
+  3. *Not broken:* Lateral OA and PF OA held-out AUROC against the sol56 reference ≥ 0.75 each (a report reference,
+     coupled, so it is biased against this run; it only catches a broken run).
+  4. *Then, if 1–3 pass (the probe needs the owner's go for its slot):* KDC fold 0 alone, `--probe "Lateral OA"`. On
+     a finding, KDC enters the finals only if the two-score formula (best non-negative weight; base 0.896 = the
+     five-fold probe; ρ = KDC ~ teacher f0 within-class Spearman on the 847, the mean over negatives and positives)
+     predicts **≥ +0.012** (one tick). Thresholds: at ρ 0.3 / 0.4 / 0.5 / 0.6 / 0.7 the probe must read AUROC ≥ 0.783 /
+     0.814 / 0.841 / 0.864 / 0.882 (shown score ≥ (5.5 + that) / 12).
+  Look only, reported and deciding nothing: the 50/50 rank blend with the teacher on the 847; gold-58.
