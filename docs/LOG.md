@@ -1849,3 +1849,11 @@ there for the owner to discard. Nothing sent.
 - **Subset size, ESTIMATED from the measured 983.1 GB / ~4,796 participants (~205 MB a participant, ~0.2 MB an
   image) and the published protocol:** SAG IW TSE + COR IW TSE for the 2,400 knees **~35 GB**; with SAG 3D DESS
   **~114 GB**. Not measured: an exact figure needs the package built while signed in.
+- **OAI images CLOSED for this competition (owner 10-18: "is this actually useful then yes otherwise no"; my answer
+  no, an ESTIMATE, not a measurement):** (1) Raptor already trains on OAI grades for three of the four and still
+  errs like us (ρ 0.85): mixed with report labels the OAI signal is swamped, and OAI alone meets a protocol / scanner
+  gap (one research protocol vs mixed clinical scans): the "independent but weak" pattern that failed twice on 10-18;
+  (2) the ~35 GB two-TSE subset has no axial view for PF OA and a non-fat-suppressed coronal, ~114 GB with DESS;
+  (3) download with the owner present (NDA sessions expire in minutes) + adapter + 13–26 h of Mac training (speed never
+  measured) + gating + probes lands Wednesday at best with no slack; (4) realistic gain +0.001–0.004 macro. Re-open
+  only after the competition, with time to train OAI-only per-subregion heads properly.
