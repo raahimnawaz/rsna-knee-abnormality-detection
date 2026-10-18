@@ -1802,3 +1802,25 @@ there for the owner to discard. Nothing sent.
   (mean over negatives and positives) ≤ **0.5** (the one-tick bar at base 0.896 by the two-score formula). Otherwise
   cells + boosted trees are closed as a member. Look only: the same on the KDC targets for Lateral OA / PF OA; grouped
   permutation importance by region × depth and by cell (where each finding is read from).
+- **Model switched to xgboost before the run** (owner: "just install it if its better"; `xgboost 3.4.1` into the venv):
+  `hist`, eta 0.05, depth 4, subsample 0.8, colsample_bytree 0.3, min_child_weight 5, λ 1, ≤ 600 rounds, early
+  stopping 50 on the seeded 10 % inner split. Everything else as written above. Code `fusion/cell_screen.py`.
+- **⛔ The cell screen, read 10-18 ~12:30 by its rule: FAIL on all four → cells + boosted trees closed as a member.**
+  Features in 25 s for 4,407 knees (1 % NaN); fold 0's 3,502 training studies → the 847 held-out, sol56 reference:
+
+  | finding | cells + xgboost | teacher f0 | ρ with teacher (− / + / mean) | rule |
+  |---|--:|--:|--:|---|
+  | Lateral Meniscus | 0.676 | 0.911 | 0.38 / 0.17 / 0.28 | fail |
+  | Lateral OA | 0.675 | 0.827 | 0.36 / 0.46 / 0.41 | fail |
+  | PF OA | 0.707 | 0.867 | 0.54 / 0.49 / 0.51 | fail |
+  | Synovitis | 0.780 | 0.868 | 0.73 / 0.66 / 0.69 | fail |
+
+  As the prior said: independent-ish errors, far too weak (bar 0.84).
+- **Where it reads from (gain share, look only) — the shortcut at pixel level:** Lateral OA takes 0.40 of its gain
+  from the patellofemoral axial and anterior sagittal crops (pf_ax d0 0.14, ant_sag d1 0.14, pf_ax d1 0.12; lat_sag d1
+  0.18) and the lateral coronal crop, the joint-space view, is not in its top four. Synovitis reads from the anterior
+  crop (ant_sag 0.42: suprapatellar recess / Hoffa), anatomically right. **On KDC's decoupled labels** (look only)
+  Lateral OA's top groups gain the lateral coronal crop (0.16; its top cell is lateral coronal) and ρ with the teacher
+  halves (0.41 → 0.21), but AUROC falls to 0.575 (early-stopped at 14 rounds); PF OA 0.653, ρ 0.29. The decoupled,
+  compartment-specific signal is thin in hand-made features; the reference is report-derived and coupled, so it is
+  biased against decoupled models. **This lowers the prior for KDC** (estimate), it does not decide it.
