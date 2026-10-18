@@ -1783,3 +1783,22 @@ there for the owner to discard. Nothing sent.
      predicts **≥ +0.012** (one tick). Thresholds: at ρ 0.3 / 0.4 / 0.5 / 0.6 / 0.7 the probe must read AUROC ≥ 0.783 /
      0.814 / 0.841 / 0.864 / 0.882 (shown score ≥ (5.5 + that) / 12).
   Look only, reported and deciding nothing: the 50/50 rank blend with the teacher on the 847; gold-58.
+
+## 10-18: the cell screen — boosted trees on location-fixed cells of K's crops (owner: "dividing the images into cells … xgboost … features that account for location … the smallest things in the unhealthy bones")
+
+- **Prior, before it runs (estimate):** the closest test on record, segmenter-derived anatomy measurements, read
+  Lateral OA 0.654 / PF OA 0.619 (10-16); hand-made pixel features on report labels are expected to be weak. Run as a
+  screen and as a diagnostic of where the report labels pull each finding from.
+- **Design, fixed now:** K's cache on this Mac (`data/kcache`, 4,407 studies; lat_sag, lat_cor, pf_ax, ant_sag; 8
+  slices × 256 px in the knee-centred canonical frame, so a cell index is a fixed anatomical place). Per study and
+  region: z-score over the filled slices; two depth bins (slices 0–3, 4–7); an 8 × 8 grid of 32-px cells (10 mm; 12 mm
+  in pf_ax / ant_sag); per cell the mean, s.d. and 90th percentile of intensity and the mean |Laplacian| (fine-detail /
+  small-lesion energy): 4 × 2 × 64 × 4 = 2,048 features, missing slices NaN. Model: scikit-learn
+  `HistGradientBoostingClassifier` (xgboost is not installed; same histogram boosted trees), 400 rounds max, lr 0.05,
+  31 leaves, L2 1.0, early stopping on a seeded 10 % of the training studies. One model per weak finding, labels
+  `targets_teacher_v3` ≥ 0.5 (K's), fold 0's 3,502 training studies; scored on the same 847 held-out studies as K
+  fold 0 against the sol56 reference.
+- **Rule:** the screen passes on a finding only if held-out AUROC ≥ **0.84** AND within-class ρ with the teacher f0
+  (mean over negatives and positives) ≤ **0.5** (the one-tick bar at base 0.896 by the two-score formula). Otherwise
+  cells + boosted trees are closed as a member. Look only: the same on the KDC targets for Lateral OA / PF OA; grouped
+  permutation importance by region × depth and by cell (where each finding is read from).
