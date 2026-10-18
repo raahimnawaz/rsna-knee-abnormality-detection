@@ -1830,3 +1830,14 @@ there for the owner to discard. Nothing sent.
 - **KDC fold 0 launched 10-18 12:20** (`raahimnawaz/rsna-knee-k-train-convnext-small-kdc-cv`, from `059d8a7`, two T4s):
   `fit-budget: 0.49 s per 1-study micro-step -> 19.4 min/epoch; 9.99 h left -> 16 epoch(s)`; done ~17:30 PDT. Read by
   the rules above (epochs; decoupling ρ ≤ 0.60; not broken ≥ 0.75), then the probe needs the owner's go.
+
+## 10-18: OAI image sizes, read on NDA with the owner signed in (their Chrome; nothing downloaded)
+
+- **"OAI DICOM Images by Visit"** (nda.nih.gov/oai/accessing_images), complete packages per visit through the OAI
+  Image Dashboard: **OAIBaselineImages 983.1 GB zipped, ~2 TB with the extracted files, 8–12 h transfer** (12-month
+  814.2 GB, 24-month 803.8 GB; screening 44.2 GB). **The complete baseline package is a no-go:** over this Mac's 705 GB
+  free, the 600 GB go/no-go, and the owner's no-massive-downloads rule (10-18).
+- **The page also offers custom packages "containing DICOM images zipped at the series level using the NDA query
+  tools and the 'image' structure"**: our 2,030 people (2,400 knees) × the series K needs (SAG IW TSE fat-suppressed,
+  COR IW TSE; SAG 3D DESS for an axial reformat). Its size is not shown until such a package is built; my estimate
+  (not measured): ~60 GB for the two TSE series, ~150–200 GB with DESS. Still the owner's call under the 1 GB rule.
