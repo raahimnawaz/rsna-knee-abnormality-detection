@@ -1725,3 +1725,34 @@ there for the owner to discard. Nothing sent.
   produce; of those, only OAI MOAKS is in reach (2,399 image-graded knees, all four findings).
 - **K's Lateral OA probe (`57328804`) read 0.533 = 0.896 → FAIL** (recorded by the RSNA_2 session, `9fc1992`). K's
   crops stay the candidate architecture for the OAI-labelled member: built, cache-tested, test-time parity checked.
+
+## 10-18: the owner's idea, "fold away features correlated with what we read well, focus on what we don't" (concept erasure) — measured
+
+- **The coupling, Spearman between two findings** (scripts off-repo, `scratchpad/erasure/coupling.py`; OAI read
+  locally, aggregates only):
+
+  | pair | OAI image grades (2,399) | radiologists, gold-58 | report labels (4,349) | our teacher folds | OAI-trained CoAtNet | K (crops) |
+  |---|--:|--:|--:|--:|--:|--:|
+  | Lateral OA ~ Medial OA | 0.06 | 0.32 | 0.55 | **0.82** | 0.85 | 0.81 |
+  | PF OA ~ Medial OA | 0.16 | 0.37 | 0.58 | **0.82** | 0.81 | 0.80 |
+  | Lateral OA ~ PF OA | 0.12 | 0.28 | 0.50 | **0.81** | 0.82 | 0.78 |
+  | Synovitis ~ Effusion | 0.67 | 0.40 | 0.78 (1,945) | **0.91** | 0.94 | 0.86 |
+  | Lateral ~ Medial Meniscus | 0.00 | 0.12 | 0.26 | 0.57 | 0.51 | 0.55 |
+
+  Our models read one shared "OA-ness" into all three OA compartments, far above the radiologists who grade the test
+  (direction only: gold is 58 enriched studies; OAI is another population; predictions are smoother than labels, so
+  some excess is expected). **K, whose lateral crops cannot see the medial compartment, is coupled the same (0.81):
+  the shortcut comes from the report targets, not the field of view.** Partial OAI supervision (the CoAtNet) does not
+  decouple either.
+- **Folding away at read time (z-logit own − β × partner), look only:** Lateral OA − Medial OA, β 0 / 0.2 / 0.4 / 0.6 /
+  0.8: report labels 0.861 / 0.863 / 0.848 / 0.811 / 0.745; gold-58 0.824 / 0.838 / 0.853 / 0.785 / 0.737 (11 positives).
+  PF OA − Medial OA: 0.870 / 0.872 / 0.862 / 0.823 / 0.748 and 0.853 / 0.861 / 0.860 / 0.812 / 0.739. Synovitis −
+  Effusion falls on both (0.947 → 0.944, 0.853 → 0.841 at 0.2): Synovitis's tie to fluid is real in image grades
+  too (OAI 0.67). Lateral Meniscus flat. **Read-time erasure is worth ≤ ~0.01 (estimate), under one LB tick (0.012):
+  not the lever.** Within-stratum look (gold): Lateral OA among Medial-OA-negative knees 0.732 (5 positives) — the
+  isolated lateral OA the shortcut misses.
+- **The version with a mechanism: decouple the TARGETS, not the scores.** Train K (lateral-only crops) on report
+  labels masked so Lateral OA and PF OA no longer track Medial OA (the trainer already gives NaN cells no loss), so
+  the member must find compartment-specific evidence; it enters the blend as a member whose errors are not the base's
+  (the blend math wants ρ ≤ 0.5 at ~0.88–0.90). Report-label strata for Lateral OA: Medial OA+ 1,060 (Lateral+ 388),
+  Medial OA− 3,289 (Lateral+ 248). Not built, not run; needs a GPU go (~5 h a fold, ~16 h of the week left).
