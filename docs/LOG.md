@@ -1966,3 +1966,6 @@ there for the owner to discard. Nothing sent.
   0.00007; limits 0.03 / 0.005); `ARMS: convnext_small_stage_k only`; `PROBE: only Lateral OA is the model's; the other
   11 columns are 0.5`; 0 tracebacks; 3 public-sample rows, only Lateral OA varies. **Not submitted: waits for the
   owner's go** (5 slots free, none used since 10-17).
+- **⏳ KDC's Lateral OA probe SUBMITTED 10-18 17:33 PDT (owner's go), ref `57374913`, PENDING.** Kernel
+  `…-sub-a-ortho-kdc-f0-nall-p-lateral-oa` v1 (built from `6afab56`, avg3 sha256 `3a6c99c4…`). Rule above: shown ≥
+  0.529 → PASS; ≤ 0.528 → FAIL. 4 slots left to 17:00 PDT 10-19.
