@@ -3,9 +3,6 @@ r"""Build a CPU kernel that prints the sha256 of every checkpoint in the attache
     python kaggle/build_weights_sha_kernel.py --kernels <owner>/<training kernel> [<owner>/<another> ...] --out /tmp/sha
     python -m kaggle kernels push -p /tmp/sha
     python -m kaggle kernels output raahimnawaz/rsna-knee-weights-sha -p /tmp/sha_out     # weights_sha.json
-
-The submission builder pins weights by sha256. This reads them where the files are, so a checkpoint
-never has to be downloaded to be submitted.
 """
 from __future__ import annotations
 

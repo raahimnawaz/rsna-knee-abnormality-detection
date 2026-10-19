@@ -1,16 +1,8 @@
 """Send a fixed list of kernel submissions once a wall-clock time has passed, and survive the session that armed it.
 
-    .venv/bin/python kaggle/submit_at_reset.py --plan kaggle/submit_plan_<date>.json \
-        --not-before "2026-10-13 17:02:00" --detach          # arm; returns at once
+    .venv/bin/python kaggle/submit_at_reset.py --plan kaggle/submit_plan_<date>.json         --not-before "2026-10-13 17:02:00" --detach          # arm; returns at once
     .venv/bin/python kaggle/submit_at_reset.py --plan <plan> --dry-run   # what it would send now, nothing sent
     tail data/submitter.log                                   # what it did
-
-Why it exists: two submitters armed as a session's background task were gone before 17:00 on 10-13 (they stop with
-the session). --detach forks twice into its own process session, so closing the app's session does not take it down.
-It polls the wall clock, so a Mac that slept through the hour sends on wake. It does not survive a reboot.
-
-Never sends an item twice: before each send it lists the competition's submissions and skips an item whose `key`
-is in a description dated on the plan's `slot_day_utc`; it stops once `max_in_day` submissions carry that date.
 """
 import argparse
 import csv
@@ -42,7 +34,7 @@ def kaggle(args, timeout=180):
 
 
 def sent_on(competition, day):
-    """Descriptions of the submissions dated `day` (UTC, as the listing prints it). None if the listing failed."""
+    """Descriptions of the submissions dated `day` (UTC, as the listing prints it)."""
     rc, out = kaggle(["competitions", "submissions", competition, "-v"])
     if rc != 0:
         return None
@@ -108,13 +100,12 @@ def main():
         null = os.open(os.devnull, os.O_RDWR)
         for fd in (0, 1, 2):
             os.dup2(null, fd)
-        # keep an idle Mac awake until this process ends (a shut lid still sleeps it; the send then happens on wake)
         subprocess.Popen(["caffeinate", "-i", "-w", str(os.getpid())])
     log(f"armed pid {os.getpid()}: {len(plan['items'])} items for slot day {plan['slot_day_utc']} UTC, "
         f"not before {not_before:%Y-%m-%d %H:%M:%S} local" + (" (dry run)" if a.dry_run else ""))
     try:
         return run(plan, not_before, a.dry_run)
-    except Exception as e:  # the log is the only place a detached process can say why it stopped
+    except Exception as e:
         log(f"STOP: {type(e).__name__}: {e}")
         return 1
 

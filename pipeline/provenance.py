@@ -22,7 +22,7 @@ def sha256(path: Path) -> str:
 
 
 def check(path: Path, source: str, accept_new: bool = False, keep_copy: bool = False) -> str:
-    """Hash `path` and hold it to the record for its file name. Returns the hash."""
+    """Hash `path` and hold it to the record for its file name."""
     path = Path(path)
     rec = json.loads(RECORD.read_text()) if RECORD.exists() else {"files": {}}
     h = sha256(path)

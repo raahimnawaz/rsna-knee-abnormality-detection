@@ -1,16 +1,6 @@
-"""A free CPU mount test of a built final (10-18): the final's own mounts, its own asset cell, Raptor's lookups, our weights.
+"""A free CPU mount test of a built final: the final's own mounts, its own asset cell, Raptor's lookups, our weights.
 
     python kaggle/build_finals_mounttest.py --final <built final dir> --out <dir>   # then kaggle kernels push -p <dir>
-
-Runs on a CPU, internet off, under exactly the final's dataset / kernel / competition sources and docker image:
-  1. the final's R-family asset cell (the code cell holding CODE_SLUG and ASSETS_READY), unchanged: mounts found by
-     slug, the code dataset's module hashes, our supply-chain pins (vendored MONAI tree, wheels; a draft prints
-     WHEELS_UNPINNED with every wheel's sha256), the wheels installed, the R6 + R7 bundle checked against its manifest,
-     anatomy.pt against the bundle; it ends with ASSETS_READY. `nvidia-smi` is a stand-in on the PATH (no GPU here)
-  2. each Raptor stage's checkpoint lookup and sha256 check, cut from its cell
-  3. our members' last.pt files found by their sha256 (`_O_SHAS` of our stage)
-  4. with KDC (a second `_O_SHAS`, 10-18): KDC's members found by sha256, and the segmenter its reader needs
-MOUNTTEST_DONE is printed only when every check held.
 """
 from __future__ import annotations
 
@@ -30,16 +20,13 @@ _bin = Path("/tmp/mt_bin"); _bin.mkdir(exist_ok=True)
 (_bin / "nvidia-smi").chmod(0o755)
 os.environ["PATH"] = str(_bin) + os.pathsep + os.environ.get("PATH", "")
 
-# 1. the final's own asset cell, unchanged
 exec(compile(P["asset"], "final_asset_cell", "exec"), globals())
 
-# 2. Raptor: each stage's checkpoint lookup and sha256 check
 for _k, _block in enumerate(P["raptor"]):
     _ns = {"hashlib": hashlib, "Path": Path}
     exec(compile(_block, "raptor_lookup_%d" % _k, "exec"), _ns)
     print("RAPTOR_OK", _k, str(_ns["_weights"]), flush=True)
 
-# 3. our members, found by sha256 (the competition's DICOM tree is not walked)
 _found = {}
 for _root, _dirs, _files in os.walk("/kaggle/input"):
     _dirs[:] = [d for d in _dirs if d != "competitions"]
@@ -55,7 +42,6 @@ __KDC__print("MOUNTTEST_DONE %.1f s" % (time.time() - NB_T0), flush=True)
 '''
 
 KDC = r'''
-# 4. KDC's members, found by sha256, and the segmenter (anatomy.pt + the vendored MONAI) its reader needs
 _kfound, _seg_w, _seg_v = {}, None, None
 for _root, _dirs, _files in os.walk("/kaggle/input"):
     _dirs[:] = [d for d in _dirs if d != "competitions"]
@@ -115,7 +101,7 @@ def main() -> None:
          "keywords": [], "dataset_sources": meta["dataset_sources"], "kernel_sources": meta["kernel_sources"],
          "competition_sources": meta["competition_sources"], "model_sources": meta.get("model_sources", [])}
     if meta.get("docker_image"):
-        m["docker_image"] = meta["docker_image"]                # the final's image: the wheels install as they will there
+        m["docker_image"] = meta["docker_image"]
     (a.out / "kernel-metadata.json").write_text(json.dumps(m, indent=2))
     print(f"built {a.out / (slug + '.py')} | asset cell {len(asset[0]):,} chars | Raptor lookups {len(raptor)} | "
           f"our members {len(shas)}" + (f" + KDC's {len(k_shas)}" if k_shas else "") + f" | image {meta.get('docker_image', 'default')[:60]}")

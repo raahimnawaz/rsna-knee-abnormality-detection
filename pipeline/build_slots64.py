@@ -30,9 +30,8 @@ def log(msg: str) -> None:
     print(f"[{time.strftime('%H:%M:%S')}] {msg}", flush=True)
 
 
-# ----------------------------------------------------------------------------- reading
 def study_side(study_dir: Path, series_uids: list[str]) -> tuple[str | None, str]:
-    """-> ('L' | 'R' | None, 'tag' | 'geometry' | 'none'). Tag first, then the -62 mm rule."""
+    """-> ('L' | 'R' | None, 'tag' | 'geometry' | 'none')."""
     import pydicom
     from collections import Counter
     votes, xs = Counter(), []
@@ -90,8 +89,7 @@ def apply_ops(a: np.ndarray, ops: dict | None) -> np.ndarray:
 
 
 def order_series_canon(series_dir: Path, side: str | None) -> tuple[list[tuple[Path, float, float]], str, dict | None]:
-    """`order_series`, but sorted along the CANONICAL slice direction and returning the in-plane ops.
-    row_mm / col_mm are returned already swapped when the image is transposed."""
+    """`order_series`, but sorted along the CANONICAL slice direction and returning the in-plane ops."""
     import pydicom
     recs, iop0 = [], None
     for f in sorted(series_dir.iterdir()):
@@ -146,7 +144,7 @@ def decode(path: Path) -> np.ndarray:
     from pydicom.pixel_data_handlers.util import apply_modality_lut
     d = pydicom.dcmread(path)
     a = d.pixel_array
-    if a.ndim == 3 and a.shape[-1] in (3, 4):             # RGB-encoded greyscale
+    if a.ndim == 3 and a.shape[-1] in (3, 4):
         a = a[..., :3].mean(-1)
     if a.ndim != 2:
         raise ValueError(f"pixel array shape {a.shape}")
@@ -157,14 +155,14 @@ def decode(path: Path) -> np.ndarray:
 
 
 def crop_mm(a: np.ndarray, row_mm: float, col_mm: float, fov_mm: float = S.FOV_MM,
-            img: int = S.IMG) -> np.ndarray:        # Stage B passes img=384 explicitly
+            img: int = S.IMG) -> np.ndarray:
     """Centre box of `fov_mm` x `fov_mm` in PHYSICAL units, padded with 0 where the scan is smaller."""
     import cv2
     h, w = a.shape
     ph, pw = int(round(fov_mm / row_mm)), int(round(fov_mm / col_mm))
     out = np.zeros((ph, pw), np.float32)
-    sy, sx = max((h - ph) // 2, 0), max((w - pw) // 2, 0)          # source offsets
-    dy, dx = max((ph - h) // 2, 0), max((pw - w) // 2, 0)          # destination offsets
+    sy, sx = max((h - ph) // 2, 0), max((w - pw) // 2, 0)
+    dy, dx = max((ph - h) // 2, 0), max((pw - w) // 2, 0)
     ch, cw = min(h, ph), min(w, pw)
     out[dy:dy + ch, dx:dx + cw] = a[sy:sy + ch, sx:sx + cw]
     interp = cv2.INTER_AREA if (ph >= img and pw >= img) else cv2.INTER_LINEAR
@@ -233,7 +231,6 @@ def build_study(study_dir: Path, series: list[dict], span=SPAN, spec: str = "c6"
     return vol, mask, meta
 
 
-# ----------------------------------------------------------------------------- driver
 def _one(args):
     uid, study_dir, series, span, spec, canon = args
     Sp = SPECS[spec]
@@ -302,8 +299,6 @@ def main() -> None:
     rows, errs, secs = [], {}, []
     row_of = {u: i for i, u in enumerate(mine)}
     jobs = [(u, str(img_dir / u), by_study.get(u, []), tuple(a.span), a.spec, a.canon) for u in mine]
-    # --workers 1 runs in-process: debuggable, and the only way a monkeypatched function is seen
-    # (macOS spawns workers, which re-import this module fresh).
     ex = ProcessPoolExecutor(max_workers=a.workers) if a.workers > 1 else None
     results = ex.map(_one, jobs, chunksize=2) if ex else map(_one, jobs)
     try:
@@ -363,7 +358,7 @@ def main() -> None:
 
 
 def _check_fixture(out: Path) -> None:
-    """The known answers stage_a_fixture.py builds in. See that file for why each one matters."""
+    """The known answers stage_a_fixture.py builds in."""
     vols, masks = np.load(out / "vols.npy", mmap_mode="r"), np.load(out / "masks.npy")
     ids = np.load(out / "ids.npy", allow_pickle=True).astype(str).tolist()
     meta = pd.read_csv(out / "slots.csv")
@@ -371,7 +366,7 @@ def _check_fixture(out: Path) -> None:
     offs = dict(zip([s.name for s in S.SLOTS], S.slot_offsets()))
     px = lambda mm: mm / S.FOV_MM * S.IMG                   # noqa: E731
     stripe_row = int(round(px(-45.5 + S.FOV_MM / 2)))
-    want = int(round(px(80.0)))                             # the 80 mm square -> 192 px
+    want = int(round(px(80.0)))
     n_checks = 0
     for uid, t in truth.items():
         i = ids.index(uid)
@@ -385,15 +380,11 @@ def _check_fixture(out: Path) -> None:
             m = meta[(meta.StudyInstanceUID == uid) & (meta.slot == slot)].iloc[0]
             assert int(m.n_available) == exp["n"], f"{uid} {slot}: took a {m.n_available}-slice series, want {exp['n']}"
             assert m.ordered_by == "normal", f"{uid} {slot}: ordered by {m.ordered_by}"
-            # 1. ORDER: the stripe encodes true position; it must move left-to-right through the slot.
-            #    Filenames and InstanceNumber are both shuffled, so either shortcut fails here.
             pos = [int(np.argmax(vols[i, k, stripe_row, :])) for k in range(a, b)]
             assert all(np.diff(pos) >= 0) and pos[-1] > pos[0], f"{uid} {slot}: not in geometric order {pos}"
-            # 2. SCALE: 80 mm must be 192 px on BOTH axes, whatever the pixel spacing (incl. anisotropic)
             mid = np.asarray(vols[i, (a + b) // 2])
             w, h = int((mid[S.IMG // 2, :] > 200).sum()), int((mid[:, S.IMG // 2] > 200).sum())
             assert abs(w - want) <= 3 and abs(h - want) <= 3, f"{uid} {slot}: square {w}x{h} px, want {want}"
-            # 3. PADDING: a scan narrower than 140 mm leaves black borders instead of being stretched
             if exp["kind"] == "small_fov":
                 assert mid[S.IMG // 2, :8].max() == 0, f"{uid} {slot}: small FOV was stretched, not padded"
             else:

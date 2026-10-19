@@ -2,18 +2,6 @@
 
     python tests/mirror_fixture.py --out <dir>            # all checks (~2 min on a laptop CPU)
     python tests/mirror_fixture.py --out <dir> --no-train # skip the end-to-end trainer run
-
-1. GEOMETRY. Two synthetic knees go through `build_slots64.py --canon`: one as it is, one whose anatomy is reflected
-   medial <-> lateral (same side, same scanner geometry). `train_windows.mirror_windows` of the first must be the
-   second, window for window, in every plane, at the mirrored depth. Controls: the two differ without the mirror,
-   and a mirror that flips a sagittal slice in-plane (instead of reading the slot backwards) fails.
-2. TARGETS. The medial / lateral pairs swap, MCL becomes unknown, the other seven do not move.
-3. PREDICTION. On a small random model: the two-pass mean of a mirrored knee is the two-pass mean of the knee with
-   its medial / lateral columns swapped; the trainer's batched `predict` equals the submission path's arithmetic.
-4. DATASET. `Windows(mirror=0)` is unchanged; `mirror=1` is `mirror_windows` + `mirror_targets` of it; `mirror=0.5`
-   mirrors about half of the draws.
-5. TRAINER. The whole recipe's flags on a tiny conv encoder and random stacks: it trains, writes the two-pass
-   predictions beside the plain pass, the averaged weights, and a meta that tells the submission path to mirror.
 """
 from __future__ import annotations
 
@@ -58,7 +46,7 @@ def geometry(out: Path) -> int:
         assert len(by) == len(wb), "two windows share a slot and depth"
         d = {}
         for k, (s, p) in enumerate(zip(sa, pa)):
-            j = by[(int(s), round(float(p), 5))]            # KeyError = a depth the other knee does not have
+            j = by[(int(s), round(float(p), 5))]
             d[planes[int(s)]] = max(d.get(planes[int(s)], 0), int((wa[k].int() - wb[j].int()).abs().max()))
         return d
 
@@ -68,22 +56,18 @@ def geometry(out: Path) -> int:
         d = worst((wm, s, pm), got[f"{side}_mirrored"][:3])
         assert set(d) == {"Sagittal", "Coronal", "Axial"} and max(d.values()) <= 1, f"{side}: mirror != mirrored knee {d}"
         n += 3
-        # the check can fail: without the mirror the two knees differ in every plane
         d0 = worst((w, s, p), got[f"{side}_mirrored"][:3])
         assert min(d0.values()) > 50, f"{side}: the unmirrored knee already matches {d0} -- the check is blind"
-        # a plausible wrong mirror: flip the sagittal slice left-right instead of reading the slot backwards
         wrong = torch.where(sag[s][:, None, None, None], w.flip(-1), w.flip(-1))
         dw = worst((wrong, s, p), got[f"{side}_mirrored"][:3])
         assert dw["Sagittal"] > 50 and dw["Coronal"] <= 1, f"{side}: an in-plane sagittal flip passed {dw}"
-        # and the depth matters: the right pixels at the unmirrored depth are the wrong windows
         dd = worst((wm, s, p), got[f"{side}_mirrored"][:3])
         assert dd["Sagittal"] > 50, f"{side}: sagittal depth not mirrored, and nothing noticed {dd}"
         n += 3
-        # twice is the identity
         w2, p2 = TW.mirror_windows(wm, s, pm, sag)
         assert torch.equal(w2, w) and torch.allclose(p2, p, atol=1e-6)
         n += 1
-    assert worst(got["R"][:3], got["L"][:3]) and max(worst(got["R"][:3], got["L"][:3]).values()) <= 1   # canon holds here too
+    assert worst(got["R"][:3], got["L"][:3]) and max(worst(got["R"][:3], got["L"][:3]).values()) <= 1
     print(f"1 GEOMETRY PASSED ({n + 1} checks): mirror_windows(knee) == the knee with mirrored anatomy built from "
           "DICOMs, sagittal / coronal / axial, right and left, at the mirrored depth; an in-plane sagittal flip and an "
           "unmirrored depth both fail")
@@ -103,14 +87,14 @@ def targets() -> int:
     keep = [k for k in range(12) if k != i["MCL"]]
     assert np.array_equal(back[keep], y[keep])
     yn = y.copy()
-    yn[i["Lateral OA"]] = np.nan                            # a masked cell travels with its finding
+    yn[i["Lateral OA"]] = np.nan
     assert np.isnan(TW.mirror_targets(yn)[i["Medial OA"]])
     p, q = np.random.default_rng(0).random((2, 5, 12)).astype(np.float32)
     a = TW.mirror_average(p, q)
     assert np.array_equal(a[:, i["MCL"]], p[:, i["MCL"]])
     assert np.allclose(a[:, i["Medial OA"]], 0.5 * (p[:, i["Medial OA"]] + q[:, i["Lateral OA"]]))
     assert np.allclose(a[:, i["ACL"]], 0.5 * (p[:, i["ACL"]] + q[:, i["ACL"]]))
-    assert np.allclose(TW.mirror_average(p, p[:, TW.MIRROR_PERM]), p)      # a mirror-consistent model: unchanged
+    assert np.allclose(TW.mirror_average(p, p[:, TW.MIRROR_PERM]), p)
     print("2 TARGETS PASSED (12 checks): Medial <-> Lateral Meniscus and OA swap, MCL unknown, seven unmoved; the "
           "two-pass mean reads the mirrored pass back into the plain columns, MCL from the plain pass")
     return 12
@@ -123,13 +107,13 @@ def prediction(out: Path) -> int:
     sag = TW.slot_is_sagittal(corpus)
     enc = timm.create_model("convnext_atto", pretrained=False, num_classes=0, global_pool="avg")
     model = TW.WindowMIL(enc, 64, n_slots=len(corpus.slot_sizes), spatial=True).eval()
-    with torch.no_grad():                                   # the zero-initialised parts would hide a slot / depth slip
+    with torch.no_grad():
         for t in (model.slot_emb.weight, model.depth_proj.weight, model.depth_proj.bias, model.sq, model.w):
             t.normal_(0, 0.5)
     uids = list(corpus.ids)
     ds = TW.Windows(corpus, uids, np.zeros((len(uids), 12), np.float32), k=None)
     os.environ["TW_WORKERS"] = "0"
-    raw = TW.predict(model, ds, "cpu", False, 2, sag)       # the trainer's path: batches of 2, padded and masked
+    raw = TW.predict(model, ds, "cpu", False, 2, sag)
     assert raw.shape == (len(uids), 2, 12)
     tta = TW.mirror_average(raw[:, 0], raw[:, 1])
     keep = [k for k in range(12) if k != TW.MIRROR_UNKNOWN]
@@ -140,9 +124,8 @@ def prediction(out: Path) -> int:
             x, ones = w[None], torch.ones((1, len(w)), dtype=torch.bool)
             f = lambda xx, pp: torch.sigmoid(model(xx, ones, slot=s[None], pos=pp[None]).float())      # noqa: E731
             xm, pm = TW.mirror_windows(x, s[None], p[None], sag)
-            one = TW.mirror_average(f(x, p), f(xm, pm[0]))[0].numpy()        # infer_windows.py's arithmetic
+            one = TW.mirror_average(f(x, p), f(xm, pm[0]))[0].numpy()
             assert np.abs(one - tta[i]).max() < 1e-5, f"trainer predict != submission arithmetic: {np.abs(one - tta[i]).max()}"
-            # the mirrored knee as input: its two-pass mean is this knee's with the medial / lateral columns swapped
             xmm, pmm = TW.mirror_windows(xm, s[None], pm, sag)
             flipped = TW.mirror_average(f(xm, pm[0]), f(xmm, pmm[0]))[0].numpy()
             assert np.abs(flipped[TW.MIRROR_PERM][keep] - one[keep]).max() < 1e-5

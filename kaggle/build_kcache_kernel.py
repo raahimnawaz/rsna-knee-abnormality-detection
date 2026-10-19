@@ -3,8 +3,6 @@
     python kaggle/build_kcache_kernel.py --out /tmp/k0 --shard 0              # 5 shards of the 4,407 training studies
     python kaggle/build_kcache_kernel.py --out /tmp/ks --smoke 10             # 10 studies with montages
     .venv/bin/kaggle kernels push -p /tmp/k0
-
-The segmenter and its vendored MONAI come from heliosli's code dataset; kcache.py checks both by sha256 before use.
 """
 from __future__ import annotations
 
@@ -23,10 +21,6 @@ CODE_DATASET = "heliosli/rsna-orthofoundation-fold0-epoch7-20261004"
 N_SHARDS = 5
 
 CELL = r'''
-# ============================================================================ #
-# K cache shard -- built by kaggle/build_kcache_kernel.py. Embedded files are
-# written byte-for-byte and hash-checked; kcache.py checks the segmenter.
-# ============================================================================ #
 import base64, hashlib, json, os, shutil, subprocess, sys, time
 from pathlib import Path
 SHARD, N_SHARDS, LIMIT, MONTAGES, BUILT_FROM = __SHARD__, __N_SHARDS__, __LIMIT__, __MONTAGES__, __BUILT_FROM__

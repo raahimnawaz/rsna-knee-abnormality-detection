@@ -6,14 +6,9 @@
     # the GPU machine, once: this repo, ~/.kaggle credentials, data/train.csv, the targets dataset, then the cache (~62 GB)
     python kaggle/offkaggle.py pull --dest <cache>
     # one fold (two T4s take ~4.9 h; `--dry` prints the command and the lists' sizes without training)
-    python kaggle/offkaggle.py train --fold 0 --corpus <cache> --labels data/student/targets_teacher_v3.csv \
-        --folds data/student/folds_site_stage_b.csv --out <runs>
+    python kaggle/offkaggle.py train --fold 0 --corpus <cache> --labels data/student/targets_teacher_v3.csv         --folds data/student/folds_site_stage_b.csv --out <runs>
     # the folds that are done -> one flat private dataset each (<slug>-f<k>), and the submission builder's arguments
     python kaggle/offkaggle.py pack --runs <runs> --slug rsna-knee-v3 --out <dir>
-
-The recipe is `build_backbone_ab_kernel.py`'s (SMALL_PACKAGE + V3_TRAIN_ARGS, V3_EPOCHS), imported, not copied; the
-lists are the Kaggle folds' (held out by site, gold in none). A fold trained here and one trained there differ in the
-GPU count behind the batch of 8 and in nothing else.
 """
 from __future__ import annotations
 
@@ -34,7 +29,6 @@ import build_backbone_ab_kernel as K  # noqa: E402
 
 LABELS = ["ACL", "MCL", "Medial Meniscus", "Lateral Meniscus", "Medial OA", "Lateral OA",
           "PF OA", "Effusion", "Synovitis", "Baker's", "Contusion", "Fracture"]
-# the five teacher-label folds' run records: fold k's lists as its Kaggle kernel wrote them
 RECORDS = {0: "runs_cnxs_teach1_f0", 1: "runs_cnxs_teach1_f12", 2: "runs_cnxs_teach1_f12",
            3: "runs_cnxs_teach1_f34", 4: "runs_cnxs_teach1_f34"}
 
@@ -55,7 +49,7 @@ def folds(a) -> None:
     every = [u for k in val for u in val[k]]
     if len(set(every)) != len(every):
         raise SystemExit("a study is held out in two folds")
-    for k, rec in RECORDS.items():                          # each train list is exactly the other four folds
+    for k, rec in RECORDS.items():
         t = PROJ / "fusion" / rec / "runs_convnext_small" / f"fold{k}" / "train_studies.csv"
         if t.exists() and set(_ids(t)) != set(every) - set(val[k]):
             raise SystemExit(f"fold {k}: the train list is not the other four folds")
@@ -92,7 +86,7 @@ def train(a) -> None:
     pd.Series(tr, name="StudyInstanceUID").to_csv(run / "train_studies.csv", index=False)
     pd.Series(va, name="StudyInstanceUID").to_csv(run / "val_studies.csv", index=False)
     n_gpu = torch.cuda.device_count()
-    world = n_gpu if n_gpu in (2, 4, 8) else 1              # the batch of 8 must split evenly
+    world = n_gpu if n_gpu in (2, 4, 8) else 1
     launch = ([sys.executable, "-m", "torch.distributed.run", "--nnodes", "1", "--node_rank", "0", "--master_addr",
                "127.0.0.1", "--master_port", "29511", "--nproc_per_node", str(world)] if world > 1 else [sys.executable, "-u"])
     cmd = launch + [str(PROJ / "fusion" / "train_windows.py"), "--arch", a.arch, "--corpus", str(a.corpus),
@@ -130,7 +124,7 @@ def pull(a) -> None:
     kaggle = str(Path(sys.executable).parent / "kaggle")
     for sh in K.STAGE_B_SHARDS:
         d = a.dest / sh.split("/")[1]
-        have = lambda: any(d.rglob("vols.npy")) and any(d.rglob("manifest.json"))     # noqa: E731  (they land in stage_b/)
+        have = lambda: any(d.rglob("vols.npy")) and any(d.rglob("manifest.json"))     # noqa: E731
         if have() and not a.force:
             print(f"{sh}: already there")
             continue
@@ -145,7 +139,7 @@ def pull(a) -> None:
         else:
             raise SystemExit(f"{sh}: not downloaded after {a.retries} attempts")
     import train_windows as TW
-    c = TW.Corpus(a.dest, "stage_b")                        # the trainer's own checks: 8 of 8 shards, one spec, shapes
+    c = TW.Corpus(a.dest, "stage_b")
     print(f"cache complete: {len(c.ids)} studies, {c.layout}")
 
 

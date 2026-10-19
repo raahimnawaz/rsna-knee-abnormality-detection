@@ -19,14 +19,13 @@ from pydicom.uid import ExplicitVRLittleEndian, generate_uid
 
 PROJ = Path(__file__).resolve().parents[1]
 H = W = 200
-MM = 0.8                      # 160 mm field of view, cropped to 140
-N, STEP = 24, 4.0             # slices per series and their spacing, mm
+MM = 0.8
+N, STEP = 24, 4.0
 
-# (row vector r, column vector c) per plane: r = direction of increasing COLUMN index
 STD = {"Sagittal": ((0, 1, 0), (0, 0, -1)), "Coronal": ((1, 0, 0), (0, 0, -1)), "Axial": ((1, 0, 0), (0, 1, 0))}
 REV = {"Sagittal": ((0, -1, 0), (0, 0, 1)), "Coronal": ((-1, 0, 0), (0, 0, 1)), "Axial": ((-1, 0, 0), (0, -1, 0))}
 TRANSPOSED_AXIAL = ((0, 1, 0), (1, 0, 0))
-STUDIES = {  # name -> (side, knee centre x, tag, orientation per plane)
+STUDIES = {
     "R_tag": ("R", -150.0, "R", STD),
     "L_tag": ("L", 80.0, "L", STD),
     "R_geo": ("R", -150.0, None, REV),
@@ -36,19 +35,17 @@ STUDIES = {  # name -> (side, knee centre x, tag, orientation per plane)
 
 def phantom(P: np.ndarray, centre: np.ndarray, m: np.ndarray) -> np.ndarray:
     u = P - centre
-    mu, ap, si = u @ m, u[..., 1], u[..., 2]           # medial, posterior, superior (knee-local)
+    mu, ap, si = u @ m, u[..., 1], u[..., 2]
     v = np.zeros(P.shape[:-1])
     inside = (np.abs(mu) < 55) & (np.abs(ap) < 55) & (np.abs(si) < 55)
     v[inside] = 300 + 2.0 * mu[inside] + 1.0 * ap[inside] + 0.5 * si[inside]
-    v[(mu > 20) & (mu < 40) & (ap > -40) & (ap < -20) & (si > 10) & (si < 30)] = 1000   # medial-anterior-superior
-    v[(mu > -40) & (mu < -25) & (ap > 10) & (ap < 30) & (si > -30) & (si < -15)] = 700  # lateral-posterior-inferior
+    v[(mu > 20) & (mu < 40) & (ap > -40) & (ap < -20) & (si > 10) & (si < 30)] = 1000
+    v[(mu > -40) & (mu < -25) & (ap > 10) & (ap < 30) & (si > -30) & (si < -15)] = 700
     return v
 
 
 def write(root: Path, studies: dict | None = None, mm: float = MM) -> dict:
-    """`studies`: name -> (side, knee centre x, tag, orientation per plane[, mirrored]). A mirrored study is the same
-    knee with its ANATOMY reflected medial <-> lateral (what `train_windows.mirror_windows` claims to produce);
-    `mm`: pixel size (0.7 makes the 200 px image exactly the 140 mm field, so no crop rounds off-centre)."""
+    """`studies`: name -> (side, knee centre x, tag, orientation per plane[, mirrored])."""
     img_dir = root / "train_series"
     if root.exists():
         shutil.rmtree(root)
@@ -70,7 +67,7 @@ def write(root: Path, studies: dict | None = None, mm: float = MM) -> dict:
             r, c = (np.asarray(v, float) for v in orient[plane])
             n = np.cross(r, c)
             ks = list(range(N))
-            random.shuffle(ks)                              # file order and InstanceNumber: shuffled
+            random.shuffle(ks)
             for inst, k in enumerate(ks, 1):
                 t = (k - (N - 1) / 2) * STEP
                 ctr = centre + t * n
@@ -117,12 +114,10 @@ def check(root: Path, out: Path, truth: dict, spec: str = "c7") -> None:
     offs = dict(zip([s.name for s in S.SLOTS], S.slot_offsets()))
     by = {truth[u]["name"]: i for i, u in enumerate(ids)}
     n = 0
-    # (1) side and its source
     for u, t in truth.items():
         got = meta[meta.StudyInstanceUID == u].iloc[0]
         assert (got.side, got.side_src) == (t["side"], t["src"]), f"{t['name']}: side {got.side}/{got.side_src}"
         n += 1
-    # (2) all four identical, in every filled slot
     ref = vols[by["R_tag"]]
     for name, i in by.items():
         assert (masks[i] == masks[by["R_tag"]]).all(), f"{name}: mask differs"
@@ -134,9 +129,9 @@ def check(root: Path, out: Path, truth: dict, spec: str = "c7") -> None:
         val = v[z, y, x].astype(float)
         return {k: float(np.corrcoef(val, idx)[0, 1]) for k, idx in (("slice", z), ("row", y), ("col", x))}
     want = {
-        "sag_1": {"slice": +1, "col": +1, "row": -1},   # lateral->medial, anterior->posterior, superior->inferior
-        "cor_1": {"slice": +1, "col": +1, "row": -1},   # anterior->posterior, lateral->medial, superior->inferior
-        "ax_1":  {"slice": -1, "col": +1, "row": +1},   # superior->inferior, lateral->medial, anterior->posterior
+        "sag_1": {"slice": +1, "col": +1, "row": -1},
+        "cor_1": {"slice": +1, "col": +1, "row": -1},
+        "ax_1":  {"slice": -1, "col": +1, "row": +1},
     }
     for slot, signs in want.items():
         a, b = offs[slot]
@@ -157,7 +152,6 @@ def main() -> None:
     truth = write(root)
     build(root, a.out / "canon", canon=True, spec=a.spec)
     check(root, a.out / "canon", truth, a.spec)
-    # (4) the test can fail: without --canon, the left knee is not the right knee
     build(root, a.out / "raw", canon=False, spec=a.spec)
     v = np.load(a.out / "raw" / "vols.npy")
     ids = np.load(a.out / "raw" / "ids.npy", allow_pickle=True).astype(str).tolist()

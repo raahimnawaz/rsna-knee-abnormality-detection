@@ -1,29 +1,6 @@
 r"""Build training targets from several independent readers of the same reports, with silence masked.
 
     python labeling/build_consensus_targets.py --labels-dir data/public_llm_labels --out data/student/targets_consensus_v1.csv
-
-Two changes against a single report-label table:
-
-1. Eleven findings: each reader's order is mapped onto the base table's own levels (ties share the
-   mean of the levels they span) and averaged; the target is half the base, half that consensus.
-   The table `score_oof.py` scores against stays out of the readers.
-2. Synovitis: reports address it in about one study in eight, and the base fills the rest from
-   Effusion. Here a study is supervised only where a reader actually read it, or where Effusion is
-   read as absent (then Synovitis is absent). Every other Synovitis cell is NaN and carries no
-   loss (`train_windows.py --allow-missing-labels`).
-
-With --teacher (an outside image model's predictions for the training studies), a third change:
-
-3. The teacher's order joins every supervised cell on the target's own levels at `--w-teacher`, and
-   it alone fills the Synovitis cells the reports left unread, on the scale of the read ones.
-
-With --own-oof (our own fold models' held-out predictions, every study read by a model that did not
-train on it), a fourth, applied after the teacher:
-
-4. The same blend again at `--w-own`: the models' order on the target's own levels. A pseudo-label
-   round. The files must cover disjoint studies (one per fold kernel).
-
-Nothing is fitted to the radiologist-graded studies; they are scored at the end, for the report only.
 """
 from __future__ import annotations
 
@@ -40,7 +17,6 @@ from sklearn.metrics import roc_auc_score
 LABELS = ["ACL", "MCL", "Medial Meniscus", "Lateral Meniscus", "Medial OA", "Lateral OA",
           "PF OA", "Effusion", "Synovitis", "Baker's", "Contusion", "Fracture"]
 SYN = "Synovitis"
-# base levels that are a fill from Effusion, not a reading (each occurs with one Effusion level only)
 BASE_SYN_FILLS = (0.35, 0.76, 0.82)
 ABSENT, LO, HI = 0.05, 0.05, 0.95
 
@@ -51,14 +27,11 @@ def _csv(p: Path, **kw) -> pd.DataFrame:
 
 
 def load_readers(root: Path) -> tuple[dict[str, pd.DataFrame], dict[str, pd.DataFrame]]:
-    """-> (values, addressed). values[name]: 12 columns in [0, 1], NaN where that reader gave no reading.
-    addressed[name]: 12 boolean columns, True where the reader says the report discusses the finding."""
+    """-> (values, addressed)."""
     val, adr = {}, {}
 
     val["dread"] = _csv(root / "dreaddevelopment_rsna-knee-labels" / "labels_llm_soft.csv")[LABELS]
     val["steven_v2"] = _csv(root / "stevenleehans_rsna-knee-llm-report-labels" / "llm_labels_v2.csv")[LABELS]
-    # lixin73's table is NOT a reader here: score_oof.py scores held-out predictions against it, and a
-    # model trained toward it would agree with it more without being more right
     val["yunus"] = _csv(root / "yunusgmsoy_rsna-knee-llm-report-labels" / "yunus_llm_labels.csv")[LABELS]
     val["jev"] = _csv(root / "riadmohamed42_jev-knee-labels" / "FINAL2_labels_scores.csv")[LABELS]
     val["nartaa_raw"] = pd.read_parquet(root / "nartaa_rsna-knee-hpo-assets" / "labels_v0raw.parquet") \
@@ -70,7 +43,7 @@ def load_readers(root: Path) -> tuple[dict[str, pd.DataFrame], dict[str, pd.Data
     adr["pilkwang"] = ~unk
 
     v = root / "vmohitrao_rsna-knee-report-labels"
-    st = _csv(v / "label_states.csv")[LABELS]                # P positive, N absent, B below threshold, U uncertain, M unmentioned
+    st = _csv(v / "label_states.csv")[LABELS]
     val["vmohitrao"] = st.replace({"P": 1.0, "N": 0.0, "B": 0.0, "U": np.nan, "M": np.nan}).astype(float)
     adr["vmohitrao"] = st.ne("M") & st.notna()
 
@@ -90,8 +63,7 @@ def load_readers(root: Path) -> tuple[dict[str, pd.DataFrame], dict[str, pd.Data
 
 
 def on_base_ties(t: pd.Series, b: pd.Series) -> pd.Series:
-    """The reader's order, the base's values on the same studies. Studies the reader ties share the
-    mean of the base values their ranks span, so a reader with few levels adds no arbitrary order."""
+    """The reader's order, the base's values on the same studies."""
     ids = t.index.intersection(b.index)
     t, sb = t.loc[ids], np.sort(b.loc[ids].to_numpy())
     lo = (rankdata(t.to_numpy(), method="min") - 1).astype(int)
@@ -101,7 +73,7 @@ def on_base_ties(t: pd.Series, b: pd.Series) -> pd.Series:
 
 
 def consensus(base: pd.Series, readers: dict[str, pd.Series], w_base: float) -> tuple[pd.Series, pd.Series]:
-    """-> (target, number of readers behind each cell). The base keeps `w_base`; the readers share the rest."""
+    """-> (target, number of readers behind each cell)."""
     b = base.dropna()
     est = pd.concat([on_base_ties(r.dropna(), b) for r in readers.values()], axis=1).reindex(b.index)
     n = est.notna().sum(axis=1)
@@ -125,7 +97,7 @@ def synovitis(val: dict[str, pd.DataFrame], adr: dict[str, pd.DataFrame], effusi
         "nartaa_raw": val["nartaa_raw"][SYN].reindex(ids),
     }, axis=1)
     read = reads.mean(axis=1, skipna=True).clip(LO, HI)
-    eff_absent = effusion.reindex(ids) <= effusion.min() + 1e-9       # the base's lowest Effusion level
+    eff_absent = effusion.reindex(ids) <= effusion.min() + 1e-9
     y = pd.Series(np.nan, index=ids)
     y[addressed] = read[addressed]
     quiet_dry = ~addressed & eff_absent
@@ -138,10 +110,7 @@ def synovitis(val: dict[str, pd.DataFrame], adr: dict[str, pd.DataFrame], effusi
 
 
 def add_teacher(out: pd.DataFrame, teacher: pd.DataFrame, w: float) -> tuple[pd.DataFrame, dict]:
-    """Blend an outside image teacher into the targets, and let it fill the cells left unsupervised.
-    Supervised cells: the teacher's order on the target's own values (`on_base_ties`), weight `w`.
-    Unsupervised cells (NaN): the teacher alone, its prediction placed at the same quantile of the
-    supervised targets that it holds among the teacher's predictions on the supervised studies."""
+    """Blend an outside image teacher into the targets, and let it fill the cells left unsupervised."""
     new, info = out.copy(), {}
     for lab in LABELS:
         t = teacher[lab].reindex(out.index)
@@ -218,7 +187,7 @@ def main() -> None:
         report["own_oof"].update(files=[str(f) for f in a.own_oof], w_own=a.w_own, studies_without_oof=miss,
                                  sha256=[hashlib.sha256(f.read_bytes()).hexdigest() for f in a.own_oof])
     v = out.to_numpy(float)
-    if out.drop(columns=SYN).isna().any().any() or ((v < 0) | (v > 1)).any():       # NaN compares False: a masked cell passes
+    if out.drop(columns=SYN).isna().any().any() or ((v < 0) | (v > 1)).any():
         raise SystemExit("a target is missing or outside [0, 1]")
 
     a.out.parent.mkdir(parents=True, exist_ok=True)

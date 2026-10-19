@@ -24,16 +24,15 @@ random.seed(0)
 
 IOP = {"Sagittal": [0, 1, 0, 0, 0, -1], "Coronal": [1, 0, 0, 0, 0, -1], "Axial": [1, 0, 0, 0, 1, 0]}
 
-# (plane, fluid, n_slices, rows, cols, row_mm, col_mm, photometric)
 SPEC = {
     "F1": [("Sagittal", 1, 30, 512, 512, 0.3125, 0.3125, "MONOCHROME2"),
-           ("Sagittal", 0, 24, 480, 512, 0.35, 0.30, "MONOCHROME2"),     # anisotropic pixels
-           ("Coronal", 1, 20, 512, 512, 0.3125, 0.3125, "MONOCHROME1"),  # stored inverted
+           ("Sagittal", 0, 24, 480, 512, 0.35, 0.30, "MONOCHROME2"),
+           ("Coronal", 1, 20, 512, 512, 0.3125, 0.3125, "MONOCHROME1"),
            ("Coronal", 0, 28, 448, 448, 0.35, 0.35, "MONOCHROME2"),
-           ("Coronal", 0, 12, 448, 448, 0.35, 0.35, "MONOCHROME2"),      # cor_2 must NOT take this
+           ("Coronal", 0, 12, 448, 448, 0.35, 0.35, "MONOCHROME2"),
            ("Axial", 1, 18, 448, 448, 0.35, 0.35, "MONOCHROME2")],
-    "F2": [("Sagittal", 1, 22, 256, 256, 0.40, 0.40, "MONOCHROME2")],     # 102 mm FOV -> padded
-    "F3": [("Sagittal", 1, 10, 512, 512, 0.3125, 0.3125, "MONOCHROME2"),  # shorter than the slot
+    "F2": [("Sagittal", 1, 22, 256, 256, 0.40, 0.40, "MONOCHROME2")],
+    "F3": [("Sagittal", 1, 10, 512, 512, 0.3125, 0.3125, "MONOCHROME2"),
            ("Axial", 1, 40, 512, 512, 0.3125, 0.3125, "MONOCHROME2")],
 }
 TRUTH = {
@@ -50,10 +49,10 @@ def draw(h, w, row_mm, col_mm, k, n):
     y = (np.arange(h) - (h - 1) / 2)[:, None] * row_mm
     x = (np.arange(w) - (w - 1) / 2)[None, :] * col_mm
     a = np.full((h, w), 300.0)
-    a[(np.abs(y) > 0.4 * h * row_mm) & (np.abs(x) > 0.4 * w * col_mm)] = 0          # dark corners
-    a[(np.abs(x) <= 40) & (np.abs(y) <= 40)] = 1000                                  # 80 mm square
+    a[(np.abs(y) > 0.4 * h * row_mm) & (np.abs(x) > 0.4 * w * col_mm)] = 0
+    a[(np.abs(x) <= 40) & (np.abs(y) <= 40)] = 1000
     xs = -40 + 80 * k / max(n - 1, 1)
-    a[(np.abs(y + 45.5) <= 2.5) & (np.abs(x - xs) <= 1.0)] = 1000                    # position stripe
+    a[(np.abs(y + 45.5) <= 2.5) & (np.abs(x - xs) <= 1.0)] = 1000
     return a
 
 
@@ -67,11 +66,10 @@ for name, sers in SPEC.items():
                      "Anatomical_Plane": plane, "Fluid_Sensitive": fluid})
         d = IMG / suid / seuid
         d.mkdir(parents=True)
-        # positions run along the TRUE normal, row x col of IOP -- for this sagittal IOP that is -x
         nrm = np.cross(np.array(IOP[plane][:3], float), np.array(IOP[plane][3:], float))
         order = list(range(n))
         random.shuffle(order)
-        inst = random.sample(range(1, n + 1), n)          # InstanceNumber: a shuffle, never the true order
+        inst = random.sample(range(1, n + 1), n)
         for k in order:
             a = draw(h, w, rmm, cmm, k, n)
             if photo == "MONOCHROME1":
@@ -86,7 +84,7 @@ for name, sers in SPEC.items():
             ds.PixelSpacing = [rmm, cmm]
             ds.ImageOrientationPatient = IOP[plane]
             ds.ImagePositionPatient = list(nrm * (k * 3.5))
-            ds.InstanceNumber = inst[k]                     # shuffled: trusting it must fail
+            ds.InstanceNumber = inst[k]
             ds.SamplesPerPixel, ds.PhotometricInterpretation = 1, photo
             ds.BitsAllocated, ds.BitsStored, ds.HighBit, ds.PixelRepresentation = 16, 12, 11, 0
             ds.PixelData = a.astype(np.uint16).tobytes()

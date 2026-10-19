@@ -1,8 +1,7 @@
 """Build a Kaggle GPU training kernel for one encoder: pinned inputs, embedded sources, paired scoring.
 
     python kaggle/build_backbone_ab_kernel.py --arch convnext_small --corpus stage_b --out /tmp/ab --smoke
-    python kaggle/build_backbone_ab_kernel.py --arch convnext_small --corpus stage_b --folds 0 --n-train 0 \
-        --recipe v3 --targets <targets.csv> --tag <name> --out /tmp/ab
+    python kaggle/build_backbone_ab_kernel.py --arch convnext_small --corpus stage_b --folds 0 --n-train 0         --recipe v3 --targets <targets.csv> --tag <name> --out /tmp/ab
     python -m kaggle kernels push -p /tmp/ab
 """
 from __future__ import annotations
@@ -27,39 +26,26 @@ EMBED = [
     "fusion/runs_port_repro/oof_all.csv",
     "fusion/runs_c6_ortho/oof_all.csv",
 ]
-DATASETS = ["dreaddevelopment/knee-raptor-corpus",           # 3,200 studies, CC0
-            "dreaddevelopment/knee-raptor-corpus-ext",       # 1,207 studies, CC0
-            "stevenleehans/rsna-knee-llm-report-labels",     # llm_labels_v2.csv -> targets.csv
-            "lixin73/rsna-knee-llm-report-labels-sol56"]     # the scoring reference
-KERNELS = ["zhukovoleksiy/rsna-metadata-probe"]              # headers.parquet -> site folds
-STAGE_A_SHARDS = [f"{OWNER}/rsna-knee-stage-a-s{i}of4" for i in range(4)]   # build_stage_a_kernel.py
+DATASETS = ["dreaddevelopment/knee-raptor-corpus",
+            "dreaddevelopment/knee-raptor-corpus-ext",
+            "stevenleehans/rsna-knee-llm-report-labels",
+            "lixin73/rsna-knee-llm-report-labels-sol56"]
+KERNELS = ["zhukovoleksiy/rsna-metadata-probe"]
+STAGE_A_SHARDS = [f"{OWNER}/rsna-knee-stage-a-s{i}of4" for i in range(4)]
 STAGE_B_SHARDS = [f"{OWNER}/rsna-knee-stage-b-s{i}of8" for i in range(8)]
-K_SHARDS = [f"{OWNER}/rsna-knee-kcache-s{i}of5" for i in range(5)]       # kaggle/build_kcache_kernel.py
-# small conv backbones on Stage B: no checkpointing or compile needed; plain BCE (graded and masked targets)
+K_SHARDS = [f"{OWNER}/rsna-knee-kcache-s{i}of5" for i in range(5)]
 SMALL = ("convnext_tiny", "convnext_small")
 SMALL_PACKAGE = ["--res", "384", "--drop-path", "0.1", "--bb-lr", "1e-4", "--pos-emb", "--fit-budget",
                  "--conf-weight", "none"]
-# CoAtNet on Stage B (a fine-tune from the public checkpoint): the 10-02 student's rate (bb-lr 3e-5), plain BCE.
-# Not PACKAGE + SPEED: its encoder has no .blocks for --ckpt-blocks 12 (every block is checkpointed, the default),
-# and it has never run compiled. Slot / depth embeddings start at zero, so step 0 is the checkpoint itself.
 COATNET_PACKAGE = ["--res", "384", "--drop-path", "0.1", "--bb-lr", "3e-5", "--pos-emb", "--fit-budget",
                    "--conf-weight", "none"]
-# The combined recipe of 10-13 ("v3", docs/LOG.md): on top of SMALL_PACKAGE, at 16 epochs. One definition, used by
-# --recipe v3 here and by kaggle/offkaggle.py, so a Kaggle fold and an off-Kaggle fold are the same run.
-# --micro 1: 24 windows a forward per GPU, as k 12 x 2 studies was (8.1 GB on a T4); the batch stays 8 studies.
 V3_TRAIN_ARGS = ["--allow-missing-labels", "--spatial-attn", "--mirror", "0.5", "--mirror-tta", "--k", "24", "--micro", "1"]
 V3_EPOCHS = 16
-# K (owner 10-16, PLAN.md): the knee-centred region crops (32 slices, 24 windows: all of them each step), the weak four
-# only, spatial attention per finding; no mirror (the regions are lateral by construction).
 K_TRAIN_ARGS = ["--allow-missing-labels", "--only-weak4", "--spatial-attn", "--k", "24", "--micro", "1"]
 N_TRAIN, DRAW_SEED = 2871, 20260923
 
 
 SETUP = r'''
-# ============================================================================ #
-# Backbone A/B -- setup. Built by kaggle/build_backbone_ab_kernel.py; read
-# that docstring for the question and the rule fixed before the run.
-# ============================================================================ #
 import base64, hashlib, json, os, re, shutil, subprocess, sys, time
 from pathlib import Path
 import numpy as np
@@ -88,7 +74,7 @@ for _p in ("/kaggle/tmp", "/tmp", "/kaggle/working"):
         log(f"disk {_p}: {shutil.disk_usage(_p).free / 1e9:.1f} GB free")
 
 SCRATCH = Path("/tmp")
-REPO = SCRATCH / "ab_repo"                # outside /kaggle/working: it holds competition CSVs
+REPO = SCRATCH / "ab_repo"
 OUT = Path("/kaggle/working")
 RUN = OUT / f"runs_{ARCH}"
 FILES = json.loads(base64.b64decode(__FILES_B64__).decode())
@@ -113,9 +99,6 @@ log(f"competition root: {ROOT}")
 
 
 PREP = r'''
-# ============================================================================ #
-# Labels, site folds, the partition check, then the train/val lists.
-# ============================================================================ #
 L = ["ACL", "MCL", "Medial Meniscus", "Lateral Meniscus", "Medial OA", "Lateral OA",
      "PF OA", "Effusion", "Synovitis", "Baker's", "Contusion", "Fracture"]
 for _p in (REPO, REPO / "pipeline", REPO / "fusion"):
@@ -154,7 +137,7 @@ if __TARGETS_SHA__:
         _how = "embedded"
     else:
         _hits = []
-        for _r, _dd, _fs in os.walk("/kaggle/input"):   # not the image trees: 6 min walking DICOMs, 09-26
+        for _r, _dd, _fs in os.walk("/kaggle/input"):
             _dd[:] = [x for x in _dd if x not in ("train_series", "test_series", "train_images", "test_images")]
             if __TARGETS_NAME__ in _fs:
                 _hits.append(Path(_r) / __TARGETS_NAME__)
@@ -185,7 +168,7 @@ _fp.to_csv(_sfp.OUT, index=False)
 import folds as _folds
 FOLDS = _folds.build(group_by="site")
 FOLDS.to_csv(D / "folds_site.csv", index=False)
-_check(D / "folds_site.csv", "fusion/folds.py --group-by site")     # held to the committed record
+_check(D / "folds_site.csv", "fusion/folds.py --group-by site")
 
 CTRL = pd.read_csv(REPO / "fusion" / "runs_port_repro" / "oof_all.csv").StudyInstanceUID.drop_duplicates().tolist()
 _f0 = set(FOLDS.loc[FOLDS.fold == 0, "StudyInstanceUID"])
@@ -194,11 +177,11 @@ log(f"partition check: {len(CTRL) - len(_drift)}/{len(CTRL)} control studies are
 if _drift:
     sys.exit(f"the rebuilt fold 0 lost {len(_drift)} control studies -- the paired read would be contaminated")
 
-from train_windows import Corpus as _Corpus        # the trainer's own loader and its checks
+from train_windows import Corpus as _Corpus
 CORPUS_IDS = set(_Corpus(Path("/kaggle/input"), LAYOUT).ids)
 log(f"corpus ({LAYOUT}) holds {len(CORPUS_IDS)} studies")
 VAL = [u for u in CTRL if u in CORPUS_IDS]
-MASKED = "--allow-missing-labels" in EXTRA               # NaN targets carry no loss: keep a study with any target
+MASKED = "--allow-missing-labels" in EXTRA
 _ok = TARGETS_DF[L].notna().any(axis=1) if MASKED else TARGETS_DF[L].notna().all(axis=1)
 HAS_TARGETS = set(_ok.index[_ok])
 _pool = sorted(u for u in FOLDS.loc[(FOLDS.fold != 0) & (~FOLDS.is_gold), "StudyInstanceUID"]
@@ -212,8 +195,8 @@ if ALL_DATA:
     if set(TRAIN) & set(VAL) or len(VAL) < 50:
         sys.exit(f"all-data: train/gold overlap or only {len(VAL)} gold studies in the corpus")
 elif PREDICT_ALL:
-    VAL = sorted(u for u in FOLDS.loc[~FOLDS.is_gold, "StudyInstanceUID"] if u in CORPUS_IDS)   # every non-gold study
-    TRAIN = _pool[:2]                                      # train_windows needs a train list; 0 epochs never use it
+    VAL = sorted(u for u in FOLDS.loc[~FOLDS.is_gold, "StudyInstanceUID"] if u in CORPUS_IDS)
+    TRAIN = _pool[:2]
 elif TEACHER_FOLD:
     _fk = set(FOLDS.loc[FOLDS.fold == TEACHER_FOLD, "StudyInstanceUID"])
     VAL = [u for u in _pool if u in _fk]
@@ -230,8 +213,6 @@ else:
 RUN.mkdir(parents=True, exist_ok=True)
 pd.Series(TRAIN, name="StudyInstanceUID").to_csv(RUN / "train_studies.csv", index=False)
 pd.Series(VAL, name="StudyInstanceUID").to_csv(RUN / "val_studies.csv", index=False)
-# Fold CV: model k trains on every non-gold study outside fold k and predicts fold k. Gold is in no
-# training list; the trainer scores it per fold, report only.
 FOLD_RUNS = {}
 for _k in FOLD_LIST:
     _fk = set(FOLDS.loc[FOLDS.fold == _k, "StudyInstanceUID"])
@@ -256,16 +237,13 @@ for _k in FOLD_LIST:
 
 
 TRAIN = r'''
-# ============================================================================ #
-# Train: fusion/train_windows.py, the only place an arm differs is --arch.
-# ============================================================================ #
 NPROC = (torch.cuda.device_count() if torch.cuda.is_available() else 2) if LAYOUT in ("stage_b", "stage_k") else 1
 _launch = ([sys.executable, "-m", "torch.distributed.run", "--nnodes", "1", "--node_rank", "0",
             "--master_addr", "127.0.0.1", "--master_port", "29511", "--nproc_per_node", str(NPROC)]
            if NPROC > 1 else [sys.executable, "-u"])
 if NPROC > 1:
     os.environ["TW_WORKERS"] = str(max(1, (os.cpu_count() or 4) // NPROC))
-    if not torch.cuda.is_available():          # CPU smoke: checkpoint like the GPU run, and use every core
+    if not torch.cuda.is_available():
         os.environ["TW_FORCE_CKPT"] = "1"
         os.environ["OMP_NUM_THREADS"] = str(max(1, (os.cpu_count() or 4) // NPROC))
 if not torch.cuda.is_available():
@@ -301,13 +279,9 @@ else:
 
 
 SCORE = r'''
-# ============================================================================ #
-# Score: paired against runs_port_repro on the same 691 studies, by score_oof.py.
-# ============================================================================ #
 if MODE == "smoke":
     log("SMOKE: the whole path ran. No score -- 6 studies cannot carry one.")
 elif FOLD_RUNS:
-    # every fold alone, then all held-out predictions as one table; fold 0 also paired with the control on the 691
     for _sub in ("", "avg3"):
         _parts = [_d / _sub / "oof_all.csv" for _d in FOLD_RUNS.values()]
         if not all(p.exists() for p in _parts):
@@ -323,14 +297,14 @@ elif FOLD_RUNS:
             with open(OUT / f"score_cv_{_sub or 'last'}.txt", "a") as _f:
                 _f.write(_res.stdout + _res.stderr)
     _gold = [pd.read_csv(_d / "oof_gold.csv") for _d in FOLD_RUNS.values() if (_d / "oof_gold.csv").exists()]
-    if _gold:                                    # gold is in no fold's training list: the fold models' mean, report only
+    if _gold:
         pd.concat(_gold).groupby("StudyInstanceUID", as_index=False)[L].mean().to_csv(RUN / "oof_gold_foldmean.csv", index=False)
 elif ALL_DATA:
     log("ALL DATA: nothing held out, so no 691 score; gold-58 is in summary.json (report only); the LB judges.")
 else:
     for _arm in [RUN] + ([RUN / "avg3"] if (RUN / "avg3" / "oof_all.csv").exists() else []):
         _ctrl = "runs_c6_ortho" if LAYOUT in ("stage_b", "stage_k") else "runs_port_repro"
-        _pair = [] if TEACHER_FOLD or PREDICT_ALL else [str(REPO / "fusion" / _ctrl)]   # not the 691 alone
+        _pair = [] if TEACHER_FOLD or PREDICT_ALL else [str(REPO / "fusion" / _ctrl)]
         _res = subprocess.run([sys.executable, str(REPO / "fusion" / "score_oof.py")] + _pair + [str(_arm)],
                               capture_output=True, text=True, cwd=str(REPO))
         print(_res.stdout, _res.stderr)
@@ -396,8 +370,6 @@ def main() -> None:
         a.train_args = " ".join(V3_TRAIN_ARGS + a.train_args.split())
         a.epochs = V3_EPOCHS
     mode = "smoke" if a.smoke else "bench" if a.bench else "full"
-    # a small-backbone smoke runs TWO epochs: the averaged weights (avg3) need two states, and that branch scores
-    # and saves at the very end of a full run
     epochs = a.epochs if mode == "full" else 2 if mode == "smoke" and a.arch in SMALL else 1
     if a.corpus in ("stage_b", "stage_k"):
         if not a.predict_all and a.arch not in (*SMALL, "coatnet"):
@@ -447,7 +419,7 @@ def main() -> None:
              "PF OA", "Effusion", "Synovitis", "Baker's", "Contusion", "Fracture"]
         t = pd.read_csv(a.targets)
         v = t[L].to_numpy(float)
-        masked = "--allow-missing-labels" in extra          # NaN = a target that carries no loss
+        masked = "--allow-missing-labels" in extra
         bad = int(((v < 0) | (v > 1)).sum()) + int(np.isnan(v).all(axis=1).sum() if masked else np.isnan(v).any(axis=1).sum())
         if t.StudyInstanceUID.duplicated().any() or bad:
             raise SystemExit(f"{a.targets}: duplicate studies or {bad} missing/out-of-range cells"
@@ -467,10 +439,9 @@ def main() -> None:
                 .replace("__TARGETS_NAME__", repr(t_name)))
     cells = [setup, prep, TRAIN, SCORE]
     for k, c in enumerate(cells):
-        compile(c, f"cell{k}", "exec")              # fail here, not after the queue wait
+        compile(c, f"cell{k}", "exec")
 
-    # the A/B keeps its slugs; a Stage A run is a different experiment and gets its own
-    name = a.arch.replace("_", "-")                     # a Kaggle slug has no underscore
+    name = a.arch.replace("_", "-")
     slug = {"raptor44": f"rsna-knee-backbone-ab-{name}", "stage_a": f"rsna-knee-c6-train-{name}",
             "stage_b": f"rsna-knee-c7-train-{name}", "stage_k": f"rsna-knee-k-train-{name}"}[a.corpus] + (f"-{a.tag}" if a.tag else "") \
         + (f"-t{a.teacher_fold}" if a.teacher_fold else "") + ("-pa" if a.predict_all else "") \

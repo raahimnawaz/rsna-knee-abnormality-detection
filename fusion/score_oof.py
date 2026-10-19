@@ -73,7 +73,6 @@ def main() -> None:
     print(__doc__.splitlines()[0])
     print(f"reference: {NEUTRAL.name} (held out from training) · gold excluded ({len(gold_ids)})\n")
 
-    # Paired by construction: with more than one arm, every arm is scored on the intersection.
     restrict = None
     if len(a.runs) > 1:
         sets = [set(load_oof(Path(r)).index) for r in a.runs]
@@ -83,7 +82,7 @@ def main() -> None:
 
     parts = [Path(r).resolve().parts for r in a.runs]
     names = [p[-1] for p in parts]
-    for up in range(2, min(map(len, parts)) + 1):           # same folder names (.../fold0): the first parent that differs
+    for up in range(2, min(map(len, parts)) + 1):
         if len(set(names)) == len(names):
             break
         names = [p[-up] for p in parts]

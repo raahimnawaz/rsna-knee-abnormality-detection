@@ -2,18 +2,6 @@ r"""Build one inference bundle holding R6 and R7, for the public R6 worker's own
 
     python kaggle/build_r6r7_bundle.py --r6 <R6 version-1 files> --r7 <R7 bundle files> --out <dir>
     kaggle datasets create -p <dir>        # private: raahimnawaz/rsna-knee-r6r7-dual
-
-R6 (heliosli, bundle fe055406) and R7 (heliosli, bundle 8c7b666e) share the worker, trainer (md5 8622009e), views v4, size
-384 / crop 352, slices, physical step, knee anchors and the state layout (their state specs differ only in prior numbers).
-The worker (`compact_infer.py --models2 --arm2 --backbone2 --w2`) runs group 2 on the windows it decoded for group 1 and
-mixes the two per finding in logit space: z = (1 - w2) z_R6 + w2 z_R7.
-
-- **w2 = 0.5** on ten findings; **0 on Effusion and Baker's**, which R6 refines with stackers fitted on its own output.
-- R6's Baker's state stacker reads group 1 only, so Baker's stays R6's. R6's Effusion fluid stacker refuses a two-group run
-  unless it declares two lines whose weights equal the deployed (1 - w2, w2) = (1, 0): this build adds R7 as a second line
-  at weight 0, which leaves R6's Effusion exactly as it was.
-- Every source file is checked against its own manifest's sha256 table first; the new manifest lists the sha256 of every
-  file in the bundle, which the notebook checks again before use.
 """
 from __future__ import annotations
 
@@ -26,7 +14,7 @@ from pathlib import Path
 LABELS = ["ACL", "MCL", "Medial Meniscus", "Lateral Meniscus", "Medial OA", "Lateral OA", "PF OA", "Effusion",
           "Synovitis", "Baker's", "Contusion", "Fracture"]
 R6_ID, R7_ID = "fe055406fad6a12f", "8c7b666e27dc0e8f"
-ARM2 = "R7lp"                        # group 2's file prefix: the worker globs <arm2>_s*_f*.pt
+ARM2 = "R7lp"
 ZERO = ("Effusion", "Baker's")
 
 

@@ -13,16 +13,16 @@ IMG = 384
 TARGET_MM = FOV_MM / IMG
 
 SLOTS: tuple[Slot, ...] = (
-    Slot("sag_1", "Sagittal", 26, 1),       # the meniscus/ACL plane: densest
+    Slot("sag_1", "Sagittal", 26, 1),
     Slot("sag_2", "Sagittal", 20, 0),
     Slot("cor_1", "Coronal",  16, 1),
     Slot("cor_2", "Coronal",  10, None),
     Slot("ax_1",  "Axial",    14, None),
-    Slot("sag_3", "Sagittal",  6, None),    # the third sagittal, present in ~22% of studies
-    Slot("ax_2",  "Axial",     4, None),    # the second axial, present in ~25%
+    Slot("sag_3", "Sagittal",  6, None),
+    Slot("ax_2",  "Axial",     4, None),
 )
-N_SLICES = sum(s.n_slices for s in SLOTS)      # 96
-N_WINDOWS = sum(s.n_windows for s in SLOTS)    # 82
+N_SLICES = sum(s.n_slices for s in SLOTS)
+N_WINDOWS = sum(s.n_windows for s in SLOTS)
 SLOT_INDEX = {s.name: i for i, s in enumerate(SLOTS)}
 
 
@@ -35,8 +35,7 @@ def window_ids():
 
 
 def assign_series(series: list[dict]) -> dict[str, dict | None]:
-    """`slots64.assign_series` over these slots. Order matters and is deliberate: the five Stage A
-    slots pick first, so sag_3 / ax_2 only ever take a series that would otherwise go unused."""
+    """`slots64.assign_series` over these slots."""
     return _A.assign_series(series, SLOTS)
 
 
@@ -58,7 +57,6 @@ def _self_test() -> None:
     for (a, b), s in zip(slot_offsets(), SLOTS):
         own = ctr[(ctr >= a) & (ctr < b)]
         assert len(own) == s.n_windows and own.min() > a and own.max() < b - 1, s.name
-    # the extra slots take only what the Stage A five leave behind
     ser = [{"plane": "Sagittal", "fluid": 1, "n_slices": 30, "id": "S1"},
            {"plane": "Sagittal", "fluid": 0, "n_slices": 28, "id": "S2"},
            {"plane": "Sagittal", "fluid": 0, "n_slices": 26, "id": "S3"},
@@ -66,7 +64,7 @@ def _self_test() -> None:
            {"plane": "Axial", "fluid": 1, "n_slices": 20, "id": "A2"}]
     a = assign_series(ser)
     assert (a["sag_1"]["id"], a["sag_2"]["id"], a["sag_3"]["id"]) == ("S1", "S2", "S3")
-    assert (a["ax_1"]["id"], a["ax_2"]["id"]) == ("A1", "A2")      # longer axial first
+    assert (a["ax_1"]["id"], a["ax_2"]["id"]) == ("A1", "A2")
     assert a["cor_1"] is None and a["cor_2"] is None
     two = assign_series(ser[:2])
     assert two["sag_3"] is None and two["ax_2"] is None

@@ -1,21 +1,8 @@
-"""K: knee-centred region crops for the four weak findings (PLAN.md), one cache row per study.
+r"""K: knee-centred region crops for the four weak findings, one cache row per study.
 
     python pipeline/kcache.py --root <competition dir> --out <dir> --weights anatomy.pt --vendor <monai060> \
         [--shard 0 --n-shards 5] [--limit N] [--montages 6]
     python pipeline/kcache.py --check        # crop geometry on synthetic DICOM knees (no model)
-
-Per study: the knee joint centre J and the patella centre P are found on the fluid-sensitive sagittal series with the
-public SKM-TEA segmenter (heliosli's `anatomy.pt`; 9 slices rendered at its 0.3125 mm, S at the top, A at the left),
-in patient coordinates (LPS mm). Four regions are then cut from the original series around them, each slice resampled
-onto a fixed grid in the canonical frame (left knees mirrored: columns run lateral -> medial or anterior -> posterior):
-
-  lat_sag   sagittal  the lateral compartment (6-42 mm lateral of J), 80 mm around J      Lateral OA, Lateral Meniscus
-  lat_cor   coronal   slices 15 mm anterior to 20 mm posterior of J, the lateral half      Lateral OA, Lateral Meniscus
-  pf_ax     axial     slices within 15 mm of P, 96 mm around the patellofemoral joint    PF OA
-  ant_sag   sagittal  central slices (within 12 mm of J), 96 mm around the front          Synovitis, PF OA
-
-Eight slices a region, 256 x 256 px (0.3125 mm; pf_ax and ant_sag 0.375 mm). The output is the trainer's cache contract
-(`vols.npy` N x 32 x 256 x 256 uint8, `masks.npy`, `ids.npy`, `manifest.json` spec "k4-32slice-256", `slots.csv`).
 """
 from __future__ import annotations
 
@@ -35,13 +22,10 @@ import build_slots64 as B  # noqa: E402
 SPEC, IMG, PER = "k4-32slice-256", 256, 8
 SEG_MM, SEG_PX, N_ANCHOR = 0.3125, 512, 9
 X, Y, Z = np.eye(3)
-# name, plane, fluid preference, the slab along the slice normal (mm, relative to the anchor), spacing (mm/px)
 REGIONS = (("lat_sag", "Sagittal", 1, (-42.0, -6.0), 0.3125),
            ("lat_cor", "Coronal", 1, (-15.0, 20.0), 0.3125),
            ("pf_ax", "Axial", 1, (-15.0, 15.0), 0.375),
            ("ant_sag", "Sagittal", 1, (-12.0, 12.0), 0.375))
-# P - J when the patella is not found: 40 mm anterior (-y), 25 mm superior (+z) -- heliosli's anchor default ("+30 cut
-# it" on the gold montages); 35 clipped the patella in K's smoke montages (10-16)
 PATELLA_DEFAULT = np.array([0.0, -40.0, 25.0])
 VENDOR_TREE_SHA = "1dcf1dabb83ab80eec50a5c0abfc407b3ba785bf9f30ae6c0e25da124ef87b05"
 ANATOMY_SHA = "5904dd16eb9a4fd7a1caf90ac977f8fe2ef364908598c23c209db3fe7fd1563e"
@@ -51,7 +35,6 @@ def log(msg: str) -> None:
     print(f"[{time.strftime('%H:%M:%S')}] {msg}", flush=True)
 
 
-# ----------------------------------------------------------------------------- geometry
 def read_series(d: Path) -> list[dict]:
     """Slice headers of one series, sorted along its normal: file, IPP, row / column direction, spacings."""
     import pydicom
@@ -77,14 +60,13 @@ def read_series(d: Path) -> list[dict]:
 def render(img: np.ndarray, s: dict, centre: np.ndarray, row_ax: np.ndarray, col_ax: np.ndarray, mm: float,
            size: int) -> np.ndarray:
     """Resample one slice onto a size x size grid of `mm` pixels centred on `centre` (projected onto the slice), rows
-    along `row_ax` and columns along `col_ax` (both projected into the slice plane). Outside the image: 0."""
+    along `row_ax` and columns along `col_ax` (both projected into the slice plane)."""
     n = s["n"] / np.linalg.norm(s["n"])
     c0 = centre - ((centre - s["ipp"]) @ n) * n
     ra = row_ax - (row_ax @ n) * n
     ca = col_ax - (col_ax @ n) * n
     ra, ca = ra / max(np.linalg.norm(ra), 1e-6), ca / max(np.linalg.norm(ca), 1e-6)
     h = (size - 1) / 2.0
-    # output (x = column b, y = row a) -> source (x = column j, y = row i)
     jr, jc = s["r"] / s["ps_col"], s["c"] / s["ps_row"]
     rel = c0 - s["ipp"] - h * mm * (ra + ca)
     M = np.array([[mm * (ca @ jr), mm * (ra @ jr), rel @ jr],
@@ -113,10 +95,10 @@ def slice_centre(s: dict) -> np.ndarray:
 def axes(plane: str, m: np.ndarray) -> tuple[np.ndarray, np.ndarray, np.ndarray]:
     """(normal used for the slab, row axis, column axis) of a region's grid in the canonical frame."""
     if plane == "Sagittal":
-        return m, -Z, Y            # rows down, columns anterior -> posterior; slab lateral -> medial
+        return m, -Z, Y
     if plane == "Coronal":
-        return Y, -Z, m            # rows down, columns lateral -> medial; slab anterior -> posterior
-    return Z, Y, m                 # axial: rows anterior -> posterior, columns lateral -> medial; slab inferior -> superior
+        return Y, -Z, m
+    return Z, Y, m
 
 
 def pick_slab(series: list[dict], normal: np.ndarray, at: float, lo: float, hi: float, k: int) -> list[int]:
@@ -131,7 +113,6 @@ def pick_slab(series: list[dict], normal: np.ndarray, at: float, lo: float, hi: 
     return chosen
 
 
-# ----------------------------------------------------------------------------- the anchors
 def tree_sha256(root: str) -> str:
     import hashlib
     lines = []
@@ -176,9 +157,9 @@ def anchors_from(model, inp: dict, dev: str = "cpu") -> tuple[np.ndarray, np.nda
     in patient coordinates weighted by confident area."""
     import torch
     pts_j, w_j, pts_p, w_p = [], [], [], []
-    keep = np.zeros((SEG_PX, SEG_PX), bool)                 # joint tissue: the central 70 % (edge firing, 10-16)
+    keep = np.zeros((SEG_PX, SEG_PX), bool)
     keep[int(.15 * SEG_PX):int(.85 * SEG_PX), int(.15 * SEG_PX):int(.85 * SEG_PX)] = True
-    keep_p = np.zeros((SEG_PX, SEG_PX), bool)               # patella: everything but a 5 % border (it sits anterior)
+    keep_p = np.zeros((SEG_PX, SEG_PX), bool)
     keep_p[int(.05 * SEG_PX):int(.95 * SEG_PX), int(.05 * SEG_PX):int(.95 * SEG_PX)] = True
     with torch.inference_mode():
         for x, (c, s) in zip(inp["stack"], inp["frames"]):
@@ -196,16 +177,14 @@ def anchors_from(model, inp: dict, dev: str = "cpu") -> tuple[np.ndarray, np.nda
     J = np.average(np.array(pts_j), 0, weights=np.array(w_j, float))
     if sum(w_p) >= 60:
         P = np.average(np.array(pts_p), 0, weights=np.array(w_p, float))
-        if not (P[1] < J[1] and P[2] > J[2] - 10):        # the patella sits anterior to the joint and not below it
+        if not (P[1] < J[1] and P[2] > J[2] - 10):
             return J, J + PATELLA_DEFAULT, "segmenter; patella implausible"
         return J, P, "segmenter"
     return J, J + PATELLA_DEFAULT, "segmenter; no patella"
 
 
 def anchors(model, sag: list[dict], imgs: dict, m: np.ndarray, dev: str = "cpu") -> tuple[np.ndarray, np.ndarray, str]:
-    """(J, P, method) from the fluid-sensitive sagittal series: N_ANCHOR slices over its central 80 %. One function
-    for the cache build; at test time its two halves run apart (`anchor_inputs` in a worker, `anchors_from` on the
-    GPU), the same arithmetic in the same order."""
+    """(J, P, method) from the fluid-sensitive sagittal series: N_ANCHOR slices over its central 80 %."""
     return anchors_from(model, anchor_inputs(sag, imgs), dev)
 
 
@@ -227,10 +206,9 @@ def study_anchor_inputs(study_dir: Path, series: list[dict]) -> dict | None:
     return anchor_inputs(sag, {i: B.decode(sag[i]["file"]) for i in ai})
 
 
-# ----------------------------------------------------------------------------- one study
 def build_study(study_dir: Path, series: list[dict], model=None, dev: str = "cpu",
                 override: tuple[np.ndarray, np.ndarray] | None = None) -> tuple[np.ndarray, np.ndarray, dict]:
-    """-> (vol (32, IMG, IMG) uint8, mask (32,) uint8, meta). `override` = (J, P) skips the segmenter (tests)."""
+    """-> (vol (32, IMG, IMG) uint8, mask (32,) uint8, meta)."""
     import slots96
     vol = np.zeros((len(REGIONS) * PER, IMG, IMG), np.uint8)
     mask = np.zeros(len(REGIONS) * PER, np.uint8)
@@ -239,7 +217,7 @@ def build_study(study_dir: Path, series: list[dict], model=None, dev: str = "cpu
         s["n_slices"] = len(list(d.glob("*.dcm"))) if d.is_dir() else 0
     usable = [s for s in series if s["n_slices"] > 0]
     side, side_src = B.study_side(study_dir, [s["SeriesInstanceUID"] for s in usable])
-    m = -X if side == "L" else X                      # lateral -> medial, as build_slots64.canon_ops
+    m = -X if side == "L" else X
     meta = {"side": side or "", "side_src": side_src}
     by_plane = {}
     for plane in ("Sagittal", "Coronal", "Axial"):
@@ -281,11 +259,11 @@ def build_study(study_dir: Path, series: list[dict], model=None, dev: str = "cpu
         if name == "lat_sag":
             ref, centre = J @ normal, J
         elif name == "lat_cor":
-            ref, centre = J @ normal, J - 22.0 * m             # the lateral half of the joint
+            ref, centre = J @ normal, J - 22.0 * m
         elif name == "pf_ax":
-            ref, centre = P @ normal, P + 12.0 * Y              # the patella, the joint and the trochlea
+            ref, centre = P @ normal, P + 12.0 * Y
         else:
-            ref, centre = J @ normal, P + 25.0 * Y              # the front: suprapatellar recess to Hoffa's fat pad
+            ref, centre = J @ normal, P + 25.0 * Y
         picks = pick_slab(hdr, normal, ref, lo, hi, PER)
         if not picks:
             meta[name] = "no slice in the slab"
@@ -330,12 +308,9 @@ def montage(vol: np.ndarray, mask: np.ndarray, path: Path, title: str) -> None:
     cv2.imwrite(str(path), img)
 
 
-# ----------------------------------------------------------------------------- the check
 def _check() -> None:
     """canon_fixture's synthetic knees (left / right, side by tag / geometry, standard and reversed storage) with the
-    anchor given. On the raw renders (before windowing): the lateral block (raw 700) sits where the canonical frame
-    puts it in lat_sag and lat_cor, the medial block (raw 1000) never appears there and sits where it should in pf_ax,
-    ant_sag's columns run anterior -> posterior; a left knee renders like a right one; build_study fills every region."""
+    anchor given."""
     import tempfile
     import pandas as pd
     sys.path.insert(0, str(Path(__file__).resolve().parents[1] / "tests"))
@@ -345,10 +320,9 @@ def _check() -> None:
     ser = pd.read_csv(root / "train_series.csv")
     cx = {name: c for name, (_, c, *_) in CF.STUDIES.items()}
     h = (IMG - 1) / 2.0
-    # expected block centres (row, column) on the grid, from the phantom's knee-local boxes (canon_fixture.phantom)
-    want = {"lat_sag": (h + 22.5 / 0.3125, h + 20.0 / 0.3125),           # lateral block: si -22.5, ap +20
-            "lat_cor": (h + 22.5 / 0.3125, h + (-32.5 + 22.0) / 0.3125),  # si -22.5, mu -32.5 (centre at mu -22)
-            "pf_ax": (h + (-30.0 - (PATELLA_DEFAULT[1] + 12.0)) / REGIONS[2][4], None)}   # medial block: ap -30
+    want = {"lat_sag": (h + 22.5 / 0.3125, h + 20.0 / 0.3125),
+            "lat_cor": (h + 22.5 / 0.3125, h + (-32.5 + 22.0) / 0.3125),
+            "pf_ax": (h + (-30.0 - (PATELLA_DEFAULT[1] + 12.0)) / REGIONS[2][4], None)}
     renders = {}
     n = 0
     for suid, t in truth.items():
@@ -388,10 +362,9 @@ def _check() -> None:
         vol, mask, meta = build_study(root / "train_series" / suid, rows, override=(J, P))
         assert meta["side"] == t["side"] and mask.sum() >= 4 * 5, (t["name"], meta, mask)
         n += 1
-    # the test-time split (anchor_inputs in a worker, anchors_from on the GPU) = the cache build, byte for byte
     import torch
 
-    class Fake(torch.nn.Module):                            # deterministic stand-in for the segmenter
+    class Fake(torch.nn.Module):
         def forward(self, x):
             return torch.cat([(x - 1.2) * 20, (x - 0.3) * 20, (x - 0.4) * 20, (x - 0.5) * 20], 1)
     fake = Fake().eval()
@@ -411,7 +384,6 @@ def _check() -> None:
           f"ones, no medial block in the lateral regions, left = right)")
 
 
-# ----------------------------------------------------------------------------- driver
 def main() -> None:
     ap = argparse.ArgumentParser(description=__doc__.splitlines()[0])
     ap.add_argument("--root", type=Path)
@@ -473,7 +445,7 @@ def main() -> None:
     vols.flush()
     np.save(a.out / "masks.npy", masks[:done])
     np.save(a.out / "ids.npy", np.asarray(mine[:done], dtype=object), allow_pickle=True)
-    if done < len(mine):                                    # keep the contract: rows = ids
+    if done < len(mine):
         np.save(a.out / "vols_partial_rows.npy", np.array([done]))
     meta = pd.DataFrame(rows)
     meta.to_csv(a.out / "slots.csv", index=False)

@@ -9,7 +9,6 @@ FOV_MM = 140.0
 TARGET_MM = 0.35
 IMG = 336
 
-# --- sampling -----------------------------------------------------------------------------
 DEPTH_LO, DEPTH_HI = 0.06, 0.94
 GROUP = 3
 
@@ -19,7 +18,7 @@ class Slot:
     name: str
     plane: str
     n_slices: int
-    fluid: int | None      # 1 prefer fluid-sensitive, 0 prefer NOT, None don't care
+    fluid: int | None
 
     @property
     def n_windows(self) -> int:
@@ -31,12 +30,12 @@ SLOTS: tuple[Slot, ...] = (
     Slot("sag_1", "Sagittal", 18, 1),
     Slot("sag_2", "Sagittal", 14, 0),
     Slot("cor_1", "Coronal",  12, 1),
-    Slot("cor_2", "Coronal",   8, None),     # the second coronal: `used` excludes cor_1's pick
+    Slot("cor_2", "Coronal",   8, None),
     Slot("ax",    "Axial",    12, None),
 )
 
-N_SLICES = sum(s.n_slices for s in SLOTS)      # 64
-N_WINDOWS = sum(s.n_windows for s in SLOTS)    # 54
+N_SLICES = sum(s.n_slices for s in SLOTS)
+N_WINDOWS = sum(s.n_windows for s in SLOTS)
 SLOT_INDEX = {s.name: i for i, s in enumerate(SLOTS)}
 
 
@@ -67,7 +66,7 @@ def window_ids(slots: tuple[Slot, ...] | None = None) -> tuple[np.ndarray, np.nd
         for p in range(s.n_windows):
             slot_id.append(si)
             pos_id.append(p)
-            centre.append(base + p + 1)      # centre of the triple; +1 skips the dropped edge
+            centre.append(base + p + 1)
         base += s.n_slices
     return (np.asarray(slot_id, dtype=np.int64),
             np.asarray(pos_id, dtype=np.int64),
@@ -105,7 +104,7 @@ def assign_series(series: list[dict], slots: tuple[Slot, ...] | None = None) -> 
 
 
 def manifest(depth_range: tuple[float, float] = (DEPTH_LO, DEPTH_HI)) -> dict:
-    """Stamped into every cache. `PREPROCESS_VERSION`'s purpose is to make drift loud."""
+    """Stamped into every cache."""
     return {"spec": "c6-64slice", "fov_mm": FOV_MM, "target_mm": TARGET_MM, "img": IMG,
             "depth_range": list(depth_range), "group": GROUP,
             "n_slices": N_SLICES, "n_windows": N_WINDOWS,
@@ -126,19 +125,15 @@ def _self_test() -> None:
         assert len(own) == s.n_windows, (s.name, len(own), s.n_windows)
         assert own.min() > a and own.max() < b - 1, f"{s.name}: window triple leaves the slot"
 
-    # Depth sampling reaches the outer thirds.
     d = pick_depths(100, 18)
     assert d.min() <= 6 and d.max() >= 93, f"depths do not span 6-94%: {d.min()}..{d.max()}"
     assert len(d) == 18 and (np.diff(d) >= 0).all()
-    # What a window spans in the source stack: neighbours only when the stack is ~1.1x the slot.
     assert abs(source_step(20, 18) - 1.0) < 0.1, source_step(20, 18)
     assert 2.5 < source_step(60, 18) < 3.5 and source_step(12, 18) < 1.0
-    # Short and degenerate series must not raise.
     for n, want in ((1, 18), (2, 18), (5, 12), (0, 8)):
         got = pick_depths(n, want)
         assert len(got) == want and got.max() < max(n, 1), (n, want, got)
 
-    # Slot assignment: preference is a sort key, not a filter.
     ser = [{"plane": "Sagittal", "fluid": 0, "n_slices": 30},
            {"plane": "Sagittal", "fluid": 1, "n_slices": 25},
            {"plane": "Axial", "fluid": 1, "n_slices": 20}]
@@ -147,12 +142,10 @@ def _self_test() -> None:
     assert a["sag_2"]["fluid"] == 0, "sag_2 should take the non-fluid sagittal"
     assert a["cor_1"] is None and a["cor_2"] is None, "no coronal -> masked, never substituted"
     assert a["ax"] is not None
-    # Three coronals: cor_1 takes the fluid one, cor_2 the longer of the other two.
     a3 = assign_series([{"plane": "Coronal", "fluid": 1, "n_slices": 30, "id": "A"},
                         {"plane": "Coronal", "fluid": 0, "n_slices": 28, "id": "B"},
                         {"plane": "Coronal", "fluid": 0, "n_slices": 12, "id": "C"}])
     assert (a3["cor_1"]["id"], a3["cor_2"]["id"]) == ("A", "B"), (a3["cor_1"], a3["cor_2"])
-    # Only-non-fluid sagittals still fill sag_1 rather than leaving zeros.
     a2 = assign_series([{"plane": "Sagittal", "fluid": 0, "n_slices": 30}])
     assert a2["sag_1"] is not None and a2["sag_2"] is None
     print(f"slots64 self-test OK  ({N_SLICES} slices -> {N_WINDOWS} windows, "

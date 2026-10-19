@@ -38,14 +38,14 @@ def site_groups(uids: pd.Series) -> pd.Series:
 def assign(groups: list, y: np.ndarray, n_folds: int, seed: int) -> np.ndarray:
     """Greedy label-balanced assignment of GROUPS (not rows) to folds."""
     rng = np.random.default_rng(seed)
-    cols = np.concatenate([y, np.ones((len(y), 1))], axis=1)   # last column = study count
+    cols = np.concatenate([y, np.ones((len(y), 1))], axis=1)
     total = np.maximum(cols.sum(0), 1.0)
     counts = np.zeros((n_folds, cols.shape[1]))
 
     rarity = 1.0 / np.maximum(y.sum(0), 1)
-    priority = (cols[:, -1] * 1000.0                        # group size dominates
-                + (y * rarity[None, :]).sum(1)              # then rarest-label content
-                + rng.random(len(y)) * 1e-9)                # ties broken randomly, not by name
+    priority = (cols[:, -1] * 1000.0
+                + (y * rarity[None, :]).sum(1)
+                + rng.random(len(y)) * 1e-9)
     order = np.argsort(-priority)
 
     out = np.full(len(groups), -1, dtype=int)

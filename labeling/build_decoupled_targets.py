@@ -1,17 +1,6 @@
-"""Decoupled targets for K (owner 10-18): Lateral OA and PF OA made independent of the other OA compartments.
+"""Decoupled targets for KDC: Lateral OA and PF OA made independent of the other OA compartments.
 
     python labeling/build_decoupled_targets.py            # -> data/student/targets_teacher_v3_dc.csv (+ .json)
-
-Why (LOG 10-18): our models read one shared "OA-ness" into all three compartments (Lateral ~ Medial OA Spearman 0.82;
-radiologists on gold-58 0.32, OAI's image grades 0.06), and K's lateral-only crops are coupled the same, so the
-shortcut comes from the targets. The pseudo-label rounds amplified it: hard-label phi Lateral ~ Medial OA is 0.48 in
-teacher_v3 against 0.35 in the report-only consensus (radiologists 0.32). So the two columns are taken from the
-REPORT-ONLY consensus (targets_consensus_v2) as hard labels (>= 0.5; the 0.35-0.65 band masked as ambiguous) and,
-inside each stratum of the OTHER two compartments (consensus hard labels, 2 x 2), cells are masked at random (fixed
-seed) so that every stratum has the same positive rate r = the column's own overall rate (prevalence kept, healthy
-knees kept as negatives). Masked cells are NaN: the trainer's --allow-missing-labels gives them no loss. The other
-ten columns are teacher_v3's, byte for byte, so the run differs from K's fold 0 in these two columns only.
-(First draft, not used: teacher_v3's values at the information-maximising rate 0.53 kept 24 healthy negatives.)
 """
 from __future__ import annotations
 
@@ -24,7 +13,7 @@ import pandas as pd
 
 PROJ = Path(__file__).resolve().parents[1]
 SRC = PROJ / "data" / "student" / "targets_teacher_v3.csv"
-REP = PROJ / "data" / "student" / "targets_consensus_v2.csv"       # report-only: the two decoupled columns come from here
+REP = PROJ / "data" / "student" / "targets_consensus_v2.csv"
 OUT = PROJ / "data" / "student" / "targets_teacher_v3_dc.csv"
 SEED = 20261018
 AMBIG = (0.35, 0.65)
@@ -32,11 +21,11 @@ PLAN = {"Lateral OA": ("Medial OA", "PF OA"), "PF OA": ("Medial OA", "Lateral OA
 
 
 def decouple(t: pd.DataFrame, col: str, others: tuple[str, str], rng: np.random.Generator) -> tuple[pd.Series, dict]:
-    """t: the report-only table. Hard labels for `col`, masked so every stratum of `others` has the column's own rate."""
+    """t: the report-only table."""
     y = (t[col] >= 0.5).astype(float)
     amb = t[col].between(*AMBIG)
     s = pd.DataFrame({"y": y, "a": (t[others[0]] >= 0.5).astype(int), "b": (t[others[1]] >= 0.5).astype(int)})[~amb]
-    r = round(float(s.y.mean()), 4)                      # prevalence kept: the common rate is the column's own
+    r = round(float(s.y.mean()), 4)
     keep = pd.Series(False, index=t.index)
     per = {}
     for key, g in s.groupby(["a", "b"]):
@@ -51,7 +40,7 @@ def decouple(t: pd.DataFrame, col: str, others: tuple[str, str], rng: np.random.
         chosen = list(rng.choice(p_idx, kp, replace=False)) + list(rng.choice(n_idx, kn, replace=False))
         keep[chosen] = True
         per[str(key)] = {"n": len(g), "pos": len(p_idx), "kept_pos": kp, "kept_neg": kn}
-    out = y.where(keep)                                  # NaN = no loss
+    out = y.where(keep)
     k = out.notna()
     phi = {o: round(float(np.corrcoef(out[k], (t.loc[k, o] >= 0.5).astype(float))[0, 1]), 4) for o in others}
     before = {o: round(float(np.corrcoef(y[~amb], (t.loc[~amb, o] >= 0.5).astype(float))[0, 1]), 4) for o in others}
@@ -69,7 +58,7 @@ def main() -> None:
     sha = lambda p: hashlib.sha256(p.read_bytes()).hexdigest()
     new, meta = t.copy(), {"source": SRC.name, "source_sha256": sha(SRC), "report_source": REP.name,
                            "report_source_sha256": sha(REP), "seed": SEED, "ambiguous_band": AMBIG, "columns": {}}
-    for col, others in PLAN.items():                    # each column decoupled from the report table's other two
+    for col, others in PLAN.items():
         new[col], meta["columns"][col] = decouple(rep, col, others, rng)
     new.reset_index().to_csv(OUT, index=False)
     meta["out_sha256"] = hashlib.sha256(OUT.read_bytes()).hexdigest()

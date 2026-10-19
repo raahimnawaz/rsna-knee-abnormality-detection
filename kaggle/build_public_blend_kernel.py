@@ -4,16 +4,6 @@ r"""Build the submission kernel that adds our folds to a public blend notebook, 
     python kaggle/build_public_blend_kernel.py --public-dir <pub> --weights-kernel <k1>,<k2>,<k3> \
         --weights-sha <64 hex>,<64 hex>,... --tag pub957-teach1 --out <dir>
     python -m kaggle kernels push -p <dir>
-
-The public notebook's cells run unchanged and write /kaggle/working/submission.csv (one of the free recipes in
-PUBLIC; the build refuses another slug, and any version whose seams below have moved).
-Two cells follow: our model's stage (build_submit_kernel's OURS cell, under a deadline) and a per-finding rank blend
-at the weights fixed below. In the scored rerun a failure or a timeout of our stage leaves the public submission as
-it is (a final), or raises so the submission errors (a read, --read: a score then always includes our member); in the
-commit run it stops the notebook, so a fault is seen before anything is submitted.
-
-Read in the commit log before submitting: `sha256 ok` · `GATE PASSED (n/n)` · `OURS_STAGE ok=True` ·
-`[public+ours] ARMS:` · 0 tracebacks.
 """
 from __future__ import annotations
 
@@ -26,7 +16,6 @@ from pathlib import Path
 
 import build_submit_kernel as B
 
-# The public blend notebooks this build has been checked against, and what each one is (for the intro cell).
 PUBLIC = {
     "varshithakolupuri/rsna-knee-one-unused-checkpoint-lifts-the-0-956":
         "the free 0.956 recipe: nartaa's OAI-trained CoAtNet (384 px, and its 224 px sibling at 35% of that slot), "
@@ -41,20 +30,11 @@ PUBLIC = {
         "35% of that half), heliosli's R7 bundle 8c7b666e (four folds, no flip pass), per-finding ranks 50/50",
 }
 
-# Our folds' share of each finding's rank, fixed 10-13 before any run and fitted to nothing. 0.25 where the
-# leaderboard probes of 10-12 put our five folds at 0.96 or more (MCL 0.968; the seven unprobed findings 0.966 on
-# average), 0.10 where they read 0.88-0.93 and two public members carry supervision we lack. Within-class rank
-# correlation of our folds with the public CoAtNet, in our input: 0.85-0.88.
 W_OURS = {"ACL": 0.25, "MCL": 0.25, "Medial Meniscus": 0.25, "Medial OA": 0.25, "Effusion": 0.25, "Baker's": 0.25,
           "Contusion": 0.25, "Fracture": 0.25,
           "Lateral Meniscus": 0.10, "Lateral OA": 0.10, "PF OA": 0.10, "Synovitis": 0.10}
 
 STAGE = r'''
-# ============================================================================ #
-# Our folds, one more stage after the public blend above has written its
-# submission.csv. The commit run (three test studies) carries the gate and
-# stops on any fault; the scored rerun keeps the public submission instead.
-# ============================================================================ #
 import csv as _pcsv, time as _ptime, importlib.metadata as _pmd
 _P_T0 = _ptime.time()
 
@@ -66,13 +46,12 @@ def _pver(n):
         return "-"
 
 
-# the public cells pin another image than our own kernels' and install wheels: what our reader will run on
 print("OURS_ENV " + " ".join(f"{_n}={_pver(_n)}" for _n in (
     "torch", "timm", "pydicom", "pylibjpeg", "pylibjpeg-libjpeg", "pylibjpeg-openjpeg", "python-gdcm", "numpy",
     "pandas")), flush=True)
-_P_READ = __READ__   # a leaderboard read: no score at all rather than a public-only score under our name
-_P_LEFT = 9 * 3600 - (_P_T0 - NB_T0) - __MARGIN_MIN__ * 60        # of the 9 h, less the margin for the blend
-_O_DEADLINE = _P_T0 + _P_LEFT                                      # the stage's subprocesses are killed past it
+_P_READ = __READ__
+_P_LEFT = 9 * 3600 - (_P_T0 - NB_T0) - __MARGIN_MIN__ * 60
+_O_DEADLINE = _P_T0 + _P_LEFT
 with open(DATA / 'test.csv') as _f:
     _P_COMMIT = sum(1 for _ in _pcsv.DictReader(_f)) < 100
 OURS_OK = False
@@ -92,11 +71,6 @@ print(f"OURS_STAGE ok={OURS_OK} seconds {_ptime.time() - _P_T0:.0f} left_at_star
 '''
 
 BLEND = r'''
-# ============================================================================ #
-# The public blend + our folds: per-finding percentile ranks at weights fixed
-# before any run, nothing fitted. A study our reader could not build keeps the
-# public rank. The public file is replaced only once the mix has passed its checks.
-# ============================================================================ #
 import json as _qjson, os as _qos
 from pathlib import Path as _QPath
 import numpy as _qnp
@@ -153,14 +127,9 @@ else:
 '''
 
 STAGE_K = r'''
-# ============================================================================ #
-# KDC (10-18): our knee-crop model on decoupled Lateral OA labels, one more
-# stage after the blend above. The same reader, gate and deadline as our stage;
-# in the scored rerun a failure or a late start keeps the submission as it is.
-# ============================================================================ #
 _K_T0 = _ptime.time()
 _K_LEFT = 9 * 3600 - (_K_T0 - NB_T0) - __MARGIN_MIN__ * 60
-_O_DEADLINE = _K_T0 + _K_LEFT                                      # the stage's subprocesses are killed past it
+_O_DEADLINE = _K_T0 + _K_LEFT
 K_OK = False
 if _K_LEFT < __MIN_LEFT_MIN__ * 60 and not _P_COMMIT:
     if _P_READ:
@@ -178,11 +147,6 @@ print(f"K_STAGE ok={K_OK} seconds {_ptime.time() - _K_T0:.0f} left_at_start_min 
 '''
 
 BLEND_K = r'''
-# ============================================================================ #
-# KDC joins the submission on the findings in _K_MIX only: per-finding
-# percentile ranks at shares fixed before any run, nothing fitted. A study KDC
-# could not build keeps its rank. The file is replaced only once the mix passes.
-# ============================================================================ #
 import json as _kjson, os as _kos
 from pathlib import Path as _KPath
 import numpy as _knp
@@ -244,12 +208,12 @@ K_WRITE_LOOP_OLD = """for _rel, (_b, _sha) in _ojson.loads(_ob64.b64decode(__FIL
     if _ohash.sha256(_p.read_bytes()).hexdigest() != _sha:
         raise RuntimeError(f"{_rel}: embedded file does not match its hash")
 _olog(f"built from __BUILT_FROM__; repo files written, hashes match")"""
-K_CHECK_LOOP = """for _rel, _sha in __FILE_SHAS__.items():          # [KDC] our stage wrote these; each must be there, unchanged
+K_CHECK_LOOP = """for _rel, _sha in __FILE_SHAS__.items():
     _p = _O_REPO / _rel
     if not _p.is_file() or _ohash.sha256(_p.read_bytes()).hexdigest() != _sha:
         raise RuntimeError(f"{_rel}: not written by our stage, or changed since")
 _olog(f"built from __BUILT_FROM__; repo files from our stage, hashes match")"""
-MAX_SOURCE = 1_000_000   # Kaggle refuses a kernel source of 1 MB or more (SaveKernel 400, found 10-19)
+MAX_SOURCE = 1_000_000
 
 INTRO = """# RSNA Knee -- the free public blend, with our five folds added
 
@@ -277,9 +241,7 @@ def with_deadline(ours: str) -> str:
 
 
 def replaced(sources: list[str], copies: list[str]) -> list[str]:
-    """The public notebook's dataset sources, each one we hold a copy of (same slug, another owner) swapped for it.
-    The notebook finds a mount by its slug alone, so its cells stay unchanged. `public=ours` names the source to swap
-    when our copy has another slug (then a --cell-patch points the notebook at it)."""
+    """The public notebook's dataset sources, each one we hold a copy of (same slug, another owner) swapped for it."""
     out = list(sources)
     for copy in copies:
         if "=" in copy:
@@ -377,7 +339,6 @@ def main() -> None:
     cells = pub["cells"]
     src = ["".join(c["source"]) for c in cells]
     code_cells = [s for c, s in zip(cells, src) if c["cell_type"] == "code"]
-    # the seams this build relies on -- refuse an upstream version that moved any of them
     if sum(bool(re.search(r"^NB_T0 = time\.time\(\)$", s, re.M)) for s in code_cells) != 1:
         raise SystemExit("public notebook: no single cell starts the clock with NB_T0 = time.time() -- re-read it")
     if sum(bool(re.search(r"^DATA = find_mount\(COMPETITION, 'test\.csv'\)$", s, re.M)) for s in code_cells) != 1:
@@ -443,13 +404,12 @@ def main() -> None:
              .replace("__OURS_SRC__", repr(ours)))
     blend = BLEND.replace("__W_OURS__", repr(w_ours)).replace("__BUILT_FROM__", built_from)
     for k, c in enumerate([ours, stage, blend]):
-        compile(c, f"ours{k}", "exec")                  # fail here, not after the queue wait
+        compile(c, f"ours{k}", "exec")
     cells_k = []
-    if k_shas:                                          # KDC: the same reader again, into its own folder
+    if k_shas:
         k_src = with_deadline(B.OURS)
         if k_src.count('_OPath("/tmp/ours_sub")') != 1:
             raise SystemExit("build_submit_kernel.OURS: its output folder moved -- re-read it before building KDC's stage")
-        # not re-embedded (Kaggle refuses a source over 1 MB): KDC's stage reads the files our stage wrote, by hash
         write_loop = K_WRITE_LOOP_OLD
         if k_src.count(write_loop) != 1 or k_src.count('_O_REPO = _O / "repo"') != 1:
             raise SystemExit("build_submit_kernel.OURS: its file-writing block moved -- re-read it before building KDC's stage")

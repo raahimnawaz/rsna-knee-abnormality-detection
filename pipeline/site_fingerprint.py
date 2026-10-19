@@ -11,7 +11,7 @@ OUT = D / "site_fingerprint.csv"
 
 CATS = ["Manufacturer", "ManufacturerModelName", "SoftwareVersions", "ReceiveCoilName"]
 FREQ = "ImagingFrequency"
-FREQ_DP = 3          # rounding of the imaging frequency; changing it changes the groups
+FREQ_DP = 3
 
 
 def _mode(s: pd.Series):
@@ -28,7 +28,6 @@ def build(headers: Path = HEADERS) -> pd.DataFrame:
     g = d.groupby("StudyInstanceUID")
 
     agg = pd.DataFrame({c: g[c].agg(_mode) for c in CATS})
-    # stored as text in the parquet; coerce before any arithmetic touches it
     freq = pd.to_numeric(d[FREQ], errors="coerce")
     agg["freq"] = freq.groupby(d["StudyInstanceUID"]).median().round(FREQ_DP)
 
@@ -57,8 +56,6 @@ def main() -> None:
     print(f"  top 20 cover {vc.head(20).sum() / len(out):.1%} of studies")
     print(f"  singletons {int((vc == 1).sum())}  ·  median group {int(vc.median())}  "
           f"·  largest {int(vc.max())}")
-    # The published probe reports 265 fingerprints and 45.5% in the top 20. Landing far from
-    # that means the rounding or the aggregation has drifted.
     if not (200 <= len(vc) <= 340):
         print(f"  WARNING: expected ~265 fingerprints, got {len(vc)}. Check {FREQ} rounding.")
     print(f"\n{vc.head(8).to_string()}")

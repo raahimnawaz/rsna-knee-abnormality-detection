@@ -34,19 +34,14 @@ STD = (0.229, 0.224, 0.225)
 ARCHS = {
     "coatnet": dict(res=384, pool="avg", timm="coatnet_rmlp_2_rw_384.sw_in12k_ft_in1k"),
     "resnet34": dict(res=224, pool="avg", timm="resnet34.a1_in1k", ckpt=False),
-    # small conv backbones: LayerNorm only (a 2-study micro-batch is safe), ~7-14x fewer FLOPs than the ViT-L
     "convnext_tiny": dict(res=384, pool="avg", timm="convnext_tiny.in12k_ft_in1k_384", ckpt=False),
     "convnext_small": dict(res=384, pool="avg", timm="convnext_small.in12k_ft_in1k_384", ckpt=False),
     "tiny":    dict(res=224, pool="token", timm="vit_tiny_patch16_224"),
-    # wiring only, random weights: the conv family at 3.4M params, so --spatial-attn runs on a CPU in seconds
     "cnxatto": dict(res=224, pool="avg", timm="convnext_atto", ckpt=False),
 }
 UNTRAINED = {"tiny", "cnxatto"}
 
 
-# A knee mirrored across its own sagittal plane: the medial compartment lies where the lateral one was. The two
-# medial / lateral pairs trade places. MCL has no lateral twin among the 12 (the LCL is not a finding), so on a
-# mirrored knee it is unknown: no loss in training, and at test the plain pass alone answers for it.
 MIRROR_PAIRS = (("Medial Meniscus", "Lateral Meniscus"), ("Medial OA", "Lateral OA"))
 MIRROR_PERM = list(range(len(LABELS)))
 for _a, _b in MIRROR_PAIRS:
@@ -55,12 +50,12 @@ MIRROR_UNKNOWN = LABELS.index("MCL")
 
 
 def log(msg: str) -> None:
-    if os.environ.get("RANK", "0") == "0":                  # under torchrun, rank 0 speaks for all
+    if os.environ.get("RANK", "0") == "0":
         print(f"[{time.strftime('%H:%M:%S')}] {msg}", flush=True)
 
 
 def slot_is_sagittal(corpus) -> torch.Tensor:
-    """One bool per slot, for `mirror_windows`. Refuses a cache whose medial-lateral axis is not known."""
+    """One bool per slot, for `mirror_windows`."""
     meta = getattr(corpus, "slot_meta", None)
     if not meta or "canon True" not in str(getattr(corpus, "layout", "")):
         raise SystemExit(f"mirroring needs a canonical cache with slot planes (Stage B / C); this is {getattr(corpus, 'layout', '?')}")
@@ -72,11 +67,7 @@ def slot_is_sagittal(corpus) -> torch.Tensor:
 
 def mirror_windows(w: torch.Tensor, slot: torch.Tensor, pos: torch.Tensor,
                    sagittal: torch.Tensor) -> tuple[torch.Tensor, torch.Tensor]:
-    """Windows (..., K, 3, H, W) of a CANONICAL stack -> the same knee mirrored medial <-> lateral, and its depths.
-    The canonical frame (`build_slots64.canon_ops`) puts the medial-lateral axis on the SLICE order of a sagittal
-    slot (lateral -> medial) and on the COLUMNS of a coronal or axial slice (lateral -> medial). So:
-      sagittal  the slot read backwards: a window's three slices in reverse order, at depth 1 - pos;
-      coronal, axial  each slice flipped left-right, slice order and depth unchanged."""
+    """Windows (..., K, 3, H, W) of a CANONICAL stack -> the same knee mirrored medial <-> lateral, and its depths."""
     sag = sagittal.to(slot.device)[slot]
     return (torch.where(sag[..., None, None, None], w.flip(-3), w.flip(-1)),
             torch.where(sag, 1.0 - pos, pos))
@@ -90,25 +81,22 @@ def mirror_targets(y: np.ndarray) -> np.ndarray:
 
 
 def mirror_average(plain, mirrored):
-    """Probabilities (..., 12) of the plain and the mirrored pass -> one prediction: the mirrored pass read back
-    into the plain knee's columns and averaged in; MCL from the plain pass alone. numpy or torch."""
+    """Probabilities (..., 12) of the plain and the mirrored pass -> one prediction: the mirrored pass read back into
+    the plain knee's columns and averaged in; MCL from the plain pass alone."""
     out = 0.5 * (plain + mirrored[..., MIRROR_PERM])
     out[..., MIRROR_UNKNOWN] = plain[..., MIRROR_UNKNOWN]
     return out
 
 
-# ----------------------------------------------------------------------------- corpus
 class Corpus:
-    """Row-ordered parts as one (N, D, 336, 336) uint8 view. ROW ORDER IS THE CONTRACT: within a
-    part, ids[i] names vols[i] and masks[i]; nothing here sorts any of the three."""
+    """Row-ordered parts as one (N, D, 336, 336) uint8 view."""
 
     RAPTOR_PARTS = (("all_vols.npy", "all_masks.npy", "all_ids.npy"),
                     ("extra_vols.npy", "extra_masks.npy", "extra_ids.npy"))
     SPECS = {"stage_a": "c6-64slice", "stage_b": "c7-96slice-384", "stage_k": "k4-32slice-256"}
 
     def __init__(self, root: Path, layout: str = "auto", extra: tuple = ()):
-        """`extra`: more roots of the SAME layout (e.g. an external corpus beside the Stage A shards). Each root must be
-        complete on its own; spans, orientation and slot sizes must match; ids must not repeat across roots."""
+        """`extra`: more roots of the SAME layout (e.g. an external corpus beside the Stage A shards)."""
         found, shards = {}, {k: [] for k in self.SPECS}
         for d, dirs, fs in os.walk(root):
             dirs[:] = [x for x in dirs if x not in ("train_series", "test_series", "train_images")]
@@ -142,7 +130,7 @@ class Corpus:
             if len({bool(j.get("canon")) for _, _, j in c6}) != 1:
                 raise SystemExit(f"{layout} shards mix canonical and stored orientation")
             self.slot_sizes = tuple(s["n_slices"] for s in c6[0][2]["slots"])
-            self.slot_meta = [dict(s) for s in c6[0][2]["slots"]]         # plane, fluid: the VLM's slot headers
+            self.slot_meta = [dict(s) for s in c6[0][2]["slots"]]
             self.img = int(c6[0][2].get("img", 336))
             self.layout = f"{layout} span {c6[0][2]['depth_range']} img {self.img} canon {bool(c6[0][2].get('canon'))}"
             parts = [(d / "vols.npy", d / "masks.npy", d / "ids.npy") for _, d, _ in c6]
@@ -202,8 +190,8 @@ class SyntheticCorpus:
         self.row = {u: k for k, u in enumerate(uids)}
         self.vol = rng.integers(0, 255, (len(uids), 44, 336, 336), dtype=np.uint8)
         self.masks = np.ones((len(uids), 44), np.uint8)
-        self.masks[::3, 34:36] = 0                          # a short last coronal, some studies
-        self.masks[1::4, 36:44] = 0                         # and a missing axial slot
+        self.masks[::3, 34:36] = 0
+        self.masks[1::4, 36:44] = 0
 
     def study(self, uid: str) -> tuple[np.ndarray, np.ndarray]:
         r = self.row[uid]
@@ -222,8 +210,7 @@ def window_centres(mask: np.ndarray, slot_sizes=SLOT_SIZES) -> list[int]:
 
 
 def thin_windows(cs: list[int], slot_sizes, n: int) -> list[int]:
-    """Evenly spaced within each slot, each slot keeping its share of `n`, the full count
-    taken from the slot sizes."""
+    """Evenly spaced within each slot, each slot keeping its share of `n`, the full count taken from the slot sizes."""
     full = sum(max(s - 2, 0) for s in slot_sizes)
     if not cs or n <= 0 or n >= full:
         return cs
@@ -239,9 +226,7 @@ def thin_windows(cs: list[int], slot_sizes, n: int) -> list[int]:
 
 
 def window_meta(centres, slot_sizes) -> tuple[np.ndarray, np.ndarray]:
-    """Each window's slot index and its relative depth inside that slot, 0 (first) .. 1 (last).
-    Depth only means the same anatomy across studies on a CANONICAL cache (Stage B): on Stage A a
-    sagittal slot runs lateral->medial on one knee and medial->lateral on the other."""
+    """Each window's slot index and its relative depth inside that slot (0 = first, 1 = last)."""
     starts = np.cumsum((0,) + tuple(slot_sizes))[:-1]
     c = np.asarray(centres)
     slot = np.searchsorted(starts, c, side="right") - 1
@@ -251,13 +236,13 @@ def window_meta(centres, slot_sizes) -> tuple[np.ndarray, np.ndarray]:
 
 
 class Windows(torch.utils.data.Dataset):
-    """One study -> (uint8 windows [K,3,H,W], slot [K], depth [K], targets [12]). Normalisation on device."""
+    """One study -> (uint8 windows [K,3,H,W], slot [K], depth [K], targets [12])."""
 
     def __init__(self, corpus, uids: list[str], y: np.ndarray, k: int | None, seed: int = 0, thin: int = 0,
                  mirror: float = 0.0):
         self.c, self.uids, self.y, self.k, self.seed, self.thin = corpus, uids, y, k, seed, thin
         self.rng = random.Random(seed)
-        self.mirror = mirror                                # training: this share of draws is the mirrored knee
+        self.mirror = mirror
         self.sagittal = slot_is_sagittal(corpus) if mirror else None
 
     def __len__(self) -> int:
@@ -266,20 +251,20 @@ class Windows(torch.utils.data.Dataset):
     def __getitem__(self, i: int):
         vol, mask = self.c.study(self.uids[i])
         cs = window_centres(mask, self.c.slot_sizes)
-        if not cs:                                          # nothing valid: the stack's middle
+        if not cs:
             cs = [len(mask) // 2]
-        keep = getattr(self.c, "slot_keep", None)           # --slots: e.g. a coronal-only teacher
+        keep = getattr(self.c, "slot_keep", None)
         if keep is not None:
             s_of, _ = window_meta(cs, self.c.slot_sizes)
             k0 = min(keep)
             mid = int(np.cumsum((0,) + tuple(self.c.slot_sizes))[k0] + self.c.slot_sizes[k0] // 2)
-            cs = [c for c, s in zip(cs, s_of) if s in keep] or [mid]   # none of those planes: a blank window
-        elif self.k is None and self.thin:                  # eval, a fixed evenly spaced subset
+            cs = [c for c, s in zip(cs, s_of) if s in keep] or [mid]
+        elif self.k is None and self.thin:
             cs = thin_windows(cs, self.c.slot_sizes, self.thin)
-        if self.k is not None:                              # train: k draws, no repeats if possible
+        if self.k is not None:
             cs = self.rng.sample(cs, self.k) if len(cs) >= self.k else \
                 [self.rng.choice(cs) for _ in range(self.k)]
-        w = np.stack([vol[c - 1:c + 2] for c in cs])        # (K,3,H,W)
+        w = np.stack([vol[c - 1:c + 2] for c in cs])
         slot, pos = window_meta(cs, self.c.slot_sizes)
         w, slot, pos, y = torch.from_numpy(np.ascontiguousarray(w)), torch.from_numpy(slot), torch.from_numpy(pos), self.y[i]
         if self.mirror and self.rng.random() < self.mirror:
@@ -306,7 +291,6 @@ def pad_collate(batch):
     return x, m, sl, ps, torch.stack([b[3] for b in batch])
 
 
-# ----------------------------------------------------------------------------- model
 def build_encoder(arch: str, weights_dir: Path, res: int | None = None, drop_path: float = 0.0) -> nn.Module:
     import timm
     spec = dict(ARCHS[arch])
@@ -318,7 +302,7 @@ def build_encoder(arch: str, weights_dir: Path, res: int | None = None, drop_pat
 
 
 class WindowMIL(nn.Module):
-    """Encoder + per-finding attention over windows. Input is uint8; the device does the rest."""
+    """Encoder + per-finding attention over windows."""
 
     def __init__(self, encoder: nn.Module, res: int, n: int = len(LABELS), drop: float = 0.2,
                  n_slots: int = 0, spatial: bool = False):
@@ -326,7 +310,7 @@ class WindowMIL(nn.Module):
         self.encoder, self.res, self.n_slots, self.spatial = encoder, res, n_slots, spatial
         self.affine = 0.0
         self.zoom = 0.0
-        self.enc_chunk = 0                                  # eval only: windows per encoder forward; 0 = all at once
+        self.enc_chunk = 0
         self.channels_last = False
         f = encoder.num_features
         self.norm = nn.LayerNorm(f)
@@ -335,16 +319,11 @@ class WindowMIL(nn.Module):
         self.b = nn.Parameter(torch.zeros(n))
         nn.init.trunc_normal_(self.w, std=0.02)
         if n_slots:
-            # Which slot a window came from and how deep inside it, added to its feature. Both start at
-            # ZERO, so at initialisation this is exactly the model without them; training decides.
             self.slot_emb = nn.Embedding(n_slots, f)
             self.depth_proj = nn.Linear(8, f)
             for t in (self.slot_emb.weight, self.depth_proj.weight, self.depth_proj.bias):
                 nn.init.zeros_(t)
         if spatial:
-            # One query per finding over the positions of a window's feature map, in place of the global average:
-            # a 2-3 mm cartilage layer is a few of the 144 positions, and the average dilutes it. The queries start
-            # at ZERO, where the attention is uniform, i.e. the average: step 0 is exactly the model without them.
             if not (hasattr(encoder, "forward_features") and hasattr(getattr(encoder, "head", None), "norm")):
                 raise SystemExit("--spatial-attn needs a conv encoder with a pooled head (convnext_*)")
             self.sq = nn.Parameter(torch.zeros(n, f))
@@ -362,7 +341,7 @@ class WindowMIL(nn.Module):
         if self.channels_last:
             x = x.contiguous(memory_format=torch.channels_last)
         x = x.float().div_(255.0)
-        if gain is not None:                                # per-study intensity jitter, [0,1] space
+        if gain is not None:
             x = (x * gain.repeat_interleave(k).view(-1, 1, 1, 1)).clamp_(0, 1)
         if x.shape[-1] != self.res:
             x = F.interpolate(x, size=(self.res, self.res), mode="bilinear", align_corners=False)
@@ -380,10 +359,10 @@ class WindowMIL(nn.Module):
         """Windows -> one feature each (N, F); with spatial attention, one per finding (N, n, F)."""
         if not self.spatial:
             return self.encoder(xp)
-        t = self.encoder.forward_features(xp).flatten(2).transpose(1, 2).float()      # (N, positions, F)
-        a = torch.softmax(self.sq_norm(t) @ self.sq.t() / t.shape[-1] ** 0.5, dim=1)   # (N, positions, n)
-        p = torch.einsum("npc,npf->ncf", a, t)                                         # (N, n, F)
-        return self.encoder.head.norm(p.reshape(-1, p.shape[-1], 1, 1)).flatten(1).view(p.shape)   # the head's own norm
+        t = self.encoder.forward_features(xp).flatten(2).transpose(1, 2).float()
+        a = torch.softmax(self.sq_norm(t) @ self.sq.t() / t.shape[-1] ** 0.5, dim=1)
+        p = torch.einsum("npc,npf->ncf", a, t)
+        return self.encoder.head.norm(p.reshape(-1, p.shape[-1], 1, 1)).flatten(1).view(p.shape)
 
     def forward(self, x, mask=None, gain=None, slot=None, pos=None):
         if self.zoom:
@@ -398,19 +377,19 @@ class WindowMIL(nn.Module):
             pos = None if pos is None else torch.cat([pos, pos], 1)
         b, k = x.shape[:2]
         xp = self.prep(x, gain)
-        if self.enc_chunk and not self.training:            # bound memory; the head still sees every window together
+        if self.enc_chunk and not self.training:
             f = torch.cat([self.encode(c) for c in xp.split(self.enc_chunk)])
         else:
             f = self.encode(xp)
-        h = self.norm(f.view(b, k, *f.shape[1:]).float())   # (B,K,F); spatial: (B,K,12,F), a token per finding
+        h = self.norm(f.view(b, k, *f.shape[1:]).float())
         if self.n_slots:
             if slot is None or pos is None:
                 raise ValueError("this model was built with slot/depth embeddings: pass slot and pos")
             w = self.where(slot, pos)
             h = h + (w[:, :, None] if self.spatial else w)
-        a = self.att(h)                                     # (B,K,12)
+        a = self.att(h)
         if self.spatial:
-            a = torch.diagonal(a, dim1=2, dim2=3)           # finding n scores the windows by its own token
+            a = torch.diagonal(a, dim1=2, dim2=3)
         if mask is not None:
             a = a.masked_fill(~mask[..., None], float("-inf"))
         a = torch.softmax(a, dim=1)
@@ -418,7 +397,6 @@ class WindowMIL(nn.Module):
         return (pooled * self.w).sum(-1) + self.b
 
 
-# ----------------------------------------------------------------------------- run
 def load_split(path: Path) -> list[str]:
     return pd.read_csv(path).StudyInstanceUID.astype(str).drop_duplicates().tolist()
 
@@ -434,8 +412,8 @@ def autocast(dev, amp: bool):
 
 @torch.inference_mode()
 def predict(model, ds, dev, amp, bs, sagittal: torch.Tensor | None = None) -> np.ndarray:
-    """(N, 12) probabilities; with `sagittal` (mirror averaging) (N, 2, 12): the plain pass, then the mirrored
-    pass in the MIRRORED knee's columns -- `mirror_average` makes one prediction of the two."""
+    """(N, 12) probabilities; with `sagittal` (mirror averaging) (N, 2, 12): the plain pass, then the mirrored pass in
+    the MIRRORED knee's columns -- `mirror_average` makes one prediction of the two."""
     model.eval()
     dl = torch.utils.data.DataLoader(ds, batch_size=bs, shuffle=False, num_workers=ds_workers(),
                                      collate_fn=pad_collate, pin_memory=str(dev).startswith("cuda"))
@@ -457,7 +435,6 @@ def ds_workers() -> int:
     return int(os.environ.get("TW_WORKERS", "4"))
 
 
-# ----------------------------------------------------------------------------- distributed
 def dist_setup() -> tuple[int, int, int]:
     """(world, rank, local_rank): one process, unless launched by `torchrun --nproc_per_node N`."""
     world = int(os.environ.get("WORLD_SIZE", "1"))
@@ -503,9 +480,7 @@ def predict_sharded(model, corpus, uids, dev, amp, bs, world, rank, thin: int = 
 
 
 def param_groups(model: WindowMIL, bb_lr: float, head_lr: float, llrd: float) -> list[dict]:
-    """The encoder at bb_lr and everything else at head_lr. With layer-wise decay (llrd < 1), block i
-    of n runs at bb_lr * llrd^(n - i), the patch embedding and tokens at llrd^(n + 1) and the final
-    norm at bb_lr -- early, general features move least."""
+    """The encoder at bb_lr and everything else at head_lr."""
     enc = model.encoder
     head = [p for n_, p in model.named_parameters() if not n_.startswith("encoder.")]
     blocks = getattr(enc, "blocks", None)
@@ -615,7 +590,6 @@ def main() -> None:
     log(f"arch {a.arch} {ARCHS[a.arch]} | device {dev}"
         + (f" {torch.cuda.get_device_name(local)}" if amp else "") + f" | amp fp16 {amp} | world {world}")
 
-    # ---- studies and targets
     gold_ids: list[str] = []
     if a.synthetic:
         uids = [f"syn{i:04d}" for i in range(a.synthetic)]
@@ -652,8 +626,8 @@ def main() -> None:
         va = va[: a.limit_val]
     log(f"train {len(tr)} (missing from corpus {len(miss_tr)}) | val {len(va)} "
         f"(missing {len(miss_va)}) | gold {len(gold_ids)}")
-    ytr = tgt.loc[tr, LABELS].to_numpy(np.float32, copy=True)   # pandas CoW hands back read-only
-    if a.only_weak4:                                        # K: the other eight carry no loss
+    ytr = tgt.loc[tr, LABELS].to_numpy(np.float32, copy=True)
+    if a.only_weak4:
         if not a.allow_missing_labels:
             raise SystemExit("--only-weak4 needs --allow-missing-labels (the other findings become unknown)")
         ytr[:, [i for i, f in enumerate(LABELS) if f not in WEAK4]] = np.nan
@@ -665,7 +639,6 @@ def main() -> None:
     if a.pos_emb and not str(getattr(corpus, "layout", "")).startswith(("stage_b", "stage_k")):
         log("⚠️ --pos-emb on a non-canonical corpus: a slot's depth means lateral on one knee, medial on another")
 
-    # ---- model. Rank 0 fetches the encoder weights first; the others read the same file after it.
     res = a.res or ARCHS[a.arch]["res"]
     enc = build_encoder(a.arch, a.weights_dir, res, a.drop_path) if rank == 0 else None
     barrier(world)
@@ -681,10 +654,10 @@ def main() -> None:
             raise SystemExit(f"--init {a.init}: not found (nor under {a.corpus})")
         sd = torch.load(src, map_location="cpu", weights_only=False)
         sd = sd["model"] if isinstance(sd, dict) and "model" in sd else sd
-        ren = {"clsW": "w", "clsb": "b"}                           # the public raptor head's names for ours
+        ren = {"clsW": "w", "clsb": "b"}
         sd = {("encoder." + k[len("backbone."):]) if k.startswith("backbone.") else ren.get(k, k): v for k, v in sd.items()}
         missing, unexpected = model.load_state_dict(sd, strict=False)
-        zero_init = {k for k in missing if k.startswith(("slot_emb.", "depth_proj.", "sq"))}   # start at zero by design
+        zero_init = {k for k in missing if k.startswith(("slot_emb.", "depth_proj.", "sq"))}
         if unexpected or set(missing) - zero_init:
             raise SystemExit(f"--init {src}: missing {sorted(set(missing) - zero_init)[:8]}, unexpected {unexpected[:8]}")
         a.init_sha256 = hashlib.sha256(src.read_bytes()).hexdigest()
@@ -733,8 +706,8 @@ def main() -> None:
 
     prev = (np.nan_to_num(np.nanmean(np.where(np.isfinite(ytr), ytr, np.nan), 0), nan=0.5)
             if a.allow_missing_labels else ytr.mean(0))
-    if a.mirror:                                            # what the loss sees: a medial column is its lateral twin's
-        prev = (1 - a.mirror) * prev + a.mirror * prev[MIRROR_PERM]      # on that share of draws (MCL: unchanged)
+    if a.mirror:
+        prev = (1 - a.mirror) * prev + a.mirror * prev[MIRROR_PERM]
         log(f"mirror: {a.mirror:.2f} of training draws mirrored (Medial <-> Lateral targets swapped, MCL masked)")
     prev = np.clip(prev, 0.03, 0.7)
     tta = slot_is_sagittal(corpus).to(dev) if a.mirror_tta else None
@@ -769,7 +742,7 @@ def main() -> None:
         with (nullcontext() if sync or world == 1 else net.no_sync()):
             with autocast(dev, amp):
                 logits = net(x, gain=gain, slot=sl, pos=ps)
-            if a.allow_missing_labels:                  # an unknown target carries no loss (e.g. fastMRI+)
+            if a.allow_missing_labels:
                 known = torch.isfinite(y)
                 y0 = torch.where(known, y, torch.zeros_like(y))
                 w = ((0.25 + 0.75 * (2 * y0 - 1).abs()) if a.conf_weight == "fork" else 1.0) * known
@@ -785,7 +758,6 @@ def main() -> None:
     def to_dev(batch):
         return [t.to(dev, non_blocking=True) for t in batch]
 
-    # ---- how many epochs fit: time real micro-steps (data loading included), never extrapolate
     epochs, probe = a.epochs, None
     if a.fit_budget and a.epochs > 0:
         net.train()
@@ -819,8 +791,6 @@ def main() -> None:
     log(f"steps/epoch {steps_per_epoch} (bs {a.bs} = {a.micro} x {world} GPU x {accum}) | epochs {epochs} | "
         f"k {a.k} | lr {a.bb_lr}/{a.head_lr}")
 
-    # ---- train
-    # Losses and the grad norm stay on the device; the host reads them only when it logs, so the GPU queue never drains.
     hist, last3, step_times = [], [], []
     waits, loss_trace, t_end, stopped_early = [], [], None, None
     for ep in range(epochs):
@@ -883,8 +853,6 @@ def main() -> None:
             break
 
     if world > 1:
-        # DDP's invariant, checked rather than assumed: every rank must end with the SAME weights. A
-        # mis-synchronised accumulation step would let them drift, and only rank 0's copy is saved.
         import torch.distributed as dist
         chk = torch.tensor([sum(float(p.detach().double().sum()) for p in model.parameters() if p.requires_grad)],
                            device=dev, dtype=torch.float64)
@@ -908,10 +876,8 @@ def main() -> None:
              "data_wait_frac": float(np.sum(waits) / max(np.sum(waits) + np.sum(step_times), 1e-9)) if waits else None,
              "ckpt_blocks": a.ckpt_blocks, "compile": a.compile, "loss_trace": loss_trace}
 
-    # ---- evaluate: last epoch (primary), then the fixed last-3 average (secondary). Sharded over GPUs.
     def score(uids, out_dir, name):
-        """Predict `uids`; rank 0 writes <name>.csv. Under --mirror-tta that file holds the two-pass mean (what is
-        submitted) and the plain pass goes beside it as oof_plain.csv / oof_gold_plain.csv."""
+        """Predict `uids`; rank 0 writes <name>.csv."""
         raw = predict_sharded(model, corpus, uids, dev, amp, a.eval_bs, world, rank, a.eval_windows, tta)
         p = raw if tta is None else mirror_average(raw[:, 0], raw[:, 1])
         if rank == 0:
@@ -923,7 +889,7 @@ def main() -> None:
 
     t_ev = time.time()
     p_last = score(va, a.out, "oof_all")
-    bench["eval_sec_per_study"] = (time.time() - t_ev) * world / max(len(va), 1)     # per study, per GPU
+    bench["eval_sec_per_study"] = (time.time() - t_ev) * world / max(len(va), 1)
     pg = score(gold_ids, a.out, "oof_gold") if gold_ids else None
     if a.save_weights and rank == 0:
         torch.save({k: v.half() if v.is_floating_point() else v for k, v in model.state_dict().items()},

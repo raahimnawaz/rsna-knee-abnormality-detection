@@ -27,7 +27,6 @@ from train_windows import (LABELS, WindowMIL, mirror_average, mirror_windows, th
                            window_centres, window_meta)
 
 
-
 def log(msg: str) -> None:
     print(f"[{time.strftime('%H:%M:%S')}] {msg}", flush=True)
 
@@ -54,7 +53,7 @@ def load_meta(weights: Path) -> dict:
            "mirror_tta": bool(m.get("mirror_tta", False)), "slot_sizes": tuple(m["slot_sizes"])}
     if m.get("loc_bins") or m.get("rope_periods"):
         raise SystemExit(f"{p}: a location bias or RoPE encoder -- not served by this reader")
-    if spec == "k4":                                        # K: pipeline/kcache.py's region crops
+    if spec == "k4":
         import kcache as K
         if out["slot_sizes"] != (K.PER,) * len(K.REGIONS) or out["img"] != K.IMG:
             raise SystemExit(f"{p}: slots {out['slot_sizes']} img {out['img']} are not K's")
@@ -89,8 +88,8 @@ class DicomStudies(torch.utils.data.Dataset):
             vol = np.zeros((Sp.N_SLICES, Sp.IMG, Sp.IMG), np.uint8)
             mask = np.zeros(Sp.N_SLICES, np.uint8)
             err = f"{type(e).__name__}: {e}"
-        cs = window_centres(mask, self.slot_sizes) or [len(mask) // 2]     # Windows.__getitem__'s rule
-        if self.n_windows:                                  # train_windows.thin_windows's rule
+        cs = window_centres(mask, self.slot_sizes) or [len(mask) // 2]
+        if self.n_windows:
             cs = thin_windows(cs, self.slot_sizes, self.n_windows)
         w = np.stack([vol[c - 1:c + 2] for c in cs])
         slot, pos = window_meta(cs, self.slot_sizes)
@@ -138,7 +137,7 @@ class KStudies(torch.utils.data.Dataset):
         n = sum(self.slot_sizes)
         try:
             J, P = self.anchors.get(uid, (None, None))
-            if J is None:                                   # no sagittal series: the cache build's empty row too
+            if J is None:
                 vol, mask, err = np.zeros((n, K.IMG, K.IMG), np.uint8), np.zeros(n, np.uint8), "no anchor"
             else:
                 vol, mask, _ = K.build_study(self.img_dir / uid, [dict(s) for s in self.by_study.get(uid, [])],
@@ -146,7 +145,7 @@ class KStudies(torch.utils.data.Dataset):
                 err = ""
         except Exception as e:                              # noqa: BLE001
             vol, mask, err = np.zeros((n, K.IMG, K.IMG), np.uint8), np.zeros(n, np.uint8), f"{type(e).__name__}: {e}"
-        cs = window_centres(mask, self.slot_sizes) or [len(mask) // 2]     # Windows.__getitem__'s rule
+        cs = window_centres(mask, self.slot_sizes) or [len(mask) // 2]
         w = np.stack([vol[c - 1:c + 2] for c in cs])
         slot, pos = window_meta(cs, self.slot_sizes)
         return (uid, torch.from_numpy(np.ascontiguousarray(w)), torch.from_numpy(slot), torch.from_numpy(pos),
@@ -271,7 +270,7 @@ def main() -> None:
             ones = torch.ones(x.shape[:2], dtype=torch.bool, device=dev)
             with torch.autocast("cuda", dtype=torch.float16, enabled=dev == "cuda"):
                 ps_ = [torch.sigmoid(m(x, ones, slot=sl_d, pos=ps_d).float()) for m in models]
-                if any(mt["mirror_tta"] for mt in metas):   # `train_windows.predict`'s two passes, per checkpoint
+                if any(mt["mirror_tta"] for mt in metas):
                     xm, pm = mirror_windows(x, sl_d, ps_d, sagittal)
                     ps_ = [mirror_average(q, torch.sigmoid(m(xm, ones, slot=sl_d, pos=pm).float()))
                            if mt["mirror_tta"] else q for q, m, mt in zip(ps_, models, metas)]

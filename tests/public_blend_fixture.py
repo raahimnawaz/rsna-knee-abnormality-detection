@@ -1,9 +1,6 @@
 """Offline test of build_public_blend_kernel's cells (ours, and KDC's two) on synthetic predictions: no Kaggle, no model.
 
     python tests/public_blend_fixture.py
-
-Checks the mix against the formula, that an unbuilt study keeps the public rank, that the scored rerun keeps the
-public file when our stage fails, is skipped or runs late, and that the commit run stops instead.
 """
 from __future__ import annotations
 
@@ -44,7 +41,7 @@ def world(tmp: Path, n: int, seed: int = 0, agree: float = 0.7) -> tuple[pd.Data
     pub.to_csv(tmp / "working" / "submission.csv", index=False)
     ours = pd.DataFrame(agree * pub[L].to_numpy(float) + (1 - agree) * rng.random((n, 12)), columns=L)
     ours.insert(0, "StudyInstanceUID", ids)
-    ours.sample(frac=1.0, random_state=1).to_csv(tmp / "ours_sub" / "ours_preds.csv", index=False)   # another order
+    ours.sample(frac=1.0, random_state=1).to_csv(tmp / "ours_sub" / "ours_preds.csv", index=False)
     bad = ids[3:5]
     (tmp / "ours_sub" / "preds_0.timing.json").write_text(json.dumps({"errors": {u: "x" for u in bad}}))
     return pub, ours, bad
@@ -61,7 +58,6 @@ def run(tmp: Path, ours_src: str, elapsed_h: float = 0.5, read: bool = False) ->
 OK_SRC = "_O_ARM, _O_MIN = 'fixture x5', 1.0"
 n_pass = 0
 
-# 1. the mix is the formula; unbuilt studies keep the public rank; the public file is kept beside it
 with tempfile.TemporaryDirectory() as d:
     tmp = Path(d)
     pub, ours, bad = world(tmp, 400)
@@ -82,8 +78,6 @@ with tempfile.TemporaryDirectory() as d:
     assert json.loads((tmp / "working" / "public_plus_ours_receipt.json").read_text())["ours_unbuilt"] == 2
     n_pass += 1
 
-# 2. the scored rerun (>= 100 studies): a failed stage, a late start, a broken prediction file and predictions that
-#    do not line up with the public ones (the misalignment guard) all keep the public file
 for what, src, hours, spoil, agree in (("stage fails", "raise RuntimeError('boom')", 0.5, False, 0.7),
                                        ("late", OK_SRC, 8.2, False, 0.7),
                                        ("predictions missing", OK_SRC, 0.5, True, 0.7),
@@ -99,7 +93,6 @@ for what, src, hours, spoil, agree in (("stage fails", "raise RuntimeError('boom
         assert g["OURS_OK"] is (what in ("predictions missing", "misaligned")), what
         n_pass += 1
 
-# 3. the commit run (3 studies): the same faults stop the notebook
 for src, spoil in (("raise RuntimeError('boom')", False), (OK_SRC, True)):
     with tempfile.TemporaryDirectory() as d:
         tmp = Path(d)
@@ -113,8 +106,6 @@ for src, spoil in (("raise RuntimeError('boom')", False), (OK_SRC, True)):
         else:
             raise AssertionError("the commit run did not stop")
 
-# 3b. a read (--read), scored rerun: the same four faults raise instead of keeping the public file, and a clean run
-#     still writes the mix
 for what, src, hours, spoil, agree in (("stage fails", "raise RuntimeError('boom')", 0.5, False, 0.7),
                                        ("late", OK_SRC, 8.2, False, 0.7),
                                        ("predictions missing", OK_SRC, 0.5, True, 0.7),
@@ -137,9 +128,8 @@ with tempfile.TemporaryDirectory() as d:
     assert g["OURS_OK"] and (tmp / "working" / "public_plus_ours_receipt.json").is_file()
     n_pass += 1
 
-# 4. the deadline patch: _owait kills a subprocess that runs past _O_DEADLINE
 patched = P.with_deadline(B.OURS)
-fn = patched[patched.index("def _owait(procs, what):"):patched.index("# ---- 1. the gate")]
+fn = patched[patched.index("def _owait(procs, what):"):patched.index("_O.mkdir(parents=True, exist_ok=True)")]
 with tempfile.TemporaryDirectory() as d:
     g = {"_O": Path(d), "_osp": subprocess, "_otime": time, "_O_DEADLINE": time.time() - 100}
     exec(compile(fn, "owait", "exec"), g)
@@ -154,8 +144,6 @@ with tempfile.TemporaryDirectory() as d:
     else:
         raise AssertionError("no timeout")
 
-# 5. KDC (10-18), the two cells after ours: on its findings only, the same rank formula on top of the file our blend
-#    wrote; every other column byte-identical; a study KDC could not build keeps its rank
 K_MIX = {"Lateral OA": 0.3}
 K_SRC = "_O_ARM, _O_MIN = 'kdc fixture x3', 1.0"
 
@@ -205,8 +193,6 @@ with tempfile.TemporaryDirectory() as d:
     assert json.loads((tmp / "working" / "plus_kdc_receipt.json").read_text())["kdc_unbuilt"] == 3
     n_pass += 1
 
-# 6. KDC in the scored rerun: a failed stage, a late start, a missing file and a misaligned file all keep the file our
-#    blend wrote, byte for byte
 for what, src, k_hours, spoil, agree in (("stage fails", "raise RuntimeError('boom')", None, False, 0.7),
                                          ("late", K_SRC, 8.2, False, 0.7),
                                          ("predictions missing", K_SRC, None, True, 0.7),
@@ -226,7 +212,6 @@ for what, src, k_hours, spoil, agree in (("stage fails", "raise RuntimeError('bo
         assert g["K_OK"] is (what in ("predictions missing", "misaligned")), what
         n_pass += 1
 
-# 7. KDC in the commit run (3 studies): a failed stage or a missing file stops the notebook
 for src, spoil in (("raise RuntimeError('boom')", False), (K_SRC, True)):
     with tempfile.TemporaryDirectory() as d:
         tmp = Path(d)

@@ -26,8 +26,7 @@ PILKWANG_OOF = D / "external" / "pilkwang_weights" / "oof.npz"
 
 
 def gold_frame() -> pd.DataFrame:
-    """The 58 image-read studies, indexed by StudyInstanceUID. These are the ONLY labels in
-    this project not derived from a report."""
+    """The 58 image-read studies, indexed by StudyInstanceUID."""
     t = pd.read_csv(D / "train.csv").set_index("StudyInstanceUID")
     g = t[L].dropna(how="all")
     if len(g) != 58:
@@ -55,7 +54,7 @@ def macro(y: np.ndarray, p: np.ndarray) -> float:
 
 
 def boot(y: np.ndarray, p: np.ndarray, n: int = 4000, seed: int = 0) -> tuple[float, float]:
-    """Percentile CI over STUDIES. Resamples studies, not labels -- the 12 AUCs share studies."""
+    """Percentile CI over STUDIES."""
     rng = np.random.default_rng(seed)
     out = []
     for _ in range(n):
