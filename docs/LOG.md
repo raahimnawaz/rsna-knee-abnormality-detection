@@ -2006,3 +2006,15 @@ there for the owner to discard. Nothing sent.
   KDC ~ teacher f0 within-class on the 847): the bar is AUROC ≥ 0.851. **A shown 0.530 or higher (≥ 0.854, predicted
   ≥ +0.013) → KDC qualifies on PF OA; 0.529 or lower (predicted +0.010 to +0.012 at best) → it does not.** Either way
   the next decision (KDC as a second stage of ours in the main final, Lateral OA ± PF OA) is the owner's.
+- **Owner 10-18 ~19:25: "build KDC fold 0's PF OA probe (same kernel, --probe "PF OA", bar shown >= 0.530), check the
+  gate, then submit it and read it by its rule."**
+- **The PF OA probe's rule, written before it runs:** kernel `build_submit_kernel.py --ours-only --segmenter --probe
+  "PF OA"` on KDC fold 0's `avg3/last.pt` (sha256 `3a6c99c4…`, the same checkpoint as the Lateral OA probe), tag
+  `kdc-f0`. Before the submit its log must show `sha256 ok`, `GATE PASSED`, `PROBE: only PF OA is the model's`,
+  `ARMS: convnext_small_stage_k only`, 0 tracebacks (the owner's go covers the submit once these show). Bar, rule 4's
+  formula (base 0.896 = the five-fold PF OA probe `57122722`; ρ 0.54 = KDC ~ teacher f0 within-class PF OA on the
+  847): one tick (+0.012) at **AUROC 0.850** ⇔ score 0.52917; a shown 0.529 covers 0.842–0.854 (straddles). **Shown
+  ≥ 0.530 → PASS: KDC fold 0 joins the main final on PF OA too** (weight the owner's call); **≤ 0.529 → FAIL: KDC
+  stays on Lateral OA only.** Prior (estimate): KDC's PF OA fell less on reports (0.867 → 0.802, −0.065) than Lateral
+  OA (−0.116), and its decoupling was weaker (ρ with Medial OA 0.56 vs 0.40), so the report bias that lifted Lateral
+  OA should lift PF OA less; ~even odds.
