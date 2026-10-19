@@ -2119,3 +2119,9 @@ there for the owner to discard. Nothing sent.
   `RAPTOR_OK` ×2 from our copy, `OURS_OK 5 of 5`, **`KDC_OK 3 of 3 | segmenter …/anatomy.pt | …/vendor_runtime/monai060`**,
   `MOUNTTEST_DONE`. **Next: the owner's go for the GPU commit run (~25–35 min; ~2–3 GPU-h left, estimate) and the
   slot** (2 left to 17:00 PDT 10-19).
+- **First push refused, 11:47:** `SaveKernel 400: "The kernel source must be less than 1 megabytes in size."` — 1,238,706
+  bytes: KDC's stage carried a second copy of our embedded code (the main final is 932,407). **Fix:** KDC's stage no
+  longer embeds the files; it reads the ones our stage wrote (`/tmp/ortho_sub/repo`) and checks each against its
+  sha256 (missing or changed → KDC fails; in the scored rerun the main final then stands). The builder now refuses a
+  notebook of 1 MB or more before any push. Rebuilt: 952,495 bytes; the no-KDC build still byte-identical; fixture 20
+  checks; the mount-tested metadata unchanged.

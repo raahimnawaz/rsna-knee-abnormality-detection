@@ -237,6 +237,20 @@ else:
     print("[+KDC] KDC's stage did not run to the end: the submission stands unchanged", flush=True)
 '''
 
+K_WRITE_LOOP_OLD = """for _rel, (_b, _sha) in _ojson.loads(_ob64.b64decode(__FILES_B64__).decode()).items():
+    _p = _O_REPO / _rel
+    _p.parent.mkdir(parents=True, exist_ok=True)
+    _p.write_bytes(_ob64.b64decode(_b))
+    if _ohash.sha256(_p.read_bytes()).hexdigest() != _sha:
+        raise RuntimeError(f"{_rel}: embedded file does not match its hash")
+_olog(f"built from __BUILT_FROM__; repo files written, hashes match")"""
+K_CHECK_LOOP = """for _rel, _sha in __FILE_SHAS__.items():          # [KDC] our stage wrote these; each must be there, unchanged
+    _p = _O_REPO / _rel
+    if not _p.is_file() or _ohash.sha256(_p.read_bytes()).hexdigest() != _sha:
+        raise RuntimeError(f"{_rel}: not written by our stage, or changed since")
+_olog(f"built from __BUILT_FROM__; repo files from our stage, hashes match")"""
+MAX_SOURCE = 1_000_000   # Kaggle refuses a kernel source of 1 MB or more (SaveKernel 400, found 10-19)
+
 INTRO = """# RSNA Knee -- the free public blend, with our five folds added
 
 Cells 1-__N_PUB__ are `__PUBLIC__` as published (notebook sha256 `__PUB_SHA__`), unchanged except any line listed at the end: __PUB_DESC__.
@@ -435,8 +449,14 @@ def main() -> None:
         k_src = with_deadline(B.OURS)
         if k_src.count('_OPath("/tmp/ortho_sub")') != 1:
             raise SystemExit("build_submit_kernel.OURS: its output folder moved -- re-read it before building KDC's stage")
+        # not re-embedded (Kaggle refuses a source over 1 MB): KDC's stage reads the files our stage wrote, by hash
+        write_loop = K_WRITE_LOOP_OLD
+        if k_src.count(write_loop) != 1 or k_src.count('_O_REPO = _O / "repo"') != 1:
+            raise SystemExit("build_submit_kernel.OURS: its file-writing block moved -- re-read it before building KDC's stage")
         k_src = (k_src.replace('_OPath("/tmp/ortho_sub")', '_OPath("/tmp/k_sub")')
-                 .replace("__FILES_B64__", repr(blob)).replace("__BUILT_FROM__", built_from)
+                 .replace('_O_REPO = _O / "repo"', '_O_REPO = _OPath("/tmp/ortho_sub") / "repo"   # [KDC] the files our stage wrote')
+                 .replace(write_loop, K_CHECK_LOOP.replace("__FILE_SHAS__", repr({r: v[1] for r, v in files.items()})))
+                 .replace("__BUILT_FROM__", built_from)
                  .replace("__W_OURS__", "None").replace("__N_CHECK__", str(a.n_check))
                  .replace("__N_WINDOWS__", "0").replace("__CHECK_ALWAYS__", "False")
                  .replace("__WEIGHTS_SHAS__", repr(k_shas)).replace("__WEIGHTS_KERNEL__", ",".join(k_kernels)))
@@ -467,7 +487,10 @@ def main() -> None:
     new = ([{"cell_type": "markdown", "metadata": {}, "source": intro.splitlines(keepends=True)}]
            + body + [code(stage), code(blend)] + [code(c) for c in cells_k])
     a.out.mkdir(parents=True, exist_ok=True)
-    (a.out / f"{slug}.ipynb").write_text(json.dumps(dict(pub, cells=new), indent=1), encoding="utf-8")
+    nb_text = json.dumps(dict(pub, cells=new), indent=1)
+    if len(nb_text.encode("utf-8")) >= MAX_SOURCE:
+        raise SystemExit(f"the notebook is {len(nb_text.encode('utf-8')):,} bytes: Kaggle refuses a source of 1 MB or more")
+    (a.out / f"{slug}.ipynb").write_text(nb_text, encoding="utf-8")
     meta = {"id": f"{B.OWNER}/{slug}", "title": slug, "code_file": f"{slug}.ipynb",
             "language": "python", "kernel_type": "notebook", "is_private": True,
             "enable_gpu": True, "enable_tpu": False, "enable_internet": False, "keywords": [],
