@@ -2135,3 +2135,24 @@ there for the owner to discard. Nothing sent.
   (its ρ −0.5 is over 3 studies: the misalignment guard applies from 100).
 - **⏳ SUBMITTED 12:08 PDT 10-19 (owner's go: "if all hold, submit it"), ref `57406618`, PENDING.** Rule above: shown ≥
   0.957 → the main final; ≤ 0.956 → `57378289` stays. 1 slot left to 17:00 PDT.
+
+## 10-19 ~15:00: GPU benchmark of the cleaned, CUDA-tuned code (one epoch of KDC fold 0)
+
+- **The run:** `rsna-knee-k-train-convnext-small-kdc-bench-cv` v1, built from `cd59013` (`--bench`: one epoch, fold 0's
+  arguments, budget 0.8 h so the epoch completes), pinned to fold 0's Docker image, two T4s. 437 optimizer steps, 0
+  tracebacks, `channels_last encoder and inputs` in its log.
+
+  | | KDC fold 0 (old code) | bench (new code) | old code, folds 0–2 |
+  |---|--:|--:|--:|
+  | first training epoch | 17.07 min | 16.15 min | 15.35–17.07 min |
+  | step, median | 0.550 s | 0.553 s | 0.496–0.550 s |
+  | fit-budget probe (8 synchronized steps) | 0.493 s | 0.489 s | 0.464–0.493 s |
+  | held-out evaluation | 0.295 s/study | **0.444 s/study** | 0.284–0.295 s/study |
+  | peak GPU memory | 8.12 GB | 8.12 GB | 8.12 GB |
+
+- **Read:** no training speedup that one run can show: the epoch is inside the old code's own spread between Kaggle
+  sessions, and the step time is unchanged (training here is GPU-bound in the encoder's convolutions, and timm's
+  ConvNeXt already runs its MLP channels-last internally). Evaluation is ~50 % slower, outside the old spread: a
+  regression in the eval path or this session's storage, not separable from one run. `data_wait_frac` (0.33 against
+  0.007) changed meaning with the loop, not speed: the host no longer waits for the GPU after each step, so its idle
+  time now shows up in the loader wait. No speedup is claimed in the README.
