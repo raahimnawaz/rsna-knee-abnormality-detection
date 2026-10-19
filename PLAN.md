@@ -42,7 +42,9 @@ Lateral OA probe reads ~0.860. Nothing measured so far reaches 0.97: one tick on
 1. **KDC in the main final.** By its rule it joins on Lateral OA only (its PF OA probe read 0.529, one under the bar). The
    weight: the two-score formula at ρ 0.49 against our five folds gives a ~0.37–0.41 share and +0.016–0.020 on the
    finding, but against the 0.958 base the ρ is unmeasured (at 0.7 the gain is +0.004–0.007). Building it in is a
-   new final: build, CPU mount test, GPU commit run (~20 min), one submission.
+   new final: build, CPU mount test, GPU commit run (~20 min), one submission. The builder takes it since
+   10-18 (`--k-weights-kernel`, `--k-weights-sha`, `--k-mix "Lateral OA=<share>"`: KDC as a second stage with its
+   own gate and deadline, mixed in on Lateral OA only; if it fails in the scored rerun the main final stands).
 2. **KDC folds 1–2** (~4.5 GPU-h each, two at once, ~9 of the ~11 h left): a five-fold model reads ~+0.003–0.007 above
    one fold (estimate), and two more folds would get part of that.
 3. **Which two submissions are the finals** on 10-22: the main final (B, the candidate, or either with KDC) and D.

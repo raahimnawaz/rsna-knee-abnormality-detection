@@ -2051,3 +2051,17 @@ there for the owner to discard. Nothing sent.
   `train_windows.py`; both pinned to fold 0's Docker image `2757e0c7…` so the three folds share an environment). Fold 1:
   3,528 train / 821 val, `fit-budget: 0.46 s … -> 18.4 min/epoch … -> 16 epoch(s)`; fold 2: 3,431 / 918, 18.8 min →
   16 epochs; both read `targets_teacher_v3_dc.csv … sha256 173a5c55540cda39`. Done ~01:00–01:45 PDT 10-19.
+- **The builder now takes KDC (built while folds 1–2 train; nothing run on Kaggle):** `build_public_blend_kernel.py`
+  `--k-weights-kernel / --k-weights-sha / --k-mix "Lateral OA=<share>"` appends two cells after our blend: KDC's
+  stage (build_submit_kernel's reader again, into `/tmp/k_sub`, with its own gate in the commit run and its own
+  deadline: skipped with < 60 min left, killed past 9 h − 25 min) and a mix on its findings only (percentile ranks at
+  the fixed share, a study KDC could not build keeps its rank, a misalignment guard, the file replaced only after the
+  checks). In the scored rerun any KDC fault keeps the main final as it is; in the commit run it stops the notebook.
+  **Without the --k flags the build is byte-identical** (notebook and metadata, `cmp` against the committed
+  builder's build of the main candidate). `public_blend_fixture.py`: 13 → 20 checks (the KDC formula with every other
+  column byte-identical; four scored-rerun faults keep the file; two commit-run faults stop); five deliberate
+  mutations of the KDC cells (share halved, failure not caught, guard off, unbuilt studies mixed, late start not
+  skipped) each fail it. `build_finals_mounttest.py` also checks KDC's members and the segmenter when a final has
+  them (no-KDC output byte-identical). A trial build with fold 0 as the member: 14 cells, KDC's kernel attached.
+  `infer_windows.py` averages several K checkpoints of one layout (anchors and crops once); only the GPU commit run
+  exercises that path, since the gate checks each member alone.

@@ -126,6 +126,9 @@ $PY notebooks/build_submit_kernel.py --ours-only --segmenter --probe "Lateral OA
     --weights-kernel raahimnawaz/<training kernel> --weights-sha <hex> --tag <t> --desc "<d>" --out <dir>
 $PY -I notebooks/build_r6r7_kernel.py $PWD data/public_notebooks/heliosli-0-9576-16a9d953 <dir> --tag <t> \
     --desc "<d>" --main958 --wheel-pins notebooks/finals_wheel_pins.json
+# + KDC as a second stage, on Lateral OA only (without these flags the build is byte-identical)
+#   ... --k-weights-kernel raahimnawaz/<k1>,<k2>,<k3> --k-weights-sha <h1>,<h2>,<h3> --k-mix "Lateral OA=<share>"
+$PY notebooks/build_finals_mounttest.py --final <dir> --out <mt dir>      # a free CPU check of mounts, hashes, pins
 # in its log before submitting: `sha256 ok` · `GATE PASSED (n/n)` · 0 tracebacks
 $K competitions submit $C -k raahimnawaz/<kernel> -v <n> -f submission.csv -m "<what, against what, and the rule>"
 
