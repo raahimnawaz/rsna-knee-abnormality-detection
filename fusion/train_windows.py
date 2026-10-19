@@ -328,6 +328,7 @@ class WindowMIL(nn.Module):
         self.affine = 0.0
         self.zoom = 0.0
         self.enc_chunk = 0                                  # eval only: windows per encoder forward; 0 = all at once
+        self.channels_last = False
         f = encoder.num_features
         self.norm = nn.LayerNorm(f)
         self.att = nn.Sequential(nn.Linear(f, 256), nn.Tanh(), nn.Dropout(drop), nn.Linear(256, n))
@@ -358,7 +359,10 @@ class WindowMIL(nn.Module):
 
     def prep(self, x: torch.Tensor, gain: torch.Tensor | None) -> torch.Tensor:
         b, k = x.shape[:2]
-        x = x.flatten(0, 1).float().div_(255.0)
+        x = x.flatten(0, 1)
+        if self.channels_last:
+            x = x.contiguous(memory_format=torch.channels_last)
+        x = x.float().div_(255.0)
         if gain is not None:                                # per-study intensity jitter, [0,1] space
             x = (x * gain.repeat_interleave(k).view(-1, 1, 1, 1)).clamp_(0, 1)
         if x.shape[-1] != self.res:
@@ -429,17 +433,17 @@ def autocast(dev, amp: bool):
     return nullcontext()
 
 
-@torch.no_grad()
+@torch.inference_mode()
 def predict(model, ds, dev, amp, bs, sagittal: torch.Tensor | None = None) -> np.ndarray:
     """(N, 12) probabilities; with `sagittal` (mirror averaging) (N, 2, 12): the plain pass, then the mirrored
     pass in the MIRRORED knee's columns -- `mirror_average` makes one prediction of the two."""
     model.eval()
     dl = torch.utils.data.DataLoader(ds, batch_size=bs, shuffle=False, num_workers=ds_workers(),
-                                     collate_fn=pad_collate)
+                                     collate_fn=pad_collate, pin_memory=str(dev).startswith("cuda"))
     out = []
     with torch.compiler.set_stance("force_eager"):
         for x, m, sl, ps, _ in dl:
-            x, m, sl, ps = x.to(dev), m.to(dev), sl.to(dev), ps.to(dev)
+            x, m, sl, ps = (t.to(dev, non_blocking=True) for t in (x, m, sl, ps))
             with autocast(dev, amp):
                 p = torch.sigmoid(model(x, m, slot=sl, pos=ps).float())
                 if sagittal is not None:
@@ -605,6 +609,8 @@ def main() -> None:
     dev = (f"cuda:{local}" if torch.cuda.is_available()
            else "mps" if a.mps and torch.backends.mps.is_available() else "cpu")
     amp = dev.startswith("cuda")
+    if amp:
+        torch.backends.cudnn.benchmark = True
     if rank == 0:
         a.out.mkdir(parents=True, exist_ok=True)
     log(f"arch {a.arch} {ARCHS[a.arch]} | device {dev}"
@@ -713,6 +719,10 @@ def main() -> None:
                 blk.forward = (lambda x, _f=blk.forward, **kw: _cp.checkpoint(_f, x, use_reentrant=False, **kw))
         log(f"gradient checkpointing: {'all' if a.ckpt_blocks < 0 else a.ckpt_blocks} of "
             f"{n_blk if n_blk is not None else 'the'} encoder blocks")
+    if amp and ARCHS[a.arch]["timm"].startswith(("convnext", "resnet")):
+        model.encoder.to(memory_format=torch.channels_last)
+        model.channels_last = True
+        log("channels_last encoder and inputs")
     if a.compile:
         model.encoder.compile()
         log("encoder compiled (torch.compile, in place)")
@@ -733,7 +743,7 @@ def main() -> None:
         log("mirror averaging: every prediction is the mean of the plain and the mirrored pass (MCL: plain only)")
     pos_w = torch.tensor(np.clip((1 - prev) / prev, 1, 10), dtype=torch.float32, device=dev)
     groups = param_groups(model, a.bb_lr, a.head_lr, a.llrd)
-    opt = torch.optim.AdamW(groups, weight_decay=a.wd)
+    opt = torch.optim.AdamW(groups, weight_decay=a.wd, fused=amp)
     if a.llrd < 1.0:
         log(f"layer-wise LR: {len(groups) - 1} encoder groups, {groups[0]['lr']:.2e} (embeddings) .. "
             f"{groups[-2]['lr']:.2e} (top) | head {groups[-1]['lr']:.2e}")
@@ -743,7 +753,7 @@ def main() -> None:
                if world > 1 else None)
     tr_dl = torch.utils.data.DataLoader(tr_ds, batch_size=a.micro, shuffle=sampler is None, sampler=sampler,
                                         drop_last=True, num_workers=ds_workers(), worker_init_fn=seed_worker,
-                                        persistent_workers=ds_workers() > 0)
+                                        persistent_workers=ds_workers() > 0, pin_memory=amp)
     if world > 1:
         net = torch.nn.parallel.DistributedDataParallel(model, device_ids=[local] if amp else None,
                                                         gradient_as_bucket_view=True)
@@ -770,8 +780,6 @@ def main() -> None:
                 w = ((0.25 + 0.75 * (2 * y - 1).abs()) if a.conf_weight == "fork" else 1.0)
                 loss = (F.binary_cross_entropy_with_logits(logits.float(), y, pos_weight=pos_w,
                                                            reduction="none") * w).mean()
-            if not torch.isfinite(loss):
-                raise SystemExit("non-finite loss")
             scaler.scale(loss / accum).backward()
         return loss
 
@@ -813,14 +821,17 @@ def main() -> None:
         f"k {a.k} | lr {a.bb_lr}/{a.head_lr}")
 
     # ---- train
-    hist, last3, step_times, recent = [], [], [], []
-    waits, loss_trace, t_end = [], [], None
-    stopped_early, gnorm = None, float("nan")
+    # Losses and the grad norm stay on the device; the host reads them only when it logs, so the GPU queue never drains.
+    hist, last3, step_times = [], [], []
+    waits, loss_trace, t_end, stopped_early = [], [], None, None
     for ep in range(epochs):
         if sampler is not None:
             sampler.set_epoch(ep)
         net.train()
-        t_ep, tot, n_opt, stop = time.time(), 0.0, 0, False
+        t_ep, n_opt, stop = time.time(), 0, False
+        tot, recent, n_recent = torch.zeros((), device=dev), torch.zeros((), device=dev), 0
+        gnorm = torch.full((), float("nan"), device=dev)
+        t_win, n_win = time.time(), 0
         opt.zero_grad(set_to_none=True)
         for it, batch in enumerate(tr_dl):
             if n_opt >= steps_per_epoch:
@@ -830,33 +841,41 @@ def main() -> None:
                 waits.append(t0 - t_end)
             x, sl, ps, y = to_dev(batch)
             last_micro = (it + 1) % accum == 0
-            loss = micro_step(x, sl, ps, y, sync=last_micro)
-            tot += float(loss.detach())
+            loss = micro_step(x, sl, ps, y, sync=last_micro).detach()
+            tot += loss
+            recent += loss
+            n_recent += 1
             if len(loss_trace) < 60:
-                loss_trace.append(round(float(loss.detach()), 5))
-            recent = (recent + [float(loss.detach())])[-50:]
+                loss_trace.append(round(float(loss), 5))
             if last_micro:
                 scaler.unscale_(opt)
-                gnorm = float(torch.nn.utils.clip_grad_norm_(model.parameters(), 3.0))
+                gnorm = torch.nn.utils.clip_grad_norm_(model.parameters(), 3.0)
                 scaler.step(opt)
                 scaler.update()
                 opt.zero_grad(set_to_none=True)
                 sched.step()
                 n_opt += 1
-                stop = all_any(time.time() - t_start > a.time_budget_h * 3600, world, dev)
-            if amp:
-                torch.cuda.synchronize()
-            step_times.append(time.time() - t0)
+                if n_opt % 20 == 0 or n_opt >= steps_per_epoch:
+                    stop = all_any(time.time() - t_start > a.time_budget_h * 3600, world, dev)
+            n_win += 1
             t_end = time.time()
             if it % 50 == 0:
-                log(f"  ep{ep} it{it} loss {float(loss.detach()):.4f} (mean of last {len(recent)}: "
-                    f"{np.mean(recent):.4f}) | grad-norm {gnorm:.3f} | scale {scaler.get_scale() if amp else 1:.0f} | "
-                    f"{np.mean(step_times[-50:]):.2f} s per {a.micro}-study micro-step")
+                mean_recent = float(recent) / n_recent
+                if not math.isfinite(mean_recent):
+                    raise SystemExit("non-finite loss")
+                step_times.append((time.time() - t_win) / n_win)
+                log(f"  ep{ep} it{it} loss {float(loss):.4f} (mean of last {n_recent}: {mean_recent:.4f}) | "
+                    f"grad-norm {float(gnorm):.3f} | scale {scaler.get_scale() if amp else 1:.0f} | "
+                    f"{step_times[-1]:.2f} s per {a.micro}-study micro-step")
+                recent.zero_()
+                n_recent, t_win, n_win = 0, time.time(), 0
             if stop:
                 stopped_early = f"time budget at epoch {ep} iter {it}"
                 break
-        hist.append({"epoch": ep, "loss": tot / max(it + 1, 1), "sec": time.time() - t_ep,
+        hist.append({"epoch": ep, "loss": float(tot) / max(it + 1, 1), "sec": time.time() - t_ep,
                      "opt_steps": n_opt})
+        if not math.isfinite(hist[-1]["loss"]):
+            raise SystemExit("non-finite loss")
         log(f"epoch {ep}: loss {hist[-1]['loss']:.4f}  {hist[-1]['sec'] / 60:.1f} min")
         if ep >= epochs - 3:
             last3.append({k: v.detach().to("cpu", copy=True) for k, v in model.state_dict().items()})
