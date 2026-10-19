@@ -10,6 +10,17 @@ sha256 in SOURCE_SHA is replaced by the patched file's, so the notebook's own so
     # B: ... --read --tag r6r7-teach1cv5          (our five teacher folds, the 0.25 / 0.10 weights)
     # D: pass --weights-kernel / --weights-sha of the consensus folds after the extra args, and --drop-cells 2,3,4,5
     #    --final-from ours_sub.csv --drop-dataset nartaa/rsna-knee-publication-swa-weights-20261007 --w-ours 0.35,0.20
+    # the main final (10-18): ... --main958 --wheel-pins <json> --tag <t> (final mode: no --read)
+
+Builder-only flags, taken out before the rest goes to build_public_blend_kernel:
+  --main958          the free 0.958 base's per-finding Raptor weights (heliosli's blend-mine-in-private-lb notebook,
+                     diffed 10-18 against the saved 0.9576: this line and the R6 dataset slug are its only changes) and
+                     our private copies of the Raptor weights and of heliosli's code dataset (the notebook finds a mount
+                     by slug, so its cells stay unchanged)
+  --wheel-pins F     a json {wheel file name: sha256} from the mount test; every final pins the vendored MONAI tree
+                     and every wheel before anything is installed or imported (review finding 3, 10-16)
+  --draft            no wheel pins: the notebook prints WHEELS_UNPINNED instead. Only for building a mount test
+                     (notebooks/build_finals_mounttest.py); never push a draft to the GPU
 
 Found 10-15: without these edits the worker exits at start-up ("--state-stacker: one model group only") and every
 study falls back (kernel rsna-knee-sub-r6r7-teach1cv5 v1, ERROR).
@@ -63,5 +74,60 @@ args = [str(repo / ".venv/bin/python"), str(repo / "notebooks/build_public_blend
         "--cell-patch", "C_SLUG = 'rsna-knee-r6-frozen-fe055406'=>C_SLUG = 'rsna-knee-r6r7-dual'"]
 for p in patches:
     args += ["--cell-patch", p]
-args += sys.argv[4:] + ["--out", str(out)]
+
+# builder-only flags (docstring); everything else goes to build_public_blend_kernel
+extra, main958, draft, pins = [], False, False, None
+it = iter(sys.argv[4:])
+for x in it:
+    if x == "--main958":
+        main958 = True
+    elif x == "--draft":
+        draft = True
+    elif x == "--wheel-pins":
+        pins = json.loads(Path(next(it)).read_text())
+    else:
+        extra.append(x)
+if (pins is None) == (not draft):
+    raise SystemExit("pass exactly one of --wheel-pins <json> (a submission) or --draft (a mount test's source)")
+
+if main958:
+    args += ["--cell-patch", "W_RAPTOR_C = {'Medial OA': 0.5, 'Lateral OA': 0.5, 'PF OA': 0.5}=>"
+                             "W_RAPTOR_C = {'Medial OA': 0.5, 'Lateral OA': 0.2, 'PF OA': 0.6, 'Synovitis': 0.8, \"Baker's\": 0.35}",
+             "--replace-dataset", "raahimnawaz/rsna-knee-publication-swa-weights-20261007",
+             "--replace-dataset", "raahimnawaz/rsna-orthofoundation-fold0-epoch7-20261004"]
+    # Raptor's two stages look their checkpoint up in a FIXED list of paths (nartaa's); our copy mounts at
+    # /kaggle/input/datasets/raahimnawaz/<slug> on today's Kaggle, which no list holds (found 10-18, before any run).
+    # Ours goes last in each list; the stages' own sha256 checks (7e5315da.., 3394fdd7..) still guard the file.
+    for tail in ("rsna-knee-oai-original384-s42-pair", "rsna-knee-raptor-alldata-d96-blendjev-oai-c08r224"):
+        last = f"    Path('/kaggle/input/datasets/nartaa/{tail}') / _weight_name,\n]"
+        ours = (f"    Path('/kaggle/input/datasets/nartaa/{tail}') / _weight_name,\n"
+                "    Path('/kaggle/input/datasets/raahimnawaz/rsna-knee-publication-swa-weights-20261007') / _weight_name,"
+                "   # [ours] our private copy\n]")
+        args += ["--cell-patch", last + "=>" + ours]
+
+# supply-chain pins, after the code dataset is unpacked and its wheels listed, before anything is installed or imported
+VENDOR_TREE_SHA = "1dcf1dabb83ab80eec50a5c0abfc407b3ba785bf9f30ae6c0e25da124ef87b05"   # = pipeline/kcache.py's
+PIN_AT = "wheels = sorted(str(p) for p in WHEELS.glob('*.whl'))"
+PIN_CODE = r'''
+# [ours, finals 10-18] supply-chain pins before anything from the code dataset is installed or imported: the vendored
+# MONAI tree (heliosli's 10-04 version, hashed as pipeline/kcache.py's tree_sha256) and every wheel in dependencies.zip
+def _ours_tree_sha(root):
+    _rows = []
+    for _f in sorted(Path(root).rglob('*')):
+        if _f.is_file() and '__pycache__' not in _f.parts:
+            _rows.append(_f.relative_to(root).as_posix() + '\t' + hashlib.sha256(_f.read_bytes()).hexdigest() + '\n')
+    return hashlib.sha256(''.join(_rows).encode()).hexdigest(), len(_rows)
+_ours_vt, _ours_vn = _ours_tree_sha(CODE / 'training' / 'vendor_runtime' / 'monai060')
+assert _ours_vt == '__VT__', ('vendored MONAI tree differs from the pin', _ours_vt, _ours_vn)
+_ours_wh = {Path(_w).name: hashlib.sha256(Path(_w).read_bytes()).hexdigest() for _w in wheels}
+_OURS_WHEEL_PINS = __PINS__
+if _OURS_WHEEL_PINS is None:
+    print('WHEELS_UNPINNED', json.dumps(_ours_wh, sort_keys=True), flush=True)
+else:
+    assert _ours_wh == _OURS_WHEEL_PINS, ('wheels differ from the pins', sorted(set(_ours_wh.items()) ^ set(_OURS_WHEEL_PINS.items())))
+print('SUPPLY_CHAIN_OK', json.dumps({'monai_tree': _ours_vt[:16], 'monai_files': _ours_vn, 'wheels': len(_ours_wh),
+                                     'wheels_pinned': _OURS_WHEEL_PINS is not None}), flush=True)'''
+args += ["--cell-patch", PIN_AT + "=>" + PIN_AT + PIN_CODE.replace("__VT__", VENDOR_TREE_SHA).replace("__PINS__", repr(pins))]
+
+args += extra + ["--out", str(out)]
 subprocess.run(args, check=True)
