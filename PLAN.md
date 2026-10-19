@@ -55,11 +55,14 @@ score = (5.5 + AUROC) / 12); a +0.002 on the macro is not (one score ±0.008). *
    five folds on the GPU (`--recipe k`). **Fold-0 rule:** stop and look if the mean over the four is > 0.03 below
    `runs_cnxs_teach1_f0` on the same studies, or < 16 epochs. (W4, `--recipe w4`, is built but set aside: same labels,
    same mistakes.)
-1b. **KDC: fails rule 3 10-18, one probe by the owner's override** (LOG): decoupled Lateral OA / PF OA targets; the
-   decoupling took (ρ with Medial OA 0.80 → 0.40) but Lateral OA fell to 0.711 on the report reference (rule 3 bar
-   0.75). The owner overrode rule 3 for **one Lateral OA probe of fold 0** (the report reference is biased against a
-   decoupled model; KDC learned from half the labels): **shown ≥ 0.529 → joins the main final on Lateral OA; ≤ 0.528
-   → closed** (my estimate ~0.78, a fail). Submit needs the owner's go after the gate. Closed beside it: read-time erasure (≤ ~0.01), the cell screen (0.68–0.78).
+1b. **KDC: PASSED its Lateral OA probe 10-18** (LOG): K on decoupled Lateral OA / PF OA targets (ρ with Medial OA
+   0.80 → 0.40). Rule 3 said broken (0.711 on the report reference); the owner overrode it for one probe, and **fold 0
+   alone read 0.530 = Lateral OA AUROC ~0.860 on the image-graded board** (`57374913`; bar 0.529). The report
+   reference understated KDC by ~0.15 against K's ~0.07: **report-label AUROC is the wrong gate for a decoupled model.**
+   By rule 4 it **joins the main final on Lateral OA**: the formula (base 0.896, ρ 0.49) predicts +0.016–0.020 at a
+   ~0.37–0.41 share, but only +0.004–0.007 if its ρ with the 0.958 base is 0.7 (unmeasured). **Owner's calls:** the
+   weight; a PF OA probe of KDC (bar 0.529 = AUROC 0.850 at ρ 0.54); KDC folds 1–2 (~9 of ~11 GPU-h left). Closed
+   beside it: read-time erasure (≤ ~0.01), the cell screen (0.68–0.78).
 2. **Measure in the target currency: probes of K only** (owner 10-16: "whatever attacks the weakest parts first, and
    only we do that"; no probes of public models, W4 is not trained). K counts on a finding only if its single-finding
    LB probe beats our five-fold model's 10-12 probe there (the CONSENSUS folds, 0.945; Synovitis is consensus fold 0 alone;

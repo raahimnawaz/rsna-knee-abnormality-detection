@@ -1969,3 +1969,23 @@ there for the owner to discard. Nothing sent.
 - **⏳ KDC's Lateral OA probe SUBMITTED 10-18 17:33 PDT (owner's go), ref `57374913`, PENDING.** Kernel
   `…-sub-a-ortho-kdc-f0-nall-p-lateral-oa` v1 (built from `6afab56`, avg3 sha256 `3a6c99c4…`). Rule above: shown ≥
   0.529 → PASS; ≤ 0.528 → FAIL. 4 slots left to 17:00 PDT 10-19.
+- **✅ KDC's Lateral OA probe `57374913` READ 0.530 (seen 17:59 PDT) → Lateral OA AUROC ~0.860** (a shown 0.530
+  covers 0.854–0.866). Rule (`53c671c`): shown ≥ 0.529 → **PASS: KDC fold 0 joins the main final on Lateral OA**; the
+  weight and further folds are the owner's call. **This reverses the ⛔ entry above ("no probe, KDC closed") and its
+  estimate (~0.78), and my own (~0.78): both wrong by ~0.08.**
+- **What it says:** on the image-graded board KDC fold 0 alone reads ~0.860 against the five-fold model's 0.896,
+  after 0.711 on the report reference. Report → board: KDC **+0.149**, K +0.070 (0.826 → 0.896; one fold each, so
+  direction, not a constant). **The report reference understates a decoupled model by ~0.08 more than a coupled one:
+  rule 3 (report AUROC ≥ 0.75) was the wrong gate for KDC and would have closed a passing member.** The radiologists'
+  grades tie Lateral OA to Medial OA less (0.32) than the reports do (0.55), so a model that stops leaning on Medial
+  OA loses on the reports what it keeps on the board. Any later gate on a decoupled model is the LB probe, not the
+  report reference.
+- **Formula look (binormal two-score, best non-negative weight, base 0.896):** at ρ 0.49 (held-out, against teacher
+  f0) the blend predicts +0.016 / +0.018 / +0.020 for KDC 0.854 / 0.860 / 0.866, KDC's share ~0.37–0.41; at ρ 0.6
+  +0.009–0.013, at ρ 0.7 +0.004–0.007. **The main final's base is the 0.958 blend, whose Lateral OA AUROC and ρ with
+  KDC are unmeasured**, so the gain there is an estimate; on the macro it is +0.0003–0.0017 (one finding / 12). No
+  macro read can show it (one board tick = 0.001 of the macro, noise ~0.008); only a single-finding probe of the
+  combined blend could.
+- **Open, the owner's calls:** (a) KDC's weight on Lateral OA in the main final; (b) a PF OA probe of KDC fold 0 (same
+  kernel with `--probe "PF OA"`; its bar by rule 4 at ρ 0.54: AUROC 0.850 ⇔ shown ≥ 0.530, a shown 0.529 straddles
+  [0.842–0.854] → fail); (c) KDC folds 1–2 (~4.5 GPU-h each, two at once; ~11 GPU-h left before the finals' runs).
