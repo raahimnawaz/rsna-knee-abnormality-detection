@@ -151,7 +151,7 @@ def check(root: Path, out: Path, truth: dict, spec: str = "c7") -> None:
 def main() -> None:
     ap = argparse.ArgumentParser(description=__doc__.splitlines()[0])
     ap.add_argument("--out", type=Path, required=True)
-    ap.add_argument("--spec", choices=["c7", "c8"], default="c7", help="c7 = Stage B, c8 = Stage C")
+    ap.add_argument("--spec", choices=["c7"], default="c7", help="c7 = Stage B")
     a = ap.parse_args()
     root = a.out / "input"
     truth = write(root)

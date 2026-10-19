@@ -1,7 +1,8 @@
 """Build a Kaggle GPU training kernel for one encoder: pinned inputs, embedded sources, paired scoring.
 
-    python notebooks/build_backbone_ab_kernel.py --arch ortho --out /tmp/ab --smoke    # CPU wiring check
-    python notebooks/build_backbone_ab_kernel.py --arch ortho --corpus stage_b --epochs 14 --out /tmp/ab
+    python notebooks/build_backbone_ab_kernel.py --arch convnext_small --corpus stage_b --out /tmp/ab --smoke
+    python notebooks/build_backbone_ab_kernel.py --arch convnext_small --corpus stage_b --folds 0 --n-train 0 \
+        --recipe v3 --targets <targets.csv> --tag <name> --out /tmp/ab
     python -m kaggle kernels push -p /tmp/ab
 """
 from __future__ import annotations
@@ -17,8 +18,6 @@ PROJ = Path(__file__).resolve().parents[1]
 OWNER = "raahimnawaz"
 EMBED = [
     "fusion/train_windows.py",
-    "fusion/orthofoundation_model.py",
-    "fusion/qwen_vlm.py",
     "fusion/score_oof.py",
     "fusion/folds.py",
     "pipeline/site_fingerprint.py",
@@ -35,10 +34,7 @@ DATASETS = ["dreaddevelopment/knee-raptor-corpus",           # 3,200 studies, CC
 KERNELS = ["zhukovoleksiy/rsna-metadata-probe"]              # headers.parquet -> site folds
 STAGE_A_SHARDS = [f"{OWNER}/rsna-knee-stage-a-s{i}of4" for i in range(4)]   # build_stage_a_kernel.py
 STAGE_B_SHARDS = [f"{OWNER}/rsna-knee-stage-b-s{i}of8" for i in range(8)]
-K_SHARDS = [f"{OWNER}/rsna-knee-kcache-s{i}of5" for i in range(5)]       # notebooks/build_kcache_kernel.py   # ... --stage b
-STAGE_C_SHARDS = [f"{OWNER}/rsna-knee-stage-c-s{i}of8" for i in range(8)]   # ... --stage c: dense coronal and axial
-PACKAGE = ["--res", "384", "--drop-path", "0.1", "--llrd", "0.9", "--bb-lr", "9e-5", "--pos-emb", "--fit-budget"]
-SPEED = ["--compile", "--ckpt-blocks", "12"]
+K_SHARDS = [f"{OWNER}/rsna-knee-kcache-s{i}of5" for i in range(5)]       # notebooks/build_kcache_kernel.py
 # small conv backbones on Stage B: no checkpointing or compile needed; plain BCE (graded and masked targets)
 SMALL = ("convnext_tiny", "convnext_small")
 SMALL_PACKAGE = ["--res", "384", "--drop-path", "0.1", "--bb-lr", "1e-4", "--pos-emb", "--fit-budget",
@@ -53,16 +49,10 @@ COATNET_PACKAGE = ["--res", "384", "--drop-path", "0.1", "--bb-lr", "3e-5", "--p
 # --micro 1: 24 windows a forward per GPU, as k 12 x 2 studies was (8.1 GB on a T4); the batch stays 8 studies.
 V3_TRAIN_ARGS = ["--allow-missing-labels", "--spatial-attn", "--mirror", "0.5", "--mirror-tta", "--k", "24", "--micro", "1"]
 V3_EPOCHS = 16
-# W4 (owner 10-16, PLAN.md): v3 + the loss on the weak four x3 + a learned per-finding location bias (8 depth bins).
-W4_TRAIN_ARGS = V3_TRAIN_ARGS + ["--focus", "3", "--loc-bias", "8"]
 # K (owner 10-16, PLAN.md): the knee-centred region crops (32 slices, 24 windows: all of them each step), the weak four
 # only, spatial attention per finding; no mirror (the regions are lateral by construction).
 K_TRAIN_ARGS = ["--allow-missing-labels", "--only-weak4", "--spatial-attn", "--k", "24", "--micro", "1"]
 N_TRAIN, DRAW_SEED = 2871, 20260923
-QWEN_EXTRA = ["--fit-budget", "--k", "12", "--eval-windows", "12"]
-# The versions this arch was built and tested against locally; the image may carry neither.
-QWEN_TRANSFORMERS = "5.17.0"
-QWEN_BENCH = ["--max-steps", "40", "--limit-val", "60", "--eval-bs", "1"]
 
 
 SETUP = r'''
@@ -90,18 +80,6 @@ def log(msg):
 
 
 import torch, timm
-if ARCH.startswith("qwen"):
-    _probe = [sys.executable, "-c", "import transformers as t; from transformers import Qwen3_5Model; print(t.__version__)"]
-    _r = subprocess.run(_probe, capture_output=True, text=True)
-    if _r.returncode:
-        _old = subprocess.run([sys.executable, "-c", "import transformers as t; print(t.__version__)"],
-                              capture_output=True, text=True).stdout.strip()
-        log(f"transformers {_old or '(none)'} has no qwen3_5 -> installing transformers==__QWEN_TF__")
-        subprocess.check_call([sys.executable, "-m", "pip", "install", "-q", "transformers==__QWEN_TF__"])
-        _r = subprocess.run(_probe, capture_output=True, text=True)
-        if _r.returncode:
-            sys.exit("qwen3_5 still unavailable after the install:\n" + _r.stderr[-2000:])
-    log(f"transformers {_r.stdout.strip()} (qwen3_5 available to the training subprocess)")
 log(f"arch {ARCH}  mode {MODE}  epochs {EPOCHS}  built from {BUILT_FROM}")
 log(f"torch {torch.__version__}  timm {timm.__version__}  cuda {torch.cuda.is_available()}"
     + (f" {torch.cuda.get_device_name(0)}" if torch.cuda.is_available() else ""))
@@ -281,8 +259,7 @@ TRAIN = r'''
 # ============================================================================ #
 # Train: fusion/train_windows.py, the only place an arm differs is --arch.
 # ============================================================================ #
-NPROC = ((torch.cuda.device_count() if torch.cuda.is_available() else (1 if ARCH.startswith("qwen") else 2))
-         if LAYOUT in ("stage_b", "stage_c", "stage_k") or ARCH.startswith("qwen") else 1)
+NPROC = (torch.cuda.device_count() if torch.cuda.is_available() else 2) if LAYOUT in ("stage_b", "stage_k") else 1
 _launch = ([sys.executable, "-m", "torch.distributed.run", "--nnodes", "1", "--node_rank", "0",
             "--master_addr", "127.0.0.1", "--master_port", "29511", "--nproc_per_node", str(NPROC)]
            if NPROC > 1 else [sys.executable, "-u"])
@@ -293,9 +270,6 @@ if NPROC > 1:
         os.environ["OMP_NUM_THREADS"] = str(max(1, (os.cpu_count() or 4) // NPROC))
 if not torch.cuda.is_available():
     os.environ["TW_FORCE_CKPT"] = "1"
-if ARCH.startswith("qwen") and not torch.cuda.is_available():
-    os.environ["TW_FORCE_CKPT"] = "1"
-    os.environ["TW_WORKERS"] = "1"
 log(f"launch: {NPROC} process(es), {os.environ.get('TW_WORKERS', '4')} loader workers each")
 def _train(run_dir):
     _cmd = _launch + [str(REPO / "fusion" / "train_windows.py"), "--arch", ARCH,
@@ -355,7 +329,7 @@ elif ALL_DATA:
     log("ALL DATA: nothing held out, so no 691 score; gold-58 is in summary.json (report only); the LB judges.")
 else:
     for _arm in [RUN] + ([RUN / "avg3"] if (RUN / "avg3" / "oof_all.csv").exists() else []):
-        _ctrl = "runs_c6_ortho" if LAYOUT in ("stage_b", "stage_c", "stage_k") or ARCH.startswith("qwen") else "runs_port_repro"
+        _ctrl = "runs_c6_ortho" if LAYOUT in ("stage_b", "stage_k") else "runs_port_repro"
         _pair = [] if TEACHER_FOLD or PREDICT_ALL else [str(REPO / "fusion" / _ctrl)]   # not the 691 alone
         _res = subprocess.run([sys.executable, str(REPO / "fusion" / "score_oof.py")] + _pair + [str(_arm)],
                               capture_output=True, text=True, cwd=str(REPO))
@@ -378,7 +352,7 @@ def _git_head() -> str:
 
 def main() -> None:
     ap = argparse.ArgumentParser(description=__doc__.splitlines()[0])
-    ap.add_argument("--arch", choices=["ortho", "dinov3l", "coatnet", "resnet34", "qwen35vl", *SMALL], required=True)
+    ap.add_argument("--arch", choices=["coatnet", "resnet34", *SMALL], required=True)
     ap.add_argument("--folds", default="", help="fold CV in one kernel, e.g. 0,1,2,3,4: model k trains on the non-gold "
                     "studies outside fold k and predicts fold k; outputs runs_<arch>/fold<k>/")
     ap.add_argument("--predict-all", action="store_true", help="eval-only (--epochs 0 with --init): predict every "
@@ -390,7 +364,7 @@ def main() -> None:
     ap.add_argument("--cpu", action="store_true", help="a CPU session even in full mode (an eval-only check: no GPU quota)")
     ap.add_argument("--train-args", default="", help="extra train_windows flags, one string (e.g. '--bb-lr 3e-4'): "
                     "for an arm that differs from its recipe by a named setting")
-    ap.add_argument("--recipe", choices=["v3", "w4", "k"], help=f"v3: {' '.join(V3_TRAIN_ARGS)} at {V3_EPOCHS} epochs "
+    ap.add_argument("--recipe", choices=["v3", "k"], help=f"v3: {' '.join(V3_TRAIN_ARGS)} at {V3_EPOCHS} epochs "
                     "(convnext_small on stage_b; pass --targets and one fold per kernel)")
     ap.add_argument("--out", type=Path, required=True)
     g = ap.add_mutually_exclusive_group()
@@ -399,7 +373,7 @@ def main() -> None:
     g.add_argument("--bench", action="store_true", help="T4, ONE full epoch, scored. Prices the run.")
     ap.add_argument("--epochs", type=int, default=10, help="full run only")
     ap.add_argument("--time-budget-h", type=float, default=10.3, help="stage_b: training hours inside the 12 h session")
-    ap.add_argument("--corpus", choices=["raptor44", "stage_a", "stage_b", "stage_c", "stage_k"], default="raptor44",
+    ap.add_argument("--corpus", choices=["raptor44", "stage_a", "stage_b", "stage_k"], default="raptor44",
                     help="raptor44: the CC0 44-slice corpus (the A/B); stage_a: our 64-slice shards")
     ap.add_argument("--targets-from", default="", help="a Kaggle dataset holding --targets byte for byte: attach it "
                                                          "instead of embedding (notebooks over ~1 MB are refused)")
@@ -408,45 +382,37 @@ def main() -> None:
     ap.add_argument("--tag", default="", help="suffix for the kernel slug, so a variant does not overwrite a run")
     ap.add_argument("--all-data", action="store_true", help="train on every non-gold study (4,349), nothing held "
                     "out; val = gold. For a model whose --init already saw them; the LB is its judge")
-    ap.add_argument("--n-train", type=int, default=None,
-                    help=f"seeded draw from the pool ({N_TRAIN} = the A/B count, the default; qwen35vl: 0); "
-                         "0 = the whole pool")
+    ap.add_argument("--n-train", type=int, default=N_TRAIN,
+                    help=f"seeded draw from the pool ({N_TRAIN} = the A/B count); 0 = the whole pool")
     a = ap.parse_args()
-    if a.n_train is None:
-        a.n_train = 0 if a.arch.startswith("qwen") else N_TRAIN
     if a.recipe == "k":
         if a.arch != "convnext_small" or a.corpus != "stage_k" or not a.targets:
             raise SystemExit("--recipe k is convnext_small on --corpus stage_k with --targets")
         a.train_args = " ".join(K_TRAIN_ARGS + a.train_args.split())
         a.epochs = V3_EPOCHS
-    if a.recipe in ("v3", "w4"):
+    if a.recipe == "v3":
         if a.arch != "convnext_small" or a.corpus != "stage_b" or not a.targets:
-            raise SystemExit(f"--recipe {a.recipe} is convnext_small on --corpus stage_b with --targets")
-        a.train_args = " ".join((V3_TRAIN_ARGS if a.recipe == "v3" else W4_TRAIN_ARGS) + a.train_args.split())
+            raise SystemExit("--recipe v3 is convnext_small on --corpus stage_b with --targets")
+        a.train_args = " ".join(V3_TRAIN_ARGS + a.train_args.split())
         a.epochs = V3_EPOCHS
     mode = "smoke" if a.smoke else "bench" if a.bench else "full"
     # a small-backbone smoke runs TWO epochs: the averaged weights (avg3) need two states, and that branch scores
     # and saves at the very end of a full run
     epochs = a.epochs if mode == "full" else 2 if mode == "smoke" and a.arch in SMALL else 1
-    if a.arch.startswith("qwen"):
-        # the smoke skips the fit-budget probe (8 steps at ~90 s each on a CPU) and stops after 2 steps
-        extra = ([x for x in QWEN_EXTRA if x != "--fit-budget"] + ["--max-steps", "2", "--eval-windows", "4"]
-                 if mode == "smoke" else QWEN_EXTRA + (QWEN_BENCH if mode == "bench" else [])) + \
-            ["--time-budget-h", str(a.time_budget_h if mode == "full" else 0.6)]
-        epochs = a.epochs if mode == "full" else 1
-    elif a.corpus in ("stage_b", "stage_c", "stage_k"):
+    if a.corpus in ("stage_b", "stage_k"):
+        if not a.predict_all and a.arch not in (*SMALL, "coatnet"):
+            raise SystemExit(f"--corpus {a.corpus}: convnext_* or coatnet")
         folds = [int(x) for x in a.folds.split(",") if x != ""]
         budget = (a.time_budget_h / max(len(folds), 1)) if mode == "full" else 0.3
-        extra = (["--res", "384"] if a.predict_all else SMALL_PACKAGE if a.arch in SMALL
-                 else COATNET_PACKAGE if a.arch == "coatnet" else PACKAGE + SPEED) \
+        extra = (["--res", "384"] if a.predict_all else SMALL_PACKAGE if a.arch in SMALL else COATNET_PACKAGE) \
             + ["--time-budget-h", str(round(budget, 3))]
     else:
         extra = []
     extra += a.train_args.split()
     folds = [int(x) for x in a.folds.split(",") if x != ""]
-    if folds and (a.corpus not in ("stage_b", "stage_c", "stage_k") or a.all_data or a.predict_all or a.teacher_fold or a.n_train
+    if folds and (a.corpus not in ("stage_b", "stage_k") or a.all_data or a.predict_all or a.teacher_fold or a.n_train
                   or sorted(set(folds)) != folds or not set(folds) <= set(range(5))):
-        raise SystemExit("--folds: an increasing list from 0..4, on --corpus stage_b / stage_c with --n-train 0, and not with "
+        raise SystemExit("--folds: an increasing list from 0..4, on --corpus stage_b / stage_k with --n-train 0, and not with "
                          "--all-data, --predict-all or --teacher-fold")
     if a.all_data and (a.predict_all or a.teacher_fold or a.n_train or a.bench):
         raise SystemExit("--all-data trains on everything: not with --predict-all, --teacher-fold, a --n-train draw "
@@ -470,7 +436,7 @@ def main() -> None:
                   .replace("__EXTRA__", repr(extra))
                   .replace("__EPOCHS__", str(epochs)).replace("__BUILT_FROM__", repr(built_from))
                   .replace("__FOLD_LIST__", repr(folds))
-                  .replace("__FILES_B64__", repr(blob)).replace("__QWEN_TF__", QWEN_TRANSFORMERS))
+                  .replace("__FILES_B64__", repr(blob)))
     if a.targets and not a.tag:
         raise SystemExit("--targets needs --tag: a run on other labels must not overwrite the steven_v2 run's slug")
     t_b64, t_sha, t_name = "", "", ""
@@ -506,14 +472,13 @@ def main() -> None:
     # the A/B keeps its slugs; a Stage A run is a different experiment and gets its own
     name = a.arch.replace("_", "-")                     # a Kaggle slug has no underscore
     slug = {"raptor44": f"rsna-knee-backbone-ab-{name}", "stage_a": f"rsna-knee-c6-train-{name}",
-            "stage_b": f"rsna-knee-c7-train-{name}", "stage_c": f"rsna-knee-c8-train-{name}",
-            "stage_k": f"rsna-knee-k-train-{name}"}[a.corpus] + (f"-{a.tag}" if a.tag else "") \
+            "stage_b": f"rsna-knee-c7-train-{name}", "stage_k": f"rsna-knee-k-train-{name}"}[a.corpus] + (f"-{a.tag}" if a.tag else "") \
         + (f"-t{a.teacher_fold}" if a.teacher_fold else "") + ("-pa" if a.predict_all else "") \
         + ("-all" if a.all_data else "") + ("-cv" if folds else "")
     datasets = ((DATASETS if a.corpus == "raptor44" else DATASETS[2:]) + ([a.targets_from] if a.targets_from else [])
                 + a.extra_datasets)
     kernels = KERNELS + {"raptor44": [], "stage_a": STAGE_A_SHARDS, "stage_b": STAGE_B_SHARDS,
-                         "stage_c": STAGE_C_SHARDS, "stage_k": K_SHARDS}[a.corpus]
+                         "stage_k": K_SHARDS}[a.corpus]
     nb = {"cells": [{"cell_type": "code", "execution_count": None, "metadata": {}, "outputs": [],
                      "source": c.strip("\n").splitlines(keepends=True)} for c in cells],
           "metadata": {"kernelspec": {"display_name": "Python 3", "language": "python", "name": "python3"},
@@ -528,8 +493,6 @@ def main() -> None:
     meta = {"id": f"{OWNER}/{slug}", "title": slug, "code_file": f"{slug}.ipynb",
             "language": "python", "kernel_type": "notebook", "is_private": True,
             "enable_gpu": mode != "smoke" and not a.cpu, "enable_tpu": False,
-            # internet: Ortho's checkpoint comes from the authors' GitHub (sha-checked), the other
-            # encoders from the HF Hub. A training run, not a submission.
             "enable_internet": True, "keywords": [],
             "dataset_sources": datasets, "kernel_sources": kernels,
             "competition_sources": ["rsna-knee-abnormality-detection"], "model_sources": []}

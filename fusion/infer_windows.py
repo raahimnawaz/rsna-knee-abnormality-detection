@@ -2,7 +2,7 @@ r"""Score studies straight from DICOMs with a `train_windows.py` checkpoint: the
 
     python fusion/infer_windows.py --root <competition dir> --split test --weights last.pt --out preds.csv
     python fusion/infer_windows.py --root <competition dir> --split train --weights last.pt --uids check.csv \
-        --out check.csv --check-against runs_ortho/oof_all.csv    # parity gate against the scored OOF
+        --out check.csv --check-against runs/oof_all.csv    # parity gate against the scored OOF
     python fusion/infer_windows.py --root <competition dir> --weights fold0/last.pt fold1/last.pt --out preds.csv
         # several checkpoints of one slice layout: each study is built once, the probabilities averaged
 """
@@ -23,13 +23,9 @@ HERE = Path(__file__).resolve().parent
 sys.path.insert(0, str(HERE))
 sys.path.insert(0, str(HERE.parent / "pipeline"))
 import build_slots64 as B  # noqa: E402
-import slots64 as S  # noqa: E402
 from train_windows import (LABELS, WindowMIL, mirror_average, mirror_windows, thin_windows,  # noqa: E402
                            window_centres, window_meta)
 
-SLOT_SIZES = tuple(s.n_slices for s in S.SLOTS)            # Stage A's; a checkpoint's last_meta.json overrides
-ORTHO_PERIODS = [1.0, 1.335938, 1.78125, 2.375, 3.15625, 4.21875, 5.625, 7.5,
-                 10.0, 13.3125, 17.75, 23.75, 31.625, 42.25, 56.25, 75.0]
 
 
 def log(msg: str) -> None:
@@ -45,20 +41,19 @@ def series_by_study(root: Path, split: str) -> dict[str, list[dict]]:
 
 
 def load_meta(weights: Path) -> dict:
-    """How the checkpoint was trained, read from the `last_meta.json` beside last.pt.
-    Absent, the layout is Stage A: 64 slices at 336 px, no slot embedding."""
+    """How the checkpoint was trained, from the `last_meta.json` beside last.pt."""
     p = Path(weights).parent / "last_meta.json"
-    m = json.loads(p.read_text()) if p.exists() else {}
-    layout = str(m.get("layout", "stage_a"))
-    spec = ("k4" if layout.startswith("stage_k") else "c8" if layout.startswith("stage_c")
-            else "c7" if layout.startswith("stage_b") else "c6")
-    out = {"source": str(p) if p.exists() else "none (Stage A defaults)", "spec": spec,
-           "canon": "canon True" in layout, "res": int(m.get("res", 336)), "img": int(m.get("img", 336)),
-           "timm": m.get("timm", "vit_large_patch16_dinov3"), "pool": m.get("pool", "token"),
-           "pos_emb": bool(m.get("pos_emb", False)), "n_slots": int(m.get("n_slots", 0)),
-           "spatial": bool(m.get("spatial", False)), "mirror_tta": bool(m.get("mirror_tta", False)),
-           "loc_slots": int(m.get("loc_slots", 0)), "loc_bins": int(m.get("loc_bins", 0)),
-           "rope_periods": m.get("rope_periods"), "slot_sizes": tuple(m.get("slot_sizes") or SLOT_SIZES)}
+    if not p.exists():
+        raise SystemExit(f"{p}: missing -- every checkpoint is served with the meta it was trained with")
+    m = json.loads(p.read_text())
+    layout = str(m["layout"])
+    spec = "k4" if layout.startswith("stage_k") else "c7" if layout.startswith("stage_b") else "c6"
+    out = {"source": str(p), "spec": spec, "canon": "canon True" in layout, "res": int(m["res"]),
+           "img": int(m["img"]), "timm": m["timm"], "pool": m["pool"], "pos_emb": bool(m.get("pos_emb", False)),
+           "n_slots": int(m.get("n_slots", 0)), "spatial": bool(m.get("spatial", False)),
+           "mirror_tta": bool(m.get("mirror_tta", False)), "slot_sizes": tuple(m["slot_sizes"])}
+    if m.get("loc_bins") or m.get("rope_periods"):
+        raise SystemExit(f"{p}: a location bias or RoPE encoder -- not served by this reader")
     if spec == "k4":                                        # K: pipeline/kcache.py's region crops
         import kcache as K
         if out["slot_sizes"] != (K.PER,) * len(K.REGIONS) or out["img"] != K.IMG:
@@ -186,27 +181,9 @@ def k_anchors(root: Path, split: str, uids: list[str], by_study: dict, seg_weigh
 def build_model(weights: Path, dev: str, meta: dict | None = None) -> WindowMIL:
     import timm
     meta = meta or load_meta(weights)
-    kw = dict(pretrained=False, num_classes=0, global_pool=meta["pool"])
-    if meta["pool"] == "token":
-        kw["img_size"] = meta["res"]
-    enc = timm.create_model(meta["timm"].split(".")[0], **kw)      # the pretrained tag names weights, not the architecture
-    m = WindowMIL(enc, meta["res"], n_slots=meta["n_slots"] if meta["pos_emb"] else 0, spatial=meta["spatial"],
-                  loc_slots=meta["loc_slots"], loc_bins=meta["loc_bins"])
+    enc = timm.create_model(meta["timm"].split(".")[0], pretrained=False, num_classes=0, global_pool=meta["pool"])
+    m = WindowMIL(enc, meta["res"], n_slots=meta["n_slots"] if meta["pos_emb"] else 0, spatial=meta["spatial"])
     m.load_state_dict(torch.load(weights, map_location="cpu", weights_only=True), strict=True)
-    rope = getattr(m.encoder, "rope", None)
-    if rope is None:                                        # CoAtNet, CNNs: no RoPE, nothing to restore
-        if meta["rope_periods"]:
-            raise SystemExit(f"{weights}: trained with RoPE periods, but {meta['timm']} has no RoPE -- wrong encoder")
-        return m.to(dev).eval()
-    want = meta["rope_periods"] or ORTHO_PERIODS
-    with torch.no_grad():
-        if meta["rope_periods"]:
-            rope.periods.copy_(torch.tensor(want, dtype=rope.periods.dtype))
-        else:                                               # Stage A: Ortho's are timm's rounded to bf16
-            rope.periods.copy_(rope.periods.bfloat16().float())
-    got = rope.periods.float().tolist()
-    if len(got) != len(want) or max(abs(a - b) for a, b in zip(got, want)) > 1e-5:
-        raise SystemExit(f"RoPE periods {got[:4]}... are not the trained ones {want[:4]}... (the checkpoint's RoPE buffer was not restored)")
     return m.to(dev).eval()
 
 
@@ -240,7 +217,7 @@ def main() -> None:
     dev = "cuda" if torch.cuda.is_available() else "cpu"
     log(f"{len(uids)} {a.split} studies (shard {a.shard}/{a.n_shards}) | device {dev}"
         + (f" {torch.cuda.get_device_name(0)}" if dev == "cuda" else "")
-        + f" | torch {torch.__version__} | slots {SLOT_SIZES}")
+        + f" | torch {torch.__version__}")
     metas = [load_meta(w) for w in a.weights]
     meta = metas[0]
     same = ("spec", "canon", "slot_sizes", "img")
@@ -252,8 +229,7 @@ def main() -> None:
     for w, m in zip(a.weights, metas):
         models.append(build_model(w, dev, m))
         log(f"model loaded strict from {w} ({time.time() - t0:.0f} s) | {m['timm']} | spec {m['spec']} canon {m['canon']} "
-            f"res {m['res']} slots {m['slot_sizes']} pos_emb {m['pos_emb']} | meta {m['source']} | "
-            + ("RoPE periods = the trained ones" if getattr(models[-1].encoder, "rope", None) is not None else "no RoPE"))
+            f"res {m['res']} slots {m['slot_sizes']} pos_emb {m['pos_emb']} | meta {m['source']}")
     log(f"{len(models)} checkpoint(s): probabilities averaged with equal weight")
     if any(m["mirror_tta"] for m in metas):
         if not meta["canon"]:

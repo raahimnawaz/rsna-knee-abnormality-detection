@@ -9,6 +9,3 @@ timm>=1.0.28
 pydicom>=3.0
 kaggle>=2.2
 
-# Optional: the experimental VLM reader (fusion/qwen_vlm.py)
-transformers>=5.0
-huggingface_hub>=1.27

@@ -22,10 +22,10 @@ import train_windows as TW  # noqa: E402
 def main() -> None:
     ap = argparse.ArgumentParser(description=__doc__.splitlines()[0])
     ap.add_argument("--fixture", type=Path, required=True, help="canon_fixture.py's --out")
-    ap.add_argument("--spec", choices=["c7", "c8"], default="c7", help="the spec canon_fixture.py built with")
+    ap.add_argument("--spec", choices=["c7"], default="c7", help="the spec canon_fixture.py built with")
     a = ap.parse_args()
     root = a.fixture / "input"
-    corpus = TW.Corpus(a.fixture / "canon", {"c7": "stage_b", "c8": "stage_c"}[a.spec])
+    corpus = TW.Corpus(a.fixture / "canon", {"c7": "stage_b"}[a.spec])
     uids = list(corpus.ids)
     truth = json.loads((root / "truth.json").read_text())
     tw = TW.Windows(corpus, uids, np.zeros((len(uids), 12), np.float32), k=None)

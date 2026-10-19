@@ -1,7 +1,7 @@
 r"""Train one encoder on 2.5D windows of a fixed slice stack, with a per-finding attention-MIL head.
 
-    python fusion/train_windows.py --arch ortho --corpus <cache> --train train.csv --val val.csv \
-        --labels targets.csv --out runs_ortho --epochs 10
+    python fusion/train_windows.py --arch convnext_small --corpus <cache> --train train.csv --val val.csv \
+        --labels targets.csv --out runs --epochs 16
     python fusion/train_windows.py --arch tiny --synthetic 24 --out /tmp/tw --epochs 1    # wiring check
 """
 from __future__ import annotations
@@ -29,19 +29,10 @@ sys.path.insert(0, str(HERE.parent / "extractor"))
 LABELS = ["ACL", "MCL", "Medial Meniscus", "Lateral Meniscus", "Medial OA", "Lateral OA",
           "PF OA", "Effusion", "Synovitis", "Baker's", "Contusion", "Fracture"]
 SLOT_SIZES = (12, 10, 8, 6, 8)
-# The four findings that hold the macro down (single-finding LB probes 10-12: 0.88-0.93; the other eight ~0.966).
-# W4 (PLAN.md) trains with their loss up-weighted (--focus) and a learned per-finding location bias (--loc-bias).
 WEAK4 = ("Lateral Meniscus", "Lateral OA", "PF OA", "Synovitis")
-
-
-def focus_weights(focus: float) -> np.ndarray:
-    """Per-finding loss weight: `focus` on WEAK4, 1 elsewhere."""
-    return np.array([focus if f in WEAK4 else 1.0 for f in LABELS], np.float32)
 MEAN = (0.485, 0.456, 0.406)
 STD = (0.229, 0.224, 0.225)
 ARCHS = {
-    "ortho":   dict(res=336, pool="token"),
-    "dinov3l": dict(res=336, pool="token", timm="vit_large_patch16_dinov3.lvd1689m"),
     "coatnet": dict(res=384, pool="avg", timm="coatnet_rmlp_2_rw_384.sw_in12k_ft_in1k"),
     "resnet34": dict(res=224, pool="avg", timm="resnet34.a1_in1k", ckpt=False),
     # small conv backbones: LayerNorm only (a 2-study micro-batch is safe), ~7-14x fewer FLOPs than the ViT-L
@@ -50,17 +41,8 @@ ARCHS = {
     "tiny":    dict(res=224, pool="token", timm="vit_tiny_patch16_224"),
     # wiring only, random weights: the conv family at 3.4M params, so --spatial-attn runs on a CPU in seconds
     "cnxatto": dict(res=224, pool="avg", timm="convnext_atto", ckpt=False),
-    # wiring only, random weights: Ortho's own architecture family (Eva, RoPE, registers) at 22M params,
-    # so gradient checkpointing and DDP are exercised on the code path Ortho takes, on a CPU
-    "smalleva": dict(res=224, pool="token", timm="vit_small_patch16_dinov3"),
-    # A VLM reading the whole study as one sequence (fusion/qwen_vlm.py): same forward signature as
-    # WindowMIL, so everything below is shared. qwentiny is its wiring check at a toy size.
-    "qwen35vl": dict(res=384, pool="qwen", hf="Qwen/Qwen3.5-2B"),
-    "qwentiny": dict(res=64, pool="qwen"),
 }
-UNTRAINED = {"tiny", "smalleva", "qwentiny", "cnxatto"}
-ORTHO_URL = "https://media.githubusercontent.com/media/ytrsk/OrthoFoundation/main/OrthoFoudation-L.pth"
-ORTHO_BYTES = 1213056638
+UNTRAINED = {"tiny", "cnxatto"}
 
 
 # A knee mirrored across its own sagittal plane: the medial compartment lies where the lateral one was. The two
@@ -123,8 +105,7 @@ class Corpus:
 
     RAPTOR_PARTS = (("all_vols.npy", "all_masks.npy", "all_ids.npy"),
                     ("extra_vols.npy", "extra_masks.npy", "extra_ids.npy"))
-    SPECS = {"stage_a": "c6-64slice", "stage_b": "c7-96slice-384", "stage_c": "c8-118slice-384",
-             "stage_k": "k4-32slice-256"}                   # K: knee-centred region crops (pipeline/kcache.py)
+    SPECS = {"stage_a": "c6-64slice", "stage_b": "c7-96slice-384", "stage_k": "k4-32slice-256"}
 
     def __init__(self, root: Path, layout: str = "auto", extra: tuple = ()):
         """`extra`: more roots of the SAME layout (e.g. an external corpus beside the Stage A shards). Each root must be
@@ -174,7 +155,7 @@ class Corpus:
                 parts += sub.parts
         else:
             if extra:
-                raise SystemExit("--extra-corpus needs a stage_a / stage_b / stage_c layout")
+                raise SystemExit("--extra-corpus needs a stage_a / stage_b layout")
             self.slot_sizes = SLOT_SIZES
             self.layout = "raptor44"
             parts = []
@@ -331,30 +312,9 @@ def build_encoder(arch: str, weights_dir: Path, res: int | None = None, drop_pat
     import timm
     spec = dict(ARCHS[arch])
     spec["res"] = res or spec["res"]
-    if arch == "ortho":
-        import hashlib
-        import urllib.request
-        import orthofoundation_model as om
-        dst = weights_dir / "OrthoFoudation-L.pth"
-        if not dst.exists() or dst.stat().st_size != ORTHO_BYTES:
-            log(f"downloading OrthoFoundation-L from {ORTHO_URL}")
-            urllib.request.urlretrieve(ORTHO_URL, dst)
-        if dst.stat().st_size != ORTHO_BYTES:
-            raise SystemExit(f"{dst}: {dst.stat().st_size} bytes, expected {ORTHO_BYTES} (an LFS pointer?)")
-        h = hashlib.sha256(dst.read_bytes()).hexdigest()
-        if h != om.SHA256:
-            raise SystemExit(f"OrthoFoundation sha256 {h} != recorded {om.SHA256}")
-        m, periods = om.build(dst, img=spec["res"], global_pool=spec["pool"],
-                              **({"drop_path_rate": drop_path} if drop_path else {}))
-        if not torch.equal(m.rope.periods.float(), periods.float()):
-            raise SystemExit("RoPE periods were not applied")
-        log(f"ortho: strict load, sha256 ok, RoPE periods = theirs | img {spec['res']} | drop_path {drop_path}")
-        return m
     kw = dict(pretrained=arch not in UNTRAINED, num_classes=0, global_pool=spec["pool"])
     if drop_path:
         kw["drop_path_rate"] = drop_path
-    if spec["pool"] == "token" and arch != "tiny":         # smalleva gets img_size too: RoPE at res
-        kw["img_size"] = spec["res"]
     return timm.create_model(spec["timm"], **kw)
 
 
@@ -362,10 +322,9 @@ class WindowMIL(nn.Module):
     """Encoder + per-finding attention over windows. Input is uint8; the device does the rest."""
 
     def __init__(self, encoder: nn.Module, res: int, n: int = len(LABELS), drop: float = 0.2,
-                 n_slots: int = 0, spatial: bool = False, loc_slots: int = 0, loc_bins: int = 0):
+                 n_slots: int = 0, spatial: bool = False):
         super().__init__()
         self.encoder, self.res, self.n_slots, self.spatial = encoder, res, n_slots, spatial
-        self.loc_slots, self.loc_bins = loc_slots, loc_bins
         self.affine = 0.0
         self.zoom = 0.0
         self.enc_chunk = 0                                  # eval only: windows per encoder forward; 0 = all at once
@@ -390,11 +349,6 @@ class WindowMIL(nn.Module):
                 raise SystemExit("--spatial-attn needs a conv encoder with a pooled head (convnext_*)")
             self.sq = nn.Parameter(torch.zeros(n, f))
             self.sq_norm = nn.LayerNorm(f)
-        if loc_bins:
-            # Where each finding reads (W4): a bias on its window-attention logit by the window's slot and depth bin
-            # (canonical cache: a sagittal slot's depth runs lateral -> medial). ZERO at start: step 0 is the model
-            # without it. A mirrored draw reads its depth backwards (mirror_windows), so the bias stays anatomical.
-            self.loc = nn.Parameter(torch.zeros(n, loc_slots, loc_bins))
         self.register_buffer("mean", torch.tensor(MEAN).view(1, 3, 1, 1), persistent=False)
         self.register_buffer("std", torch.tensor(STD).view(1, 3, 1, 1), persistent=False)
 
@@ -454,11 +408,6 @@ class WindowMIL(nn.Module):
         a = self.att(h)                                     # (B,K,12)
         if self.spatial:
             a = torch.diagonal(a, dim1=2, dim2=3)           # finding n scores the windows by its own token
-        if self.loc_bins:
-            if slot is None or pos is None:
-                raise ValueError("this model was built with a location bias: pass slot and pos")
-            bins = (pos.float().clamp(0, 1) * self.loc_bins).long().clamp_max(self.loc_bins - 1)
-            a = a + self.loc[:, slot, bins].permute(1, 2, 0).to(a.dtype)       # (n,B,K) -> (B,K,n)
         if mask is not None:
             a = a.masked_fill(~mask[..., None], float("-inf"))
         a = torch.softmax(a, dim=1)
@@ -572,11 +521,10 @@ def param_groups(model: WindowMIL, bb_lr: float, head_lr: float, llrd: float) ->
 
 
 def main() -> None:
-    from contextlib import nullcontext
     ap = argparse.ArgumentParser(description=__doc__.splitlines()[0])
     ap.add_argument("--arch", choices=sorted(ARCHS), required=True)
     ap.add_argument("--corpus", type=Path, default=Path("/kaggle/input"))
-    ap.add_argument("--layout", choices=["auto", "raptor44", "stage_a", "stage_b", "stage_c", "stage_k"], default="auto")
+    ap.add_argument("--layout", choices=["auto", "raptor44", "stage_a", "stage_b", "stage_k"], default="auto")
     ap.add_argument("--synthetic", type=int, default=0, help="N random studies instead of a corpus")
     ap.add_argument("--train", type=Path, help="csv with StudyInstanceUID")
     ap.add_argument("--val", type=Path, help="csv with StudyInstanceUID -- scored, never selected on")
@@ -598,7 +546,7 @@ def main() -> None:
     ap.add_argument("--time-budget-h", type=float, default=10.5)
     ap.add_argument("--save-weights", action="store_true")
     ap.add_argument("--seed", type=int, default=42)
-    ap.add_argument("--res", type=int, default=0, help="encoder input size; 0 = the arch's own (ortho 336)")
+    ap.add_argument("--res", type=int, default=0, help="encoder input size; 0 = the arch's own")
     ap.add_argument("--drop-path", type=float, default=0.0, help="stochastic depth rate")
     ap.add_argument("--init", type=Path, help="start from these weights instead of the backbone's pretraining: our "
                     "last.pt, or a public checkpoint dict {'model': ...} with backbone.* / clsW / clsb keys (the CC0 "
@@ -614,8 +562,6 @@ def main() -> None:
     ap.add_argument("--fit-budget", action="store_true",
                     help="time real training steps first, then cut --epochs to what fits the budget")
     ap.add_argument("--eval-reserve-h", type=float, default=0.0, help="with --fit-budget: hours kept for eval")
-    ap.add_argument("--lora-r", type=int, default=16, help="qwen archs: LoRA rank on the language model")
-    ap.add_argument("--lora-lr", type=float, default=1e-4, help="qwen archs: LoRA learning rate")
     ap.add_argument("--ckpt-blocks", type=int, default=-1,
                     help="gradient-checkpoint only the first N encoder blocks; -1 = all (the default), 0 = none")
     ap.add_argument("--mps", action="store_true",
@@ -630,9 +576,6 @@ def main() -> None:
     ap.add_argument("--enc-chunk", type=int, default=0,
                     help="evaluation only: encode this many windows per forward (a large encoder on ~80 windows); 0 = all")
     ap.add_argument("--only-weak4", action="store_true", help="train on the weak four only (WEAK4); K's recipe")
-    ap.add_argument("--focus", type=float, default=1.0, help="loss weight on the weak four (WEAK4); 1 = none (W4: 3)")
-    ap.add_argument("--loc-bias", type=int, default=0, help="per-finding window-attention bias over (slot, this many "
-                    "depth bins); 0 = off (W4: 8). Needs a canonical cache (Stage B / C)")
     ap.add_argument("--spatial-attn", action="store_true",
                     help="per-finding attention over the positions of each window's feature map, in place of the global "
                          "average; starts as the average (convnext_* only)")
@@ -651,8 +594,6 @@ def main() -> None:
     a = ap.parse_args()
     if not 0.0 <= a.mirror <= 1.0 or (a.mirror and not a.allow_missing_labels):
         raise SystemExit("--mirror is a probability in [0, 1] and needs --allow-missing-labels (MCL is unknown on a mirrored knee)")
-    if (a.mirror or a.mirror_tta) and ARCHS[a.arch]["pool"] == "qwen":
-        raise SystemExit("--mirror / --mirror-tta: not built for the qwen archs")
 
     world, rank, local = dist_setup()
     if a.bs % (a.micro * world):
@@ -716,39 +657,18 @@ def main() -> None:
                              a.eval_windows)) for u in va]
     log(f"val windows per study: median {int(np.median(nwin))}, min {min(nwin)}, max {max(nwin)}"
         + (f" (thinned to ~{a.eval_windows})" if a.eval_windows else ""))
-    if a.pos_emb and not str(getattr(corpus, "layout", "")).startswith(("stage_b", "stage_c", "stage_k")):
+    if a.pos_emb and not str(getattr(corpus, "layout", "")).startswith(("stage_b", "stage_k")):
         log("⚠️ --pos-emb on a non-canonical corpus: a slot's depth means lateral on one knee, medial on another")
 
     # ---- model. Rank 0 fetches the encoder weights first; the others read the same file after it.
     res = a.res or ARCHS[a.arch]["res"]
-    is_qwen = ARCHS[a.arch]["pool"] == "qwen"
-    if is_qwen:
-        import qwen_vlm
-
-        def make():
-            return qwen_vlm.build(a.arch, a.weights_dir, res, getattr(corpus, "slot_meta", None),
-                                  len(corpus.slot_sizes), lora_r=a.lora_r, fp16_frozen=amp,
-                                  grad_ckpt=bool(amp or os.environ.get("TW_FORCE_CKPT")),
-                                  tokenizer_dir=os.environ.get("TW_QWEN_TOKENIZER"))
-        model = make().to(dev) if rank == 0 else None
-        barrier(world)
-        if rank != 0:
-            model = make().to(dev)
-        log(f"qwen: {model.n_lora} LoRA linears r {a.lora_r}, lr {a.lora_lr} | {model.tokens_per_image} tokens "
-            f"per window | slot headers {model.slot_names} | frozen LM fp16 {amp}")
-    else:
-        enc = build_encoder(a.arch, a.weights_dir, res, a.drop_path) if rank == 0 else None
-        barrier(world)
-        if rank != 0:
-            enc = build_encoder(a.arch, a.weights_dir, res, a.drop_path)
-        if a.loc_bias and "canon True" not in str(getattr(corpus, "layout", "")):
-            raise SystemExit("--loc-bias needs a canonical cache (Stage B / C): a slot's depth must mean the same side")
-        model = WindowMIL(enc, res, n_slots=len(corpus.slot_sizes) if a.pos_emb else 0, spatial=a.spatial_attn,
-                          loc_slots=len(corpus.slot_sizes) if a.loc_bias else 0, loc_bins=a.loc_bias).to(dev)
-        if a.loc_bias:
-            log(f"location bias: per finding over {len(corpus.slot_sizes)} slots x {a.loc_bias} depth bins (zero-initialised)")
-        if a.spatial_attn:
-            log("spatial attention: a query per finding over each window's feature map (zero-initialised = the average)")
+    enc = build_encoder(a.arch, a.weights_dir, res, a.drop_path) if rank == 0 else None
+    barrier(world)
+    if rank != 0:
+        enc = build_encoder(a.arch, a.weights_dir, res, a.drop_path)
+    model = WindowMIL(enc, res, n_slots=len(corpus.slot_sizes) if a.pos_emb else 0, spatial=a.spatial_attn).to(dev)
+    if a.spatial_attn:
+        log("spatial attention: a query per finding over each window's feature map (zero-initialised = the average)")
     if a.init:
         import hashlib
         src = a.init if a.init.exists() else next(iter(sorted(a.corpus.rglob(a.init.name))), None)
@@ -765,16 +685,16 @@ def main() -> None:
         a.init_sha256 = hashlib.sha256(src.read_bytes()).hexdigest()
         log(f"init from {src} (sha256 {a.init_sha256[:16]}): {len(sd)} tensors, strict but for "
             f"{len(zero_init)} zero-initialised slot/depth weights")
-    if a.aug_affine and not is_qwen:
+    if a.aug_affine:
         model.affine = a.aug_affine
         log(f"augmentation: per-window affine at strength {a.aug_affine} (training only), plus the intensity gain")
-    if a.enc_chunk and not is_qwen:
+    if a.enc_chunk:
         model.enc_chunk = a.enc_chunk
         log(f"evaluation encodes {a.enc_chunk} windows per forward")
     if a.zoom:
         model.zoom = a.zoom
         log(f"zoom: every window also as its centre {a.zoom:.4f} of the field, both views in one bag (train and eval)")
-    if (not is_qwen and ARCHS[a.arch].get("ckpt", True) and hasattr(model.encoder, "set_grad_checkpointing")
+    if (ARCHS[a.arch].get("ckpt", True) and hasattr(model.encoder, "set_grad_checkpointing")
             and (amp or os.environ.get("TW_FORCE_CKPT"))):
         import timm.layers as _tl
         if hasattr(_tl, "set_reentrant_ckpt"):
@@ -793,7 +713,7 @@ def main() -> None:
                 blk.forward = (lambda x, _f=blk.forward, **kw: _cp.checkpoint(_f, x, use_reentrant=False, **kw))
         log(f"gradient checkpointing: {'all' if a.ckpt_blocks < 0 else a.ckpt_blocks} of "
             f"{n_blk if n_blk is not None else 'the'} encoder blocks")
-    if a.compile and not is_qwen:
+    if a.compile:
         model.encoder.compile()
         log("encoder compiled (torch.compile, in place)")
     n_enc = sum(p.numel() for p in model.encoder.parameters())
@@ -812,8 +732,7 @@ def main() -> None:
     if a.mirror_tta:
         log("mirror averaging: every prediction is the mean of the plain and the mirrored pass (MCL: plain only)")
     pos_w = torch.tensor(np.clip((1 - prev) / prev, 1, 10), dtype=torch.float32, device=dev)
-    groups = (model.param_groups(a.bb_lr, a.head_lr, a.lora_lr) if is_qwen
-              else param_groups(model, a.bb_lr, a.head_lr, a.llrd))
+    groups = param_groups(model, a.bb_lr, a.head_lr, a.llrd)
     opt = torch.optim.AdamW(groups, weight_decay=a.wd)
     if a.llrd < 1.0:
         log(f"layer-wise LR: {len(groups) - 1} encoder groups, {groups[0]['lr']:.2e} (embeddings) .. "
@@ -836,10 +755,6 @@ def main() -> None:
         steps_per_epoch = min(steps_per_epoch, a.max_steps)
     scaler = torch.amp.GradScaler("cuda", enabled=amp)
 
-    fw = torch.from_numpy(focus_weights(a.focus)).to(dev)
-    if a.focus != 1.0:
-        log(f"focus: loss x{a.focus:g} on {', '.join(WEAK4)}")
-
     def micro_step(x, sl, ps, y, sync: bool):
         gain = 1.0 + (torch.rand(len(x), device=dev) - 0.5) * 0.2
         with (nullcontext() if sync or world == 1 else net.no_sync()):
@@ -848,11 +763,11 @@ def main() -> None:
             if a.allow_missing_labels:                  # an unknown target carries no loss (e.g. fastMRI+)
                 known = torch.isfinite(y)
                 y0 = torch.where(known, y, torch.zeros_like(y))
-                w = ((0.25 + 0.75 * (2 * y0 - 1).abs()) if a.conf_weight == "fork" else 1.0) * known * fw
+                w = ((0.25 + 0.75 * (2 * y0 - 1).abs()) if a.conf_weight == "fork" else 1.0) * known
                 loss = ((F.binary_cross_entropy_with_logits(logits.float(), y0, pos_weight=pos_w, reduction="none")
                          * w).sum() / known.sum().clamp_min(1))
             else:
-                w = ((0.25 + 0.75 * (2 * y - 1).abs()) if a.conf_weight == "fork" else 1.0) * fw
+                w = ((0.25 + 0.75 * (2 * y - 1).abs()) if a.conf_weight == "fork" else 1.0)
                 loss = (F.binary_cross_entropy_with_logits(logits.float(), y, pos_weight=pos_w,
                                                            reduction="none") * w).mean()
             if not torch.isfinite(loss):
@@ -944,9 +859,7 @@ def main() -> None:
                      "opt_steps": n_opt})
         log(f"epoch {ep}: loss {hist[-1]['loss']:.4f}  {hist[-1]['sec'] / 60:.1f} min")
         if ep >= epochs - 3:
-            keep = ({n_ for n_, p in model.named_parameters() if p.requires_grad} if is_qwen else None)
-            last3.append({k: v.detach().to("cpu", copy=True) for k, v in model.state_dict().items()
-                          if keep is None or k in keep})
+            last3.append({k: v.detach().to("cpu", copy=True) for k, v in model.state_dict().items()})
         if stopped_early:
             log(f"⛔ stopped early: {stopped_early} -- the schedule did not finish")
             break
@@ -997,27 +910,17 @@ def main() -> None:
     if a.save_weights and rank == 0:
         torch.save({k: v.half() if v.is_floating_point() else v for k, v in model.state_dict().items()},
                    a.out / "last.pt")
-        rope = getattr(model.encoder, "rope", None)
         (a.out / "last_meta.json").write_text(json.dumps({
             "arch": a.arch, "res": res, "pool": ARCHS[a.arch]["pool"],
-            "timm": ARCHS[a.arch].get("timm", "vit_large_patch16_dinov3"),
+            "timm": ARCHS[a.arch]["timm"],
             "layout": corpus.layout, "slot_sizes": list(corpus.slot_sizes), "img": getattr(corpus, "img", 336),
             "pos_emb": bool(a.pos_emb), "n_slots": model.n_slots, "llrd": a.llrd, "drop_path": a.drop_path,
             "zoom": a.zoom, "spatial": bool(getattr(model, "spatial", False)),
-            "loc_slots": int(getattr(model, "loc_slots", 0)), "loc_bins": int(getattr(model, "loc_bins", 0)),
-            "focus": a.focus,
-            "mirror": a.mirror, "mirror_tta": bool(a.mirror_tta),
-            "rope_periods": rope.periods.float().tolist() if rope is not None and hasattr(rope, "periods") else None,
-            "mean": MEAN, "std": STD,
-            **({"hf": ARCHS[a.arch].get("hf"), "qwen_config": model.qwen.config.to_dict(), "qwen_ids": model.ids,
-                "lora_r": a.lora_r, "slot_headers": model.slot_names, "mean": list(qwen_vlm.QWEN_MEAN),
-                "std": list(qwen_vlm.QWEN_STD)} if is_qwen else {})}, indent=1, default=str))
+            "mirror": a.mirror, "mirror_tta": bool(a.mirror_tta), "mean": MEAN, "std": STD}, indent=1, default=str))
     if len(last3) >= 2:
         avg = {k: (sum(sd[k].double() for sd in last3) / len(last3)).to(last3[0][k].dtype)
                if last3[0][k].is_floating_point() else last3[0][k] for k in last3[0]}
-        missing = model.load_state_dict(avg, strict=not is_qwen)
-        if is_qwen and missing.unexpected_keys:
-            raise SystemExit(f"avg3: unexpected keys {missing.unexpected_keys[:3]}")
+        model.load_state_dict(avg, strict=True)
         d3 = a.out / "avg3"
         if rank == 0:
             d3.mkdir(exist_ok=True)
@@ -1025,7 +928,7 @@ def main() -> None:
         if gold_ids:
             score(gold_ids, d3, "oof_gold")
         if rank == 0:
-            if a.save_weights and not is_qwen:      # served like last.pt: its meta sits beside it
+            if a.save_weights:
                 torch.save({k: v.half() if v.is_floating_point() else v for k, v in model.state_dict().items()},
                            d3 / "last.pt")
                 (d3 / "last_meta.json").write_text((a.out / "last_meta.json").read_text())
@@ -1042,7 +945,7 @@ def main() -> None:
                    "bb_lr": a.bb_lr, "head_lr": a.head_lr, "wd": a.wd, "seed": a.seed, "res": res,
                    "drop_path": a.drop_path, "llrd": a.llrd, "pos_emb": a.pos_emb, "eval_windows": a.eval_windows,
                    "aug_affine": a.aug_affine, "zoom": a.zoom, "spatial_attn": a.spatial_attn, "conf_weight": a.conf_weight,
-                   "focus": a.focus, "loc_bias": a.loc_bias, "only_weak4": a.only_weak4,
+                   "only_weak4": a.only_weak4,
                    "mirror": a.mirror, "mirror_tta": bool(a.mirror_tta), "init": str(a.init) if a.init else None, "slots": a.slots or None,
                    "allow_missing_labels": a.allow_missing_labels,
                    "init_sha256": getattr(a, "init_sha256", None),

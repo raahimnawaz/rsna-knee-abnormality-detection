@@ -110,10 +110,10 @@ if OURS_OK:
         _q_lab = [c for c in _q_pub.columns if c != "StudyInstanceUID"]
         if set(_q_lab) != set(_Q_W):
             raise RuntimeError(f"public submission columns {_q_lab}")
-        _q_ours = (_qpd.read_csv("/tmp/ortho_sub/ortho_preds.csv", dtype={"StudyInstanceUID": str})
+        _q_ours = (_qpd.read_csv("/tmp/ours_sub/ours_preds.csv", dtype={"StudyInstanceUID": str})
                    .drop_duplicates("StudyInstanceUID").set_index("StudyInstanceUID").reindex(_q_pub.StudyInstanceUID))
         _q_bad = set()
-        for _p in _QPath("/tmp/ortho_sub").glob("preds_*.timing.json"):
+        for _p in _QPath("/tmp/ours_sub").glob("preds_*.timing.json"):
             _q_bad |= set(_qjson.loads(_p.read_text()).get("errors", {}))
         _q_ok = (~_q_pub.StudyInstanceUID.isin(_q_bad).to_numpy()) & _q_ours[_q_lab].notna().all(axis=1).to_numpy()
         if _q_ok.mean() < 0.9:
@@ -196,7 +196,7 @@ if K_OK:
         _k_lab = [c for c in _k_pre.columns if c != "StudyInstanceUID"]
         if not set(_K_MIX) <= set(_k_lab):
             raise RuntimeError(f"submission columns {_k_lab} lack {sorted(set(_K_MIX) - set(_k_lab))}")
-        _k_pred = (_kpd.read_csv("/tmp/k_sub/ortho_preds.csv", dtype={"StudyInstanceUID": str})
+        _k_pred = (_kpd.read_csv("/tmp/k_sub/ours_preds.csv", dtype={"StudyInstanceUID": str})
                    .drop_duplicates("StudyInstanceUID").set_index("StudyInstanceUID").reindex(_k_pre.StudyInstanceUID))
         _k_bad = set()
         for _p in _KPath("/tmp/k_sub").glob("preds_*.timing.json"):
@@ -385,7 +385,7 @@ def main() -> None:
     last = code_cells[-1]
     if "sub.to_csv(WORK / 'submission.csv', index=False)" not in last or "print('NOTEBOOK_COMPLETE'" not in last:
         raise SystemExit("public notebook's last code cell is not its blend cell -- re-read it before building")
-    if any(n in s for s in code_cells for n in ("_O_DEADLINE", "OURS_OK", "/tmp/ortho_sub")):
+    if any(n in s for s in code_cells for n in ("_O_DEADLINE", "OURS_OK", "/tmp/ours_sub")):
         raise SystemExit("public notebook already uses one of our names -- re-read it")
     if k_shas and any(re.search(r"\bK_OK\b|/tmp/k_sub|\b_K_(MIX|LEFT|T0)\b", s) for s in code_cells):
         raise SystemExit("public notebook already uses one of KDC's names -- re-read it")
@@ -435,7 +435,7 @@ def main() -> None:
 
     ours = (with_deadline(B.OURS)
             .replace("__FILES_B64__", repr(blob)).replace("__BUILT_FROM__", built_from)
-            .replace("__W_OURS__", "None").replace("__N_CHECK__", str(a.n_check))
+            .replace("__N_CHECK__", str(a.n_check))
             .replace("__N_WINDOWS__", "0").replace("__CHECK_ALWAYS__", "False")
             .replace("__WEIGHTS_SHAS__", repr(shas)).replace("__WEIGHTS_KERNEL__", ",".join(wkernels + wdatasets)))
     stage = (STAGE.replace("__MARGIN_MIN__", str(a.margin_min)).replace("__MIN_LEFT_MIN__", str(a.min_left_min))
@@ -447,17 +447,17 @@ def main() -> None:
     cells_k = []
     if k_shas:                                          # KDC: the same reader again, into its own folder
         k_src = with_deadline(B.OURS)
-        if k_src.count('_OPath("/tmp/ortho_sub")') != 1:
+        if k_src.count('_OPath("/tmp/ours_sub")') != 1:
             raise SystemExit("build_submit_kernel.OURS: its output folder moved -- re-read it before building KDC's stage")
         # not re-embedded (Kaggle refuses a source over 1 MB): KDC's stage reads the files our stage wrote, by hash
         write_loop = K_WRITE_LOOP_OLD
         if k_src.count(write_loop) != 1 or k_src.count('_O_REPO = _O / "repo"') != 1:
             raise SystemExit("build_submit_kernel.OURS: its file-writing block moved -- re-read it before building KDC's stage")
-        k_src = (k_src.replace('_OPath("/tmp/ortho_sub")', '_OPath("/tmp/k_sub")')
-                 .replace('_O_REPO = _O / "repo"', '_O_REPO = _OPath("/tmp/ortho_sub") / "repo"   # [KDC] the files our stage wrote')
+        k_src = (k_src.replace('_OPath("/tmp/ours_sub")', '_OPath("/tmp/k_sub")')
+                 .replace('_O_REPO = _O / "repo"', '_O_REPO = _OPath("/tmp/ours_sub") / "repo"   # [KDC] the files our stage wrote')
                  .replace(write_loop, K_CHECK_LOOP.replace("__FILE_SHAS__", repr({r: v[1] for r, v in files.items()})))
                  .replace("__BUILT_FROM__", built_from)
-                 .replace("__W_OURS__", "None").replace("__N_CHECK__", str(a.n_check))
+                 .replace("__N_CHECK__", str(a.n_check))
                  .replace("__N_WINDOWS__", "0").replace("__CHECK_ALWAYS__", "False")
                  .replace("__WEIGHTS_SHAS__", repr(k_shas)).replace("__WEIGHTS_KERNEL__", ",".join(k_kernels)))
         stage_k = (STAGE_K.replace("__MARGIN_MIN__", str(a.margin_min)).replace("__MIN_LEFT_MIN__", str(a.min_left_min))

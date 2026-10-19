@@ -28,7 +28,7 @@ def cells(tmp: Path, ours_src: str, read: bool = False) -> tuple[str, str]:
     stage = (P.STAGE.replace("__MARGIN_MIN__", "25").replace("__MIN_LEFT_MIN__", "60").replace("__READ__", repr(read))
              .replace("__OURS_SRC__", repr(ours_src)))
     blend = P.BLEND.replace("__W_OURS__", repr(P.W_OURS)).replace("__BUILT_FROM__", "fixture")
-    return tuple(c.replace("/kaggle/working", str(tmp / "working")).replace("/tmp/ortho_sub", str(tmp / "ortho_sub"))
+    return tuple(c.replace("/kaggle/working", str(tmp / "working")).replace("/tmp/ours_sub", str(tmp / "ours_sub"))
                  for c in (stage, blend))
 
 
@@ -36,7 +36,7 @@ def world(tmp: Path, n: int, seed: int = 0, agree: float = 0.7) -> tuple[pd.Data
     rng = np.random.default_rng(seed)
     ids = [f"1.2.{i}" for i in range(n)]
     (tmp / "working").mkdir(parents=True)
-    (tmp / "ortho_sub").mkdir()
+    (tmp / "ours_sub").mkdir()
     (tmp / "data").mkdir()
     pd.DataFrame({"StudyInstanceUID": ids}).to_csv(tmp / "data" / "test.csv", index=False)
     pub = pd.DataFrame(rng.random((n, 12)).astype(np.float32), columns=L)
@@ -44,9 +44,9 @@ def world(tmp: Path, n: int, seed: int = 0, agree: float = 0.7) -> tuple[pd.Data
     pub.to_csv(tmp / "working" / "submission.csv", index=False)
     ours = pd.DataFrame(agree * pub[L].to_numpy(float) + (1 - agree) * rng.random((n, 12)), columns=L)
     ours.insert(0, "StudyInstanceUID", ids)
-    ours.sample(frac=1.0, random_state=1).to_csv(tmp / "ortho_sub" / "ortho_preds.csv", index=False)   # another order
+    ours.sample(frac=1.0, random_state=1).to_csv(tmp / "ours_sub" / "ours_preds.csv", index=False)   # another order
     bad = ids[3:5]
-    (tmp / "ortho_sub" / "preds_0.timing.json").write_text(json.dumps({"errors": {u: "x" for u in bad}}))
+    (tmp / "ours_sub" / "preds_0.timing.json").write_text(json.dumps({"errors": {u: "x" for u in bad}}))
     return pub, ours, bad
 
 
@@ -93,7 +93,7 @@ for what, src, hours, spoil, agree in (("stage fails", "raise RuntimeError('boom
         pub, _, _ = world(tmp, 400, agree=agree)
         before = (tmp / "working" / "submission.csv").read_bytes()
         if spoil:
-            (tmp / "ortho_sub" / "ortho_preds.csv").unlink()
+            (tmp / "ours_sub" / "ours_preds.csv").unlink()
         g = run(tmp, src, hours)
         assert (tmp / "working" / "submission.csv").read_bytes() == before, what
         assert g["OURS_OK"] is (what in ("predictions missing", "misaligned")), what
@@ -105,7 +105,7 @@ for src, spoil in (("raise RuntimeError('boom')", False), (OK_SRC, True)):
         tmp = Path(d)
         world(tmp, 3)
         if spoil:
-            (tmp / "ortho_sub" / "ortho_preds.csv").unlink()
+            (tmp / "ours_sub" / "ours_preds.csv").unlink()
         try:
             run(tmp, src)
         except (RuntimeError, FileNotFoundError):
@@ -123,7 +123,7 @@ for what, src, hours, spoil, agree in (("stage fails", "raise RuntimeError('boom
         tmp = Path(d)
         world(tmp, 400, agree=agree)
         if spoil:
-            (tmp / "ortho_sub" / "ortho_preds.csv").unlink()
+            (tmp / "ours_sub" / "ours_preds.csv").unlink()
         try:
             run(tmp, src, hours, read=True)
         except (RuntimeError, FileNotFoundError):
@@ -165,7 +165,7 @@ def k_world(tmp: Path, pub: pd.DataFrame, agree: float = 0.7, seed: int = 5) -> 
     (tmp / "k_sub").mkdir()
     k = pd.DataFrame(agree * pub[L].to_numpy(float) + (1 - agree) * rng.random((len(pub), 12)), columns=L)
     k.insert(0, "StudyInstanceUID", pub.StudyInstanceUID)
-    k.sample(frac=1.0, random_state=2).to_csv(tmp / "k_sub" / "ortho_preds.csv", index=False)
+    k.sample(frac=1.0, random_state=2).to_csv(tmp / "k_sub" / "ours_preds.csv", index=False)
     kbad = pub.StudyInstanceUID.tolist()[7:10]
     (tmp / "k_sub" / "preds_1.timing.json").write_text(json.dumps({"errors": {u: "x" for u in kbad}}))
     return k, kbad
@@ -216,7 +216,7 @@ for what, src, k_hours, spoil, agree in (("stage fails", "raise RuntimeError('bo
         pub, _, _ = world(tmp, 400)
         k_world(tmp, pub, agree=agree)
         if spoil:
-            (tmp / "k_sub" / "ortho_preds.csv").unlink()
+            (tmp / "k_sub" / "ours_preds.csv").unlink()
         g = run(tmp, OK_SRC)
         before = (tmp / "working" / "submission.csv").read_bytes()
         if k_hours is not None:
@@ -233,7 +233,7 @@ for src, spoil in (("raise RuntimeError('boom')", False), (K_SRC, True)):
         pub, _, _ = world(tmp, 3)
         k_world(tmp, pub)
         if spoil:
-            (tmp / "k_sub" / "ortho_preds.csv").unlink()
+            (tmp / "k_sub" / "ours_preds.csv").unlink()
         try:
             exec_k(run(tmp, OK_SRC), tmp, src)
         except (RuntimeError, FileNotFoundError):

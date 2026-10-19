@@ -17,7 +17,7 @@ from pathlib import Path
 
 PROJ = Path(__file__).resolve().parents[1]
 OWNER = "raahimnawaz"
-EMBED = ["pipeline/slots64.py", "pipeline/slots96.py", "pipeline/slots118.py", "pipeline/build_slots64.py",
+EMBED = ["pipeline/slots64.py", "pipeline/slots96.py", "pipeline/build_slots64.py",
          "pipeline/kcache.py"]
 CODE_DATASET = "heliosli/rsna-orthofoundation-fold0-epoch7-20261004"
 N_SHARDS = 5
