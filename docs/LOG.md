@@ -1989,3 +1989,13 @@ there for the owner to discard. Nothing sent.
 - **Open, the owner's calls:** (a) KDC's weight on Lateral OA in the main final; (b) a PF OA probe of KDC fold 0 (same
   kernel with `--probe "PF OA"`; its bar by rule 4 at ρ 0.54: AUROC 0.850 ⇔ shown ≥ 0.530, a shown 0.529 straddles
   [0.842–0.854] → fail); (c) KDC folds 1–2 (~4.5 GPU-h each, two at once; ~11 GPU-h left before the finals' runs).
+- **KDC's Lateral OA probe `57374913` (submitted by the RSNA_2 session on the owner's override of rule 3) read 0.530 →
+  Lateral OA AUROC 0.860 (0.854–0.866).** By rule 4's formula (base 0.896, ρ 0.49 held-out): **+0.018 → qualifies**
+  (bar +0.012). Against the main final, whose own Lateral OA is likely ~0.91–0.92 (unmeasured), +0.009 to +0.013 on
+  the finding at ρ 0.49, less if ρ with the blend is higher: ~+0.001 macro (estimate).
+- **My pre-probe estimate (~0.78) was wrong by +0.08:** KDC's report-label held-out (0.711) understated its board AUROC
+  by ~0.15, K's by ~0.07. The report-label instrument is biased hardest against exactly the models built to leave the
+  reports' shortcut. **Rule 3 (≥ 0.75 held-out) would have closed a member that works; the owner's override found it.**
+  For decoupled / image-targeted models, never gate on the report-label held-out — gate on the probe.
+- **The main final candidate `57378289` submitted 10-19 19:22 PDT** (commit run from `ab562ec`, every written check
+  passed, receipt: per-class Raptor weights = the 0.958's, ours 0.25 / 0.10, 0 failed rows). Pending; read against B.
