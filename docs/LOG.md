@@ -2109,3 +2109,13 @@ there for the owner to discard. Nothing sent.
   only catch harm. **Shown ≥ 0.957 → the KDC version is the main final** (it carries the one member measured to see
   something the base misses: Lateral OA probe ~0.860 at ρ ~0.5); **≤ 0.956 → `57378289` stays the main final.** D
   stays the OAI-free final either way.
+- **Built from `bae45f5`: `rsna-knee-sub-main958-r6r7-t1-kdc`** (14 cells). Against the main final that scored 0.957
+  (`rsna-knee-sub-main958-r6r7-t1`, pulled from Kaggle): **the nine public cells identical**; our stage cell identical
+  outside its build stamp and its embedded files, which differ only by the 10-18 cleanup (`window_curve.py` gone, four
+  comment lines in `infer_windows.py` / `train_windows.py`); the blend cell differs only by its build stamp; the intro
+  by its text; + KDC's two cells; metadata + the three KDC kernels, same image `2757e0c7…`.
+- **CPU mount test PASS** (`rsna-knee-mounttest-main958-r6r7-t1-kdc` v1, 116 s, 0 tracebacks): `SUPPLY_CHAIN_OK
+  {monai_tree 1dcf1dab…, 194 files, 2 wheels, wheels_pinned true}`, `ASSETS_READY` on our copies (flip_tta False),
+  `RAPTOR_OK` ×2 from our copy, `OURS_OK 5 of 5`, **`KDC_OK 3 of 3 | segmenter …/anatomy.pt | …/vendor_runtime/monai060`**,
+  `MOUNTTEST_DONE`. **Next: the owner's go for the GPU commit run (~25–35 min; ~2–3 GPU-h left, estimate) and the
+  slot** (2 left to 17:00 PDT 10-19).
