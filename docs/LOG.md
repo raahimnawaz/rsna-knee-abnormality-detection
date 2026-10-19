@@ -1889,7 +1889,7 @@ there for the owner to discard. Nothing sent.
   signal on the board. The stratum look has 64 positives (difference ± ~0.05): it shows no gain, it cannot exclude
   one. So the report reference may be biased against KDC by more than rule 3 allowed (estimate), which is the case
   for measuring in the target currency.
-- **Owner 10-18 ~17:40: "build KDC fold 0's Lateral OA probe (override rule 3; bar from rule 4 at rho 0.49, shown >=
+- **Owner 10-18 ~17:25: "build KDC fold 0's Lateral OA probe (override rule 3; bar from rule 4 at rho 0.49, shown >=
   0.529), check the gate in its log, then ask me before submitting."**
 - **The probe's rule, written before it runs:** kernel `build_submit_kernel.py --ours-only --segmenter --probe
   "Lateral OA"` on KDC fold 0's `avg3/last.pt` (the checkpoint read above), gated on its own held-out predictions.
@@ -1920,3 +1920,9 @@ there for the owner to discard. Nothing sent.
   margin K showed (~+0.07 on Lateral OA, ~+0.03 on PF OA) a probe would land ~0.78 / ~0.83 against bars ~0.84 / ~0.85
   (estimate). **The report labels hold too little compartment-specific evidence (291 decoupled Lateral OA positives) to
   teach it; the shortcut is removable, the signal under it is not there in these labels.** Files: `fusion/runs_kdc_f0/`.
+- **Two reads of the same run, reconciled (17:35):** the entry above (⛔, "no probe, KDC closed") was written by a
+  parallel session at 17:26 without the owner's override, which was given in another session at ~17:25 and is recorded
+  above it. **The override stands for this one probe;** everything else in the ⛔ entry agrees (same numbers), and its
+  estimate (a probe at ~0.78 against ~0.84) is the same prior as mine. If the probe reads ≤ 0.528, the ⛔ entry's
+  conclusion holds as written. KDC fold 0 `avg3/last.pt` sha256 `3a6c99c494ad9720d3776488cd5112324a9dc93f7cc1b81d38cbd1111513546c`
+  (last epoch `35e4d7ba…`), read on Kaggle (`rsna-knee-weights-sha` v9).

@@ -55,9 +55,11 @@ score = (5.5 + AUROC) / 12); a +0.002 on the macro is not (one score ±0.008). *
    five folds on the GPU (`--recipe k`). **Fold-0 rule:** stop and look if the mean over the four is > 0.03 below
    `runs_cnxs_teach1_f0` on the same studies, or < 16 epochs. (W4, `--recipe w4`, is built but set aside: same labels,
    same mistakes.)
-1b. **KDC: CLOSED 10-18** (LOG): decoupled Lateral OA / PF OA targets; the decoupling took (ρ with Medial OA
-   0.80 → 0.40) but Lateral OA fell to 0.711 (rule 3 bar 0.75): the report labels hold too little compartment-specific
-   signal. No probe. Closed beside it: read-time erasure (≤ ~0.01), the cell screen (0.68–0.78).
+1b. **KDC: fails rule 3 10-18, one probe by the owner's override** (LOG): decoupled Lateral OA / PF OA targets; the
+   decoupling took (ρ with Medial OA 0.80 → 0.40) but Lateral OA fell to 0.711 on the report reference (rule 3 bar
+   0.75). The owner overrode rule 3 for **one Lateral OA probe of fold 0** (the report reference is biased against a
+   decoupled model; KDC learned from half the labels): **shown ≥ 0.529 → joins the main final on Lateral OA; ≤ 0.528
+   → closed** (my estimate ~0.78, a fail). Submit needs the owner's go after the gate. Closed beside it: read-time erasure (≤ ~0.01), the cell screen (0.68–0.78).
 2. **Measure in the target currency: probes of K only** (owner 10-16: "whatever attacks the weakest parts first, and
    only we do that"; no probes of public models, W4 is not trained). K counts on a finding only if its single-finding
    LB probe beats our five-fold model's 10-12 probe there (the CONSENSUS folds, 0.945; Synovitis is consensus fold 0 alone;
