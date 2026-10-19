@@ -13,7 +13,7 @@ it; [`docs/LOG.md`](docs/LOG.md) holds every past run and the rule written befor
 | main candidate: B rebuilt in final mode on our private copies, pinned (`57378289`) | ⏳ | its rule: ≥ 0.957 → it becomes the main final |
 | **D**: R6 + R7 + our five consensus folds, no Raptor (`57244659`) | 0.954 | **the OAI-free final**; stands as scored |
 | KDC fold 0, Lateral OA probe (`57374913`) | 0.530 | **passed** (AUROC ~0.860; bar 0.529) |
-| KDC fold 0, PF OA probe (`57378480`) | ⏳ | bar: shown ≥ 0.530 |
+| KDC fold 0, PF OA probe (`57378480`) | 0.529 | **failed**, a near miss (AUROC ~0.848; bar 0.530): KDC stays on Lateral OA only |
 
 Left this week: ~11 GPU-h (estimate), five submissions a day (reset 17:00 PDT). Our rank at 0.957 was ~825 on 10-16;
 0.958 held ~430 teams.
@@ -39,7 +39,7 @@ Lateral OA probe reads ~0.860. Nothing measured so far reaches 0.97: one tick on
 
 ## Open decisions (the owner's)
 
-1. **KDC in the main final.** By its rule it joins on Lateral OA (and on PF OA if `57378480` reads ≥ 0.530). The
+1. **KDC in the main final.** By its rule it joins on Lateral OA only (its PF OA probe read 0.529, one under the bar). The
    weight: the two-score formula at ρ 0.49 against our five folds gives a ~0.37–0.41 share and +0.016–0.020 on the
    finding, but against the 0.958 base the ρ is unmeasured (at 0.7 the gain is +0.004–0.007). Building it in is a
    new final: build, CPU mount test, GPU commit run (~20 min), one submission.

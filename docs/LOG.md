@@ -2018,3 +2018,13 @@ there for the owner to discard. Nothing sent.
   stays on Lateral OA only.** Prior (estimate): KDC's PF OA fell less on reports (0.867 → 0.802, −0.065) than Lateral
   OA (−0.116), and its decoupling was weaker (ρ with Medial OA 0.56 vs 0.40), so the report bias that lifted Lateral
   OA should lift PF OA less; ~even odds.
+- **KDC's PF OA probe:** kernel `…-sub-a-ortho-kdc-f0-nall-p-pf-oa` v1 was built and run by the parallel session
+  (from `f683825`), which then went unreachable before submitting. Its log, read here 19:28: `built from f683825;
+  repo files written, hashes match`; `sha256 ok` on KDC fold 0 `avg3/last.pt`; `GATE PASSED (1/1)` (8 studies rebuilt
+  from DICOMs, max |dp| 0.00080); `ARMS: convnext_small_stage_k only`; `PROBE: only PF OA is the model's; the other
+  11 columns are 0.5`; 0 tracebacks. **SUBMITTED 19:28 PDT (owner's go), ref `57378480`.**
+- **⛔ `57378480` READ 0.529 (seen 19:45 PDT) → PF OA AUROC ~0.848** (0.842–0.854). Rule (`f683825` / `c6b2c65`):
+  ≤ 0.529 → **FAIL: KDC stays on Lateral OA only.** A near miss, read as written: the formula at ρ 0.54 gives
+  +0.010 / +0.012 / +0.013 across the shown range (bar +0.012). Report → board for PF OA: 0.802 → ~0.848 (+0.046),
+  against Lateral OA's +0.149: the weaker decoupling (ρ with Medial OA 0.56 vs 0.40) bought less, as the rule's prior
+  said.
