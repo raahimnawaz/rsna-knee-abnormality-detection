@@ -1999,3 +1999,10 @@ there for the owner to discard. Nothing sent.
   For decoupled / image-targeted models, never gate on the report-label held-out — gate on the probe.
 - **The main final candidate `57378289` submitted 10-19 19:22 PDT** (commit run from `ab562ec`, every written check
   passed, receipt: per-class Raptor weights = the 0.958's, ours 0.25 / 0.10, 0 failed rows). Pending; read against B.
+- **KDC's PF OA probe — rule written before it runs (owner 10-18: "probe KDC fold 0 on PF OA first … then decide on
+  building KDC into the main final"):** `build_submit_kernel.py --ours-only --segmenter --probe "PF OA"` on KDC fold 0
+  avg3 (sha256 `3a6c99c4…`), its log checked before the submit (`sha256 ok`, `GATE PASSED`, the PROBE line, 0
+  tracebacks). AUROC = 12 × shown − 5.5 (±0.006). By rule 4's formula (base 0.896 = the five-fold PF OA probe; ρ 0.54 =
+  KDC ~ teacher f0 within-class on the 847): the bar is AUROC ≥ 0.851. **A shown 0.530 or higher (≥ 0.854, predicted
+  ≥ +0.013) → KDC qualifies on PF OA; 0.529 or lower (predicted +0.010 to +0.012 at best) → it does not.** Either way
+  the next decision (KDC as a second stage of ours in the main final, Lateral OA ± PF OA) is the owner's.
