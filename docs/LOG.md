@@ -2069,3 +2069,22 @@ there for the owner to discard. Nothing sent.
   rule (10-18, above): the same tick as B (0.957) or higher → **it is the main final** (final mode, pinned, our private
   copies). The finals now stand as `57378289` (main) + `57244659` D (OAI-free), unless the main final with KDC on
   Lateral OA is built, passes its checks and replaces it on the owner's go.
+- **✅ KDC folds 1–2 read 10-19 ~10:45 by their rules: both PASS → KDC is three folds (0, 1, 2).** (Downloads hung
+  through the night's sleeps: the Kaggle CLI's `requests.get` has no timeout; fetched with a timed downloader.)
+
+  | | fold 0 | fold 1 | fold 2 |
+  |---|--:|--:|--:|
+  | epochs (rule 1: 16) | 16 | 16, 265 min | 16, 249 min |
+  | ρ Lateral OA ~ teacher Medial OA (rule 2: ≤ 0.60) | 0.401 | **0.500** | **0.467** |
+  | ρ PF OA ~ teacher Medial OA (≤ 0.60) | 0.560 | 0.583 | 0.593 |
+  | look: Lateral OA report AUROC, KDC / teacher | 0.711 / 0.827 | 0.755 / 0.853 | 0.760 / 0.861 |
+  | look: within-class ρ with the teacher (− / + / mean) | 0.43 / 0.55 / 0.49 | 0.57 / 0.71 / 0.64 | 0.47 / 0.58 / 0.52 |
+  | look: gold-58 Lateral OA, KDC / teacher (11 positives) | 0.791 / 0.836 | 0.809 / 0.801 | 0.791 / 0.805 |
+
+  0 tracebacks, DDP checksums equal on both; held-out studies 821 / 918 against `runs_cnxs_teach1_f12`. GPU: folds 1–2
+  ~8.6 h, so ~2–3 h of the week remain (estimate) for the final's commit run.
+- **KDC's share on Lateral OA, worked out before the build (binormal two-score, a share of KDC's rank):** at base
+  0.896 / 0.910, KDC 0.860 / 0.866, ρ 0.49 / 0.60 / 0.70, the best share runs 0.20–0.41. **0.30 has the smallest
+  worst-case shortfall (≤ 0.0016 below the best share in every case) and stays positive in all (worst +0.0016 at base
+  0.910, ρ 0.70; best +0.0185).** All estimates: KDC's ρ with the 0.958 base is unmeasured. On the macro that is
+  +0.0001 to +0.0015: below one board tick, so the board cannot confirm it.

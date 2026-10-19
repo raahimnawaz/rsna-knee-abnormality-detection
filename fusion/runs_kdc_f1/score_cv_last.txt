@@ -1,0 +1,25 @@
+Score a run's out-of-fold predictions: macro AUROC, and a paired bootstrap comparison between two runs.
+reference: labels_llm_gpt56sol.csv (held out from training) · gold excluded (58)
+
+  cv_last                n=  821  macro 0.6252 +-0.0067   vs 0.7229 baseline: -0.0977 (11.8 sigma)
+
+label                  cv_last
+ACL                      0.400
+MCL                      0.531
+Medial Meniscus          0.481
+Lateral Meniscus         0.930
+Medial OA                0.384
+Lateral OA               0.754
+PF OA                    0.784
+Effusion                 0.789
+Synovitis                0.836
+Baker's                  0.497
+Contusion                0.493
+Fracture                 0.623
+------------------------------
+MACRO                   0.6252
+
+  NOTE: a single arm against the recorded 0.7229 is NOT a paired comparison.
+  The baseline's own oof_all.csv was never kept (fusion/runs*/ hold oof_gold.csv
+  only), so the honest A/B is to re-run the frozen-cache arm under folds_site
+  and score both here. ~32 min on mps, per data/_comparison.log.
