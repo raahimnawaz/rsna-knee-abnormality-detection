@@ -1865,7 +1865,7 @@ there for the owner to discard. Nothing sent.
 
 ## 10-18 ~17:30: KDC fold 0 read by its rules — fails rule 3; the owner overrides it for one Lateral OA probe
 
-- **KDC fold 0 (`raahimnawaz/rsna-knee-k-train-convnext-small-kdc-cv`, from `9e6753c`) COMPLETE 16:53 PDT**, 271 min,
+- **KDC fold 0 (`raahimnawaz/rsna-knee-k-train-convnext-small-kdc-cv`, from `059d8a7`) COMPLETE 16:53 PDT**, 271 min,
   0 tracebacks, DDP checksums equal. `score_oof.py` on fold 0's 847 held-out studies (sol56 reference, gold
   excluded), avg3; scratch scripts `kdc_read.py`, `kdc_labels.py` (session scratchpad):
   1. *Epochs:* 16 / 16 → **pass**.
@@ -2028,3 +2028,21 @@ there for the owner to discard. Nothing sent.
   +0.010 / +0.012 / +0.013 across the shown range (bar +0.012). Report → board for PF OA: 0.802 → ~0.848 (+0.046),
   against Lateral OA's +0.149: the weaker decoupling (ρ with Medial OA 0.56 vs 0.40) bought less, as the rule's prior
   said.
+
+## 10-18 ~19:50: KDC folds 1–2 (owner: "launch KDC folds 1 and 2 now (same recipe and targets, rules as fold 0's rules 1-2), then build the main final with KDC's folds on Lateral OA once they're in; ask me before its GPU commit run and submission")
+
+- **The runs:** `--recipe k`, `targets_teacher_v3_dc.csv` (sha256 `173a5c55…`, the same table as fold 0, from the
+  private dataset), folds 1 and 2 as two kernels (`…-kdc-f1-cv`, `…-kdc-f2-cv`, tags `kdc-f1` / `kdc-f2`), both at
+  once (Kaggle's limit is two GPU sessions). ~4.5 GPU-h each (fold 0: 271 min) → ~9 of the week's ~11 h left (estimate);
+  done ~00:30 PDT 10-19. No probe of either: the Lateral OA probe of fold 0 already decided KDC (rule 4).
+- **Their rules, written before they run (fold 0's rules 1–2, on each fold's own held-out studies):**
+  1. *Epochs:* fewer than 16 → that fold is left out.
+  2. *Decoupling:* Spearman(KDC Lateral OA, teacher Medial OA) and Spearman(KDC PF OA, teacher Medial OA) on the
+     fold's held-out studies, against the teacher fold of the same number (`runs_cnxs_teach1_f12`), both ≤ 0.60
+     (fold 0: 0.401 / 0.560). Above on Lateral OA → that fold is left out. Above on PF OA only → reported and the
+     owner decides (KDC is used on Lateral OA only).
+  Reported, deciding nothing: the held-out report-reference AUROCs (biased against KDC, see 17:30), the within-class ρ
+  with the teacher fold, gold-58.
+- **Then:** KDC's folds that pass become one equal-weight member on Lateral OA in the main final (weights hashed on
+  Kaggle first), built on the main candidate's recipe; a CPU mount test; then the owner's go for the GPU commit run and
+  the submission. KDC's weight on Lateral OA is the owner's call, put with the build.
