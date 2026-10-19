@@ -61,7 +61,7 @@ score = (5.5 + AUROC) / 12); a +0.002 on the macro is not (one score ±0.008). *
    reference understated KDC by ~0.15 against K's ~0.07: **report-label AUROC is the wrong gate for a decoupled model.**
    By rule 4 it **joins the main final on Lateral OA**: the formula (base 0.896, ρ 0.49) predicts +0.016–0.020 at a
    ~0.37–0.41 share, but only +0.004–0.007 if its ρ with the 0.958 base is 0.7 (unmeasured). **Owner's calls:** the
-   weight; a PF OA probe of KDC (bar 0.529 = AUROC 0.850 at ρ 0.54); KDC folds 1–2 (~9 of ~11 GPU-h left). Closed
+   weight; a PF OA probe of KDC (bar shown ≥ 0.530 = AUROC 0.850 at ρ 0.54); KDC folds 1–2 (~9 of ~11 GPU-h left). Closed
    beside it: read-time erasure (≤ ~0.01), the cell screen (0.68–0.78).
 2. **Measure in the target currency: probes of K only** (owner 10-16: "whatever attacks the weakest parts first, and
    only we do that"; no probes of public models, W4 is not trained). K counts on a finding only if its single-finding
