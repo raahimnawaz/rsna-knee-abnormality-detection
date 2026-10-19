@@ -1926,3 +1926,32 @@ there for the owner to discard. Nothing sent.
   estimate (a probe at ~0.78 against ~0.84) is the same prior as mine. If the probe reads ≤ 0.528, the ⛔ entry's
   conclusion holds as written. KDC fold 0 `avg3/last.pt` sha256 `3a6c99c494ad9720d3776488cd5112324a9dc93f7cc1b81d38cbd1111513546c`
   (last epoch `35e4d7ba…`), read on Kaggle (`rsna-knee-weights-sha` v9).
+
+## 10-18 ~17:00–: the finals (owner: "start building the two finals now … CPU mount test first; ask me before any GPU commit runs or submissions")
+
+- **Already scored, so already selectable:** a code-competition submission is scored once, at submission, on the
+  whole hidden test; `--read` only decided whether a failed stage errors the submission. **D (`57244659`, 0.954) ran
+  clean and stands as the OAI-free final; rebuilding it would add risk and a slot for nothing.** B (`57244451`, 0.957)
+  likewise stands as the main final unless the candidate below beats it.
+- **The main candidate, `rsna-knee-sub-main958-r6r7-t1`** (`build_r6r7_kernel.py --main958 --wheel-pins
+  notebooks/finals_wheel_pins.json`): the 0.9576 notebook with the free 0.958's per-finding Raptor weights (diffed
+  10-18 against heliosli's `blend-mine-in-private-lb` notebook: its only other change is its own R6 copy, which R6 + R7
+  replaces), R6 + R7 in one decode (B's bundle), our five teacher folds at 0.25 / 0.10, **final mode** (no `--read`: a
+  failure of our stage leaves the public blend), **every dataset our private copy**, and new supply-chain pins.
+- **Found before any run:** Raptor's two stages look their checkpoints up in a fixed list of nartaa's paths; our
+  copy mounts at `/kaggle/input/datasets/raahimnawaz/…`, which no list held: swapping the copy in alone would have
+  raised FileNotFoundError in Raptor's stage. Our path is appended to each list; Raptor's own sha256 checks stay.
+- **Supply-chain pins (review finding 3):** after the code dataset is unpacked and before anything is installed or
+  imported, the vendored MONAI tree must hash to `1dcf1dab…` and every wheel to its pin. The wheels are two,
+  `pydicom-3.0.1` and `timm-1.0.25`, **both sha256-equal to PyPI's official releases** (checked 10-18).
+- **CPU mount test v1 (`rsna-knee-mounttest-main958-r6r7-t1`, `build_finals_mounttest.py`, from `a6912ea`; the
+  final's own asset cell, Raptor's lookups, our members): PASS**, 0 tracebacks, 40 s: code dataset = our copy, module
+  hashes ok, `SUPPLY_CHAIN_OK {monai_tree 1dcf1dab…, 194 files}`, wheels installed, `ASSETS_READY` on our
+  `rsna-knee-r6r7-dual` and our code copy, `flip_tta False`; `RAPTOR_OK` ×2 from our Raptor copy (sha256 checks
+  held); `OURS_OK 5 of 5`.
+- **The main candidate's rule, written before its GPU run:** before submitting, its commit log must show
+  `SUPPLY_CHAIN_OK … wheels_pinned true`, `ASSETS_READY` on our copies, both Raptor stages complete, R6 + R7
+  `OURS_STAGE_COMPLETE {"status": "PASS"…}`, our `5 checkpoint(s), sha256 ok`, `GATE PASSED (5/5)`, `OURS_STAGE
+  ok=True`, `[public+ours] ARMS`, `NOTEBOOK_COMPLETE`, 0 tracebacks. **Score: the same tick as B (0.957) or higher →
+  it is the main final (final mode, pinned, private copies); one tick or more below B → B stays the main final.**
+  The finals are then the main final + D.
