@@ -2065,3 +2065,7 @@ there for the owner to discard. Nothing sent.
   them (no-KDC output byte-identical). A trial build with fold 0 as the member: 14 cells, KDC's kernel attached.
   `infer_windows.py` averages several K checkpoints of one layout (anchors and crops once); only the GPU commit run
   exercises that path, since the gate checks each member alone.
+- **✅ The main candidate `57378289` READ 0.957 (seen 02:13 PDT 10-19, the watcher's time; read here 03:07).** Its
+  rule (10-18, above): the same tick as B (0.957) or higher → **it is the main final** (final mode, pinned, our private
+  copies). The finals now stand as `57378289` (main) + `57244659` D (OAI-free), unless the main final with KDC on
+  Lateral OA is built, passes its checks and replaces it on the owner's go.

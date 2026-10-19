@@ -2,15 +2,15 @@
 
 Finals **2026-10-22 16:59 PDT**. Branch `labels-small-backbone` (the only work branch; `main` is the 10-03
 portfolio snapshot). **This page is the current state**; [`README.md`](README.md) explains the code and how to run
-it; [`docs/LOG.md`](docs/LOG.md) holds every past run and the rule written before it. Last updated 2026-10-18 evening.
+it; [`docs/LOG.md`](docs/LOG.md) holds every past run and the rule written before it. Last updated 2026-10-19.
 
 ## Where we are
 
 | submission | public LB | status |
 |---|--:|---|
 | free public base (heliosli's 0.9576 notebook, per-finding Raptor weights) | 0.958 | the base we build on |
-| **B**: the 0.957 recipe + R6 + R7 in one decode + our five teacher folds (`57244451`) | 0.957 | **the main final**, unless the candidate below reads the same tick or higher |
-| main candidate: B rebuilt in final mode on our private copies, pinned (`57378289`) | ⏳ | its rule: ≥ 0.957 → it becomes the main final |
+| B: the 0.957 recipe + R6 + R7 in one decode + our five teacher folds (`57244451`) | 0.957 | replaced by the candidate below (same tick, final mode) |
+| **main final**: B rebuilt in final mode on our private copies, pinned (`57378289`) | 0.957 | **the main final** (10-19); the KDC version would replace it |
 | **D**: R6 + R7 + our five consensus folds, no Raptor (`57244659`) | 0.954 | **the OAI-free final**; stands as scored |
 | KDC fold 0, Lateral OA probe (`57374913`) | 0.530 | **passed** (AUROC ~0.860; bar 0.529) |
 | KDC fold 0, PF OA probe (`57378480`) | 0.529 | **failed**, a near miss (AUROC ~0.848; bar 0.530): KDC stays on Lateral OA only |
@@ -47,7 +47,7 @@ Lateral OA probe reads ~0.860. Nothing measured so far reaches 0.97: one tick on
    own gate and deadline, mixed in on Lateral OA only; if it fails in the scored rerun the main final stands).
 2. **KDC folds 1–2** (~4.5 GPU-h each, two at once, ~9 of the ~11 h left): a five-fold model reads ~+0.003–0.007 above
    one fold (estimate), and two more folds would get part of that.
-3. **Which two submissions are the finals** on 10-22: the main final (B, the candidate, or either with KDC) and D.
+3. **Which two submissions are the finals** on 10-22: the main final (`57378289`, or its KDC version) and D.
 
 ## Closed (do not re-propose; detail in the LOG)
 
