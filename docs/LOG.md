@@ -2088,3 +2088,24 @@ there for the owner to discard. Nothing sent.
   worst-case shortfall (≤ 0.0016 below the best share in every case) and stays positive in all (worst +0.0016 at base
   0.910, ρ 0.70; best +0.0185).** All estimates: KDC's ρ with the 0.958 base is unmeasured. On the macro that is
   +0.0001 to +0.0015: below one board tick, so the board cannot confirm it.
+- **KDC's weights, read on Kaggle (`rsna-knee-weights-sha` v10):** `avg3/last.pt` sha256 fold 0 `3a6c99c494ad9720…`
+  (as before), fold 1 `a4f92185419a03129bc1bed621ae1bb8b84972ba1475a5636d15ecc701a67827`, fold 2
+  `93f8f81f8709679e8391e11d76d9dd992637f7cae2eabf7fe741810e3263bce6` (the checkpoints the rules read).
+
+## 10-19: the main final with KDC on Lateral OA — the rule, written before the build
+
+- **The build:** the main final's recipe exactly (`build_r6r7_kernel.py --main958 --wheel-pins
+  notebooks/finals_wheel_pins.json`, our five teacher folds at 0.25 / 0.10) + `--k-weights-kernel` KDC folds 0–2,
+  `--k-weights-sha` the three avg3 hashes above, `--k-mix "Lateral OA=0.30"`; tag `main958-r6r7-t1-kdc`. Then the
+  free CPU mount test (`build_finals_mounttest.py`: must print `SUPPLY_CHAIN_OK … wheels_pinned true`, `ASSETS_READY`,
+  `RAPTOR_OK` ×2, `OURS_OK 5 of 5`, `KDC_OK 3 of 3 | segmenter …`, `MOUNTTEST_DONE`).
+- **Before the submit (the owner's go for the GPU commit run and the slot):** its commit log must show everything the
+  main candidate's did (`SUPPLY_CHAIN_OK … wheels_pinned true`, `ASSETS_READY`, both Raptor stages, R6 + R7
+  `OURS_STAGE_COMPLETE … PASS`, `5 checkpoint(s), sha256 ok`, `GATE PASSED (5/5)`, `OURS_STAGE ok=True`,
+  `[public+ours] ARMS`) and then KDC's: `3 checkpoint(s), sha256 ok` on the three avg3 paths, `segmenter for K`,
+  `GATE PASSED (3/3)` for KDC, `K_STAGE ok=True`, `[+KDC] ARMS: … Lateral OA 0.30 only`, `NOTEBOOK_COMPLETE`, 0
+  tracebacks.
+- **Its read:** the gain is below one board tick by every estimate (+0.0001 to +0.0015 on the macro), so the board can
+  only catch harm. **Shown ≥ 0.957 → the KDC version is the main final** (it carries the one member measured to see
+  something the base misses: Lateral OA probe ~0.860 at ρ ~0.5); **≤ 0.956 → `57378289` stays the main final.** D
+  stays the OAI-free final either way.
