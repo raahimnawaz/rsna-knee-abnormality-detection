@@ -1902,3 +1902,21 @@ there for the owner to discard. Nothing sent.
   **shown ≤ 0.528 → FAIL**: decoupled targets are closed for Lateral OA, the finals go on without KDC. Known before
   the read: one fold against a five-fold base, and the formula assumes the probe's ρ with the base equals the
   held-out ρ with teacher f0 (0.49), both estimates.
+- **⛔ KDC fold 0, read 10-18 ~17:30 by its rules: FAIL (rule 3) → no probe, KDC closed.** 16 / 16 epochs, 0
+  tracebacks, trained on `targets_teacher_v3_dc.csv` (sha256 `173a5c55…`). On fold 0's 847 held-out studies (avg3,
+  sol56 reference):
+
+  | | KDC | K fold 0 | teacher f0 | KDC ρ with teacher (− / + / mean) | 50/50 with teacher (look) |
+  |---|--:|--:|--:|--:|--:|
+  | Lateral Meniscus | 0.888 | 0.907 | 0.911 | 0.71 / 0.75 / 0.73 | 0.912 (+0.001) |
+  | Lateral OA | **0.711** | 0.826 | 0.827 | 0.43 / 0.55 / 0.49 | 0.801 (−0.025) |
+  | PF OA | 0.802 | 0.862 | 0.867 | 0.50 / 0.58 / 0.54 | 0.864 (−0.003) |
+  | Synovitis | 0.852 | 0.856 | 0.868 | 0.84 / 0.83 / 0.84 | 0.867 (−0.001) |
+
+  Rule 1 pass (16 epochs). **Rule 2 pass — the decoupling took:** Spearman with the teacher's Medial OA, Lateral OA
+  **0.401** (K 0.803), PF OA 0.560 (K 0.773). **Rule 3 FAIL:** Lateral OA 0.711 < 0.75 (PF OA 0.802 passes), so rule 4's
+  probe does not run. Not a broken run (the other three are near K); what decoupling leaves of Lateral OA is weak, as
+  the cell screen's 0.575 said. The reference is report-derived and biased against KDC, but by the LB-over-held-out
+  margin K showed (~+0.07 on Lateral OA, ~+0.03 on PF OA) a probe would land ~0.78 / ~0.83 against bars ~0.84 / ~0.85
+  (estimate). **The report labels hold too little compartment-specific evidence (291 decoupled Lateral OA positives) to
+  teach it; the shortcut is removable, the signal under it is not there in these labels.** Files: `fusion/runs_kdc_f0/`.

@@ -1,0 +1,52 @@
+Score a run's out-of-fold predictions: macro AUROC, and a paired bootstrap comparison between two runs.
+reference: labels_llm_gpt56sol.csv (held out from training) · gold excluded (58)
+
+  cv_avg3                n=  847  macro 0.6136 +-0.0060   vs 0.7229 baseline: -0.1093 (14.2 sigma)
+
+label                  cv_avg3
+ACL                      0.357
+MCL                      0.425
+Medial Meniscus          0.497
+Lateral Meniscus         0.888
+Medial OA                0.365
+Lateral OA               0.711
+PF OA                    0.802
+Effusion                 0.789
+Synovitis                0.852
+Baker's                  0.634
+Contusion                0.396
+Fracture                 0.648
+------------------------------
+MACRO                   0.6136
+
+  NOTE: a single arm against the recorded 0.7229 is NOT a paired comparison.
+  The baseline's own oof_all.csv was never kept (fusion/runs*/ hold oof_gold.csv
+  only), so the honest A/B is to re-run the frozen-cache arm under folds_site
+  and score both here. ~32 min on mps, per data/_comparison.log.
+Score a run's out-of-fold predictions: macro AUROC, and a paired bootstrap comparison between two runs.
+reference: labels_llm_gpt56sol.csv (held out from training) · gold excluded (58)
+
+  arms cover 691 / 847 studies -> scoring all of them on the 681 they share
+
+  runs_c6_ortho          n=  681  macro 0.8298 +-0.0068   vs 0.7229 baseline: +0.1069 (12.8 sigma)
+  avg3                   n=  681  macro 0.6110 +-0.0072   vs 0.7229 baseline: -0.1119 (12.9 sigma)
+
+label              ns_c6_ortho        avg3
+ACL                      0.835       0.345
+MCL                      0.761       0.423
+Medial Meniscus          0.898       0.490
+Lateral Meniscus         0.837       0.882
+Medial OA                0.837       0.370
+Lateral OA               0.748       0.707
+PF OA                    0.785       0.804
+Effusion                 0.859       0.771
+Synovitis                0.844       0.844
+Baker's                  0.845       0.655
+Contusion                0.835       0.386
+Fracture                 0.874       0.654
+------------------------------------------
+MACRO                   0.8298      0.6110
+
+  PAIRED delta (avg3 - runs_c6_ortho) = -0.2188 +-0.0088  ->  24.9 sigma,  P(delta>0) = 0.000
+  (unpaired hypot SE would be +-0.0099 = 22.1 sigma -- the WRONG test here)
+  per-label: 3/12 up. The macro rides on the largest few, so read the table, not the count.
