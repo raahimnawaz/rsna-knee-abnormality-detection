@@ -1862,3 +1862,43 @@ there for the owner to discard. Nothing sent.
   55 % in the radiologists' gold-58 grades (three independent findings would give ~33 %); loadings equal across
   Medial / Lateral / PF OA in all three. The model compresses the three compartments into one "OA-ness" axis well
   beyond what either label source holds.
+
+## 10-18 ~17:30: KDC fold 0 read by its rules — fails rule 3; the owner overrides it for one Lateral OA probe
+
+- **KDC fold 0 (`raahimnawaz/rsna-knee-k-train-convnext-small-kdc-cv`, from `9e6753c`) COMPLETE 16:53 PDT**, 271 min,
+  0 tracebacks, DDP checksums equal. `score_oof.py` on fold 0's 847 held-out studies (sol56 reference, gold
+  excluded), avg3; scratch scripts `kdc_read.py`, `kdc_labels.py` (session scratchpad):
+  1. *Epochs:* 16 / 16 → **pass**.
+  2. *Decoupling took:* Spearman with teacher f0 Medial OA — Lateral OA **0.401**, PF OA **0.560** (K 0.803 / 0.773,
+     teacher 0.823 / 0.815; bar ≤ 0.60) → **pass**. Lateral ~ PF OA 0.298 (K 0.815).
+  3. *Not broken (≥ 0.75 each):* **Lateral OA 0.711 → FAIL**; PF OA 0.802 pass (teacher f0 0.827 / 0.867, K 0.826 /
+     0.862). By the rules: no probe.
+- **Look only (reported, deciding nothing):** within-class ρ KDC ~ teacher f0 (negatives / positives / mean): Lateral
+  OA 0.43 / 0.55 / **0.49**, PF OA 0.50 / 0.58 / 0.54, Lateral Meniscus 0.73, Synovitis 0.84 (K: 0.80–0.85). On the
+  482 Medial-OA-negative knees (reports; 64 Lateral OA positives), where the shortcut cannot help: Lateral OA teacher
+  0.721 / K 0.710 / **KDC 0.704**; PF OA (157 positives) 0.804 / 0.799 / 0.771. 50/50 rank blend with the teacher:
+  Lateral OA 0.801, PF OA 0.864 (teacher 0.827 / 0.867). Gold-58, fold-0 models (11 / 21 positives): Lateral OA
+  teacher 0.836, K 0.863, KDC 0.791; PF OA 0.837 / 0.875 / 0.861. last.pt ≈ avg3 (Lateral OA 0.708 / 0.711).
+- **Was it a fair test? (owner's question; measured on the fold-0 training split, 3,502 studies):** the training
+  amount matched K's (16 epochs, same schedule; K matched the teacher on it). The data did not: KDC learned Lateral
+  OA from **1,770 labelled knees, 226 positives** against K's 3,502 (teacher_v3 soft, 432 hard positives, soft mass
+  684). The loss sits where the design put it: Medial-OA-positive knees kept 76 of K's 287 positives; **Medial-OA-
+  negative knees kept 150 positives (K 145 hard)** and 1,055 negatives (K 2,673 labelled). Two confounds: the label
+  source changed too (report-only hard labels instead of teacher_v3's soft pseudo-labels), and φ was taken to 0, below
+  the radiologists' 0.32: the test's own labels are coupled, so some of the teacher's lead from co-occurrence is real
+  signal on the board. The stratum look has 64 positives (difference ± ~0.05): it shows no gain, it cannot exclude
+  one. So the report reference may be biased against KDC by more than rule 3 allowed (estimate), which is the case
+  for measuring in the target currency.
+- **Owner 10-18 ~17:40: "build KDC fold 0's Lateral OA probe (override rule 3; bar from rule 4 at rho 0.49, shown >=
+  0.529), check the gate in its log, then ask me before submitting."**
+- **The probe's rule, written before it runs:** kernel `build_submit_kernel.py --ours-only --segmenter --probe
+  "Lateral OA"` on KDC fold 0's `avg3/last.pt` (the checkpoint read above), gated on its own held-out predictions.
+  Before the submit its log must show `sha256 ok`, `GATE PASSED`, the PROBE line (only Lateral OA is the model's, the
+  other eleven 0.5), `ARMS: convnext_small_stage_k only`, 0 tracebacks; then the owner's go for the slot. The bar is
+  rule 4's: the binormal two-score formula (best non-negative weight, base 0.896, ρ 0.49) predicts +0.012 at
+  **AUROC 0.838** (re-derived: 0.783 / 0.814 / 0.841 / 0.864 / 0.882 at ρ 0.3–0.7, as written) ⇔ score 0.52817. A
+  shown 0.528 covers AUROC 0.830–0.842 (straddles), so: **shown ≥ 0.529 → PASS**: KDC fold 0 joins the main final on
+  Lateral OA at the formula's weight (the weight and any further KDC folds are the owner's call; ~11 GPU-h left);
+  **shown ≤ 0.528 → FAIL**: decoupled targets are closed for Lateral OA, the finals go on without KDC. Known before
+  the read: one fold against a five-fold base, and the formula assumes the probe's ρ with the base equals the
+  held-out ρ with teacher f0 (0.49), both estimates.
