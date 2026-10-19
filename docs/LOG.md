@@ -1955,3 +1955,7 @@ there for the owner to discard. Nothing sent.
   ok=True`, `[public+ours] ARMS`, `NOTEBOOK_COMPLETE`, 0 tracebacks. **Score: the same tick as B (0.957) or higher →
   it is the main final (final mode, pinned, private copies); one tick or more below B → B stays the main final.**
   The finals are then the main final + D.
+- **CPU mount test v2, on the pinned build (from `7484552`): PASS**, 0 tracebacks, 47 s: `SUPPLY_CHAIN_OK {monai_tree
+  1dcf1dab…, 194 files, 2 wheels, wheels_pinned true}`, `ASSETS_READY` on our copies, `RAPTOR_OK` ×2 from our copy,
+  `OURS_OK 5 of 5`. **The main candidate is ready for its GPU commit run (~15–25 GPU-min) and one submission: the
+  owner's go.**
