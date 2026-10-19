@@ -338,7 +338,7 @@ def _check() -> None:
     ant_sag's columns run anterior -> posterior; a left knee renders like a right one; build_study fills every region."""
     import tempfile
     import pandas as pd
-    sys.path.insert(0, str(Path(__file__).resolve().parents[1] / "notebooks"))
+    sys.path.insert(0, str(Path(__file__).resolve().parents[1] / "tests"))
     import canon_fixture as CF
     root = Path(tempfile.mkdtemp()) / "fx"
     truth = CF.write(root)

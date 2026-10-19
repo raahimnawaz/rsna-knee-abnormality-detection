@@ -1,6 +1,6 @@
 r"""Build one inference bundle holding R6 and R7, for the public R6 worker's own two-group path (one decode a study).
 
-    python notebooks/build_r6r7_bundle.py --r6 <R6 version-1 files> --r7 <R7 bundle files> --out <dir>
+    python kaggle/build_r6r7_bundle.py --r6 <R6 version-1 files> --r7 <R7 bundle files> --out <dir>
     kaggle datasets create -p <dir>        # private: raahimnawaz/rsna-knee-r6r7-dual
 
 R6 (heliosli, bundle fe055406) and R7 (heliosli, bundle 8c7b666e) share the worker, trainer (md5 8622009e), views v4, size
@@ -89,7 +89,7 @@ def main() -> None:
         "title": a.slug, "id": f"raahimnawaz/{a.slug}", "licenses": [{"name": "other"}],
         "description": (f"Private. heliosli's R6 (bundle {R6_ID}, version 1 of heliosli/rsna-knee-r6-frozen-fe055406) and R7 "
                         f"(bundle {R7_ID}, heliosli/rsna-knee-compact-r7cnxfsss) as one two-group bundle for heliosli's own "
-                        f"worker; built by notebooks/build_r6r7_bundle.py. Credit: heliosli.")}, indent=1))
+                        f"worker; built by kaggle/build_r6r7_bundle.py. Credit: heliosli.")}, indent=1))
     print(f"bundle {man['bundle_id']} in {a.out}: R6 x{len(m6['models'])} + R7 x{len(models2)} (prefix {ARM2}), "
           f"w2 {dict(zip(LABELS, w2))}")
 

@@ -1,7 +1,7 @@
 """Test the mirror: geometry against the real DICOM path, the target swap, the two-pass prediction, the trainer.
 
-    python notebooks/mirror_fixture.py --out <dir>            # all checks (~2 min on a laptop CPU)
-    python notebooks/mirror_fixture.py --out <dir> --no-train # skip the end-to-end trainer run
+    python tests/mirror_fixture.py --out <dir>            # all checks (~2 min on a laptop CPU)
+    python tests/mirror_fixture.py --out <dir> --no-train # skip the end-to-end trainer run
 
 1. GEOMETRY. Two synthetic knees go through `build_slots64.py --canon`: one as it is, one whose anatomy is reflected
    medial <-> lateral (same side, same scanner geometry). `train_windows.mirror_windows` of the first must be the
@@ -29,7 +29,7 @@ import pandas as pd
 import torch
 
 PROJ = Path(__file__).resolve().parents[1]
-sys.path[:0] = [str(PROJ / "fusion"), str(PROJ / "pipeline"), str(PROJ / "notebooks")]
+sys.path[:0] = [str(PROJ / "fusion"), str(PROJ / "pipeline"), str(PROJ / "tests")]
 import canon_fixture as CF  # noqa: E402
 import train_windows as TW  # noqa: E402
 

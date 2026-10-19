@@ -1,6 +1,6 @@
 """Offline test of build_public_blend_kernel's cells (ours, and KDC's two) on synthetic predictions: no Kaggle, no model.
 
-    python notebooks/public_blend_fixture.py
+    python tests/public_blend_fixture.py
 
 Checks the mix against the formula, that an unbuilt study keeps the public rank, that the scored rerun keeps the
 public file when our stage fails, is skipped or runs late, and that the commit run stops instead.
@@ -17,7 +17,7 @@ from pathlib import Path
 import numpy as np
 import pandas as pd
 
-sys.path.insert(0, str(Path(__file__).resolve().parent))
+sys.path.insert(0, str(Path(__file__).resolve().parents[1] / "kaggle"))
 import build_public_blend_kernel as P  # noqa: E402
 import build_submit_kernel as B  # noqa: E402
 

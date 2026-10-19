@@ -1,6 +1,6 @@
 r"""Build a CPU kernel that prints the sha256 of every checkpoint in the attached training kernels.
 
-    python notebooks/build_weights_sha_kernel.py --kernels <owner>/<training kernel> [<owner>/<another> ...] --out /tmp/sha
+    python kaggle/build_weights_sha_kernel.py --kernels <owner>/<training kernel> [<owner>/<another> ...] --out /tmp/sha
     python -m kaggle kernels push -p /tmp/sha
     python -m kaggle kernels output raahimnawaz/rsna-knee-weights-sha -p /tmp/sha_out     # weights_sha.json
 

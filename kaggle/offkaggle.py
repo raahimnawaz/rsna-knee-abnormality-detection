@@ -1,15 +1,15 @@
 """Train the v3 recipe on a GPU that is not Kaggle's, and bring the weights back where a submission kernel can gate them.
 
     # this laptop, once: the fold of every study, from the Kaggle runs' own lists (goes into the private targets dataset)
-    python notebooks/offkaggle.py folds --out data/student/folds_site_stage_b.csv
+    python kaggle/offkaggle.py folds --out data/student/folds_site_stage_b.csv
 
     # the GPU machine, once: this repo, ~/.kaggle credentials, data/train.csv, the targets dataset, then the cache (~62 GB)
-    python notebooks/offkaggle.py pull --dest <cache>
+    python kaggle/offkaggle.py pull --dest <cache>
     # one fold (two T4s take ~4.9 h; `--dry` prints the command and the lists' sizes without training)
-    python notebooks/offkaggle.py train --fold 0 --corpus <cache> --labels data/student/targets_teacher_v3.csv \
+    python kaggle/offkaggle.py train --fold 0 --corpus <cache> --labels data/student/targets_teacher_v3.csv \
         --folds data/student/folds_site_stage_b.csv --out <runs>
     # the folds that are done -> one flat private dataset each (<slug>-f<k>), and the submission builder's arguments
-    python notebooks/offkaggle.py pack --runs <runs> --slug rsna-knee-v3 --out <dir>
+    python kaggle/offkaggle.py pack --runs <runs> --slug rsna-knee-v3 --out <dir>
 
 The recipe is `build_backbone_ab_kernel.py`'s (SMALL_PACKAGE + V3_TRAIN_ARGS, V3_EPOCHS), imported, not copied; the
 lists are the Kaggle folds' (held out by site, gold in none). A fold trained here and one trained there differ in the
@@ -29,7 +29,7 @@ import numpy as np
 import pandas as pd
 
 PROJ = Path(__file__).resolve().parents[1]
-sys.path[:0] = [str(PROJ / "notebooks"), str(PROJ / "fusion")]
+sys.path[:0] = [str(PROJ / "kaggle"), str(PROJ / "fusion")]
 import build_backbone_ab_kernel as K  # noqa: E402
 
 LABELS = ["ACL", "MCL", "Medial Meniscus", "Lateral Meniscus", "Medial OA", "Lateral OA",
@@ -101,7 +101,7 @@ def train(a) -> None:
     cmd += K.SMALL_PACKAGE + ["--time-budget-h", str(a.time_budget_h)] + K.V3_TRAIN_ARGS + a.extra.split()
     cmd += (["--gold", str(a.gold)] if a.gold else []) + ["--save-weights"]
     head = subprocess.run(["git", "-C", str(PROJ), "rev-parse", "--short", "HEAD"], capture_output=True, text=True).stdout.strip()
-    dirty = subprocess.run(["git", "-C", str(PROJ), "status", "--porcelain", "--", "fusion", "notebooks", "pipeline"],
+    dirty = subprocess.run(["git", "-C", str(PROJ), "status", "--porcelain", "--", "fusion", "kaggle", "pipeline"],
                            capture_output=True, text=True).stdout.strip()
     prov = {"built_from": head + ("+uncommitted" if dirty else ""), "fold": a.fold, "n_train": len(tr), "n_val": len(va),
             "labels_sha256": hashlib.sha256(a.labels.read_bytes()).hexdigest(),
@@ -111,7 +111,7 @@ def train(a) -> None:
     print(f"fold {a.fold}: train {len(tr)} | val {len(va)} | {n_gpu} GPU(s), {world} process(es) | from {prov['built_from']}")
     print(" ".join(cmd))
     if dirty:
-        print("  ⚠️ fusion/, notebooks/ or pipeline/ differ from HEAD -- commit first so the run is reproducible")
+        print("  ⚠️ fusion/, kaggle/ or pipeline/ differ from HEAD -- commit first so the run is reproducible")
     if a.dry:
         return
     rc = subprocess.call(cmd)
@@ -181,7 +181,7 @@ def pack(a) -> None:
     (a.out / "weights_sha.json").write_text(json.dumps(dict(zip(slugs, shas)), indent=1))
     kg, py = ".venv/bin/kaggle", ".venv/bin/python"
     print("\nupload, each private (the default):\n" + "\n".join(f"  {kg} datasets create -p {a.out / g}" for g in slugs)
-          + f"\nthen:  {py} notebooks/build_submit_kernel.py --ours-only \\\n"
+          + f"\nthen:  {py} kaggle/build_submit_kernel.py --ours-only \\\n"
           f"           --weights-dataset {','.join(f'{K.OWNER}/{g}' for g in slugs)} \\\n"
           f"           --weights-sha {','.join(shas)} --tag <short> --desc \"<what this is>\" --out <dir>")
 

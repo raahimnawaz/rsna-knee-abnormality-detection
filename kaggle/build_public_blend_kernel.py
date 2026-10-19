@@ -1,7 +1,7 @@
 r"""Build the submission kernel that adds our folds to a public blend notebook, as one more stage (and KDC as another).
 
     kaggle kernels pull heliosli/this-is-new-version-0-9576-in-one-click -p <pub> -m      # any slug in PUBLIC
-    python notebooks/build_public_blend_kernel.py --public-dir <pub> --weights-kernel <k1>,<k2>,<k3> \
+    python kaggle/build_public_blend_kernel.py --public-dir <pub> --weights-kernel <k1>,<k2>,<k3> \
         --weights-sha <64 hex>,<64 hex>,... --tag pub957-teach1 --out <dir>
     python -m kaggle kernels push -p <dir>
 
@@ -255,7 +255,7 @@ INTRO = """# RSNA Knee -- the free public blend, with our five folds added
 
 Cells 1-__N_PUB__ are `__PUBLIC__` as published (notebook sha256 `__PUB_SHA__`), unchanged except any line listed at the end: __PUB_DESC__.
 The two cells after them are ours: __DESC__ as one more stage, then a per-finding rank blend at weights
-fixed before any run (`W_OURS` in `notebooks/build_public_blend_kernel.py`). If our stage fails or would run late in
+fixed before any run (`W_OURS` in `kaggle/build_public_blend_kernel.py`). If our stage fails or would run late in
 the scored rerun, the public submission is kept as it is. Built from `__BUILT_FROM__`.
 """
 
@@ -306,7 +306,7 @@ def main() -> None:
     ap.add_argument("--public-dir", type=Path, required=True, help="`kaggle kernels pull <one of PUBLIC> -m`")
     ap.add_argument("--weights-kernel", default="", help="our training kernels, comma-joined")
     ap.add_argument("--weights-dataset", default="", help="and / or private datasets holding run dirs trained off "
-                    "Kaggle (notebooks/offkaggle.py pack), comma-joined")
+                    "Kaggle (kaggle/offkaggle.py pack), comma-joined")
     ap.add_argument("--weights-sha", required=True, help="the members' last.pt sha256, comma-joined (an ensemble)")
     ap.add_argument("--tag", required=True, help="slug suffix (the whole slug must stay under 50 characters)")
     ap.add_argument("--desc", default="our ConvNeXt-small folds", help="what our member is, for the intro")

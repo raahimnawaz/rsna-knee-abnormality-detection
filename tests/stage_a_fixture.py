@@ -1,6 +1,6 @@
 r"""Synthetic DICOM studies with known answers, to test `pipeline/build_slots64.py` offline.
 
-    python notebooks/stage_a_fixture.py
+    python tests/stage_a_fixture.py
     python pipeline/build_slots64.py --root /tmp/safix/input/competitions/rsna-knee-abnormality-detection \
         --out /tmp/safix/out --check
 """

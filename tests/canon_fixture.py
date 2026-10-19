@@ -1,6 +1,6 @@
 """Synthetic left and right knees in every storage orientation, to test `build_slots64.py --canon`.
 
-    python notebooks/canon_fixture.py --out <dir> [--spec c8]
+    python tests/canon_fixture.py --out <dir> [--spec c8]
 """
 from __future__ import annotations
 

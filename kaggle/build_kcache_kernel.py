@@ -1,7 +1,7 @@
 """Build the Kaggle CPU kernels that produce K, the knee-centred region-crop cache (pipeline/kcache.py), one per shard.
 
-    python notebooks/build_kcache_kernel.py --out /tmp/k0 --shard 0              # 5 shards of the 4,407 training studies
-    python notebooks/build_kcache_kernel.py --out /tmp/ks --smoke 10             # 10 studies with montages
+    python kaggle/build_kcache_kernel.py --out /tmp/k0 --shard 0              # 5 shards of the 4,407 training studies
+    python kaggle/build_kcache_kernel.py --out /tmp/ks --smoke 10             # 10 studies with montages
     .venv/bin/kaggle kernels push -p /tmp/k0
 
 The segmenter and its vendored MONAI come from heliosli's code dataset; kcache.py checks both by sha256 before use.
@@ -24,7 +24,7 @@ N_SHARDS = 5
 
 CELL = r'''
 # ============================================================================ #
-# K cache shard -- built by notebooks/build_kcache_kernel.py. Embedded files are
+# K cache shard -- built by kaggle/build_kcache_kernel.py. Embedded files are
 # written byte-for-byte and hash-checked; kcache.py checks the segmenter.
 # ============================================================================ #
 import base64, hashlib, json, os, shutil, subprocess, sys, time

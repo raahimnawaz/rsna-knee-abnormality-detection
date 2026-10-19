@@ -1,6 +1,6 @@
 r"""Build a Kaggle kernel that runs our models alone: the full submission, or a single-finding probe.
 
-    python notebooks/build_submit_kernel.py --weights-kernel <owner/kernel> --weights-sha <sha256> \\
+    python kaggle/build_submit_kernel.py --weights-kernel <owner/kernel> --weights-sha <sha256> \\
         --tag <name> [--segmenter] [--probe "Lateral OA"] --out <dir>
     python -m kaggle kernels push -p <dir>
 
@@ -21,7 +21,7 @@ OWNER = "raahimnawaz"
 CODE_DATASET = "heliosli/rsna-orthofoundation-fold0-epoch7-20261004"     # the SKM-TEA segmenter K needs
 DOCKER_IMAGE = "gcr.io/kaggle-private-byod/python@sha256:37c64f7dd9c54116ecd1bcc88817c5469b88387388fade02bfa8bf3fc647d461"
 EMBED = ["fusion/infer_windows.py", "fusion/train_windows.py", "pipeline/kcache.py",
-         "pipeline/build_slots64.py", "pipeline/slots64.py", "pipeline/slots96.py", "extractor/metrics.py"]
+         "pipeline/build_slots64.py", "pipeline/slots64.py", "pipeline/slots96.py", "fusion/metrics.py"]
 LABELS = ["ACL", "MCL", "Medial Meniscus", "Lateral Meniscus", "Medial OA", "Lateral OA",
           "PF OA", "Effusion", "Synovitis", "Baker's", "Contusion", "Fracture"]
 
@@ -197,7 +197,7 @@ gate reproduces each checkpoint's held-out predictions. Built from commit `__BUI
 def _check_import_closure(embed: list[str]) -> None:
     """Refuse to build if an embedded file imports a repo module that is not embedded."""
     have = {Path(r).stem for r in embed if r.endswith(".py")}
-    local = {p.stem for d in ("fusion", "pipeline", "extractor") for p in (PROJ / d).glob("*.py")}
+    local = {p.stem for d in ("fusion", "pipeline") for p in (PROJ / d).glob("*.py")}
     for rel in embed:
         if not rel.endswith(".py"):
             continue

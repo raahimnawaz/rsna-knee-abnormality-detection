@@ -1,7 +1,7 @@
 """Build a Kaggle GPU training kernel for one encoder: pinned inputs, embedded sources, paired scoring.
 
-    python notebooks/build_backbone_ab_kernel.py --arch convnext_small --corpus stage_b --out /tmp/ab --smoke
-    python notebooks/build_backbone_ab_kernel.py --arch convnext_small --corpus stage_b --folds 0 --n-train 0 \
+    python kaggle/build_backbone_ab_kernel.py --arch convnext_small --corpus stage_b --out /tmp/ab --smoke
+    python kaggle/build_backbone_ab_kernel.py --arch convnext_small --corpus stage_b --folds 0 --n-train 0 \
         --recipe v3 --targets <targets.csv> --tag <name> --out /tmp/ab
     python -m kaggle kernels push -p /tmp/ab
 """
@@ -22,7 +22,7 @@ EMBED = [
     "fusion/folds.py",
     "pipeline/site_fingerprint.py",
     "pipeline/provenance.py",
-    "extractor/metrics.py",
+    "fusion/metrics.py",
     "provenance/inputs.json",
     "fusion/runs_port_repro/oof_all.csv",
     "fusion/runs_c6_ortho/oof_all.csv",
@@ -34,7 +34,7 @@ DATASETS = ["dreaddevelopment/knee-raptor-corpus",           # 3,200 studies, CC
 KERNELS = ["zhukovoleksiy/rsna-metadata-probe"]              # headers.parquet -> site folds
 STAGE_A_SHARDS = [f"{OWNER}/rsna-knee-stage-a-s{i}of4" for i in range(4)]   # build_stage_a_kernel.py
 STAGE_B_SHARDS = [f"{OWNER}/rsna-knee-stage-b-s{i}of8" for i in range(8)]
-K_SHARDS = [f"{OWNER}/rsna-knee-kcache-s{i}of5" for i in range(5)]       # notebooks/build_kcache_kernel.py
+K_SHARDS = [f"{OWNER}/rsna-knee-kcache-s{i}of5" for i in range(5)]       # kaggle/build_kcache_kernel.py
 # small conv backbones on Stage B: no checkpointing or compile needed; plain BCE (graded and masked targets)
 SMALL = ("convnext_tiny", "convnext_small")
 SMALL_PACKAGE = ["--res", "384", "--drop-path", "0.1", "--bb-lr", "1e-4", "--pos-emb", "--fit-budget",
@@ -45,7 +45,7 @@ SMALL_PACKAGE = ["--res", "384", "--drop-path", "0.1", "--bb-lr", "1e-4", "--pos
 COATNET_PACKAGE = ["--res", "384", "--drop-path", "0.1", "--bb-lr", "3e-5", "--pos-emb", "--fit-budget",
                    "--conf-weight", "none"]
 # The combined recipe of 10-13 ("v3", docs/LOG.md): on top of SMALL_PACKAGE, at 16 epochs. One definition, used by
-# --recipe v3 here and by notebooks/offkaggle.py, so a Kaggle fold and an off-Kaggle fold are the same run.
+# --recipe v3 here and by kaggle/offkaggle.py, so a Kaggle fold and an off-Kaggle fold are the same run.
 # --micro 1: 24 windows a forward per GPU, as k 12 x 2 studies was (8.1 GB on a T4); the batch stays 8 studies.
 V3_TRAIN_ARGS = ["--allow-missing-labels", "--spatial-attn", "--mirror", "0.5", "--mirror-tta", "--k", "24", "--micro", "1"]
 V3_EPOCHS = 16
@@ -57,7 +57,7 @@ N_TRAIN, DRAW_SEED = 2871, 20260923
 
 SETUP = r'''
 # ============================================================================ #
-# Backbone A/B -- setup. Built by notebooks/build_backbone_ab_kernel.py; read
+# Backbone A/B -- setup. Built by kaggle/build_backbone_ab_kernel.py; read
 # that docstring for the question and the rule fixed before the run.
 # ============================================================================ #
 import base64, hashlib, json, os, re, shutil, subprocess, sys, time
@@ -118,7 +118,7 @@ PREP = r'''
 # ============================================================================ #
 L = ["ACL", "MCL", "Medial Meniscus", "Lateral Meniscus", "Medial OA", "Lateral OA",
      "PF OA", "Effusion", "Synovitis", "Baker's", "Contusion", "Fracture"]
-for _p in (REPO, REPO / "extractor", REPO / "pipeline", REPO / "fusion"):
+for _p in (REPO, REPO / "pipeline", REPO / "fusion"):
     sys.path.insert(0, str(_p))
 D = REPO / "data"
 (D / "external").mkdir(parents=True, exist_ok=True)

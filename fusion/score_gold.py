@@ -13,7 +13,7 @@ import numpy as np
 import pandas as pd
 
 PROJ = Path(__file__).resolve().parents[1]
-sys.path.insert(0, str(PROJ / "extractor"))
+sys.path.insert(0, str(PROJ / "fusion"))
 from metrics import auc  # noqa: E402
 
 D = PROJ / "data"

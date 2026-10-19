@@ -1,6 +1,6 @@
 """A free CPU mount test of a built final (10-18): the final's own mounts, its own asset cell, Raptor's lookups, our weights.
 
-    python notebooks/build_finals_mounttest.py --final <built final dir> --out <dir>   # then kaggle kernels push -p <dir>
+    python kaggle/build_finals_mounttest.py --final <built final dir> --out <dir>   # then kaggle kernels push -p <dir>
 
 Runs on a CPU, internet off, under exactly the final's dataset / kernel / competition sources and docker image:
   1. the final's R-family asset cell (the code cell holding CODE_SLUG and ASSETS_READY), unchanged: mounts found by

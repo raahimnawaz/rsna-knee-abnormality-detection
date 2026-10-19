@@ -1,7 +1,7 @@
 """Test that the inference path reproduces the training cache window for window, on synthetic DICOMs.
 
-    python notebooks/canon_fixture.py --out <dir>
-    python notebooks/infer_parity_fixture.py --fixture <dir> [--spec c8]
+    python tests/canon_fixture.py --out <dir>
+    python tests/infer_parity_fixture.py --fixture <dir> [--spec c8]
 """
 from __future__ import annotations
 

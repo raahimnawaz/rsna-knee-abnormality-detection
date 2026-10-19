@@ -13,7 +13,7 @@ import numpy as np
 import pandas as pd
 
 PROJ = Path(__file__).resolve().parents[1]
-sys.path.insert(0, str(PROJ / "extractor"))
+sys.path.insert(0, str(PROJ / "fusion"))
 from metrics import auc  # noqa: E402
 
 D = PROJ / "data"
@@ -66,7 +66,7 @@ def main() -> None:
     a = ap.parse_args()
 
     if not NEUTRAL.exists():
-        raise SystemExit(f"missing {NEUTRAL}\n  run extractor/bench_public_labels.py --download")
+        raise SystemExit(f"missing {NEUTRAL}\n  kaggle datasets download lixin73/rsna-knee-llm-report-labels-sol56")
     ref = pd.read_csv(NEUTRAL).drop_duplicates("StudyInstanceUID").set_index("StudyInstanceUID")
     gold_ids = set(pd.read_csv(D / "train.csv").dropna(subset=L).StudyInstanceUID)
 

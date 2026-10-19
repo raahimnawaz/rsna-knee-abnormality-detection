@@ -1,8 +1,8 @@
 """Send a fixed list of kernel submissions once a wall-clock time has passed, and survive the session that armed it.
 
-    .venv/bin/python notebooks/submit_at_reset.py --plan notebooks/submit_plan_<date>.json \
+    .venv/bin/python kaggle/submit_at_reset.py --plan kaggle/submit_plan_<date>.json \
         --not-before "2026-10-13 17:02:00" --detach          # arm; returns at once
-    .venv/bin/python notebooks/submit_at_reset.py --plan <plan> --dry-run   # what it would send now, nothing sent
+    .venv/bin/python kaggle/submit_at_reset.py --plan <plan> --dry-run   # what it would send now, nothing sent
     tail data/submitter.log                                   # what it did
 
 Why it exists: two submitters armed as a session's background task were gone before 17:00 on 10-13 (they stop with
