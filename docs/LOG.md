@@ -2125,3 +2125,14 @@ there for the owner to discard. Nothing sent.
   sha256 (missing or changed → KDC fails; in the scored rerun the main final then stands). The builder now refuses a
   notebook of 1 MB or more before any push. Rebuilt: 952,495 bytes; the no-KDC build still byte-identical; fixture 20
   checks; the mount-tested metadata unchanged.
+- **The commit run, read 12:07 PDT (`rsna-knee-sub-main958-r6r7-t1-kdc` v1, from `c28e4a2`, ~18 min), every line the
+  rule names:** `SUPPLY_CHAIN_OK {… wheels_pinned true}`; `ASSETS_READY` on our copies; `RAPTOR_STAGE_DONE`,
+  `RAPTOR224_STAGE_DONE`; R6 + R7 `OURS_STAGE_COMPLETE {"status": "PASS" … "fallback_studies": 0}`; the public
+  `NOTEBOOK_COMPLETE` (raptor_failed 0); ours `5 checkpoint(s), sha256 ok`, `GATE PASSED (5/5)` (max |dp| ≤ 0.0007),
+  `OURS_STAGE ok=True`, `[public+ours] ARMS … x5`; then KDC: `repo files from our stage, hashes match`, `3
+  checkpoint(s), sha256 ok` on the three avg3 paths, `segmenter for K`, `GATE PASSED (3/3)` (5 studies each, max |dp|
+  0.0021 / 0.0010 / 0.0002 under the public image's torch 2.11), `K_STAGE ok=True` (226 s), `[+KDC] ARMS: … x3 on
+  Lateral OA 0.30 only`; **0 tracebacks.** Output: 3 rows, only the Lateral OA column changed from `before_kdc_sub.csv`
+  (its ρ −0.5 is over 3 studies: the misalignment guard applies from 100).
+- **⏳ SUBMITTED 12:08 PDT 10-19 (owner's go: "if all hold, submit it"), ref `57406618`, PENDING.** Rule above: shown ≥
+  0.957 → the main final; ≤ 0.956 → `57378289` stays. 1 slot left to 17:00 PDT.
