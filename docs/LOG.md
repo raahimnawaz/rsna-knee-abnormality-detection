@@ -1959,3 +1959,10 @@ there for the owner to discard. Nothing sent.
   1dcf1dab…, 194 files, 2 wheels, wheels_pinned true}`, `ASSETS_READY` on our copies, `RAPTOR_OK` ×2 from our copy,
   `OURS_OK 5 of 5`. **The main candidate is ready for its GPU commit run (~15–25 GPU-min) and one submission: the
   owner's go.**
+- **KDC's Lateral OA probe kernel, read 17:35 (before any submit):** `raahimnawaz/rsna-knee-sub-a-ortho-kdc-f0-nall-p-lateral-oa`
+  v1, built from `6afab56` (the K probe's kernel line for line but the sha, the slug and the intro). Its log: `built
+  from 6afab56; repo files written, hashes match`; `1 checkpoint(s), sha256 ok` (`…/kdc-cv/…/fold0/avg3/last.pt`, arm
+  `convnext_small_stage_k`); **`GATE PASSED (1/1)`** (8 training studies rebuilt from DICOMs, max |dp| 0.00080, mean
+  0.00007; limits 0.03 / 0.005); `ARMS: convnext_small_stage_k only`; `PROBE: only Lateral OA is the model's; the other
+  11 columns are 0.5`; 0 tracebacks; 3 public-sample rows, only Lateral OA varies. **Not submitted: waits for the
+  owner's go** (5 slots free, none used since 10-17).
