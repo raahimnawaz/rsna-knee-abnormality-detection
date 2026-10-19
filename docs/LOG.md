@@ -2046,3 +2046,8 @@ there for the owner to discard. Nothing sent.
 - **Then:** KDC's folds that pass become one equal-weight member on Lateral OA in the main final (weights hashed on
   Kaggle first), built on the main candidate's recipe; a CPU mount test; then the owner's go for the GPU commit run and
   the submission. KDC's weight on Lateral OA is the owner's call, put with the build.
+- **⏳ KDC folds 1 and 2 launched 20:42 PDT** (`raahimnawaz/rsna-knee-k-train-convnext-small-kdc-f1-cv`, `…-kdc-f2-cv`,
+  v1 each, from `7536d9d`; the only change to the embedded code since fold 0's `059d8a7` is one docstring in
+  `train_windows.py`; both pinned to fold 0's Docker image `2757e0c7…` so the three folds share an environment). Fold 1:
+  3,528 train / 821 val, `fit-budget: 0.46 s … -> 18.4 min/epoch … -> 16 epoch(s)`; fold 2: 3,431 / 918, 18.8 min →
+  16 epochs; both read `targets_teacher_v3_dc.csv … sha256 173a5c55540cda39`. Done ~01:00–01:45 PDT 10-19.
