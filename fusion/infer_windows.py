@@ -95,7 +95,7 @@ class DicomStudies(torch.utils.data.Dataset):
             mask = np.zeros(Sp.N_SLICES, np.uint8)
             err = f"{type(e).__name__}: {e}"
         cs = window_centres(mask, self.slot_sizes) or [len(mask) // 2]     # Windows.__getitem__'s rule
-        if self.n_windows:                                  # window_curve.thin's rule (identical on Stage A)
+        if self.n_windows:                                  # train_windows.thin_windows's rule
             cs = thin_windows(cs, self.slot_sizes, self.n_windows)
         w = np.stack([vol[c - 1:c + 2] for c in cs])
         slot, pos = window_meta(cs, self.slot_sizes)
@@ -222,7 +222,7 @@ def main() -> None:
     ap.add_argument("--out", type=Path, required=True)
     ap.add_argument("--workers", type=int, default=2, help="DICOM decode processes feeding the GPU")
     ap.add_argument("--n-windows", type=int, default=0,
-                    help="thin to ~n windows per study (window_curve.thin); 0 = every window, as scored")
+                    help="thin to ~n windows per study (train_windows.thin_windows); 0 = every window, as scored")
     ap.add_argument("--max-error-frac", type=float, default=0.02)
     ap.add_argument("--seg-weights", help="K checkpoints: the SKM-TEA segmenter (heliosli's anatomy.pt)")
     ap.add_argument("--seg-vendor", help="K checkpoints: its vendored MONAI 0.6 (cloud_code/training/vendor_runtime/monai060)")

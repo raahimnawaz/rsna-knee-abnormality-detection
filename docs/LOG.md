@@ -1,6 +1,6 @@
 # LOG — every run and read on this branch, as written at the time
 
-**Not the place to start: `RUNBOOK.md` is.** This is the record behind it: each rule as it was written before its
+**Not the place to start: [`PLAN.md`](../PLAN.md) is** (the current state; `README.md` explains the code). This is the record behind it: each rule as it was written before its
 result, each kernel with the commit it was built from, each weights sha256, each gate line read before a submission,
 each leaderboard ref. Entries are grouped by read, not strictly by time; a later ✅ / ⛔ line supersedes an earlier ⏳
 one in the same block. Times are PDT. Append new blocks at the end, dated.

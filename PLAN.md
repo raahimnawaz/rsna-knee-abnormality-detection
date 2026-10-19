@@ -1,94 +1,83 @@
 # PLAN — RSNA Knee, goal 0.97 macro AUROC
 
 Finals **2026-10-22 16:59 PDT**. Branch `labels-small-backbone` (the only work branch; `main` is the 10-03
-portfolio snapshot). **This page is the current state.** [`docs/LOG.md`](docs/LOG.md) is the dated archive of every
-run and the rule written before it: read it only for a past result. Last updated 2026-10-17.
+portfolio snapshot). **This page is the current state**; [`README.md`](README.md) explains the code and how to run
+it; [`docs/LOG.md`](docs/LOG.md) holds every past run and the rule written before it. Last updated 2026-10-18 evening.
+
+## Where we are
+
+| submission | public LB | status |
+|---|--:|---|
+| free public base (heliosli's 0.9576 notebook, per-finding Raptor weights) | 0.958 | the base we build on |
+| **B**: the 0.957 recipe + R6 + R7 in one decode + our five teacher folds (`57244451`) | 0.957 | **the main final**, unless the candidate below reads the same tick or higher |
+| main candidate: B rebuilt in final mode on our private copies, pinned (`57378289`) | ⏳ | its rule: ≥ 0.957 → it becomes the main final |
+| **D**: R6 + R7 + our five consensus folds, no Raptor (`57244659`) | 0.954 | **the OAI-free final**; stands as scored |
+| KDC fold 0, Lateral OA probe (`57374913`) | 0.530 | **passed** (AUROC ~0.860; bar 0.529) |
+| KDC fold 0, PF OA probe (`57378480`) | ⏳ | bar: shown ≥ 0.530 |
+
+Left this week: ~11 GPU-h (estimate), five submissions a day (reset 17:00 PDT). Our rank at 0.957 was ~825 on 10-16;
+0.958 held ~430 teams.
 
 ## Where the score is lost
 
-0.97 is the mean of twelve AUROCs. Eight findings are near 0.966; **four hold the macro down**, and 0.97 needs them
+0.97 is the mean of twelve AUROCs. Eight findings sit near 0.966; **four hold the macro down**, and 0.97 needs them
 near 0.95:
 
-| finding | our five folds, LB probe (image-graded) | gold-58: ours / OAI-trained CoAtNet | why |
-|---|--:|--:|---|
-| Synovitis | 0.884 | 0.853 / 0.828 | labels: radiologists mark it in 27/58 gold knees, reports mention it in 14–22 % |
-| Lateral OA | 0.896 | 0.822 / 0.770 | vision: the report has it (readers 0.872 on gold), the model doesn't see it |
-| PF OA | 0.896 | 0.852 / 0.840 | vision |
-| Lateral Meniscus | 0.932 | 0.894 / 0.883 | both |
-
-Every model in the blend learns from reports and **makes the same mistakes on these four** (within-class ρ 0.89–0.955
-between ours and the OAI-trained CoAtNet). Improving a model on what the base already gets right moves nothing.
-A gain on one of the four big enough for 0.97 (+0.03 to +0.07) **is** visible in a single-finding probe (submission
-score = (5.5 + AUROC) / 12); a +0.002 on the macro is not (one score ±0.008). **Judge weak-four work on its finding.**
-
-## Backwards from 0.97 (10-17; math in the LOG)
-
-- **0.97 − 0.958 = +0.144 AUROC summed over the twelve.** The eight strong findings sit ~0.97–0.98 in the base
-  (estimate) and cannot carry it: **the four must average ~0.95–0.96, +0.036 each.**
-- **The 0.957/0.958 notebook is the base, not the route.** All its members learn from report labels; their errors
-  are shared (ρ 0.86–0.89, a public analysis; 0.78–0.955 our own measurements) and that family tops out ≈ 0.960.
-- **What a member must be to add +0.036 on a finding at 0.91** (two-score normal model, best non-negative weight):
-  ρ 0.8+ → it must already be ≥ 0.946 alone (impossible on report labels: K, Raptor, our folds all tie at ~0.90);
-  ρ 0.5 → ≥ 0.925; ρ 0.3 → ≥ 0.894. **Only labels the reports didn't produce can give ρ ≤ 0.5.**
-- **The route that fits:** K's knee-centred crops trained on **OAI MOAKS image-graded labels** for the four (plus
-  Medial Meniscus / Medial OA / Effusion as supplements), on this Mac. If it reaches 0.90 at ρ 0.5 on each of the four
-  (assumed, unmeasured) the four gain ~+0.025 each → ~0.966; supplements (other OAI-graded findings, K + teacher at
-  small weight) +0.002–0.004 → ~0.97. Every number in that line is to be measured.
-
-## Where the submissions are
-
-| | LB | |
+| finding | our five folds, single-finding probe | why |
 |---|--:|---|
-| free public base (heliosli, 10-15) | 0.958 | the 0.9576 notebook with per-finding Raptor weights (Lat OA 0.2, PF OA 0.6, Syn 0.8, Baker's 0.35) |
-| ours: 0.957 recipe + our five teacher folds | 0.957 | `57241351`; with R6 + R7 in one decode (B) the same, `57244451`: **R6 + R7 is the ConvNeXt half** |
-| **D: R6 + R7 + our five consensus folds, no Raptor** | **0.954** | `57244659`, **the OAI-free final** |
+| Synovitis | 0.884 | labels: radiologists mark it in 27 of the 58 gold knees; reports mention it in 14–22 % |
+| Lateral OA | 0.896 | vision: the reports have it, the model doesn't see it |
+| PF OA | 0.896 | vision |
+| Lateral Meniscus | 0.932 | both |
 
-## The plan (owner 10-16)
+**The shortcut (measured 10-18):** every model trained on report labels reads one shared "OA-ness" into all three
+OA compartments (Lateral ~ Medial OA ρ 0.82 in our models; radiologists 0.32, OAI's image grades 0.06), so they all
+make the same mistakes on the four. A member can only move the base if its errors are its own: at a base of 0.896 a
+member at ρ 0.5 must reach ~0.84 alone to add one board tick (+0.012) on its finding; at ρ 0.8 it must match the base
+alone. **KDC is the first member of ours to do it:** labels decoupled from Medial OA cut its ρ to ~0.5, and its
+Lateral OA probe reads ~0.860. Nothing measured so far reaches 0.97: one tick on one finding is +0.001 on the macro.
 
-1. **K, the weak-four model** (cache built 10-16, 4,407 studies, 0 errors; **folds 0–2 tie the teacher on the four** (mean
-   −0.0055 / +0.0005 / −0.0030, ρ 0.78–0.91); **its Lateral OA probe (fold 0) read 0.533 = 0.896, the same tick as
-   the five-fold model: FAIL by the owner's +0.03 bar, folds 3–4 not launched, K stands at folds 0–2** (10-17 16:36;
-   ~16 GPU-h of the week left; LOG 10-16 / 10-17). The knee joint and patella found by the SKM-TEA segmenter; four
-   regions cut from the original series in the canonical frame: lateral sagittal and lateral coronal (Lateral OA,
-   Lateral Meniscus), axial through the patella (PF OA), central sagittal around the front (Synovitis, PF OA); 8
-   slices each at 256 px, trained at 384 on the four only. CPU kernels build the cache (`build_kcache_kernel.py`), then
-   five folds on the GPU (`--recipe k`). **Fold-0 rule:** stop and look if the mean over the four is > 0.03 below
-   `runs_cnxs_teach1_f0` on the same studies, or < 16 epochs. (W4, `--recipe w4`, is built but set aside: same labels,
-   same mistakes.)
-1b. **KDC: PASSED its Lateral OA probe 10-18** (LOG): K on decoupled Lateral OA / PF OA targets (ρ with Medial OA
-   0.80 → 0.40). Rule 3 said broken (0.711 on the report reference); the owner overrode it for one probe, and **fold 0
-   alone read 0.530 = Lateral OA AUROC ~0.860 on the image-graded board** (`57374913`; bar 0.529). The report
-   reference understated KDC by ~0.15 against K's ~0.07: **report-label AUROC is the wrong gate for a decoupled model.**
-   By rule 4 it **joins the main final on Lateral OA**: the formula (base 0.896, ρ 0.49) predicts +0.016–0.020 at a
-   ~0.37–0.41 share, but only +0.004–0.007 if its ρ with the 0.958 base is 0.7 (unmeasured). **Owner's calls:** the
-   weight; a PF OA probe of KDC (bar shown ≥ 0.530 = AUROC 0.850 at ρ 0.54); KDC folds 1–2 (~9 of ~11 GPU-h left). Closed
-   beside it: read-time erasure (≤ ~0.01), the cell screen (0.68–0.78).
-2. **Measure in the target currency: probes of K only** (owner 10-16: "whatever attacks the weakest parts first, and
-   only we do that"; no probes of public models, W4 is not trained). K counts on a finding only if its single-finding
-   LB probe beats our five-fold model's 10-12 probe there (the CONSENSUS folds, 0.945; Synovitis is consensus fold 0 alone;
-   the teacher folds were never probed per finding) (Synovitis 0.884, Lateral OA 0.896, PF OA 0.896, Lateral
-   Meniscus 0.932) by **≥ +0.03**. Probes need the owner's go for the slots.
-3. **OAI images: CLOSED 10-18 (owner's call on my estimate, LOG 10-18).** The full baseline package is 983 GB; a
-   two-series subset ~35 GB (no axial for PF OA), ~114 GB with DESS; Raptor's OAI supervision still errs like us
-   (ρ 0.85); download + adapter + unmeasured Mac training + probes would land Wednesday at best for +0.001–0.004.
-   The labels stay in `~/oai_data/` for after the competition.
-4. **Finals by 10-22:** main = the 0.958 base with R6 + R7 + our members, per finding where they passed step 2;
-   OAI-free = D. Built on our private dataset copies, without `--read`, and with the vendored-MONAI tree check
-   (sha256 `1dcf1dabb83ab80eec50a5c0abfc407b3ba785bf9f30ae6c0e25da124ef87b05`, 194 files of heliosli's
-   `cloud_code/training/vendor_runtime/monai060`) added to the R6 / R7 worker's path.
+## Open decisions (the owner's)
 
-## Closed — do not re-propose (detail in the LOG)
+1. **KDC in the main final.** By its rule it joins on Lateral OA (and on PF OA if `57378480` reads ≥ 0.530). The
+   weight: the two-score formula at ρ 0.49 against our five folds gives a ~0.37–0.41 share and +0.016–0.020 on the
+   finding, but against the 0.958 base the ρ is unmeasured (at 0.7 the gain is +0.004–0.007). Building it in is a
+   new final: build, CPU mount test, GPU commit run (~20 min), one submission.
+2. **KDC folds 1–2** (~4.5 GPU-h each, two at once, ~9 of the ~11 h left): a five-fold model reads ~+0.003–0.007 above
+   one fold (estimate), and two more folds would get part of that.
+3. **Which two submissions are the finals** on 10-22: the main final (B, the candidate, or either with KDC) and D.
 
-- A bigger backbone (ViT-L lost by 0.011); denser slices (Stage C); centre crops / zoom as a standalone model; an
-  nnU-Net crop; a stronger LLM re-reading the reports (report tables cap ~0.90 on gold); Qwen labels; a per-site prior.
-- Training on the 58 gold studies (~+0.0005); R7's mirror pass at inference (0.949 = 0.949).
-- Blend-weight tuning on the public board; consistency rules between findings (flat or negative); distilling public
-  models into ours; fine-tuning with R7's trainer (needs a 5090); fixed half-crops of our cache; the public small CNN.
-- OAI images "to add knowledge": the OAI-trained CoAtNet already has it and is no better on the four. A knee-centred
-  compartment CNN: R6 / R7 already read knee-anchored compartment views (`bliverrigpdoge`'s crops: +0.001).
-- "Traumatic cartilage loss counts as OA" (a 6-knee artefact); Synovitis from Effusion (0.70 on gold).
-- **Cartilage / meniscus measurements from the SKM-TEA segmenter** (10-16: Lateral OA 0.654, PF OA 0.619 alone;
-  +0.00008 on the macro).
+## Closed (do not re-propose; detail in the LOG)
+
+- **Report-label routes on the four:** K's crops on report labels (folds 0–2 tie the teacher; Lateral OA probe 0.896
+  = the base), W4 (same labels, not trained), a bigger backbone (ViT-L −0.011), denser slices (Stage C), pseudo-label
+  rounds, LLM re-reads of the reports (tables cap ~0.90 on gold), Qwen labels, training on the 58 gold studies.
+- **Ways to fold the shortcut away without new labels:** read-time erasure (≤ ~0.01), the cell screen (boosted trees
+  on location-fixed cells of K's crops: 0.68–0.78), cartilage / meniscus measurements from the SKM-TEA segmenter
+  (Lateral OA 0.654, PF OA 0.619).
+- **OAI images (10-18):** the package is 983 GB, a two-series subset ~35 GB with no axial; it would land by Wednesday
+  at best for +0.001–0.004 (estimate). The MOAKS tables stay in `~/oai_data/` for after the competition (their
+  mapping code, `labeling/oai_moaks_targets.py`, is in git history at `c6b2c65`).
+- **Blending tricks:** weight tuning on the public board, consistency rules between findings, distilling public models
+  into ours, R7's mirror pass at inference, the public small CNN, fixed half-crops, a per-site prior.
+- Synovitis from Effusion (0.70 on gold); "traumatic cartilage loss counts as OA" (a 6-knee artefact).
+
+## How to judge a change
+
+- **Judge weak-four work on its finding**, with a single-finding probe: +0.03 on one finding is visible there; +0.002
+  on the macro is not (one macro score ±0.008).
+- **The held-out report reference only says "not broken"**, and only for models trained on the same kind of labels.
+  It understated KDC by ~0.15 (0.711 held-out, ~0.860 on the board) against ~0.07 for K: a model built to disagree
+  with the reports must be gated on the probe.
+- Write the rule before the run, in the LOG; read the result by that rule.
+
+## After the finals: dead code still wired into live files
+
+Left in place this week because the finals and any KDC fold embed these files, and cutting them means rewriting the
+trainer and the inference dispatch: the Qwen VLM archs (`fusion/qwen_vlm.py`, the `is_qwen` branches and LoRA flags in
+`train_windows.py`, the optional `transformers` requirement), the OrthoFoundation arch (`fusion/orthofoundation_model.py`,
+`build_submit_kernel.py`'s default weights), Stage C (`pipeline/slots118.py`, the `stage_c` layout), and W4's flags
+(`--focus`, `--loc-bias`, `w4_fixture.py`).
 
 ## Rules
 
@@ -96,49 +85,4 @@ score = (5.5 + AUROC) / 12); a +0.002 on the macro is not (one score ±0.008). *
 - **OAI data never enter this repo, GitHub or Kaggle** (`~/oai_data/` only, mode 700; DUC §3).
 - No Claude attribution in this repo's commits. Commit and push after every step.
 - Kernels are generated from committed code: commit first, build into a scratch folder, push.
-
-## The repo
-
-| path | what |
-|---|---|
-| `fusion/train_windows.py` | the trainer: ConvNeXt-small, per-finding attention over 3-slice windows of the Stage B cache; v3 / W4 flags |
-| `fusion/infer_windows.py` | the same model at test time (what our submission stage runs) |
-| `fusion/score_oof.py`, `fusion/score_gold.py` | paired scoring on held-out studies; gold-58 (report only) |
-| `fusion/runs_*/` | held-out predictions of our trained folds (teacher, consensus), the teacher's, and two scoring controls |
-| `pipeline/` | DICOM → the Stage B slice cache (seven series slots, 96 slices, 384 px, left knees mirrored; also run at test time); `kcache.py`: K's knee-centred region crops |
-| `labeling/` | the training target tables; the OAI MOAKS → twelve-finding mapping (unused unless step 3) |
-| `notebooks/build_backbone_ab_kernel.py` | a training kernel (`--recipe v3` / `w4`) |
-| `notebooks/build_submit_kernel.py` | our model as a submission stage (sha-checked weights, a reproduction gate, a deadline) |
-| `notebooks/build_public_blend_kernel.py`, `build_r6r7_kernel.py`, `build_r6r7_bundle.py` | the public notebook as stage 1, ours as stage 2; R6 + R7 in one decode |
-| `notebooks/build_weights_sha_kernel.py`, `submit_at_reset.py`, `offkaggle.py` | weights hashes; a timed submitter; training off Kaggle |
-| `notebooks/*_fixture.py` | offline tests (no GPU) |
-| `provenance/` | pinned inputs and the site folds |
-
-## How to run
-
-`K=.venv/bin/kaggle`, `PY=.venv/bin/python`, `C=rsna-knee-abnormality-detection`. Images live only on Kaggle; `data/`
-holds tables (git-ignored).
-
-```bash
-# the K cache: five CPU shards (smoke first: --smoke 10), then one K fold (folds 1..4: --folds k --tag k-f<k>)
-$PY notebooks/build_kcache_kernel.py --shard <0..4> --out <dir> && $K kernels push -p <dir>
-$PY notebooks/build_backbone_ab_kernel.py --arch convnext_small --corpus stage_k --folds 0 --n-train 0 --recipe k \
-    --time-budget-h 10 --targets data/student/targets_teacher_v3.csv \
-    --targets-from raahimnawaz/rsna-knee-student-targets --tag k --out <dir>
-$K kernels push -p <dir>                       # then read `fit-budget: … -> 16 epoch(s)` in its first minutes
-
-# results (small files only) and the paired fold-0 check
-$K kernels output raahimnawaz/<kernel> -p fusion/runs_<name> --file-pattern '.*\.(json|csv|txt|log)$'
-$PY fusion/score_oof.py fusion/runs_cnxs_teach1_f0/runs_convnext_small/fold0 fusion/runs_<name>/runs_convnext_small/fold0/avg3
-
-# weights sha256; our model as a submission stage; inside the public blend (see --help for the options)
-$PY notebooks/build_weights_sha_kernel.py --kernels raahimnawaz/<training kernel> --out <dir> && $K kernels push -p <dir>
-$PY notebooks/build_submit_kernel.py --ours-only --weights-kernel raahimnawaz/<k1>[,<k2>] --weights-sha <hex>[,<hex>] --tag <t> --desc "<d>" --out <dir>
-$PY -I notebooks/build_r6r7_kernel.py $PWD data/public_notebooks/heliosli-0-9576-16a9d953 <out> --tag <t> --desc "<d>"
-# read in its log before submitting: `sha256 ok` · `GATE PASSED (n/n)` · 0 tracebacks
-$K competitions submit $C -k raahimnawaz/<kernel> -v <n> -f submission.csv -m "<what, against what, and the rule>"
-
-# offline tests
-$PY notebooks/w4_fixture.py; $PY notebooks/mirror_fixture.py --out <dir>
-$PY notebooks/canon_fixture.py --out <dir> && $PY notebooks/infer_parity_fixture.py --fixture <dir>
-```
+- Two sessions may work this repo at once: pull before editing, commit small.

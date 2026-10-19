@@ -242,8 +242,8 @@ def window_centres(mask: np.ndarray, slot_sizes=SLOT_SIZES) -> list[int]:
 
 
 def thin_windows(cs: list[int], slot_sizes, n: int) -> list[int]:
-    """Evenly spaced within each slot, each slot keeping its share of `n` -- `window_curve.thin`'s rule,
-    with the full count taken from the slot sizes instead of Stage A's 54 (identical on Stage A)."""
+    """Evenly spaced within each slot, each slot keeping its share of `n`, the full count
+    taken from the slot sizes."""
     full = sum(max(s - 2, 0) for s in slot_sizes)
     if not cs or n <= 0 or n >= full:
         return cs
