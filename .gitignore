@@ -10,3 +10,6 @@ kaggle.json
 __pycache__/
 *.pyc
 .DS_Store
+
+# Local kernel builds
+build/

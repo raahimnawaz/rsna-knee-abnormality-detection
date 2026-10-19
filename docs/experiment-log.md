@@ -1,11 +1,10 @@
-# LOG — every run and read on this branch, as written at the time
+# Experiment log
 
-**Not the place to start: [`PLAN.md`](../PLAN.md) is** (the current state; `README.md` explains the code). This is the record behind it: each rule as it was written before its
-result, each kernel with the commit it was built from, each weights sha256, each gate line read before a submission,
-each leaderboard ref. Entries are grouped by read, not strictly by time; a later ✅ / ⛔ line supersedes an earlier ⏳
-one in the same block. Times are PDT. Append new blocks at the end, dated.
-
-Before 10-11: `git show 9c23daf:RUNBOOK.md` and `9c23daf:docs/LOG.md`.
+Every run in this project in order: the rule written before it ran, the kernel and commit it was built from, the
+weights' sha256, the gate lines read before a submission, and the result read against the rule. Entries are grouped by
+read; a later ✅ / ⛔ line supersedes an earlier ⏳ one in the same block. Times are PDT. Paths, file names and commit
+hashes are as they were at the time (the builders have since moved from `notebooks/` to `kaggle/` and `tests/`).
+Entries before 10-11 are in git history.
 
 ---
 
