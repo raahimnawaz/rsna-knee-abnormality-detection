@@ -273,6 +273,17 @@ class Windows(torch.utils.data.Dataset):
         return w, slot, pos, torch.from_numpy(y)
 
 
+def with_gold(tr: list[str], ytr: np.ndarray, g_ids: list[str], yg: np.ndarray, repeats: int):
+    """The training list with each graded study appended `repeats` times; the sampler shuffles them in."""
+    return tr + [u for u in g_ids for _ in range(repeats)], np.concatenate([ytr, np.repeat(yg, repeats, axis=0)])
+
+
+def soup(init: dict, trained: dict, w: float) -> dict:
+    """w * init + (1 - w) * trained, tensor by tensor; integer buffers keep the trained values."""
+    return {k: (w * init[k].to(v.device, torch.float64) + (1 - w) * v.double()).to(v.dtype)
+            if v.is_floating_point() else v for k, v in trained.items()}
+
+
 def seed_worker(_wid: int) -> None:
     info = torch.utils.data.get_worker_info()
     info.dataset.rng = random.Random(hash((info.dataset.seed, info.id)))
@@ -507,6 +518,12 @@ def main() -> None:
     ap.add_argument("--train", type=Path, help="csv with StudyInstanceUID")
     ap.add_argument("--val", type=Path, help="csv with StudyInstanceUID -- scored, never selected on")
     ap.add_argument("--gold", type=Path, help="train.csv; its fully-labelled rows are scored, never used")
+    ap.add_argument("--gold-train", type=Path, help="train.csv, for an all-data fine-tune from --init: its graded rows "
+                    "join training at their grades, each drawn --gold-repeats times an epoch; --val may then lie inside "
+                    "training (its oof_all.csv is in-sample, for the submission gate only)")
+    ap.add_argument("--gold-repeats", type=int, default=38)
+    ap.add_argument("--soup-init", type=float, default=0.0, help="after training, weights = w x --init's + (1 - w) x "
+                    "the trained ones, before scoring and saving")
     ap.add_argument("--labels", type=Path, help="targets.csv (StudyInstanceUID + 12 columns)")
     ap.add_argument("--out", type=Path, required=True)
     ap.add_argument("--weights-dir", type=Path, default=Path("/tmp"))
@@ -591,6 +608,12 @@ def main() -> None:
         + (f" {torch.cuda.get_device_name(local)}" if amp else "") + f" | amp fp16 {amp} | world {world}")
 
     gold_ids: list[str] = []
+    if (a.gold_train or a.soup_init) and not a.init:
+        raise SystemExit("--gold-train and --soup-init fine-tune --init's weights: pass --init")
+    if a.gold_train and a.gold:
+        raise SystemExit("--gold scores the graded studies, --gold-train trains on them: not both")
+    if not 0.0 <= a.soup_init < 1.0 or a.gold_repeats < 1:
+        raise SystemExit("--soup-init in [0, 1), --gold-repeats at least 1")
     if a.synthetic:
         uids = [f"syn{i:04d}" for i in range(a.synthetic)]
         corpus = SyntheticCorpus(uids)
@@ -613,7 +636,7 @@ def main() -> None:
             g = pd.read_csv(a.gold).dropna(subset=LABELS)
             gold_ids = [u for u in g.StudyInstanceUID.astype(str) if u in corpus.row]
             gtab = g.set_index("StudyInstanceUID")
-        if set(tr) & set(gold_ids) or (a.epochs > 0 and set(tr) & set(va)):
+        if set(tr) & set(gold_ids) or (a.epochs > 0 and set(tr) & set(va) and not a.gold_train):
             raise SystemExit("train overlaps val or gold -- refusing")
     miss_tr = [u for u in tr if u not in corpus.row]
     miss_va = [u for u in va if u not in corpus.row]
@@ -661,6 +684,8 @@ def main() -> None:
         if unexpected or set(missing) - zero_init:
             raise SystemExit(f"--init {src}: missing {sorted(set(missing) - zero_init)[:8]}, unexpected {unexpected[:8]}")
         a.init_sha256 = hashlib.sha256(src.read_bytes()).hexdigest()
+        init_sd = ({k: v.detach().to("cpu", copy=True) for k, v in model.state_dict().items()}
+                   if a.soup_init else None)
         log(f"init from {src} (sha256 {a.init_sha256[:16]}): {len(sd)} tensors, strict but for "
             f"{len(zero_init)} zero-initialised slot/depth weights")
     if a.aug_affine:
@@ -719,6 +744,22 @@ def main() -> None:
     if a.llrd < 1.0:
         log(f"layer-wise LR: {len(groups) - 1} encoder groups, {groups[0]['lr']:.2e} (embeddings) .. "
             f"{groups[-2]['lr']:.2e} (top) | head {groups[-1]['lr']:.2e}")
+    n_gold_train = 0
+    if a.gold_train:
+        g = pd.read_csv(a.gold_train).dropna(subset=LABELS).drop_duplicates("StudyInstanceUID")
+        g = g.set_index(g.StudyInstanceUID.astype(str))
+        g_ids = [u for u in g.index if u in corpus.row]
+        if set(g_ids) & set(tr):
+            raise SystemExit("--gold-train: graded studies are already in the training list")
+        reps = a.gold_repeats
+        if a.limit_train:
+            g_ids, reps = g_ids[: max(1, a.limit_train // 4)], 2
+        n_tr = len(tr)
+        tr, ytr = with_gold(tr, ytr, g_ids, g.loc[g_ids, LABELS].to_numpy(np.float32), reps)
+        n_gold_train = len(g_ids)
+        log(f"gold-train: {len(g_ids)} graded studies at their grades ({len(g) - len(g_ids)} not in the corpus), "
+            f"{reps} draws each -> {len(tr)} draws an epoch ({(len(tr) - n_tr) / len(tr):.1%} graded); the loss's "
+            f"pos_weight stays the report studies'")
     tr_ds = Windows(corpus, tr, ytr, k=a.k, seed=a.seed + 1000 * rank, mirror=a.mirror)
     sampler = (torch.utils.data.distributed.DistributedSampler(tr_ds, num_replicas=world, rank=rank,
                                                                 shuffle=True, seed=a.seed, drop_last=True)
@@ -862,6 +903,9 @@ def main() -> None:
         log(f"DDP weight checksum per rank: {vals}")
         if max(vals) - min(vals) > 1e-6 * max(1.0, abs(vals[0])):
             raise SystemExit(f"ranks ended with different weights: {vals}")
+    if a.soup_init:
+        model.load_state_dict(soup(init_sd, model.state_dict(), a.soup_init), strict=True)
+        log(f"soup: {a.soup_init} x the --init weights + {1 - a.soup_init} x the trained ones")
     peak = torch.cuda.max_memory_allocated(dev) / 1e9 if amp else None
     per_fwd = float(np.median(step_times)) if step_times else None
     bench = {"arch": a.arch, "device": torch.cuda.get_device_name(local) if amp else str(dev), "world": world,
@@ -932,6 +976,8 @@ def main() -> None:
                    "only_weak4": a.only_weak4,
                    "mirror": a.mirror, "mirror_tta": bool(a.mirror_tta), "init": str(a.init) if a.init else None, "slots": a.slots or None,
                    "allow_missing_labels": a.allow_missing_labels,
+                   "gold_train": n_gold_train, "gold_repeats": a.gold_repeats if a.gold_train else None,
+                   "soup_init": a.soup_init or None,
                    "init_sha256": getattr(a, "init_sha256", None),
                    "labels_sha256": __import__("hashlib").sha256(Path(a.labels).read_bytes()).hexdigest()
                    if a.labels else None,

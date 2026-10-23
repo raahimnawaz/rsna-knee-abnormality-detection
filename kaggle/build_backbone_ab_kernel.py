@@ -43,6 +43,8 @@ V3_TRAIN_ARGS = ["--allow-missing-labels", "--spatial-attn", "--mirror", "0.5", 
 V3_EPOCHS = 16
 K_TRAIN_ARGS = ["--allow-missing-labels", "--only-weak4", "--spatial-attn", "--k", "24", "--micro", "1"]
 N_TRAIN, DRAW_SEED = 2871, 20260923
+GOLD_FT_ARGS = ["--bb-lr", "1e-5", "--head-lr", "1e-4", "--gold-repeats", "38", "--soup-init", "0.25"]
+FINALS_IMAGE = "gcr.io/kaggle-private-byod/python@sha256:2757e0c7d1e0a9cb43da657b97e223c321a98f5014bdf64f44f2f6b083ad2b2f"
 
 
 SETUP = r'''
@@ -187,6 +189,20 @@ HAS_TARGETS = set(_ok.index[_ok])
 _pool = sorted(u for u in FOLDS.loc[(FOLDS.fold != 0) & (~FOLDS.is_gold), "StudyInstanceUID"]
                if u in CORPUS_IDS and u in HAS_TARGETS)
 TEACHER_FOLD = __TEACHER_FOLD__
+GOLD_FT = __GOLD_FT__
+INIT, INIT_OOF = {}, {}
+if GOLD_FT:
+    for _r, _dd, _fs in os.walk("/kaggle/input"):
+        _dd[:] = [x for x in _dd if x not in ("train_series", "test_series", "train_images", "test_images")]
+        if "last.pt" in _fs:
+            _h = _sha(Path(_r) / "last.pt")
+            for _k, _want in GOLD_FT.items():
+                if _h == _want:
+                    INIT[_k], INIT_OOF[_k] = Path(_r) / "last.pt", Path(_r) / "oof_all.csv"
+    if set(INIT) != set(GOLD_FT) or not all(p.exists() for p in INIT_OOF.values()):
+        sys.exit(f"gold fine-tune: no last.pt + oof_all.csv for folds {sorted(set(GOLD_FT) - set(INIT))} -- teacher kernels attached?")
+    for _k in sorted(INIT):
+        log(f"gold fine-tune fold {_k}: init {INIT[_k]} (sha256 {GOLD_FT[_k][:16]}), its OOF {INIT_OOF[_k]}")
 PREDICT_ALL = __PREDICT_ALL__
 ALL_DATA = __ALL_DATA__
 if ALL_DATA:
@@ -217,10 +233,12 @@ FOLD_RUNS = {}
 for _k in FOLD_LIST:
     _fk = set(FOLDS.loc[FOLDS.fold == _k, "StudyInstanceUID"])
     _nong = [u for u in FOLDS.loc[~FOLDS.is_gold, "StudyInstanceUID"] if u in CORPUS_IDS]
-    _tr = sorted(u for u in _nong if u not in _fk and u in HAS_TARGETS)
+    _tr = sorted(u for u in _nong if (GOLD_FT or u not in _fk) and u in HAS_TARGETS)
     _va = sorted(u for u in _nong if u in _fk)
-    if set(_tr) & set(_va) or not _tr or not _va:
+    if (set(_tr) & set(_va) and not GOLD_FT) or not _tr or not _va:
         sys.exit(f"fold {_k}: train/val overlap or an empty list")
+    if GOLD_FT:
+        log(f"fold {_k}: every report study trains ({len(_tr)}); its own fifth is the gate's in-sample list")
     _d = RUN / f"fold{_k}"
     _d.mkdir(parents=True, exist_ok=True)
     pd.Series(_tr, name="StudyInstanceUID").to_csv(_d / "train_studies.csv", index=False)
@@ -232,7 +250,7 @@ for _k in FOLD_LIST:
     "inputs": {k: {"path": str(v[0]), "sha256": _sha(v[0])} for k, v in FOUND.items()},
     "folds_site_sha256": _sha(D / "folds_site.csv"), "targets_sha256": _sha(LABELS_CSV), "fold_targets_sha256": _sha(D / "targets.csv"),
     "n_train": len(TRAIN), "n_val": len(VAL), "draw_seed": __DRAW_SEED__, "teacher_fold": TEACHER_FOLD,
-    "predict_all": PREDICT_ALL, "all_data": ALL_DATA, "folds": FOLD_LIST, "masked_targets": MASKED}, indent=2))
+    "predict_all": PREDICT_ALL, "all_data": ALL_DATA, "gold_finetune": GOLD_FT, "folds": FOLD_LIST, "masked_targets": MASKED}, indent=2))
 '''
 
 
@@ -249,17 +267,19 @@ if NPROC > 1:
 if not torch.cuda.is_available():
     os.environ["TW_FORCE_CKPT"] = "1"
 log(f"launch: {NPROC} process(es), {os.environ.get('TW_WORKERS', '4')} loader workers each")
-def _train(run_dir):
+def _train(run_dir, k=None):
     _cmd = _launch + [str(REPO / "fusion" / "train_windows.py"), "--arch", ARCH,
             "--corpus", "/kaggle/input", "--layout", LAYOUT, "--train", str(run_dir / "train_studies.csv"),
             "--val", str(run_dir / "val_studies.csv"), "--labels", str(LABELS_CSV),
             "--out", str(run_dir), "--weights-dir", str(SCRATCH), "--epochs", str(EPOCHS)]
     _cmd += EXTRA
+    if GOLD_FT:
+        _cmd += ["--init", str(INIT[k]), "--gold-train", str(D / "train.csv")]
     if MODE == "smoke":
         _cmd += ["--limit-train", "16", "--limit-val", "2" if NPROC > 1 else "6", "--k", "2" if NPROC > 1 else "4",
                  "--bs", str(2 * NPROC), "--micro", "1",
                  "--eval-bs", "1"]
-    else:
+    elif not GOLD_FT:
         _cmd += ["--gold", str(D / "train.csv")]
     if MODE == "full":
         _cmd += ["--save-weights"]
@@ -272,14 +292,31 @@ def _train(run_dir):
 if FOLD_RUNS:
     for _k, _d in FOLD_RUNS.items():
         log(f"===== fold {_k} of {sorted(FOLD_RUNS)} =====")
-        _train(_d)
+        _train(_d, _k)
 else:
     _train(RUN)
 '''
 
 
 SCORE = r'''
-if MODE == "smoke":
+if GOLD_FT:
+    from scipy.stats import spearmanr as _rho
+    for _k, _d in FOLD_RUNS.items():
+        _s = pd.read_csv(_d / "oof_all.csv").drop_duplicates("StudyInstanceUID").set_index("StudyInstanceUID")
+        _t = pd.read_csv(INIT_OOF[_k]).drop_duplicates("StudyInstanceUID").set_index("StudyInstanceUID")
+        _u = _s.index.intersection(_t.index)
+        _r = {c: float(_rho(_s.loc[_u, c], _t.loc[_u, c])[0]) for c in L}
+        _m = float(np.nanmean(list(_r.values())))
+        _sm = json.loads((_d / "summary.json").read_text())
+        _ok = (_m >= 0.85 and _sm["epochs_done"] == 1 and all(np.isfinite(h["loss"]) for h in _sm["hist"])
+               and (_d / "last.pt").exists())
+        log(f"NOT_BROKEN fold {_k}: {'PASS' if _ok else 'FAIL'} | mean Spearman(soup, the fold's own OOF) {_m:.3f} over "
+            f"{len(_u)} studies (min {min(_r.values()):.3f} {min(_r, key=_r.get)}) | epochs {_sm['epochs_done']} | "
+            f"gold_train {_sm['gold_train']} x {_sm['gold_repeats']} | soup {_sm['soup_init']}")
+        if (_d / "last.pt").exists():
+            log(f"SOUP_SHA fold {_k} {_sha(_d / 'last.pt')}")
+    log("gold fine-tune: oof_all.csv is in-sample (the fold's fifth trained once); no held-out score exists")
+elif MODE == "smoke":
     log("SMOKE: the whole path ran. No score -- 6 studies cannot carry one.")
 elif FOLD_RUNS:
     for _sub in ("", "avg3"):
@@ -356,6 +393,10 @@ def main() -> None:
     ap.add_argument("--tag", default="", help="suffix for the kernel slug, so a variant does not overwrite a run")
     ap.add_argument("--all-data", action="store_true", help="train on every non-gold study (4,349), nothing held "
                     "out; val = gold. For a model whose --init already saw them; the LB is its judge")
+    ap.add_argument("--gold-finetune", default="", help="FOLD=SHA,...: each fold one epoch from its own last.pt (found "
+                    "by sha256 under --init-kernels) on every report study + the graded 58 at their grades; "
+                    f"{' '.join(GOLD_FT_ARGS)}; pinned to the finals' image")
+    ap.add_argument("--init-kernels", default="", help="kernels holding the --gold-finetune checkpoints, comma-joined")
     ap.add_argument("--n-train", type=int, default=N_TRAIN,
                     help=f"seeded draw from the pool ({N_TRAIN} = the A/B count); 0 = the whole pool")
     a = ap.parse_args()
@@ -369,8 +410,17 @@ def main() -> None:
             raise SystemExit("--recipe v3 is convnext_small on --corpus stage_b with --targets")
         a.train_args = " ".join(V3_TRAIN_ARGS + a.train_args.split())
         a.epochs = V3_EPOCHS
+    gold_ft = {int(k): v for k, v in (x.split("=") for x in a.gold_finetune.split(",") if x)}
+    if gold_ft:
+        if (a.corpus != "stage_b" or a.n_train or not a.targets or a.recipe or a.all_data or a.predict_all
+                or a.teacher_fold or sorted(gold_ft) != [int(x) for x in a.folds.split(",") if x]
+                or not a.init_kernels or not all(len(v) == 64 for v in gold_ft.values())):
+            raise SystemExit("--gold-finetune FOLD=SHA,...: --corpus stage_b, --n-train 0, --targets, --folds = its "
+                             "folds, --init-kernels; not with --recipe / --all-data / --predict-all / --teacher-fold")
+        a.train_args = " ".join(["--allow-missing-labels"] + GOLD_FT_ARGS + a.train_args.split())
+        a.epochs = 1
     mode = "smoke" if a.smoke else "bench" if a.bench else "full"
-    epochs = a.epochs if mode == "full" else 2 if mode == "smoke" and a.arch in SMALL else 1
+    epochs = a.epochs if mode == "full" or gold_ft else 2 if mode == "smoke" and a.arch in SMALL else 1
     if a.corpus in ("stage_b", "stage_k"):
         if not a.predict_all and a.arch not in (*SMALL, "coatnet"):
             raise SystemExit(f"--corpus {a.corpus}: convnext_* or coatnet")
@@ -434,7 +484,7 @@ def main() -> None:
         print(f"targets {a.targets} ({len(t)} studies, sha256 {t_sha[:16]}) replace steven_v2")
     prep = (PREP.replace("__DRAW_SEED__", str(DRAW_SEED)).replace("__N_TRAIN__", str(a.n_train))
                 .replace("__TEACHER_FOLD__", str(a.teacher_fold)).replace("__PREDICT_ALL__", str(a.predict_all))
-                .replace("__ALL_DATA__", str(a.all_data))
+                .replace("__ALL_DATA__", str(a.all_data)).replace("__GOLD_FT__", repr(gold_ft))
                 .replace("__TARGETS_B64__", repr(t_b64)).replace("__TARGETS_SHA__", repr(t_sha))
                 .replace("__TARGETS_NAME__", repr(t_name)))
     cells = [setup, prep, TRAIN, SCORE]
@@ -449,7 +499,7 @@ def main() -> None:
     datasets = ((DATASETS if a.corpus == "raptor44" else DATASETS[2:]) + ([a.targets_from] if a.targets_from else [])
                 + a.extra_datasets)
     kernels = KERNELS + {"raptor44": [], "stage_a": STAGE_A_SHARDS, "stage_b": STAGE_B_SHARDS,
-                         "stage_k": K_SHARDS}[a.corpus]
+                         "stage_k": K_SHARDS}[a.corpus] + [k for k in a.init_kernels.split(",") if k]
     nb = {"cells": [{"cell_type": "code", "execution_count": None, "metadata": {}, "outputs": [],
                      "source": c.strip("\n").splitlines(keepends=True)} for c in cells],
           "metadata": {"kernelspec": {"display_name": "Python 3", "language": "python", "name": "python3"},
@@ -469,6 +519,8 @@ def main() -> None:
             "competition_sources": ["rsna-knee-abnormality-detection"], "model_sources": []}
     if mode != "smoke" and not a.cpu:
         meta["machine_shape"] = "NvidiaTeslaT4"
+    if gold_ft:
+        meta["docker_image"] = FINALS_IMAGE
     (a.out / "kernel-metadata.json").write_text(json.dumps(meta, indent=2), encoding="utf-8")
     print(f"built {a.out / (slug + '.ipynb')}  arch={a.arch} corpus={a.corpus} "
           f"n_train={'ALL (4,349, nothing held out)' if a.all_data else a.n_train or 'pool'} "
