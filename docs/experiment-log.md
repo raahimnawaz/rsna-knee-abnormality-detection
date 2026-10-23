@@ -2241,3 +2241,26 @@ there for the owner to discard. Nothing sent.
   w (Synovitis −0.25), 0 unread, the v2 table hashes.
 - **⏳ SUBMITTED 10:05 PDT 10-23 (late; owner's go "submit each if every check passes"): L1 `57567657`, L2
   `57567663`, pending.** Read by the rules above. Late submissions allow 100 a day.
+
+## 10-23 ~10:40: L3, our five teacher folds fine-tuned with the 58 graded studies in — the rule, written before any code or run (owner's go: "after the 17:00 PDT GPU reset … fine-tune our five teacher folds one epoch with the 58 gold studies at their grades … a third late arm on top of L1, commit-run it, and submit if every check passes")
+
+- **The fine-tune, fixed now (nothing below is chosen on any score):** each teacher_v1 fold (`last.pt` `1c58b2bc…`,
+  `683857fa…`, `479cf64b…`, `4921d096…`, `c910af26…`) one epoch from its own weights, on **every training study**:
+  all 4,349 report-labelled studies once each at `targets_teacher_v1` (`2980e8d6…`, the fold's held-out fifth
+  included), plus the 58 graded studies at their grades, each drawn **38 times** in the epoch (`--gold-train
+  --gold-repeats 38`; = the 220th's dose, p 0.5 over a 4,407-study epoch; here gold is ~34 % of the draws because no
+  report study is dropped). The teacher's flags unchanged (`--res 384 --drop-path 0.1 --pos-emb --conf-weight none
+  --allow-missing-labels`, k 12, bs 8), LR lowered tenfold for a fine-tune (`--bb-lr 1e-5 --head-lr 1e-4`, OneCycle
+  over the one epoch). Then a weight soup **0.25 × the fold's own weights + 0.75 × the fine-tuned** (`--soup-init
+  0.25`; the 220th's shares). Code: HEAD's trainer (+ the sampler); the finals' image.
+- **Not-broken check per fold, before L3 is built** (in-sample now, so it can only catch breakage): one epoch done,
+  finite loss; on the fold's original held-out fifth, mean over the 12 findings of Spearman(soup, the fold's own
+  out-of-fold predictions) **≥ 0.85**. A fold that fails keeps its original weights in L3; no re-run.
+- **L3 `rsna-knee-sub-main958-kdc-debias-gold`:** L1 with our member = the five soups in place of the five teacher
+  folds (same 0.25 / 0.10, KDC on Lateral OA 0.30, the de-bias cell, header table v2), built at `c28e4a2` (the scored
+  code) + `add_debias_cell.py`. Mount test, then the commit run must show what L1's did (`5 checkpoint(s), sha256 ok`
+  on the soups, `GATE PASSED (5/5)` — the gate checks the scored code reproduces the soups' predictions from HEAD's
+  trainer — … `H_STAGE ok=True`, 0 tracebacks).
+- **Read, against L1 (one change):** **≥ +0.001 → gold in training helps; equal → nothing shown; ≤ −0.001 → it
+  costs.** Estimate before the run: ≤ +0.001 (10-13: ~+0.0005), so a null is the likely read. Gold-58 is no longer a
+  check for these five models.
