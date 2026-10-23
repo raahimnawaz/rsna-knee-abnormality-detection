@@ -2230,3 +2230,14 @@ there for the owner to discard. Nothing sent.
   `train_windows.py`, ~2 GPU-h (estimate: one ~20-min epoch a fold + start-up) after the 17:00 PDT quota reset, then
   one commit run. Expected effect estimate ≤ +0.001 (10-13 arithmetic ~+0.0005; the 220th's 0.944 came with other
   changes, not isolated). It also ends gold-58 as our one radiologist-referenced check.
+- **Commit runs, read 10:05 PDT (both v1, pushed 09:45; L1 = the scored KDC final as pulled + the de-bias cell, L2
+  built at `c28e4a2` + the cell; header table v2):** every line the rule names, in both. `SUPPLY_CHAIN_OK …
+  wheels_pinned true`; `ASSETS_READY` on our copies; `RAPTOR_STAGE_DONE`, `RAPTOR224_STAGE_DONE`; R6 + R7
+  `OURS_STAGE_COMPLETE {"status": "PASS" … "fallback_studies": 0}`; `NOTEBOOK_COMPLETE`; ours `5 checkpoint(s)` /
+  `10 checkpoint(s), sha256 ok`, `GATE PASSED (5/5)` / `(10/10)`, `OURS_STAGE ok=True` (162 s / 312 s),
+  `[public+ours] ARMS` at 0.25 / 0.10 and 0.50 / 0.25; KDC `3 checkpoint(s)`, `GATE PASSED (3/3)`, `K_STAGE ok=True`,
+  `[+KDC] ARMS … Lateral OA 0.30 only`; `HEADER_PARITY 30 of 30`, `[+DEBIAS] ARMS`, `H_STAGE ok=True` (14 s); 0
+  tracebacks. Outputs: 3 rows, the sample's columns, in [0, 1], the study order kept; the de-bias receipt carries
+  w (Synovitis −0.25), 0 unread, the v2 table hashes.
+- **⏳ SUBMITTED 10:05 PDT 10-23 (late; owner's go "submit each if every check passes"): L1 `57567657`, L2
+  `57567663`, pending.** Read by the rules above. Late submissions allow 100 a day.
