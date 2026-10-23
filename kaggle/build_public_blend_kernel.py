@@ -319,6 +319,29 @@ WAIT_DEADLINE = ("        try:\n"
                  "            raise RuntimeError(f\"{what} ran past the stage deadline -- killed\")\n")
 
 
+def debias_w() -> str:
+    sys.path.insert(0, str(B.PROJ / "pipeline"))
+    import header_prior as HP
+    return ", ".join(f"{c} {w:+.2f}" for c, w in HP.DEBIAS_W.items())
+
+
+def debias_cell(kernel: str, shas: dict, margin_min: int, built_from: str) -> tuple[str, str]:
+    """The de-bias cell, rendered, and the paragraph the intro gets for it."""
+    sys.path.insert(0, str(B.PROJ / "pipeline"))
+    import header_prior as HP
+    h_src = (B.PROJ / "pipeline" / "header_prior.py").read_bytes()
+    cell = (DEBIAS.replace("__MARGIN_MIN__", str(margin_min)).replace("__H_W__", repr(HP.DEBIAS_W))
+            .replace("__H_SHAS__", repr(shas)).replace("__H_KERNEL__", kernel)
+            .replace("__H_SRC__", repr(base64.b64encode(h_src).decode()))
+            .replace("__H_SRC_SHA__", hashlib.sha256(h_src).hexdigest()).replace("__BUILT_FROM__", built_from))
+    compile(cell, "debias", "exec")
+    intro = ("\n\nLast cell: a header-only model of the report labels (scanner, software, coil, protocol, series names; "
+             "`pipeline/header_prior.py`, fitted here on the table from `" + kernel + "`) is subtracted per finding, "
+             "(1 - w) rank(submission) + w rank(prior) at w " + debias_w()
+             + " (fixed before any run). If it fails or would run late, the submission above stands.\n")
+    return cell, intro
+
+
 def with_deadline(ours: str) -> str:
     """build_submit_kernel's OURS cell waits on its subprocesses for ever; here they are killed past _O_DEADLINE."""
     if ours.count(WAIT) != 1:
@@ -524,17 +547,7 @@ def main() -> None:
             compile(c, f"kdc{k}", "exec")
         cells_k = [stage_k, blend_k]
 
-    cells_h = []
-    if h_shas:
-        sys.path.insert(0, str(B.PROJ / "pipeline"))
-        import header_prior as HP
-        h_src = (B.PROJ / "pipeline" / "header_prior.py").read_bytes()
-        debias = (DEBIAS.replace("__MARGIN_MIN__", str(a.margin_min)).replace("__H_W__", repr(HP.DEBIAS_W))
-                  .replace("__H_SHAS__", repr(h_shas)).replace("__H_KERNEL__", a.debias_kernel)
-                  .replace("__H_SRC__", repr(base64.b64encode(h_src).decode()))
-                  .replace("__H_SRC_SHA__", hashlib.sha256(h_src).hexdigest()).replace("__BUILT_FROM__", built_from))
-        compile(debias, "debias", "exec")
-        cells_h = [debias]
+    cells_h = [debias_cell(a.debias_kernel, h_shas, a.margin_min, built_from)[0]] if h_shas else []
 
     def code(s):
         return {"cell_type": "code", "execution_count": None, "metadata": {}, "outputs": [],
@@ -553,11 +566,7 @@ def main() -> None:
                   + ", ".join(f"{c} at {w:.2f}" for c, w in k_mix.items())
                   + " only (shares fixed before any run). If it fails or would run late, the submission above stands.\n")
     if h_shas:
-        intro += ("\n\nLast cell: a header-only model of the report labels (scanner, software, coil, protocol, series "
-                  "names; `pipeline/header_prior.py`, fitted here on the table from `" + a.debias_kernel + "`) is "
-                  "subtracted per finding, (1 - w) rank(submission) + w rank(prior) at w "
-                  + ", ".join(f"{c} {w:+.2f}" for c, w in HP.DEBIAS_W.items())
-                  + " (fixed before any run). If it fails or would run late, the submission above stands.\n")
+        intro += debias_cell(a.debias_kernel, h_shas, a.margin_min, built_from)[1]
     body = [dict(c, outputs=[], execution_count=None) if c["cell_type"] == "code" else c for c in cells]
     new = ([{"cell_type": "markdown", "metadata": {}, "source": intro.splitlines(keepends=True)}]
            + body + [code(stage), code(blend)] + [code(c) for c in cells_k] + [code(c) for c in cells_h])
@@ -581,7 +590,7 @@ def main() -> None:
         print(f"  + KDC: {len(k_shas)} member(s) from {', '.join(k_kernels)} | k_mix "
               + ", ".join(f"{c} {w:.2f}" for c, w in k_mix.items()) + " | two more cells")
     if h_shas:
-        print(f"  + de-bias: table from {a.debias_kernel} | w " + ", ".join(f"{c} {w:+.2f}" for c, w in HP.DEBIAS_W.items()))
+        print(f"  + de-bias: table from {a.debias_kernel} | w {debias_w()}")
     for n in notes:
         print(f"  {n}")
     print(f"  from {built_from}")

@@ -1,4 +1,4 @@
-"""A free CPU mount test of a built final: the final's own mounts, its own asset cell, Raptor's lookups, our weights.
+"""A free CPU mount test of a built final: its mounts, asset cell, Raptor's lookups, our weights, and its de-bias cell.
 
     python kaggle/build_finals_mounttest.py --final <built final dir> --out <dir>   # then kaggle kernels push -p <dir>
 """
@@ -38,7 +38,7 @@ for _root, _dirs, _files in os.walk("/kaggle/input"):
 _missing = [h[:16] for h in P["shas"] if h not in _found]
 assert not _missing, ("our members not found", _missing)
 print("OURS_OK", len(_found), "of", len(P["shas"]), flush=True)
-__KDC__print("MOUNTTEST_DONE %.1f s" % (time.time() - NB_T0), flush=True)
+__KDC____DEBIAS__print("MOUNTTEST_DONE %.1f s" % (time.time() - NB_T0), flush=True)
 '''
 
 KDC = r'''
@@ -58,6 +58,23 @@ _kmissing = [h[:16] for h in P["k_shas"] if h not in _kfound]
 assert not _kmissing, ("KDC's members not found", _kmissing)
 assert _seg_w and _seg_v, ("KDC's segmenter not mounted", _seg_w, _seg_v)
 print("KDC_OK", len(_kfound), "of", len(P["k_shas"]), "| segmenter", _seg_w, "|", _seg_v, flush=True)
+'''
+
+DEBIAS = r'''
+import numpy as _mnp, pandas as _mpd
+for _root, _dirs, _files in os.walk("/kaggle/input"):
+    _dirs[:] = [d for d in _dirs if d not in ("train_series", "test_series", "train_images", "test_images")]
+    if {"test.csv", "test_series.csv", "train_series.csv", "sample_submission.csv"} <= set(_files):
+        DATA = Path(_root)
+        break
+_cols = list(_mpd.read_csv(DATA / "sample_submission.csv", nrows=1).columns)
+_ids = _mpd.read_csv(DATA / "test.csv", dtype=str).StudyInstanceUID
+_mpd.DataFrame({"StudyInstanceUID": _ids} | {c: _mnp.linspace(0.1, 0.9, len(_ids)) for c in _cols[1:]}).to_csv(
+    "/kaggle/working/submission.csv", index=False)
+_P_COMMIT, _P_READ = True, False
+exec(compile(P["debias"], "final_debias_cell", "exec"), globals())
+assert H_OK, "the de-bias cell did not finish"
+print("DEBIAS_OK", flush=True)
 '''
 
 
@@ -86,6 +103,9 @@ def main() -> None:
     if len(groups) > 2 or (len(groups) == 2 and not groups[1]):
         raise SystemExit(f"{len(groups)} groups of members in the final: expected ours, and KDC's at most")
     shas, k_shas = groups[0], (groups[1] if len(groups) == 2 else [])
+    debias = [s for s in code if "H_STAGE ok=" in s]
+    if len(debias) > 1:
+        raise SystemExit(f"{len(debias)} de-bias cells in the final: expected 1 at most")
     final_slug = meta["id"].split("/")[1]
     slug = "rsna-knee-mounttest-" + final_slug.removeprefix("rsna-knee-sub-")
     if len(slug) > 50:
@@ -93,9 +113,12 @@ def main() -> None:
     body = {"final": final_slug, "asset": asset[0], "raptor": raptor, "shas": shas}
     if k_shas:
         body["k_shas"] = k_shas
+    if debias:
+        body["debias"] = debias[0]
     payload = base64.b64encode(json.dumps(body).encode()).decode()
     a.out.mkdir(parents=True, exist_ok=True)
-    (a.out / f"{slug}.py").write_text(TEMPLATE.replace("__PAYLOAD__", payload).replace("__KDC__", KDC.lstrip("\n") if k_shas else ""))
+    (a.out / f"{slug}.py").write_text(TEMPLATE.replace("__PAYLOAD__", payload).replace("__KDC__", KDC.lstrip("\n") if k_shas else "")
+                                           .replace("__DEBIAS__", DEBIAS.lstrip("\n") if debias else ""))
     m = {"id": f"{meta['id'].split('/')[0]}/{slug}", "title": slug, "code_file": f"{slug}.py", "language": "python",
          "kernel_type": "script", "is_private": True, "enable_gpu": False, "enable_tpu": False, "enable_internet": False,
          "keywords": [], "dataset_sources": meta["dataset_sources"], "kernel_sources": meta["kernel_sources"],
@@ -104,7 +127,7 @@ def main() -> None:
         m["docker_image"] = meta["docker_image"]
     (a.out / "kernel-metadata.json").write_text(json.dumps(m, indent=2))
     print(f"built {a.out / (slug + '.py')} | asset cell {len(asset[0]):,} chars | Raptor lookups {len(raptor)} | "
-          f"our members {len(shas)}" + (f" + KDC's {len(k_shas)}" if k_shas else "") + f" | image {meta.get('docker_image', 'default')[:60]}")
+          f"our members {len(shas)}" + (f" + KDC's {len(k_shas)}" if k_shas else "") + (" + de-bias cell" if debias else "") + f" | image {meta.get('docker_image', 'default')[:60]}")
 
 
 if __name__ == "__main__":
