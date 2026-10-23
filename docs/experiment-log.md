@@ -2206,3 +2206,27 @@ there for the owner to discard. Nothing sent.
   heavier share of our folds helps; equal → no effect shown; ≤ −0.001 → it costs.** Risk named now: in the scored
   rerun L2's ten members may run past our stage's deadline, which then keeps the public blend (+ KDC + de-bias)
   without our folds; the score cannot tell that apart.
+
+## 10-23 ~11:00: owner — "make sure nothing is held out for training, the golds used as effectively as they can be"
+
+- **Audit of the late arms, component by component:**
+  - Public members (Raptor 384 / 224 all-data; R6 / R7 four folds each): their authors' training; none trains on gold
+    (R7's manifest `"gold_in_training": 0`). Not ours to change without retraining them.
+  - Our teacher_v1 x5 and consensus_v2 x5: five folds over the 4,349 report-labelled studies; each fold model holds
+    out a fifth, every study trains four of the five. KDC folds 0–2: every study trains two of the three.
+  - **The 58 graded studies are in no image model's training** (10-13 decision above: 1.3 % of the data, ~+0.0005
+    by the fold → all-data step on record; the guards in `train_windows.py` / `build_consensus_targets.py` refuse them).
+  - **The header prior left the 58 out (fixed, `6a8c858`):** they now join its fit as their REPORTS read them —
+    the mean of the four public readers that cover them (stevenleehans v2, yunus, JEV, pilkwang where not UNK),
+    Synovitis only where the mention sources vote it addressed (22 of 58), as `targets_consensus_v2` masks it. Their
+    grades are never used: a grade in a model of report style would move the subtraction toward the radiologists'
+    reading, the opposite of its purpose. Report vs grade on the 58 agree 0.74–0.90 (look only), as reports do.
+- **Header table v2** (same kernel, v2): `train_series_headers.csv` byte-identical (`61b49362…`), `report_labels.csv`
+  4,407 rows `4c0ca8f0…`; CV AUROC within 0.02 of v1 (Synovitis 0.787). L1 / L2 rebuilt on v2's hashes; mount tests
+  re-run.
+- **What gold in the image models would take (not done; GPU and a trainer change, the owner's call):** a gold-batch
+  fine-tune (the 220th's recipe) — each of our five teacher folds one epoch from its `last.pt` on all 4,407 studies,
+  the 58 at their grades and drawn into batches at a fixed share; needs `--gold-train` + a sampler in
+  `train_windows.py`, ~2 GPU-h (estimate: one ~20-min epoch a fold + start-up) after the 17:00 PDT quota reset, then
+  one commit run. Expected effect estimate ≤ +0.001 (10-13 arithmetic ~+0.0005; the 220th's 0.944 came with other
+  changes, not isolated). It also ends gold-58 as our one radiologist-referenced check.
