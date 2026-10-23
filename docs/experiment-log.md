@@ -2276,3 +2276,20 @@ there for the owner to discard. Nothing sent.
 - **Kernels built from `55e95e8`:** `raahimnawaz/rsna-knee-c7-train-convnext-small-goldft-f012-cv` (folds 0–2) and
   `…-goldft-f34-cv` (folds 3–4). **Pushed by a detached launcher at 17:01:30 PDT** (after the weekly GPU reset;
   scratchpad `launch_at.py`, log `launch_at.log`). Estimate ~25–30 min a fold.
+
+## 10-23 16:34 PDT: L1 and L2 read (late; private shown at once)
+
+| submission | public | private | read by its rule (written before) |
+|---|--:|--:|---|
+| main + KDC `57406618` (the scored final) | 0.958 | 0.943 | the reference |
+| **L1** `57567657` = that + header de-bias | 0.961 | **0.944** | bar was ≥ 0.945: **inside one tick, nothing claimed** |
+| **L2** `57567663` = L1 + teacher_v1 x5 + consensus_v2 x5 at 0.50 / 0.25 | 0.960 | **0.945** | vs L1 **+0.001 → the heavier share of our folds helps** (by the rule's letter: one tick, the board's resolution) |
+
+- **L1:** +0.001 private, +0.003 public — the same shape as the 228th's (their de-bias: +0.003 public, +0.002 to
+  +0.003 private on this base). Below its bar on private; not claimed.
+- **L2 is our best private score (0.945)**, one tick over L1, while its public went one tick down: the read is the
+  rule's minimum and the two boards disagree in sign, so it is a lean, not a measurement of size. It is the first
+  arm where our own image models moved the private score at all (0.25 / 0.10 shares were +0.001 on two bases, 0.50
+  / 0.25 another +0.001 here).
+- **L3 is unchanged by this** (its rule `7933cb5` fixes L3 = L1 + the gold soups, read against L1): building it on
+  L2 now would be choosing on private. A gold version of L2 is a separate arm, the owner's call.
