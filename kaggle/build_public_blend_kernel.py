@@ -12,6 +12,7 @@ import base64
 import hashlib
 import json
 import re
+import sys
 from pathlib import Path
 
 import build_submit_kernel as B
@@ -201,6 +202,91 @@ else:
     print("[+KDC] KDC's stage did not run to the end: the submission stands unchanged", flush=True)
 '''
 
+DEBIAS = r'''
+import base64 as _hb64, hashlib as _hhash, json as _hjson, os as _hos, time as _htime, types as _htypes
+from pathlib import Path as _HPath
+import numpy as _hnp
+import pandas as _hpd
+
+_H_T0 = _htime.time()
+_H_LEFT = 9 * 3600 - (_H_T0 - NB_T0) - __MARGIN_MIN__ * 60
+_H_W = __H_W__
+_H_SHAS = __H_SHAS__
+_h_sub = _HPath("/kaggle/working/submission.csv")
+H_OK = False
+if _H_LEFT < 10 * 60 and not _P_COMMIT:
+    if _P_READ:
+        raise RuntimeError(f"READ: the de-bias would be skipped ({_H_LEFT / 60:.0f} min left)")
+    print(f"H_SKIPPED only {_H_LEFT / 60:.0f} min left -- the submission stands", flush=True)
+else:
+    try:
+        _h_src = _hb64.b64decode(__H_SRC__)
+        if _hhash.sha256(_h_src).hexdigest() != "__H_SRC_SHA__":
+            raise RuntimeError("header_prior.py: embedded source does not match its hash")
+        _hp = _htypes.ModuleType("header_prior")
+        exec(compile(_h_src.decode(), "header_prior.py", "exec"), _hp.__dict__)
+        _h_dir = None
+        for _d, _dirs, _fs in _hos.walk("/kaggle/input"):
+            _dirs[:] = [x for x in _dirs if x not in {"train_series", "test_series", "train_images", "test_images"}]
+            if set(_H_SHAS) <= set(_fs):
+                _h_dir = _HPath(_d)
+                break
+        if _h_dir is None:
+            raise RuntimeError(f"{sorted(_H_SHAS)} not mounted -- is __H_KERNEL__ attached?")
+        for _f, _s in _H_SHAS.items():
+            if _hhash.sha256((_h_dir / _f).read_bytes()).hexdigest() != _s:
+                raise RuntimeError(f"{_f}: sha256 differs from the table this build pinned")
+        _h_tr = _hp.load_table(_h_dir / "train_series_headers.csv")
+        _h_y = _hpd.read_csv(_h_dir / "report_labels.csv", dtype={"StudyInstanceUID": str}).set_index("StudyInstanceUID")
+        _h_Xtr, _h_voc = _hp.study_features(_h_tr)
+        if _P_COMMIT and (DATA / "train_series").is_dir():
+            _h_u = sorted(_h_tr.StudyInstanceUID.unique())[::150][:30]
+            _h_a, _ = _hp.study_features(_hp.read_split(DATA, "train", studies=_h_u), _h_voc)
+            _h_b = _h_Xtr.loc[_h_a.index, _h_a.columns]
+            if not _hnp.allclose(_h_a.to_numpy(float), _h_b.to_numpy(float), equal_nan=True, rtol=0, atol=1e-9):
+                raise RuntimeError("HEADER_PARITY failed: this reader and the pinned table disagree on training studies")
+            print(f"HEADER_PARITY {len(_h_a)} of {len(_h_u)} training studies: features identical to the table", flush=True)
+        _h_pre = _hpd.read_csv(_h_sub, dtype={"StudyInstanceUID": str})
+        _h_lab = [c for c in _h_pre.columns if c != "StudyInstanceUID"]
+        if set(_h_lab) != set(_H_W):
+            raise RuntimeError(f"submission columns {_h_lab}")
+        _h_te = _hp.read_split(DATA, "test")
+        _h_read = set(_h_te.StudyInstanceUID[_h_te.error.isna()])
+        _h_unread = [u for u in _h_pre.StudyInstanceUID if u not in _h_read]
+        if len(_h_unread) > 0.1 * len(_h_pre):
+            raise RuntimeError(f"{len(_h_unread)} of {len(_h_pre)} test studies have no readable header")
+        _h_Xte, _ = _hp.study_features(_h_te[_h_te.error.isna()], _h_voc)
+        _h_prior = _hp.fit_predict(_h_Xtr.reindex(_h_y.index), _h_y, _h_Xte.reindex(_h_pre.StudyInstanceUID))
+        _h_prior.loc[_h_unread] = _hnp.nan
+        _h_out = _hp.debias(_h_pre, _h_prior, _H_W)
+        _h_v = _h_out[_h_lab].to_numpy(_hnp.float64)
+        if list(_h_out.StudyInstanceUID) != list(_h_pre.StudyInstanceUID) or list(_h_out.columns) != list(_h_pre.columns):
+            raise RuntimeError("the de-biased submission changed its rows or columns")
+        if not (_hnp.isfinite(_h_v).all() and (_h_v >= 0).all() and (_h_v <= 1).all()):
+            raise RuntimeError("the de-biased submission is not finite in [0, 1]")
+        _h_rho = {c: float(_h_out[c].corr(_h_pre[c], method="spearman")) for c in _h_lab}
+        _h_rp = {c: float(_hpd.Series(_h_prior[c].to_numpy()).corr(_h_pre[c], method="spearman")) for c in _h_lab}
+        if len(_h_pre) >= 100 and not min(_h_rho.values()) > 0.9:
+            raise RuntimeError(f"the de-bias moved the ranking too far ({_h_rho}): a misalignment")
+        _h_pre.to_csv("/kaggle/working/before_debias_sub.csv", index=False)
+        _h_prior.to_csv("/kaggle/working/header_prior_test.csv")
+        _h_out.to_csv("/kaggle/working/_debiased.csv", index=False)
+        _hos.replace("/kaggle/working/_debiased.csv", _h_sub)
+        _HPath("/kaggle/working/debias_receipt.json").write_text(_hjson.dumps({
+            "rule": "(1 - w) rank(submission) + w rank(header prior), weights fixed before any run", "w": _H_W,
+            "n_studies": len(_h_pre), "unread": len(_h_unread), "spearman_out_vs_in": _h_rho,
+            "spearman_prior_vs_in": _h_rp, "table": _H_SHAS, "built_from": "__BUILT_FROM__"}, indent=1))
+        H_OK = True
+        print(f"[+DEBIAS] ARMS: the submission above minus the header prior, w " + ", ".join(
+            f"{c} {_H_W[c]:+.2f}" for c in _h_lab) + f"; {len(_h_pre)} studies, {len(_h_unread)} unread (prior mid-rank); "
+            f"Spearman(prior, submission) " + ", ".join(f"{c} {_h_rp[c]:.3f}" for c in _h_lab), flush=True)
+    except Exception as _e:                                        # noqa: BLE001
+        if _P_COMMIT or _P_READ:
+            raise
+        print("H_FAILED", repr(_e)[:300], "-- the submission stands", flush=True)
+print(f"H_STAGE ok={H_OK} seconds {_htime.time() - _H_T0:.0f}", flush=True)
+'''
+
 K_WRITE_LOOP_OLD = """for _rel, (_b, _sha) in _ojson.loads(_ob64.b64decode(__FILES_B64__).decode()).items():
     _p = _O_REPO / _rel
     _p.parent.mkdir(parents=True, exist_ok=True)
@@ -297,6 +383,9 @@ def main() -> None:
                     "at a share of their rank in (0, 0.5]; repeatable")
     ap.add_argument("--k-desc", default="KDC, our knee-crop model on decoupled Lateral OA labels",
                     help="what KDC is, for the intro")
+    ap.add_argument("--debias-kernel", default="", help="the header-table kernel (build_header_table_kernel.py): a last "
+                    "cell subtracts the header prior of the report labels, weights header_prior.DEBIAS_W")
+    ap.add_argument("--debias-shas", default="", help="sha256 of its train_series_headers.csv,report_labels.csv")
     ap.add_argument("--out", type=Path, required=True)
     a = ap.parse_args()
 
@@ -330,6 +419,12 @@ def main() -> None:
                    or not all(re.fullmatch(r"[0-9a-f]{64}", h) for h in k_shas)):
         raise SystemExit("--k-weights-sha: full 64-hex sha256 values, each once, none of them one of ours")
 
+    if bool(a.debias_kernel) != bool(a.debias_shas):
+        raise SystemExit("--debias-kernel and --debias-shas go together")
+    h_shas = dict(zip(("train_series_headers.csv", "report_labels.csv"), a.debias_shas.split(","))) if a.debias_shas else {}
+    if h_shas and (len(h_shas) != 2 or not all(re.fullmatch(r"[0-9a-f]{64}", v) for v in h_shas.values())):
+        raise SystemExit("--debias-shas: two full sha256 values, the table's then the labels'")
+
     pmeta = json.loads((a.public_dir / "kernel-metadata.json").read_text())
     if pmeta["id"] not in PUBLIC:
         raise SystemExit(f"{a.public_dir} holds {pmeta['id']}, not one of {list(PUBLIC)}: read it, then add it")
@@ -350,6 +445,8 @@ def main() -> None:
         raise SystemExit("public notebook already uses one of our names -- re-read it")
     if k_shas and any(re.search(r"\bK_OK\b|/tmp/k_sub|\b_K_(MIX|LEFT|T0)\b", s) for s in code_cells):
         raise SystemExit("public notebook already uses one of KDC's names -- re-read it")
+    if h_shas and any(re.search(r"\bH_OK\b|\b_H_(W|SHAS|LEFT|T0)\b|\b_hp\b", s) for s in code_cells):
+        raise SystemExit("public notebook already uses one of the de-bias stage's names -- re-read it")
 
     patches = []
     for spec in a.cell_patch:
@@ -427,6 +524,18 @@ def main() -> None:
             compile(c, f"kdc{k}", "exec")
         cells_k = [stage_k, blend_k]
 
+    cells_h = []
+    if h_shas:
+        sys.path.insert(0, str(B.PROJ / "pipeline"))
+        import header_prior as HP
+        h_src = (B.PROJ / "pipeline" / "header_prior.py").read_bytes()
+        debias = (DEBIAS.replace("__MARGIN_MIN__", str(a.margin_min)).replace("__H_W__", repr(HP.DEBIAS_W))
+                  .replace("__H_SHAS__", repr(h_shas)).replace("__H_KERNEL__", a.debias_kernel)
+                  .replace("__H_SRC__", repr(base64.b64encode(h_src).decode()))
+                  .replace("__H_SRC_SHA__", hashlib.sha256(h_src).hexdigest()).replace("__BUILT_FROM__", built_from))
+        compile(debias, "debias", "exec")
+        cells_h = [debias]
+
     def code(s):
         return {"cell_type": "code", "execution_count": None, "metadata": {}, "outputs": [],
                 "source": s.strip("\n").splitlines(keepends=True)}
@@ -443,9 +552,15 @@ def main() -> None:
                   "and deadline, mixed into the submission above on "
                   + ", ".join(f"{c} at {w:.2f}" for c, w in k_mix.items())
                   + " only (shares fixed before any run). If it fails or would run late, the submission above stands.\n")
+    if h_shas:
+        intro += ("\n\nLast cell: a header-only model of the report labels (scanner, software, coil, protocol, series "
+                  "names; `pipeline/header_prior.py`, fitted here on the table from `" + a.debias_kernel + "`) is "
+                  "subtracted per finding, (1 - w) rank(submission) + w rank(prior) at w "
+                  + ", ".join(f"{c} {w:+.2f}" for c, w in HP.DEBIAS_W.items())
+                  + " (fixed before any run). If it fails or would run late, the submission above stands.\n")
     body = [dict(c, outputs=[], execution_count=None) if c["cell_type"] == "code" else c for c in cells]
     new = ([{"cell_type": "markdown", "metadata": {}, "source": intro.splitlines(keepends=True)}]
-           + body + [code(stage), code(blend)] + [code(c) for c in cells_k])
+           + body + [code(stage), code(blend)] + [code(c) for c in cells_k] + [code(c) for c in cells_h])
     a.out.mkdir(parents=True, exist_ok=True)
     nb_text = json.dumps(dict(pub, cells=new), indent=1)
     if len(nb_text.encode("utf-8")) >= MAX_SOURCE:
@@ -456,7 +571,7 @@ def main() -> None:
             "enable_gpu": True, "enable_tpu": False, "enable_internet": False, "keywords": [],
             "competition_sources": ["rsna-knee-abnormality-detection"],
             "dataset_sources": [d for d in replaced(pmeta["dataset_sources"], a.replace_dataset)
-                                if d not in a.drop_dataset] + wdatasets, "kernel_sources": wkernels + k_kernels, "model_sources": [],
+                                if d not in a.drop_dataset] + wdatasets, "kernel_sources": wkernels + k_kernels + ([a.debias_kernel] if h_shas else []), "model_sources": [],
             "docker_image": pmeta["docker_image"], "machine_shape": "NvidiaTeslaT4"}
     (a.out / "kernel-metadata.json").write_text(json.dumps(meta, indent=2), encoding="utf-8")
     print(f"built {a.out / (slug + '.ipynb')}: {len(new)} cells ({len(cells)} public, unchanged; + intro, our stage, "
@@ -465,6 +580,8 @@ def main() -> None:
     if k_shas:
         print(f"  + KDC: {len(k_shas)} member(s) from {', '.join(k_kernels)} | k_mix "
               + ", ".join(f"{c} {w:.2f}" for c, w in k_mix.items()) + " | two more cells")
+    if h_shas:
+        print(f"  + de-bias: table from {a.debias_kernel} | w " + ", ".join(f"{c} {w:+.2f}" for c, w in HP.DEBIAS_W.items()))
     for n in notes:
         print(f"  {n}")
     print(f"  from {built_from}")

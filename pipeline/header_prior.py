@@ -80,6 +80,12 @@ def read_split(root: Path, split: str, studies=None, workers: int = 16) -> pd.Da
     return pd.DataFrame(rows).reindex(columns=COLUMNS)
 
 
+def load_table(path: Path) -> pd.DataFrame:
+    """A table `read_split` wrote, with its text columns kept as text (a field strength "3.0" stays a string)."""
+    text = {c: str for c in ["StudyInstanceUID", "SeriesInstanceUID", "SeriesDescription", "error"] + CAT}
+    return pd.read_csv(path, dtype=text, keep_default_na=False, na_values=[""]).reindex(columns=COLUMNS)
+
+
 def _mode(s: pd.Series):
     s = s.dropna()
     return s.mode().iloc[0] if len(s) else None
@@ -153,7 +159,7 @@ def debias(sub: pd.DataFrame, prior: pd.DataFrame, w: dict) -> pd.DataFrame:
 
 
 if __name__ == "__main__" and len(sys.argv) == 4 and sys.argv[1] == "cv":
-    tab = pd.read_csv(sys.argv[2], dtype={"StudyInstanceUID": str, "SeriesInstanceUID": str})
+    tab = load_table(Path(sys.argv[2]))
     Y = pd.read_csv(sys.argv[3], dtype={"StudyInstanceUID": str}).set_index("StudyInstanceUID")
     X, _ = study_features(tab)
     for k, v in cv_auroc(X.reindex(Y.index), Y).items():

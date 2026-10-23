@@ -2179,3 +2179,30 @@ there for the owner to discard. Nothing sent.
   with our teacher_v1 x5 + consensus_v2 x5 at 0.50 / 0.25 (estimate 0 ± 0.002 vs the first). Private is visible on
   every late read: no sweeps; both read and reported whatever they show. Caveat: the de-bias weights' private score
   is known from the 228th's write-up, so a good read here is mildly optimistic.
+
+## 10-23: the two late arms — the rules, written before the build (owner's go: "build ... run the mount test and commit runs, and submit each if every check passes")
+
+- **The header table (`raahimnawaz/rsna-knee-header-table` v1, CPU, the finals' image `2757e0c7…`, from `pipeline/header_prior.py`):**
+  24,371 series of 4,407 studies, 0 unread, 92 s; pydicom 3.0.2, scikit-learn 1.6.1. CV AUROC on the image matches
+  the Mac within 0.002 (Synovitis 0.789). sha256 `train_series_headers.csv` `61b49362…`, `report_labels.csv`
+  `488791d4…` (`targets_consensus_v2` ≥ 0.5, Synovitis unread kept empty). The read-back (`load_table`, text kept as
+  text) reproduces the CV. Offline: `tests/debias_fixture.py` 5 checks (the de-bias lowers Spearman(prior,
+  submission) on all 12, Synovitis moves most; wrong table sha → the submission byte for byte; a table that
+  disagrees with the DICOMs fails `HEADER_PARITY`; ≥ 10 % unreadable test studies → byte for byte);
+  `public_blend_fixture.py` 20 checks unchanged.
+- **L1 `rsna-knee-sub-main958-kdc-debias`:** the KDC final's recipe exactly (`build_r6r7_kernel.py --main958
+  --wheel-pins`, our teacher_v1 x5 at 0.25 / 0.10, KDC folds 0–2 on Lateral OA 0.30) + a last cell: the header
+  prior fitted on the table, `(1 - w) rank(submission) + w rank(prior)` at w −0.10, Synovitis −0.25
+  (`header_prior.DEBIAS_W`). **L2 `rsna-knee-sub-main958-kdc-debias-heavy`:** L1 with our member = teacher_v1 x5 +
+  consensus_v2 x5 (last.pt `8fc45272…` … `8b0768b0…`) at 0.50 / 0.25.
+- **Before each submit, its commit log must show:** what the KDC final's showed (`SUPPLY_CHAIN_OK … wheels_pinned
+  true`, `ASSETS_READY`, both Raptor stages, R6 + R7 `OURS_STAGE_COMPLETE … PASS`, `N checkpoint(s), sha256 ok` and
+  `GATE PASSED (N/N)` with N = 5 (L1) / 10 (L2), `OURS_STAGE ok=True`, `[public+ours] ARMS` with the arm's w_ours,
+  KDC's `3 checkpoint(s)`, `GATE PASSED (3/3)`, `K_STAGE ok=True`, `[+KDC] ARMS … Lateral OA 0.30`), then
+  `HEADER_PARITY 30 of 30`, `[+DEBIAS] ARMS`, `H_STAGE ok=True`, 0 tracebacks; a mount test first (free CPU).
+- **Reads (private shows at once; each read once, both reported whatever they show, no further variants):**
+  L1 against main + KDC `57406618` (0.943): **≥ 0.945 → the de-bias carries over to our blend** (the 228th's
+  +0.002); 0.944 → inside one tick, nothing claimed; ≤ 0.943 → no gain shown. L2 against L1: **≥ +0.001 → the
+  heavier share of our folds helps; equal → no effect shown; ≤ −0.001 → it costs.** Risk named now: in the scored
+  rerun L2's ten members may run past our stage's deadline, which then keeps the public blend (+ KDC + de-bias)
+  without our folds; the score cannot tell that apart.
