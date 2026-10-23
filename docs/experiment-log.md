@@ -2156,3 +2156,26 @@ there for the owner to discard. Nothing sent.
   regression in the eval path or this session's storage, not separable from one run. `data_wait_frac` (0.33 against
   0.007) changed meaning with the loop, not speed: the host no longer waits for the GPU after each step, so its idle
   time now shows up in the loader wait. No speedup is claimed in the README.
+
+## 10-23: after the close — private scores, late submissions, and the plan for one late final
+
+- **Private board (competition closed 10-22 23:59 UTC; late submissions open):** main final `57378289` and main + KDC
+  `57406618` both **0.943**, D (OAI-free) 0.941; rank 482 of 6,425. Bronze needed 0.943 (team Northstar's write-up,
+  671st at 0.942), so 0.943 is inside the bronze line. #1 0.960; gold line (rank 22) 0.954.
+- **No submission of ours ran the public recipe without our folds** (`57241351` carried our five teacher folds). The
+  public 0.958 notebooks read **0.942–0.943 private** on their own pages (heliosli 0.9586 and 0.9576-lineage 0.942,
+  `rsna-knee-last-submission` 0.943, Versia_7 0.942, goodpjw CoAtNet+R6 0.942). Our teacher folds at 0.25 / 0.10 were
+  **+0.001** on both bases they joined (0.956-recipe 0.941 → `57160505` 0.942; 0.958 → 0.943). Alone they read 0.938
+  private (R7 alone 0.934).
+- **Measured today, header-only prior of the report labels** (`labeling/header_prior_cv.py`: study-level mode of
+  Manufacturer / model / software / coil / field, median TR / TE / thickness / bandwidth / ETL / flip / rows, 40
+  series-description tokens; HistGradientBoosting depth 3; 5-fold CV on `targets_consensus_v2` ≥ 0.5): AUROC ACL
+  0.659, MCL 0.613, MedMen 0.597, LatMen 0.586, MedOA 0.637, LatOA 0.668, PFOA 0.654, Effusion 0.651, **Synovitis
+  0.786**, Baker's 0.617, Contusion 0.619, Fracture 0.563. Pixels unseen, so this is site / protocol / report style.
+  Same range as the 228th-place write-up (0.63–0.77), whose subtraction of it from this base read +0.002–0.003 on
+  private (P7: w −0.10, Synovitis −0.25 → 0.945 vs base 0.942). Never tested by us before.
+- **Panel verdict (late final, not yet built):** the main final's recipe + KDC + our header de-bias at w −0.10
+  (Synovitis −0.25), fixed now; expected ~0.945 (estimate, 0.943–0.946). Second arm, the owner's question: the same
+  with our teacher_v1 x5 + consensus_v2 x5 at 0.50 / 0.25 (estimate 0 ± 0.002 vs the first). Private is visible on
+  every late read: no sweeps; both read and reported whatever they show. Caveat: the de-bias weights' private score
+  is known from the 228th's write-up, so a good read here is mildly optimistic.
