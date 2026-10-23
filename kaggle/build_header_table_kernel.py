@@ -13,6 +13,7 @@ import base64
 import hashlib
 import io
 import json
+import sys
 from pathlib import Path
 
 import pandas as pd
@@ -70,9 +71,33 @@ print("HEADER_TABLE_DONE", json.dumps({f: hashlib.sha256((W / f).read_bytes()).h
 '''
 
 
+def gold_report_labels() -> pd.DataFrame:
+    """The 58 graded studies as their REPORTS read them (never their grades): the mean of the public readers that
+    cover them (stevenleehans v2, yunus, JEV, pilkwang where not UNK); Synovitis only where the mention sources vote
+    it addressed, read by pilkwang and JEV, as targets_consensus_v2 masks it."""
+    sys.path.insert(0, str(PROJ / "labeling"))
+    import build_consensus_targets as C
+    val, adr = C.load_readers(PROJ / "data" / "public_llm_labels")
+    tr = pd.read_csv(PROJ / "data" / "train.csv", dtype={"StudyInstanceUID": str})
+    gold = sorted(tr.dropna(subset=C.LABELS).StudyInstanceUID)
+    readers = ["steven_v2", "yunus", "jev", "pilkwang"]
+    y = pd.concat({k: val[k].reindex(gold) for k in readers}, axis=1).T.groupby(level=1).mean().T[C.LABELS]
+    votes = pd.concat({k: adr[k][C.SYN].reindex(gold).astype(float) for k in ("pilkwang", "laymond", "hosseini")}, axis=1)
+    syn = pd.concat({k: val[k][C.SYN].reindex(gold) for k in ("pilkwang", "jev")}, axis=1).mean(axis=1)
+    y[C.SYN] = syn.where(votes.mean(axis=1) >= 0.5)
+    if y.drop(columns=C.SYN).isna().any().any():
+        raise SystemExit("a graded study has no report reading")
+    y.index.name = "StudyInstanceUID"
+    return y
+
+
 def report_labels() -> bytes:
-    """targets_consensus_v2 at >= 0.5, unread cells kept empty: the report reading the prior is fitted on."""
+    """targets_consensus_v2 at >= 0.5 for the 4,349, the graded 58 by their reports; unread cells kept empty."""
     y = pd.read_csv(TARGETS, dtype={"StudyInstanceUID": str}).set_index("StudyInstanceUID")
+    g = gold_report_labels()
+    if len(y.index.intersection(g.index)):
+        raise SystemExit("graded studies are already in the targets")
+    y = pd.concat([y, g])
     buf = io.StringIO()
     (y >= 0.5).astype(float).where(y.notna()).reset_index().to_csv(buf, index=False, float_format="%.0f")
     return buf.getvalue().encode()
