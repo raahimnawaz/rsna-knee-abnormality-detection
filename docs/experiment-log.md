@@ -2264,3 +2264,15 @@ there for the owner to discard. Nothing sent.
 - **Read, against L1 (one change):** **≥ +0.001 → gold in training helps; equal → nothing shown; ≤ −0.001 → it
   costs.** Estimate before the run: ≤ +0.001 (10-13: ~+0.0005), so a null is the likely read. Gold-58 is no longer a
   check for these five models.
+- **Code (`f8df580`, `55e95e8`):** `train_windows.py --gold-train / --gold-repeats / --soup-init` (the 58 appended at
+  their grades after the loss's pos_weight is taken from the report studies; soup after training, before scoring and
+  saving); `build_backbone_ab_kernel.py --gold-finetune FOLD=SHA --init-kernels …` (each fold's `last.pt` found by
+  sha256, every report study trains, the fold's fifth is the gate's in-sample list, `NOT_BROKEN` + `SOUP_SHA` lines,
+  pinned to the finals' image). `tests/gold_finetune_fixture.py` 6 checks (end to end on the synthetic corpus: the
+  saved soup sits 0.250 of the way back to init over 39,005 weights that moved > 0.02). All 58 graded studies are in
+  the Stage B corpus (every teacher fold's `n_gold` 58).
+- **CPU smoke on Kaggle (`…-goldft-smoke-cv` v1, the finals' image):** fold 1's `last.pt` found by sha, strict load
+  (353 tensors), lr `1e-05/0.0001`, gold rows in, soup applied, the not-broken check ran; 0 tracebacks.
+- **Kernels built from `55e95e8`:** `raahimnawaz/rsna-knee-c7-train-convnext-small-goldft-f012-cv` (folds 0–2) and
+  `…-goldft-f34-cv` (folds 3–4). **Pushed by a detached launcher at 17:01:30 PDT** (after the weekly GPU reset;
+  scratchpad `launch_at.py`, log `launch_at.log`). Estimate ~25–30 min a fold.
