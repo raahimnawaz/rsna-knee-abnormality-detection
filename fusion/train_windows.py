@@ -751,13 +751,13 @@ def main() -> None:
         g_ids = [u for u in g.index if u in corpus.row]
         if set(g_ids) & set(tr):
             raise SystemExit("--gold-train: graded studies are already in the training list")
-        reps = a.gold_repeats
+        reps, n_absent = a.gold_repeats, len(g) - len(g_ids)
         if a.limit_train:
             g_ids, reps = g_ids[: max(1, a.limit_train // 4)], 2
         n_tr = len(tr)
         tr, ytr = with_gold(tr, ytr, g_ids, g.loc[g_ids, LABELS].to_numpy(np.float32), reps)
         n_gold_train = len(g_ids)
-        log(f"gold-train: {len(g_ids)} graded studies at their grades ({len(g) - len(g_ids)} not in the corpus), "
+        log(f"gold-train: {len(g_ids)} graded studies at their grades ({n_absent} not in the corpus), "
             f"{reps} draws each -> {len(tr)} draws an epoch ({(len(tr) - n_tr) / len(tr):.1%} graded); the loss's "
             f"pos_weight stays the report studies'")
     tr_ds = Windows(corpus, tr, ytr, k=a.k, seed=a.seed + 1000 * rank, mirror=a.mirror)
