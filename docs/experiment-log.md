@@ -2293,3 +2293,36 @@ there for the owner to discard. Nothing sent.
   / 0.25 another +0.001 here).
 - **L3 is unchanged by this** (its rule `7933cb5` fixes L3 = L1 + the gold soups, read against L1): building it on
   L2 now would be choosing on private. A gold version of L2 is a separate arm, the owner's call.
+
+## 10-24 ~10:00: L3's soups pass; four more late arms on our own models, the best labels in each — the rules, written before any build or run (owner: "submitting some of my older ideas that arent just entirely based on the public stack" → picked all four of: ours-10 alone, the full own stack, the gold soups alone, L3 as planned; then "make sure we have the best labels possible for every submission")
+
+- **Already scored, nothing to resubmit (private now shown for every pre-deadline submission):** teacher_v1 x5 alone
+  `57161107` 0.949 / **0.938**; teacher_v2 one model `57162950` 0.946 / 0.935; consensus_v2 x5 `57112913` 0.945 /
+  0.932; consensus fold 0 `57098827` 0.938 / 0.925; Ortho r1 `56799701` 0.927 / 0.911; DINOv2 F6 0.914 / 0.898.
+- **L3's fine-tune READ:** both kernels COMPLETE; `NOT_BROKEN` PASS on all five (mean Spearman(soup, own OOF) 0.942 /
+  0.953 / 0.938 / 0.942 / 0.943; min Fracture 0.756–0.830); soups `6276211e…` `297d30a8…` `93fc55ff…` `e8eb6844…`
+  `0c64748b…`. L3 proceeds by its rule (`7933cb5`), unchanged.
+- **The best labels each of our model families has (the owner's line), fixed now:** the teacher folds → their gold
+  soups (teacher_v1 + the 58 at their grades); the consensus folds → **the same gold fine-tune on
+  `targets_consensus_v2`** (`a1ed4034…`), L3's recipe exactly (one epoch from each fold's `last.pt` `8fc45272…`
+  `a3113be6…` `d147aa3c…` `eb3bb162…` `8b0768b0…`, every report study + the 58 x 38, LR 1e-5 / 1e-4, soup 0.25,
+  the same not-broken rule ≥ 0.85; a failing fold keeps its weights); KDC keeps its decoupled targets (its labels by
+  design); every arm carries the header de-bias (table v2, w −0.10, Synovitis −0.25). No v2 / v3 pseudo-label folds
+  exist to use (v2 one model +0.001 private, inside a tick; v3 never trained). Two new GPU kernels, ~4 GPU-h.
+- **"Ours alone" in the scored code:** `c28e4a2`'s finals builder with one added flag `--ours-alone` (our share 1.0 on
+  all twelve, `--read` required so a failed or skipped stage of ours raises instead of scoring the public file, and
+  the blend refuses if any study is left on the public rank). The public cells still run (their weight is 0); the
+  submission is our ranks only. Then `add_debias_cell.py` as in L1.
+- **The arms and their reads (one tick = 0.001, the board's resolution):**
+  - **G5 `ours-gold5-debias`:** the five teacher soups alone + de-bias. vs teacher_v1 x5 alone **0.938**: ≥ +0.001
+    → our label package (gold + de-bias) helps our models alone; equal → nothing shown; ≤ −0.001 → it costs. Two
+    changes at once, both label fixes: read as one package, not apart.
+  - **O10 `ours10-gold-debias`:** teacher soups x5 + consensus soups x5 (equal weight) + de-bias, alone. vs G5:
+    ≥ +0.001 → the consensus half adds; equal / below → it does not.
+  - **OWN `ours10-gold-kdc-debias`:** O10 + KDC folds 0–2 on Lateral OA at 0.30 (as in the finals) + de-bias. vs
+    O10: ≥ +0.001 → KDC adds on our own stack.
+  - **L3:** as written at `7933cb5`, vs L1 0.944.
+- **Checks before each submit:** mount test passes; commit log shows `N checkpoint(s), sha256 ok` and `GATE PASSED
+  (N/N)` (N 5 / 10), `OURS_STAGE ok=True`, `[public+ours] ARMS` with w_ours 1.00 on all twelve and 0 studies on the
+  public rank, KDC lines for OWN, `HEADER_PARITY 30 of 30`, `H_STAGE ok=True`, 0 tracebacks. Then submit late, no
+  sweeps; each read once.
