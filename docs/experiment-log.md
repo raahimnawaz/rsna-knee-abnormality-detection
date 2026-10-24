@@ -2360,3 +2360,8 @@ there for the owner to discard. Nothing sent.
   permutation of 1/3, 2/3, 1 per finding, equal to the public ranks only where Spearman(ours, public) = 1).
   **SUBMITTED (late):** L3 `rsna-knee-sub-main958-kdc-debias-gold` v1, G5 `rsna-knee-sub-ours-gold5-debias` v1;
   pending. O10 / OWN commit runs pushed by the launcher as the slots freed.
+- **Submission refs:** L3 `57602899`, G5 `57602904`. **O10 / OWN commit runs PASS (11:23 PDT):** `wheels_pinned true`,
+  `ASSETS_READY`, both Raptor stages, `OURS_STAGE_COMPLETE`, `10 checkpoint(s), sha256 ok`, `GATE PASSED (10/10)`,
+  `OURS_STAGE ok=True`, `OURS ALONE`, w 1.00, 0 on the public rank, `HEADER_PARITY 30 of 30`, `H_STAGE ok=True`,
+  `NOTEBOOK_COMPLETE`, 0 tracebacks; OWN `3 checkpoint(s), sha256 ok`, `GATE PASSED (3/3)`, `K_STAGE ok=True`,
+  `[+KDC] ARMS`. **SUBMITTED (late): O10 `57603339`, OWN `57603340`; all four pending.**
