@@ -2294,7 +2294,7 @@ there for the owner to discard. Nothing sent.
 - **L3 is unchanged by this** (its rule `7933cb5` fixes L3 = L1 + the gold soups, read against L1): building it on
   L2 now would be choosing on private. A gold version of L2 is a separate arm, the owner's call.
 
-## 10-24 ~10:00: L3's soups pass; four more late arms on our own models, the best labels in each — the rules, written before any build or run (owner: "submitting some of my older ideas that arent just entirely based on the public stack" → picked all four of: ours-10 alone, the full own stack, the gold soups alone, L3 as planned; then "make sure we have the best labels possible for every submission")
+## 10-24 ~08:30 PDT: L3's soups pass; four more late arms on our own models, the best labels in each — the rules, written before any build or run (owner: "submitting some of my older ideas that arent just entirely based on the public stack" → picked all four of: ours-10 alone, the full own stack, the gold soups alone, L3 as planned; then "make sure we have the best labels possible for every submission")
 
 - **Already scored, nothing to resubmit (private now shown for every pre-deadline submission):** teacher_v1 x5 alone
   `57161107` 0.949 / **0.938**; teacher_v2 one model `57162950` 0.946 / 0.935; consensus_v2 x5 `57112913` 0.945 /
@@ -2326,7 +2326,7 @@ there for the owner to discard. Nothing sent.
   (N/N)` (N 5 / 10), `OURS_STAGE ok=True`, `[public+ours] ARMS` with w_ours 1.00 on all twelve and 0 studies on the
   public rank, KDC lines for OWN, `HEADER_PARITY 30 of 30`, `H_STAGE ok=True`, 0 tracebacks. Then submit late, no
   sweeps; each read once.
-- **Progress 10-24 ~11:00.** Consensus gold fine-tune kernels `raahimnawaz/rsna-knee-c7-train-convnext-small-gftc-f012-cv`
+- **Progress 10-24 08:55 PDT.** Consensus gold fine-tune kernels `raahimnawaz/rsna-knee-c7-train-convnext-small-gftc-f012-cv`
   / `…-gftc-f34-cv` v1 pushed (built from `b3a61c2`; the notebook differs from a rebuild of L3's `…-goldft-f012-cv`
   only in the targets' name and sha and the five init shas; L3's own kernel rebuilds byte for byte but for
   BUILT_FROM). `--ours-alone` on branch **`late-ours-alone`** = `c28e4a2` + `46fcb72` (public_blend_fixture 22 checks;
