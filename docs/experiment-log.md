@@ -2365,3 +2365,5 @@ there for the owner to discard. Nothing sent.
   `OURS_STAGE ok=True`, `OURS ALONE`, w 1.00, 0 on the public rank, `HEADER_PARITY 30 of 30`, `H_STAGE ok=True`,
   `NOTEBOOK_COMPLETE`, 0 tracebacks; OWN `3 checkpoint(s), sha256 ok`, `GATE PASSED (3/3)`, `K_STAGE ok=True`,
   `[+KDC] ARMS`. **SUBMITTED (late): O10 `57603339`, OWN `57603340`; all four pending.**
+- **13:46 PDT: L3 `57602899` and OWN `57603340` ERROR, "A system error. Please try resubmitting"** (Kaggle's side;
+  nothing raised in our cells). Both resubmitted unchanged (same kernel version 1). G5 / O10 still pending.
