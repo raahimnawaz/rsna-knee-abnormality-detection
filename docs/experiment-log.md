@@ -2352,3 +2352,11 @@ there for the owner to discard. Nothing sent.
 - **O10 / OWN mount tests PASS (11:05 PDT):** `SUPPLY_CHAIN_OK`, `RAPTOR_OK` x2, `OURS_OK 10 of 10`, OWN `KDC_OK 3 of 3`,
   `HEADER_PARITY 30 of 30`, `H_STAGE ok=True`, `DEBIAS_OK`, 0 tracebacks. Commit runs queued behind L3 / G5
   (`launch_when_free2.sh`).
+- **L3 / G5 commit runs PASS (11:05 PDT):** both `SUPPLY_CHAIN_OK … wheels_pinned true`, `ASSETS_READY`,
+  both Raptor stages, R6 + R7 `OURS_STAGE_COMPLETE`, `5 checkpoint(s), sha256 ok` on the soups, `GATE PASSED (5/5)`,
+  `OURS_STAGE ok=True`, 0 studies on the public rank, `HEADER_PARITY 30 of 30`, `H_STAGE ok=True`,
+  `NOTEBOOK_COMPLETE`, 0 tracebacks; L3 `3 checkpoint(s), sha256 ok` KDC, `GATE PASSED (3/3)`, `K_STAGE ok=True`,
+  w_ours 0.25 / 0.10; G5 `[public+ours] ARMS: OURS ALONE`, w_ours 1.00 on all twelve (its pre-de-bias file is a
+  permutation of 1/3, 2/3, 1 per finding, equal to the public ranks only where Spearman(ours, public) = 1).
+  **SUBMITTED (late):** L3 `rsna-knee-sub-main958-kdc-debias-gold` v1, G5 `rsna-knee-sub-ours-gold5-debias` v1;
+  pending. O10 / OWN commit runs pushed by the launcher as the slots freed.
