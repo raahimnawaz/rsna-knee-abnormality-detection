@@ -2343,3 +2343,9 @@ there for the owner to discard. Nothing sent.
 - **10:40 PDT: consensus folds 3–4 soups PASS** (`…-gftc-f34-cv`, targets `a1ed4034…` mounted): fold 3 0.953 (min
   Fracture 0.759), fold 4 0.962 (min 0.836); soups `12d945a8…` `7c74494b…`. The freed slot took L3's commit run
   (launcher). Folds 0–2 still running; G5 goes on that slot.
+- **Consensus gold fine-tune READ (10:55 PDT):** both kernels COMPLETE; `NOT_BROKEN` PASS on all five (0.956 / 0.952 /
+  0.950 / 0.953 / 0.962; min Fracture 0.759–0.836); targets `targets_consensus_v2.csv` `a1ed4034…` read from the
+  dataset. Soups `b643260c…` `899a0a8a…` `9c132aa3…` `12d945a8…` `7c74494b…`. **O10**
+  `rsna-knee-sub-ours10-gold-debias` and **OWN** `rsna-knee-sub-ours10-gold-kdc-debias` built (10 members, w 1.00 on
+  all twelve; OWN + KDC Lateral OA 0.30); CPU mount tests pushed. L3 / G5 commit runs pushed 10:40 / 10:48 by the
+  launcher, RUNNING.
