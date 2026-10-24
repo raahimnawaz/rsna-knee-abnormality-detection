@@ -2349,3 +2349,6 @@ there for the owner to discard. Nothing sent.
   `rsna-knee-sub-ours10-gold-debias` and **OWN** `rsna-knee-sub-ours10-gold-kdc-debias` built (10 members, w 1.00 on
   all twelve; OWN + KDC Lateral OA 0.30); CPU mount tests pushed. L3 / G5 commit runs pushed 10:40 / 10:48 by the
   launcher, RUNNING.
+- **O10 / OWN mount tests PASS (11:05 PDT):** `SUPPLY_CHAIN_OK`, `RAPTOR_OK` x2, `OURS_OK 10 of 10`, OWN `KDC_OK 3 of 3`,
+  `HEADER_PARITY 30 of 30`, `H_STAGE ok=True`, `DEBIAS_OK`, 0 tracebacks. Commit runs queued behind L3 / G5
+  (`launch_when_free2.sh`).
