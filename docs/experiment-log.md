@@ -2326,3 +2326,13 @@ there for the owner to discard. Nothing sent.
   (N/N)` (N 5 / 10), `OURS_STAGE ok=True`, `[public+ours] ARMS` with w_ours 1.00 on all twelve and 0 studies on the
   public rank, KDC lines for OWN, `HEADER_PARITY 30 of 30`, `H_STAGE ok=True`, 0 tracebacks. Then submit late, no
   sweeps; each read once.
+- **Progress 10-24 ~11:00.** Consensus gold fine-tune kernels `raahimnawaz/rsna-knee-c7-train-convnext-small-gftc-f012-cv`
+  / `…-gftc-f34-cv` v1 pushed (built from `b3a61c2`; the notebook differs from a rebuild of L3's `…-goldft-f012-cv`
+  only in the targets' name and sha and the five init shas; L3's own kernel rebuilds byte for byte but for
+  BUILT_FROM). `--ours-alone` on branch **`late-ours-alone`** = `c28e4a2` + `46fcb72` (public_blend_fixture 22 checks;
+  a rebuild of the scored KDC final from it differs from the pulled one only in the commit id, the intro's member
+  line and the three inactive `_Q_ALONE` lines). Built: **L3** `rsna-knee-sub-main958-kdc-debias-gold` (vs L1 as
+  pulled: the five soups in place of the five teacher folds, nothing else) and **G5**
+  `rsna-knee-sub-ours-gold5-debias`; CPU mount tests `rsna-knee-mounttest-main958-kdc-debias-gold` /
+  `…-ours-gold5-debias` pushed. Build script: `~/rsna-knee-work/2026-10-24/build_arms.sh l3 g5 o10 own` (O10 / OWN
+  need `CONS_SHAS` = the five consensus soups' `SOUP_SHA`, folds 0–4 in order).
