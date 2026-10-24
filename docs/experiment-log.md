@@ -2336,3 +2336,7 @@ there for the owner to discard. Nothing sent.
   `rsna-knee-sub-ours-gold5-debias`; CPU mount tests `rsna-knee-mounttest-main958-kdc-debias-gold` /
   `…-ours-gold5-debias` pushed. Build script: `~/rsna-knee-work/2026-10-24/build_arms.sh l3 g5 o10 own` (O10 / OWN
   need `CONS_SHAS` = the five consensus soups' `SOUP_SHA`, folds 0–4 in order).
+- **Mount tests PASS (09:00 PDT):** both `SUPPLY_CHAIN_OK`, `ASSETS_READY`, `RAPTOR_OK` x2, `OURS_OK 5 of 5`, L3 `KDC_OK
+  3 of 3`, `HEADER_PARITY 30 of 30`, `H_STAGE ok=True`, `DEBIAS_OK`, `MOUNTTEST_DONE`, 0 tracebacks. GPU commit runs
+  of L3 / G5 pushed by a detached launcher (`~/rsna-knee-work/2026-10-24/launch_when_free.sh`, log beside it) as
+  the consensus fine-tune frees each GPU slot.
