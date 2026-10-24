@@ -2340,3 +2340,6 @@ there for the owner to discard. Nothing sent.
   3 of 3`, `HEADER_PARITY 30 of 30`, `H_STAGE ok=True`, `DEBIAS_OK`, `MOUNTTEST_DONE`, 0 tracebacks. GPU commit runs
   of L3 / G5 pushed by a detached launcher (`~/rsna-knee-work/2026-10-24/launch_when_free.sh`, log beside it) as
   the consensus fine-tune frees each GPU slot.
+- **10:40 PDT: consensus folds 3–4 soups PASS** (`…-gftc-f34-cv`, targets `a1ed4034…` mounted): fold 3 0.953 (min
+  Fracture 0.759), fold 4 0.962 (min 0.836); soups `12d945a8…` `7c74494b…`. The freed slot took L3's commit run
+  (launcher). Folds 0–2 still running; G5 goes on that slot.
