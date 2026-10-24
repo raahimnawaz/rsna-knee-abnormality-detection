@@ -103,6 +103,7 @@ import numpy as _qnp
 import pandas as _qpd
 
 _Q_W = __W_OURS__
+_Q_ALONE = __OURS_ALONE__
 _q_sub = _QPath("/kaggle/working/submission.csv")
 if OURS_OK:
     try:
@@ -118,6 +119,8 @@ if OURS_OK:
         _q_ok = (~_q_pub.StudyInstanceUID.isin(_q_bad).to_numpy()) & _q_ours[_q_lab].notna().all(axis=1).to_numpy()
         if _q_ok.mean() < 0.9:
             raise RuntimeError(f"our folds scored only {int(_q_ok.sum())} of {len(_q_pub)} studies")
+        if _Q_ALONE and not _q_ok.all():
+            raise RuntimeError(f"ours alone: {int((~_q_ok).sum())} studies would keep the public rank")
         _q_out, _q_rho = _q_pub.copy(), {}
         for _c in _q_lab:
             _rp = _q_pub[_c].rank(method="average", pct=True).to_numpy(_qnp.float64)
@@ -139,7 +142,7 @@ if OURS_OK:
             "rule": "per-finding percentile ranks, weights fixed before any run", "w_ours": _Q_W, "arm": _O_ARM,
             "n_studies": len(_q_pub), "ours_unbuilt": int((~_q_ok).sum()), "spearman_ours_vs_public": _q_rho,
             "ours_minutes": _O_MIN, "built_from": "__BUILT_FROM__"}, indent=1))
-        print(f"[public+ours] ARMS: the public blend as published + {_O_ARM}; w_ours "
+        print(f"[public+ours] ARMS: " + ("OURS ALONE (public weight 0): " if _Q_ALONE else "the public blend as published + ") + f"{_O_ARM}; w_ours "
               + ", ".join(f"{_c} {_Q_W[_c]:.2f}" for _c in _q_lab) + f"; {len(_q_pub)} studies, "
               f"{int((~_q_ok).sum())} on the public rank alone; mean Spearman(ours, public) {_q_mrho:.3f}", flush=True)
     except Exception as _e:                                        # noqa: BLE001
@@ -328,6 +331,8 @@ def main() -> None:
                     "weights); repeatable")
     ap.add_argument("--w-ours", default="", help="STRONG,WEAK: our share on the eight findings / on Lateral Meniscus, "
                     "Lateral OA, PF OA, Synovitis, in place of W_OURS (0.25,0.10)")
+    ap.add_argument("--ours-alone", action="store_true", help="our share 1.0 on all twelve (the public cells run at "
+                    "weight 0); needs --read, and the blend raises if any study would keep the public rank")
     ap.add_argument("--k-weights-kernel", default="", help="KDC: its training kernels, comma-joined (a second stage "
                     "and a second mix after ours; nothing changes without the --k-* flags)")
     ap.add_argument("--k-weights-sha", default="", help="KDC: the members' last.pt sha256, comma-joined (an ensemble)")
@@ -352,7 +357,11 @@ def main() -> None:
     if a.w_ours:
         strong, weak = (float(x) for x in a.w_ours.split(","))
         w_ours = {c: (weak if W_OURS[c] < 0.2 else strong) for c in W_OURS}
-    if set(w_ours) != set(B.LABELS) or not all(0.0 <= w <= 0.5 for w in w_ours.values()):
+    if a.ours_alone:
+        if not a.read or a.w_ours:
+            raise SystemExit("--ours-alone needs --read (no public-only score under our name) and no --w-ours")
+        w_ours = {c: 1.0 for c in W_OURS}
+    elif set(w_ours) != set(B.LABELS) or not all(0.0 <= w <= 0.5 for w in w_ours.values()):
         raise SystemExit("W_OURS must name the twelve findings, each weight in [0, 0.5]")
     k_shas = [h for h in a.k_weights_sha.split(",") if h]
     k_kernels = [k for k in a.k_weights_kernel.split(",") if k]
@@ -441,7 +450,7 @@ def main() -> None:
     stage = (STAGE.replace("__MARGIN_MIN__", str(a.margin_min)).replace("__MIN_LEFT_MIN__", str(a.min_left_min))
              .replace("__READ__", repr(bool(a.read)))
              .replace("__OURS_SRC__", repr(ours)))
-    blend = BLEND.replace("__W_OURS__", repr(w_ours)).replace("__BUILT_FROM__", built_from)
+    blend = BLEND.replace("__W_OURS__", repr(w_ours)).replace("__OURS_ALONE__", repr(bool(a.ours_alone))).replace("__BUILT_FROM__", built_from)
     for k, c in enumerate([ours, stage, blend]):
         compile(c, f"ours{k}", "exec")                  # fail here, not after the queue wait
     cells_k = []

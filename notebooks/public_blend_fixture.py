@@ -24,10 +24,12 @@ import build_submit_kernel as B  # noqa: E402
 L = B.LABELS
 
 
-def cells(tmp: Path, ours_src: str, read: bool = False) -> tuple[str, str]:
+def cells(tmp: Path, ours_src: str, read: bool = False, alone: bool = False) -> tuple[str, str]:
     stage = (P.STAGE.replace("__MARGIN_MIN__", "25").replace("__MIN_LEFT_MIN__", "60").replace("__READ__", repr(read))
              .replace("__OURS_SRC__", repr(ours_src)))
-    blend = P.BLEND.replace("__W_OURS__", repr(P.W_OURS)).replace("__BUILT_FROM__", "fixture")
+    w = {c: 1.0 for c in L} if alone else P.W_OURS
+    blend = (P.BLEND.replace("__W_OURS__", repr(w)).replace("__OURS_ALONE__", repr(alone))
+             .replace("__BUILT_FROM__", "fixture"))
     return tuple(c.replace("/kaggle/working", str(tmp / "working")).replace("/tmp/ortho_sub", str(tmp / "ortho_sub"))
                  for c in (stage, blend))
 
@@ -50,9 +52,9 @@ def world(tmp: Path, n: int, seed: int = 0, agree: float = 0.7) -> tuple[pd.Data
     return pub, ours, bad
 
 
-def run(tmp: Path, ours_src: str, elapsed_h: float = 0.5, read: bool = False) -> dict:
+def run(tmp: Path, ours_src: str, elapsed_h: float = 0.5, read: bool = False, alone: bool = False) -> dict:
     g = {"NB_T0": time.time() - elapsed_h * 3600, "DATA": tmp / "data"}
-    stage, blend = cells(tmp, ours_src, read)
+    stage, blend = cells(tmp, ours_src, read, alone)
     exec(compile(stage, "stage", "exec"), g)
     exec(compile(blend, "blend", "exec"), g)
     return g
@@ -136,6 +138,28 @@ with tempfile.TemporaryDirectory() as d:
     g = run(tmp, OK_SRC, read=True)
     assert g["OURS_OK"] and (tmp / "working" / "public_plus_ours_receipt.json").is_file()
     n_pass += 1
+
+# 3c. ours alone (--ours-alone, with --read): the submission is our ranks exactly; one unbuilt study raises
+with tempfile.TemporaryDirectory() as d:
+    tmp = Path(d)
+    pub, ours, bad = world(tmp, 400)
+    (tmp / "ortho_sub" / "preds_0.timing.json").unlink()
+    run(tmp, OK_SRC, read=True, alone=True)
+    out = pd.read_csv(tmp / "working" / "submission.csv", dtype={"StudyInstanceUID": str})
+    o = ours.set_index("StudyInstanceUID").reindex(pub.StudyInstanceUID)
+    for c in L:
+        assert np.allclose(out[c].to_numpy(), o[c].rank(pct=True).to_numpy(float), atol=1e-12), c
+    n_pass += 1
+with tempfile.TemporaryDirectory() as d:
+    tmp = Path(d)
+    world(tmp, 400)
+    try:
+        run(tmp, OK_SRC, read=True, alone=True)
+    except RuntimeError as e:
+        assert "public rank" in str(e)
+        n_pass += 1
+    else:
+        raise AssertionError("ours alone kept two studies on the public rank")
 
 # 4. the deadline patch: _owait kills a subprocess that runs past _O_DEADLINE
 patched = P.with_deadline(B.OURS)
