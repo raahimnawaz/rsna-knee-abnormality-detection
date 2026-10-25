@@ -2367,3 +2367,17 @@ there for the owner to discard. Nothing sent.
   `[+KDC] ARMS`. **SUBMITTED (late): O10 `57603339`, OWN `57603340`; all four pending.**
 - **13:46 PDT: L3 `57602899` and OWN `57603340` ERROR, "A system error. Please try resubmitting"** (Kaggle's side;
   nothing raised in our cells). Both resubmitted unchanged (same kernel version 1). G5 / O10 still pending.
+
+## 10-24 20:05 PDT: L3, G5, O10 read (late; private shown at once); OWN resubmit `57606410` pending
+
+| submission | public | private | read by its rule (b3a61c2 / 7933cb5) |
+|---|--:|--:|---|
+| **L3** `57606408` (resubmit of `57602899`, Kaggle system error) = L1 with the five teacher gold soups | 0.961 | **0.945** | vs L1 0.944: **+0.001 → gold in image training helps** (one tick, the rule's minimum); ties L2 as our best private |
+| **G5** `57602904` = the five teacher gold soups ALONE + de-bias | 0.953 | **0.942** | vs teacher_v1 x5 alone 0.938: **+0.004 → the label package (gold + de-bias) helps our models alone** |
+| **O10** `57603339` = teacher + consensus gold soups ALONE + de-bias | 0.953 | 0.941 | vs G5 0.942: **−0.001 → the consensus half costs** on our own stack |
+
+- **G5 is our best model with no public weights: 0.942 private**, one tick under the bronze line (0.943) and level with
+  the public 0.958 notebooks' own private reads (0.942–0.943). Our previous best own-only was 0.938.
+- L3 matches the 10-13 estimate (≤ +0.001). O10 below G5 repeats the 10-13 finding that consensus labels are the
+  weaker family (x5 0.932 vs teacher 0.938); gold fine-tuning did not close it.
+- OWN (`57603340` system error, resubmitted as `57606410`) is read against O10 when it scores.
