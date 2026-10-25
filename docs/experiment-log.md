@@ -2381,3 +2381,24 @@ there for the owner to discard. Nothing sent.
 - L3 matches the 10-13 estimate (≤ +0.001). O10 below G5 repeats the 10-13 finding that consensus labels are the
   weaker family (x5 0.932 vs teacher 0.938); gold fine-tuning did not close it.
 - OWN (`57603340` system error, resubmitted as `57606410`) is read against O10 when it scores.
+
+## 10-24 evening: who published (private board, write-ups read in the browser)
+
+- **1st Team Kangaroo 0.960** — LLM *agents* (codex exec / claude -p) read every training study's images + report, plus
+  agent-drawn ROI boxes (751 studies) and lesion boxes (1,800); ROI detector → box pooling per finding; per-series
+  ConvNeXt-T. **Code public:** `tascj0/rsna-2026-knee-{side-classifier,roi-detector,box-pooling-classifier}`,
+  inference `tascj0/knee-final-20261022`, labels `tascj0/rsna-2026-knee-agent-labels`.
+- **2nd MURAD 0.960** — report LLM 0.899 → image LLM (GPT-6 Astra, every slice) 0.942 → + own OOF 0.956 on the 58;
+  six 2.5D MIL models, hand rank blend. **Code:** github `azamat1ch/rsna-knee-2nd-place`, `azamat1ch/rsna-knee-2nd-place-predict`.
+- **5th RB & Matheus & Tucker & Tony 0.958** — calibrated public report labels + vision-LLM slice reads + OOF;
+  bone-segmentation-placed compartment crops; OAI used (cited). Write-up only, no code of their own linked.
+- **7th Barry 0.957** — one model (public #1 0.970), no external training data; GPT-6 Astra reads with images, per-hospital
+  Synovitis fix. **Labels + inference public:** `songqizhou/rsna-knee-llm-labels`, `songqizhou/rsna-knee-7th-place-inference`.
+- **8th joinT fusion 0.957** — 168-slice cache, 5 acquisition groups, global + local features. **Code:** github
+  `TomokiHirose/rsna_2026_8th_place_solution`, models `wadakoki/rsna-knee-model`.
+- 3rd DataTech Club, 4th Ilya Kolb, 6th CentralyDS, 9th Parag & Ian & Dieter & CroDoc, 10th MEJAL: no write-up yet.
+- Also: 21st Driz Lo (labels `drizlo/rsna-knee-mri-llm-soft-labels`), 22nd matsurih (no public weights; blocks the
+  medial→lateral shortcut with a one-compartment classifier — our 10-18 OA-ness coupling finding, solved
+  structurally; readings `matsurihime/rsna-knee-llm-readings`), 32nd, 33rd, 38th, 49th, Chris Deotte 243rd.
+- **The common lever at the top: image-reading LLM labels for the training set** (0.94+ on the 58 vs ~0.90 for
+  report-only). Our labels were report-only + an image teacher; that is the gap.
