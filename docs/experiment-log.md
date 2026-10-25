@@ -2402,3 +2402,5 @@ there for the owner to discard. Nothing sent.
   structurally; readings `matsurihime/rsna-knee-llm-readings`), 32nd, 33rd, 38th, 49th, Chris Deotte 243rd.
 - **The common lever at the top: image-reading LLM labels for the training set** (0.94+ on the 58 vs ~0.90 for
   report-only). Our labels were report-only + an image teacher; that is the gap.
+- **20:12 PDT: OWN `57606410` (resubmit) = 0.954 / 0.941.** vs O10 0.941: **equal → KDC on Lateral OA adds nothing on
+  our own stack** (nothing shown). All four late arms read; best own-only stays **G5 0.942**, best overall L2 = L3 0.945.
