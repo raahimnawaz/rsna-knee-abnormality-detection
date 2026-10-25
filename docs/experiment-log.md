@@ -2439,3 +2439,5 @@ there for the owner to discard. Nothing sent.
 - **Public now and usable for a late test of "labels are the lever" on our own pipeline:** 1st's agent labels
   `tascj0/rsna-2026-knee-agent-labels`, 7th's every label version `songqizhou/rsna-knee-llm-labels`, 22nd's
   `matsurihime/rsna-knee-llm-readings`, 21st's `drizlo/rsna-knee-mri-llm-soft-labels` (licences not yet checked).
+- **Page with each team's flowchart and process:** https://claude.ai/artifact/UixWMtiwZMapduDT5CJ167 ("RSNA Knee Winning
+  Pipelines"; source ~/rsna-knee-work/2026-10-24/rsna-knee-winning-pipelines.html).
