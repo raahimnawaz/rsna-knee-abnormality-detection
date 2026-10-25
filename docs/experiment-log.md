@@ -2404,3 +2404,38 @@ there for the owner to discard. Nothing sent.
   report-only). Our labels were report-only + an image teacher; that is the gap.
 - **20:12 PDT: OWN `57606410` (resubmit) = 0.954 / 0.941.** vs O10 0.941: **equal → KDC on Lateral OA adds nothing on
   our own stack** (nothing shown). All four late arms read; best own-only stays **G5 0.942**, best overall L2 = L3 0.945.
+
+## 10-24 night: how the top solutions did it, read in their write-ups and code (repos cloned to ~/rsna-knee-work/2026-10-24/top-solutions/, read only)
+
+- **The lever was labels, and the labels came from an LLM reading the IMAGES.** On the 58: report-only LLM ~0.90
+  (2nd 0.899, 7th .89–.91); image + report read 0.935–0.947; + own OOF teachers 0.952–0.956. 2nd's own board
+  history: ResNet-50 on report labels 0.829 private → **image-read labels 0.904 (+0.075, one change)** → CoAtNet
+  0.934 → … 0.960. 5th: better labels +0.008 private, anatomy crops +0.003, everything else ≤ 0.001.
+- **What made the image read work** (2nd `configs/labels/expert.md`, 7th's three reads): every slice (a pilot on 44 of
+  134 slices said "images don't help"; all slices said +0.043); panels labelled with series, slice rank, mm position,
+  patient directions; observations by region BEFORE any score; the report given as "a colleague's read with known
+  gaps" / "a draft that may contain errors" (7th's verification read .947, the best single read); distinct 0–100
+  values; never show the expert answers (it copies them; a rule it wrote from them scored 0.80 blind). Cost:
+  subscription CLIs in headless mode (`codex exec`, `claude -p`), not per-token API; 2nd ~80 s per exam, 15 parallel.
+- **Structured label fixes found on the 58, all finding-specific:** PF OA keeps half the report value (reports name
+  patellar cartilage damage, experts call it PF OA; the image read pushed it down); a blind lateral-half read for
+  Lateral OA (0.856 → 0.898); "unclear" PF OA → floor 0.8 (12/12 positive); per-hospital Synovitis logit shift
+  (7th: the word's use is a site habit; our header de-bias attacks the same thing); low-grade MCL and small
+  effusions graded down (5th). "Not mentioned" is its own state everywhere.
+- **Teachers mixed back at 0.3–0.6**, calibrated so prevalence does not move (7th rank-maps, 8th isotonic per fold);
+  a teacher of a different architecture added more than a better one of the same kind (2nd).
+- **Inputs over backbones:** every slice (2nd: 4 → 15 triplets per series +0.033 on the 58), knee- or bone-anchored
+  crops from native pixels (5th nnU-Net from TotalSegmentator; 1st an agent-labelled ROI detector + box pooling
+  so each finding reads only its anatomy), left knees mirrored. ConvNeXt-T is enough; ensembles added ≤ 0.002 and
+  7th's best single model beat its ensemble on private.
+- **Validation discipline matches ours:** OOF against own labels cannot judge a label change (all say it); the 58
+  is ±0.02 — 2nd tuned on 24 and froze, scored the other 34 once; fixed blend weights beat searched ones by 0.002–0.007
+  on held-out; paired LB submissions differing in one change (7th).
+- **Where we went wrong, measured against this:** our labels were report readers + an OAI image-model teacher; we
+  never ran an image-reading LLM over the training studies (the Qwen VLM route was cut 10-19 without a full-slice
+  read). Most of our weeks went to blending public notebooks. Right calls they confirm: the OA-ness shortcut
+  (22nd blocks it with a one-compartment classifier), site/header bias, rules before runs, 58 as a check not a
+  selector.
+- **Public now and usable for a late test of "labels are the lever" on our own pipeline:** 1st's agent labels
+  `tascj0/rsna-2026-knee-agent-labels`, 7th's every label version `songqizhou/rsna-knee-llm-labels`, 22nd's
+  `matsurihime/rsna-knee-llm-readings`, 21st's `drizlo/rsna-knee-mri-llm-soft-labels` (licences not yet checked).
