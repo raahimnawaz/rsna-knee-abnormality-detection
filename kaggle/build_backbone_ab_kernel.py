@@ -397,6 +397,8 @@ def main() -> None:
                     "by sha256 under --init-kernels) on every report study + the graded 58 at their grades; "
                     f"{' '.join(GOLD_FT_ARGS)}; pinned to the finals' image")
     ap.add_argument("--init-kernels", default="", help="kernels holding the --gold-finetune checkpoints, comma-joined")
+    ap.add_argument("--finals-image", action="store_true", help="pin the finals' image, where the gold fine-tune and "
+                    "the submissions run (a run on Kaggle's latest image can differ by its library versions)")
     ap.add_argument("--n-train", type=int, default=N_TRAIN,
                     help=f"seeded draw from the pool ({N_TRAIN} = the A/B count); 0 = the whole pool")
     a = ap.parse_args()
@@ -519,7 +521,7 @@ def main() -> None:
             "competition_sources": ["rsna-knee-abnormality-detection"], "model_sources": []}
     if mode != "smoke" and not a.cpu:
         meta["machine_shape"] = "NvidiaTeslaT4"
-    if gold_ft:
+    if gold_ft or a.finals_image:
         meta["docker_image"] = FINALS_IMAGE
     (a.out / "kernel-metadata.json").write_text(json.dumps(meta, indent=2), encoding="utf-8")
     print(f"built {a.out / (slug + '.ipynb')}  arch={a.arch} corpus={a.corpus} "
