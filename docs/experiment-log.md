@@ -2506,3 +2506,7 @@ there for the owner to discard. Nothing sent.
 
 Estimate, not a rule: S1 0.947–0.955 (the top teams' label jumps, scaled down because our teacher already carried an
 image model's view through teacher_v1).
+
+- **Uploaded 11-24 12:52 PST:** new version of `raahimnawaz/rsna-knee-student-targets` (still private): 10 files, the
+  nine earlier ones byte-identical to the version before (the seven also kept in `data/student/` checked by sha256),
+  plus `targets_imgread_v1.csv`, read back from Kaggle with sha256 `0921f966…`. Next: the owner's go for step 1 (GPU).
