@@ -2438,6 +2438,71 @@ there for the owner to discard. Nothing sent.
   selector.
 - **Public now and usable for a late test of "labels are the lever" on our own pipeline:** 1st's agent labels
   `tascj0/rsna-2026-knee-agent-labels`, 7th's every label version `songqizhou/rsna-knee-llm-labels`, 22nd's
-  `matsurihime/rsna-knee-llm-readings`, 21st's `drizlo/rsna-knee-mri-llm-soft-labels` (licences not yet checked).
+  `matsurihime/rsna-knee-llm-readings`, 21st's `drizlo/rsna-knee-mri-llm-soft-labels`
+  (licences checked 11-24: 1st, 21st, 22nd CC BY 4.0; 7th CC BY-NC-SA, see 11-24).
 - **Page with each team's flowchart and process:** https://claude.ai/artifact/UixWMtiwZMapduDT5CJ167 ("RSNA Knee Winning
   Pipelines"; source ~/rsna-knee-work/2026-10-24/rsna-knee-winning-pipelines.html).
+
+## 11-24 12:55 PST: late test "our best model, the best labels" — labels built, rules written before any GPU run (owner: "what would happen if we took our best model and used the best possible labels on it"; competition closed, late private reads only, rank unchanged)
+
+**Measured first, CPU only** (scratch scripts `~/rsna-knee-work/2026-11-24/score_vs_top_labels.py`, `check_avg_labels.py`):
+
+- **The published image reads against the 58:** 1st (tascj0) 0.943, 21st (drizlo) 0.935, 22nd (matsurihime
+  `astra_image__`) 0.929. 1st's reading guide was learned FROM the 58, so its number flatters it. 7th's files leave
+  the 58 out.
+- **Our OOF against the mean of four image reads** (1st, 7th verification, 21st, 22nd; the 58 excluded; ±0.002 at
+  4,348): teacher x5 **0.953**, teacher + consensus rank mean 0.949, consensus x5 0.942. Fold 0 only (847): teach2
+  0.948 (= the teacher on the same studies), dense 0.939, dread 0.933; c6 / cnntest 0.89–0.91, port repro 0.83. Weak
+  four on K's 2,586 studies: teacher 0.919, K 0.915, consensus 0.899, KDC 0.892 (the order the report labels gave).
+  The ranking is the same under all eight references.
+- **Traps:** `fusion/runs_coatnet_oai_teacher_pa/runs_coatnet/oof_all.csv` is NOT out-of-fold (the public Raptor
+  all-data checkpoint, inference only, `n_train` 2): its 0.967 is in-sample. `runs_nyu_teacher` reads 0.585 under every
+  reference: probably a column mapping, not looked into.
+- **Averaging the reads beats any one read**, judged by 7th's reads (independent of all three; 4,349 studies): 7th
+  image-only 0.921 vs best single 0.917, 7th verification 0.982 vs 0.979. Picking a reader per finding (22nd on ACL,
+  21st / 22nd on Fracture) is worth ≤ 0.0005 macro: not taken. Probability vs rank mean: a tie, probabilities kept.
+- **Backbones in the top finals** (read in their code): 1st ConvNeXt-T + MambaOut-Base+ + MaxxViT-v2-Base; 2nd
+  ConvNeXt / CoAtNet / ResNet / EfficientNetV2 (DINOv2-S tried and dropped: ρ 0.867 with its CoAtNet); 7th
+  ConvNeXt-T / S + EfficientNetV2-S; 8th CoAtNet + ResNet-18. No foundation model in any final: ours is the same class.
+
+**The labels: `targets_imgread_v1`** (`labeling/build_image_read_targets.py`, sidecar `.json`; sha256
+`0921f966ba270c053a3834c7fa84acb8d51f0ddb03fe6f9c473842a94e26af0a`):
+
+- The mean of the three image reads, 4 decimals, on the 4,349 non-graded studies (the same set as `targets_teacher_v1`).
+  The 58 are left out, as in every earlier table: they enter through the gold fine-tune, as in G5 / L3.
+- One cell from two reads: Effusion of N0236 (`…26536992…`, an arthrogram; 21st left it blank; their training used a
+  manual 0.99, we do not).
+- **Not-broken check on the 58: 0.941** (the reads 0.943 / 0.935 / 0.929). Judges: 0.921 / 0.982 (above).
+- Against `targets_teacher_v1`: share ≥ 0.5 falls on the OA findings and Synovitis (Lateral OA 6.0 % vs 13.2 %, PF OA
+  18.2 % vs 32.6 %, Medial OA 15.7 % vs 23.0 %, Synovitis 18.6 % vs 28.9 %); Spearman 0.65 (Fracture), 0.68
+  (Synovitis) to 0.93 (Medial Meniscus).
+- **The OA-ness coupling (10-18) is largely gone from the yes/no calls:** phi Lateral~Medial OA 0.14 (teacher_v1 0.41;
+  the reads on the 58 0.36 vs the experts 0.32), PF~Medial 0.30 (0.49), Lateral~PF 0.23 (0.38). The soft values still
+  move together (Spearman Lateral~Medial 0.75 vs 0.76).
+- **Credit:** 1st Team Kangaroo `tascj0/rsna-2026-knee-agent-labels` (CC BY 4.0); 21st Driz Lo
+  `drizlo/rsna-knee-mri-llm-soft-labels` (CC BY 4.0; write-up "21st place solo gold solution, LLM soft labels"; our
+  changes: averaged with two other reads, their blank kept blank, the 58 not used); 22nd matsurihime
+  `matsurihime/rsna-knee-llm-readings` (CC BY 4.0, `astra_image__` columns only). 7th
+  `songqizhou/rsna-knee-llm-labels` (CC BY-NC-SA) judges only and never enters a target.
+
+**The runs and the rules, written before any of them** (owner's go for GPU and submissions still to be asked):
+
+1. **Teacher retrain on `targets_imgread_v1`:** `kaggle/build_backbone_ab_kernel.py` with the teacher folds' arguments,
+   `--targets data/student/targets_imgread_v1.csv --targets-from raahimnawaz/rsna-knee-student-targets`, new tags
+   (`imgr1`: fold 0, folds 1–2, folds 3–4). Before any push the notebook is diffed against a rebuilt teacher notebook:
+   only the targets' name and sha may differ (same split, seed, 12 epochs). ~10 GPU-h. A fold is usable at 12/12
+   epochs and 0 tracebacks; its held-out macro is report only (a label change: the board judges).
+2. **Gold fine-tune** of the five new folds with L3's settings (`--gold-finetune`, 38 repeats, soup 0.25 toward the
+   fold's own weights); each passes the existing `NOT_BROKEN` check. ~2.5 GPU-h.
+3. **S1** = G5's build (ours alone + header de-bias) with the new soups, read against G5 **0.942**: helps at **≥ 0.945**;
+   ≤ 0.941 says the labels did not help our model; in between a lean, nothing claimed.
+4. **S2** = L3's build (the 0.958 base + KDC on Lateral OA 0.30 + header de-bias) with the new soups, against L3
+   **0.945**: helps at **≥ 0.946**.
+5. **S3** = S2 without the header de-bias cell (it fixed a site habit in REPORT wording); and only if S1 ≥ 0.945, our
+   share 0.50 on the eight / 0.25 on the weak four instead of 0.25 / 0.10 (L2's share, already read on the board).
+   Against S2: helps at ≥ +0.001.
+6. S1 and S2 go together; S3 is built after S1 reads. No other submission from these weights and no weight chosen on
+   the board. Budget ~13–14 of the week's 30 GPU-h.
+
+Estimate, not a rule: S1 0.947–0.955 (the top teams' label jumps, scaled down because our teacher already carried an
+image model's view through teacher_v1).
