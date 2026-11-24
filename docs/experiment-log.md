@@ -2510,3 +2510,30 @@ image model's view through teacher_v1).
 - **Uploaded 11-24 12:52 PST:** new version of `raahimnawaz/rsna-knee-student-targets` (still private): 10 files, the
   nine earlier ones byte-identical to the version before (the seven also kept in `data/student/` checked by sha256),
   plus `targets_imgread_v1.csv`, read back from Kaggle with sha256 `0921f966…`. Next: the owner's go for step 1 (GPU).
+
+## 11-24 13:05 PST: teacher retrain on `targets_imgread_v1` RUNNING (owner's go: "Yes, start retrain")
+
+**How much better the labels are** (owner asked; `~/rsna-knee-work/2026-11-24/compare_label_quality.py`): teacher_v1
+never covered the 58, so its recipe is rebuilt there approximately (the four report readers that carry the 58,
+averaged, + the CoAtNet OAI teacher at 0.5, rank-mapped as `add_teacher` does). On the 58, paired: report readers
+alone 0.888, **old recipe ~0.926, new 0.941: +0.015** (paired bootstrap 90 % interval +0.004 to +0.027); weak four
+0.861 → 0.895 (Lateral OA 0.79 → 0.85, PF OA 0.92 → 0.95); Medial OA 0.98 → 0.96 and Fracture 0.95 → 0.93 go the
+other way. **Without 1st's read** (its guide was learned on the 58): +0.011. Judged by 7th's reads on the 4,349: +0.017
+(image-only) / +0.019 (verification), a judge of the same kind as the new labels, so it flatters them.
+
+**The run is the October teacher's run with only the labels file changed:**
+
+- Built from the commits that built the teacher (`f87048d` fold 0, `47ff4ed` folds 1–4) in worktrees
+  (`~/rsna-knee-work/2026-11-24/build_from_october.sh`). Rebuilt on `targets_teacher_v1`, those builders reproduce the
+  three October notebooks **byte for byte** (embedded code included); on `targets_imgread_v1` the notebooks differ from
+  the ones that ran only in the 16 lines naming the targets and their sha.
+- Same Docker image digest as the October runs (`…f6b083ad2b2f`, the finals' image; on Kaggle: torch 2.11.0+cu128,
+  timm 1.0.29, as in October's log). Same split: fold sizes 3,528/821, 3,431/918, 3,425/924, 3,510/839 as October's
+  summaries; partition check 691/691.
+- Today's builder gained `--finals-image` (`d62a404`) before the switch to the October builders; unused by this run.
+- **Kernels:** `raahimnawaz/rsna-knee-c7-train-convnext-small-imgr1-f12-cv` and `…-imgr1-f34-cv` pushed 13:05 PST, both
+  RUNNING; the log shows `targets: targets_imgread_v1.csv (…, sha256 0921f966ba270c05)`. `…-imgr1-f0-cv` is pushed
+  by a detached launcher (`~/rsna-knee-work/2026-11-24/launch_f0.sh`, log beside it) when either finishes COMPLETE; it
+  does not push after an error. Estimate: folds 1–4 done ~17:00 PST, fold 0 ~19:00 PST; ~9.5 GPU-h.
+- Next, by the rules above: each fold usable at 12/12 epochs and 0 tracebacks; then the gold fine-tune and the three
+  submissions, each asked for first.
