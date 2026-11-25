@@ -2567,3 +2567,73 @@ other way. **Without 1st's read** (its guide was learned on the 58): +0.011. Jud
 - **Outputs:** `fusion/runs_cnxs_imgr1_f12/`, `…_f34/` (October's committed file set); everything downloaded also in
   `~/rsna-knee-work/2026-11-24/outputs/`. The first download vanished from `fusion/` within a minute (19:22; no git
   action in the reflog, no stash, no process found): re-downloaded and committed. `last.pt` shas: after fold 0.
+
+## 11-25 08:35 PST: the owner's fold decisions; fold 0 and the folds 1–4 gold fine-tune COMPLETE; the chain launched; why the new folds read lower; option B drafted
+
+**Decisions (owner, 11-24 evening, in this session):** "keep fold 1" (its time-budget stop at 96.8 % of the
+schedule, 11-24 19:30 above); "Keep fold 0 too" if it also stopped inside its last epoch. Moot for fold 0: it ran
+12/12.
+
+- **Fold 0 (`…-imgr1-f0-cv`) COMPLETE:** 12/12 epochs, no time-budget stop, 0 tracebacks, `labels_sha256` `0921f966…`,
+  169 min. On the 58 (report only): 0.922 vs October's fold 0 0.929, the same direction as folds 1–4.
+- **The 19:22 deletion (11-24) explained:** another session ("F1 project artifact cleanup") ran
+  `rm -rf fusion/runs_cnxs_imgr1_f12 fusion/runs_cnxs_imgr1_f34` when it cancelled its own download. Two sessions on
+  one checkout collide: commit outputs as soon as they land.
+- **Gold fine-tune of folds 1–4** (`…-gfti1-f1234-cv`, pushed 11-24 19:28 by that session on the owner's go "yes do
+  that"; October's gold fine-tune build, only the targets, init shas and folds changed): COMPLETE, 0 tracebacks;
+  `NOT_BROKEN` PASS on all four (mean Spearman soup vs the fold's own OOF 0.973–0.978). Init `last.pt` (weights-sha
+  v11): f1 `f737bdeb…`, f2 `b868b1d6…`, f3 `e4d43d86…`, f4 `ef39cfb7…`. Soups: f1 `aafaad93…`, f2 `45b0b5dd…`, f3
+  `97e47b04…`, f4 `6be70a8d…`.
+- **The overnight chain never started** (`~/rsna-knee-work/2026-11-24/chain.py`, written by that session: fold 0 →
+  its sha → `gfti1-f0` → `NOT_BROKEN` / `SOUP_SHA` → S1 / S2 via `build_s.sh` (October's G5 / L3 recipe, rebuilt byte
+  for byte) → CPU mount tests → GPU commit runs → submit S1 + S2; any failed check stops it). No `chain.log` at 07:56.
+  **Launched from this session 11-25 08:34 PST** (owner: "Yes, start it"), unmodified, detached under `caffeinate`.
+  Checked first: `kaggle kernels logs` prints the JSON its parser expects; `weights_sha.json` keys end in
+  `…/fold0/last.pt`; a dry build of `gft-f0` (dummy sha, not pushed) differs from the pushed `gft-f1234` only in
+  `FOLD_LIST`, `GOLD_FT`, `BUILT_FROM` (`df17f79` → `e6e4b69`, no code between) and the init kernel; the submit slug
+  lists the October late submissions.
+
+**Why the new folds read lower on the 58** (owner asked; `~/rsna-knee-work/2026-11-24/why_lower.py`). Held-out
+Spearman on folds 1–4 (3,502 studies, the same split for both models), macro:
+
+| | old labels (teacher_v1) | new labels (imgread_v1) |
+|---|---:|---:|
+| old model | 0.781 | 0.768 |
+| new model | 0.720 | 0.777 |
+
+The old model already predicts the reads almost as well as the model trained on them: the reads taught it little,
+and it gave up part of what the old labels carried. Half of every old value came from `nartaa`'s OAI-trained CoAtNet
+(in-sample on our studies), the other half from report reads. The biggest losses on the 58 (PF OA −0.027, Lateral OA
+−0.025) are the findings where the top teams found the image reads wrong and fixed them. The 11-24 label check (+0.015
+on the 58) flattered the reads: 1st's guide was learned on the 58, and 7th's reads judge with the same kind of
+reader. 2nd place found the same ceiling (`azamat1ch/rsna-knee-2nd-place`, `docs/labels.md`): "the labels outscore
+the models on the 58"; their Lateral OA labels rose +0.043 and the models did not follow; their teacher mix moved the
+public board 0.960 → 0.961.
+
+**What the top teams trained on** (their labels, on the 58, their numbers): report reads ~0.90 → image reads
+0.935–0.947 → finding fixes (2nd: PF OA = 0.5 x image + 0.5 x report read, 0.942 → 0.944; a blind lateral-half read for
+Lateral OA, 0.948) → their own teachers mixed back (2nd: label share 0.7 on ACL, MCL, both menisci, PF OA, Lateral OA,
+0.4 on the rest, five teacher architectures; 0.956). We trained on the image reads alone, the stage before the fixes
+and the mix.
+
+**Option B drafted** (owner: "Yes, draft them"; CPU only; `labeling/build_imgread_mix_targets.py`; the rules below
+were first written as `~/rsna-knee-work/2026-11-25/option-b/RULES.md` at ~08:00, before the build):
+
+- **`targets_imgread_mix_v1`** (4,349 studies, sha256 `b43171407b8eb87deac03a54f88be1d6de0d45406a2255e4ebfafa2698ef37d5`): the reads; PF OA = 0.5 x reads + 0.5 x
+  `targets_consensus_v2` (our report read, teacher_v1's report half); then y = w x base + (1 − w) x T, T = the October
+  teacher's five-fold held-out predictions rank-mapped per finding onto the base (`on_base_ties`, so each finding keeps
+  the base's mean; 2nd mixed raw, but its teachers were trained on its own labels), w = 0.7 on ACL, MCL, both menisci,
+  PF OA, Lateral OA, 0.4 on the rest (2nd's shares). Not copied: the blind lateral read, the "unclear" PF OA floor,
+  five teacher families (we have one).
+- **Not broken on the 58 (report only, threshold set before): 0.951 ≥ 0.926, PASS** (reads alone 0.941, the old
+  teacher alone 0.931). Leans optimistic: 1st's guide and 2nd's shares were both found on the 58.
+- **Seen, not acted on:** with our report read the PF OA fix LOWERS PF OA on the 58 (0.952 → 0.940; option B 0.931),
+  where 2nd's raised theirs. Kept: dropping it now would be a choice made on 21 positive studies, and the reads-only
+  model still lost PF OA. Owner's call before any run.
+- **The run, each step on the owner's go:** upload to `rsna-knee-student-targets` (older files byte-identical, read
+  back by sha); retrain x5 from the October commits with the time budget raised to 4.0 h per fold (a stop, not the
+  math); gold fine-tune with L3's settings; **B1** = G5's build vs G5 **0.942** (helps at **≥ 0.945**, ≤ 0.941 no) and
+  vs S1 (the mix adds at **≥ S1 + 0.003**, ±0.002 a tie); **B2** = L3's build only if B1 ≥ 0.945, vs L3 **0.945**
+  (helps at **≥ 0.946**). ~21–23 GPU-h: after the weekly reset (Fri 16:00 PST).
+- **Credit:** 2nd place MURAD (`azamat1ch/rsna-knee-2nd-place`, CC BY-NC 4.0) for the PF OA rule and the teacher
+  shares, re-implemented from their `docs/labels.md`, no code copied; the reads as on 11-24 (CC BY 4.0).
