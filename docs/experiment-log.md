@@ -2537,3 +2537,33 @@ other way. **Without 1st's read** (its guide was learned on the 58): +0.011. Jud
   does not push after an error. Estimate: folds 1–4 done ~17:00 PST, fold 0 ~19:00 PST; ~9.5 GPU-h.
 - Next, by the rules above: each fold usable at 12/12 epochs and 0 tracebacks; then the gold fine-tune and the three
   submissions, each asked for first.
+
+## 11-24 19:30 PST: folds 1–4 COMPLETE; fold 1 stopped in its last epoch; the 58 read the other way (report only)
+
+- **Both kernels COMPLETE** (`…-imgr1-f34-cv` ~19:01, `…-imgr1-f12-cv` by 19:19, ~6 h each, not the ~4 h estimated).
+  The launcher pushed `…-imgr1-f0-cv` at 19:01; RUNNING.
+- **Checks:** 0 tracebacks; the only warnings are the two October's log also has (nbformat `MissingIDFieldWarning`, DDP
+  "grad strides"); the DDP weight checksum is equal across ranks in all four folds; each `summary.json` carries
+  `labels_sha256` `0921f966…`.
+- **Fold 1 did not finish its schedule:** "stopped early: time budget at epoch 11 iter 545": 5,124 of 5,292 optimizer
+  steps (96.8 %). OneCycle's LR at the stop was 0.34 % of peak; the 168 missing steps carry 0.19 peak-LR steps of
+  2,661 (0.007 %). Folds 2–4 ran 12/12. Rule 1 says 12/12, so fold 1 misses its letter: **owner's call**, keep it with
+  this note or re-run fold 1 alone with a larger `--time-budget-h` (~3.3 GPU-h; the budget is a stop, not part of the
+  math).
+- **Why slower (same code, same image):** data wait 20–26 % of step time vs 1 % in October; first epoch 14.5–27.1 min vs
+  7.9–8.5; eval 0.88–1.26 s/study vs 0.66–0.75. Kaggle's input reads are slower than in October. Wall per fold
+  171–195 min vs 105–112. Fold 0 (3,502 train, the same 3.0 h budget, a cold session like fold 1) may also stop in its
+  last epoch.
+- **On the 58, report only, never a gate** (`~/rsna-knee-work/2026-11-24/compare_gold58_folds.py`): the new folds 1–4
+  (mean of the four) **0.926 vs the October folds 0.933: −0.007** (paired bootstrap 90 % −0.016 to +0.002); weak four
+  −0.014 (−0.036 to +0.007). Every fold is lower (−0.005 to −0.010; they share the 58, so not four independent reads).
+  Losses: MCL −0.027 (9 positives), PF OA −0.027, Lateral OA −0.025, Lateral Meniscus −0.012; gains: Synovitis +0.010,
+  Effusion +0.004. The last-3 averages read the same (−0.007). **Labels better on the 58 (+0.015) did not give models
+  better on the 58.** One reading, not tested: teacher_v1's half from an image model (the CoAtNet OAI teacher) is
+  easier for an image student to learn than LLM reads; the top teams mixed their own model's predictions into the reads
+  at 0.3–0.6 (option B, not taken). **The S1 estimate 0.947–0.955 is withdrawn.** The board still decides, by rules
+  3–5; the gold fine-tune trains on the 58, so this is the last clean local read.
+- **GPU:** ~12 h so far + fold 0 (~3.3 h) ≈ 15.4 of the week's 30 (planned ~10).
+- **Outputs:** `fusion/runs_cnxs_imgr1_f12/`, `…_f34/` (October's committed file set); everything downloaded also in
+  `~/rsna-knee-work/2026-11-24/outputs/`. The first download vanished from `fusion/` within a minute (19:22; no git
+  action in the reflog, no stash, no process found): re-downloaded and committed. `last.pt` shas: after fold 0.
