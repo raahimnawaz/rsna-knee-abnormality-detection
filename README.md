@@ -81,18 +81,49 @@ rerun a failed or late stage leaves the submission it would have improved.
   location-fixed cells of the crops (0.68–0.78), cartilage and meniscus measurements from the segmenter (0.62–0.65),
   further pseudo-label rounds, stronger LLM re-reads of the reports.
 
-## Next steps
+## Future improvements
 
-1. **Option B: the image reads as the top teams trained on them.** They did not train on the raw reads. 2nd place
-   kept half the report's value for PF OA, where the reports name kneecap cartilage damage the image reads underrate,
-   and mixed its own models' predictions back into the labels: 30% on ACL, MCL, both menisci, PF OA and Lateral OA,
-   60% on the other six. The same labels are built here with our folds' held-out predictions
-   (`labeling/build_imgread_mix_targets.py`). Retraining the five folds and fine-tuning them takes ~21–23 GPU hours.
-   Pass mark, set before the run: our folds alone at 0.947 or more, three steps above the image reads alone.
-2. **The final without the header de-bias.** The de-bias removes habits learned from report labels; with our folds
-   now trained on image reads it may no longer help. Pass mark: 0.947 or more. One short GPU run.
-3. **Later:** a second round with the image-read folds as the teacher; KDC retrained on the image-read labels; 1st
-   place's region-of-interest pooling.
+**Where the gap is.** The top private scores were 0.960 (1st and 2nd place) and gold started at 0.954, so the late
+0.946 is 0.008 short of gold. Most of that sits in four findings: on submissions that score one finding at a time,
+our earlier folds read 0.81–0.93 on Lateral OA, PF OA, Synovitis and Lateral Meniscus, about 0.07 below the other
+eight (~0.955). Bringing those four level with the rest would be worth ~0.02, more than the whole gap. Each step
+below targets them, and each runs on Kaggle's free GPU quota.
+
+1. **Train on finished labels, not raw reads.**
+   - *Why:* the top teams never trained on raw image reads. They corrected the findings the reads get wrong (2nd
+     place keeps half the report's value for PF OA, where reports name kneecap cartilage damage the reads underrate,
+     and reads the lateral half of the knee a second time for Lateral OA; 7th adjusts Effusion and Synovitis), then
+     mixed their own models' predictions back in at 30–60%. On the 58 graded studies that lifts their labels from
+     ~0.94 to 0.952–0.956, and 5th place credits better labels with +0.008 on the private board. We have taken only
+     the first step: raw reads, +0.002.
+   - *How:* 7th place posted every stage of its labels, the finished ones included (`8_final_label.csv`, CC BY-NC-SA).
+     Option B rebuilds 2nd place's PF OA rule and mix on our own folds (`labeling/build_imgread_mix_targets.py`; pass
+     mark set before the run: our folds alone at 0.947). 2nd place's own label files are private; only its prompts
+     are public. Each label set costs one retrain of the five folds plus the gold fine-tune, ~20 GPU hours.
+2. **Let each finding read only its own anatomy.**
+   - *Why:* the weak findings are small structures in one compartment, and report-trained models score the three OA
+     compartments as one shared "OA-ness" (KDC, above). 1st place's classifier pools each finding only inside a 3D box
+     around that finding's anatomy (the whole ACL; the patella and trochlea for PF OA), and 5th place's compartment
+     crops were worth +0.003. Our K crops cut fixed regions around two points from an outside segmenter, which found
+     the patella in only about half the studies, and were trained only on report labels, where they tied the main
+     model.
+   - *How:* 1st place posted its boxes (drawn by LLM agents on ~750 studies, plus its detector's 12 boxes for every
+     training series), per-slice lesion boxes, the detector and the classifier. Add box pooling to our model with
+     those boxes, trained on finished labels.
+3. **Make the final mostly ours.**
+   - *Why:* three-quarters of the final (90% on the weak four) is the public ensemble, trained on report labels,
+     which scores 0.942–0.943 on its own; a blend gains little over its parts. 7th place scored 0.957 with a single
+     model.
+   - *How:* once our model alone clearly beats the public ensemble, move most of the weight to it, fixed before the
+     submission.
+4. **The final without the header de-bias.** The de-bias removes habits learned from report labels; with our folds
+   trained on image reads it may no longer help. One short GPU run; pass mark 0.947.
+
+**Not the bottleneck:** bigger backbones or foundation models (no top final used one; ConvNeXt-T was enough) and
+bigger ensembles (they added at most 0.002 at the top, and 7th's single model beat its own ensemble).
+
+**Expected (estimates, not measured):** finished labels +0.002 to +0.006 and box pooling +0.002 to +0.004, about
+0.950 for our own model (0.947–0.954), at roughly one retrain a week on free GPU time.
 
 ## Performance
 
