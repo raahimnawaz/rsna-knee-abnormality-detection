@@ -13,7 +13,7 @@ therefore trained on labels extracted from reports and judged against labels rea
 | submission | private score |
 |---|--:|
 | **Official final**: rank 482 of 6,425 (top 7.5%, bronze-medal range) | **0.943** |
-| **After the close**, with better labels (a late submission, scored but not ranked) | **0.946** |
+| **After the close**, with better labels: would have placed about 167th (top 2.6%) | **0.946** |
 
 **The official final** blends the public ensemble (nartaa's Raptor, heliosli's R6 / R7) with our five ConvNeXt-small
 folds per finding, plus KDC on Lateral OA (below).
