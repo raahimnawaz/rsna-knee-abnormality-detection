@@ -1,21 +1,44 @@
 # RSNA Knee Abnormality Detection
 
-Training and inference code for the [RSNA 2026 Knee Abnormality Detection](https://www.kaggle.com/competitions/rsna-knee-abnormality-detection)
-Kaggle challenge: twelve findings per knee MRI study (ACL, MCL, medial / lateral meniscus, medial / lateral /
+Solo, bronze-medal entry in the [RSNA 2026 Knee Abnormality Detection](https://www.kaggle.com/competitions/rsna-knee-abnormality-detection)
+Kaggle challenge: detect twelve findings per knee MRI study (ACL, MCL, medial / lateral meniscus, medial / lateral /
 patellofemoral OA, effusion, synovitis, Baker's cyst, contusion, fracture), scored by macro AUROC.
 
-The hard part is the labels. 4,407 training studies come with a free-text radiology report; only 58 carry grades read
-from the images. The hidden test (~1,300 studies) is graded from the images. Every model here is therefore trained on
-labels extracted from reports and judged against labels read from pixels.
+**At a glance**
 
-## Results
+- **🥉 Bronze medal, solo:** final rank **482 of 6,425 teams (top 8%)**, 25,599 participants; **0.943 macro AUROC**
+  on the private leaderboard. Our own models alone scored 0.942 private, against 0.943 for the final blend.
+- **Weak labels, strong test:** 4,407 training studies come with a free-text radiology report; only 58 carry grades
+  read from the images. The hidden test (~1,300 studies) is graded from the images, so every model here is trained on
+  report labels and judged against labels read from pixels.
+- **Our own models:** five ConvNeXt-small folds scored 0.949 on the public leaderboard on report labels refined by a
+  teacher model, and 0.945 on report labels alone; a second model, KDC, was built to fix a bias every report-trained
+  model shares (below).
+- **Every submission decided by a rule written before its score was seen**, and every run recorded with that rule in
+  [`docs/experiment-log.md`](docs/experiment-log.md).
+- **A reproducible Kaggle pipeline:** each inference stage verifies its checkpoints by sha256, rebuilds training
+  studies from raw DICOMs and checks they reproduce, and runs under a deadline inside the 9-hour limit.
+
+## Final result
+
+| | submission | private LB |
+|---|---|--:|
+| **Final** | The public ensemble (Raptor + R6 / R7) with our five ConvNeXt-small folds blended in per finding, and KDC on Lateral OA at a 30% rank share (Kaggle ref `57406618`) | **0.943** |
+| After the deadline, not ranked | The final with our folds fine-tuned on the 58 image-graded studies, and a correction that subtracts what scanner and protocol alone predict about the report labels | 0.945 |
+
+The private leaderboard is ~910 of the ~1,300 test studies; there one submission's score varies by about ±0.005 from
+the sample of studies alone, so the late version's +0.002 is not a measured gain.
+
+## Public leaderboard, during the competition
+
+Decisions were made on the public leaderboard (~390 studies), each against a rule written before the score was seen.
 
 | submission | public LB |
 |---|--:|
-| **Main final**: the public 0.958 ensemble (Raptor + R6 / R7) with our five ConvNeXt-small folds blended per finding | **0.957** |
-| Main final + KDC on Lateral OA (below) | scoring |
-| **OAI-free final**: R6 + R7 with our five folds trained only on report labels | **0.954** |
-| Our five folds alone | 0.949 |
+| The public ensemble with our five folds, before KDC (`57378289`) | 0.957 |
+| R6 + R7 with our report-label-only folds; no model trained on the OAI dataset (`57244659`) | 0.954 |
+| Our five folds alone, report labels refined by a teacher (the public OAI-trained CoAtNet) | 0.949 |
+| Our five folds alone, report labels only | 0.945 |
 
 Single-finding probes isolate one finding's AUROC on the image-graded test (every other column held at 0.5):
 
@@ -36,7 +59,7 @@ flowchart LR
     SB --> M1[ConvNeXt-small<br/>per-finding attention over 3-slice windows]
     K --> M2[KDC: same model on the crops,<br/>decoupled Lateral OA / PF OA targets]
     M1 --> B[per-finding rank blend<br/>into the public ensemble]
-    M2 --> B
+    M2 -->|Lateral OA, 30%| B
     B --> S[submission]
 ```
 
@@ -74,12 +97,13 @@ rerun a failed or late stage leaves the submission it would have improved.
   location-fixed cells of the crops (0.68–0.78), cartilage and meniscus measurements from the segmenter (0.62–0.65),
   further pseudo-label rounds, stronger LLM re-reads of the reports.
 
-## Performance
+## Engineering
 
 Training runs DDP on two T4s under fp16 autocast with a fused AdamW, channels-last ConvNeXt kernels tuned by
 `cudnn.benchmark`, pinned-memory loaders and non-blocking copies; losses and gradient norms stay on the device so the
 host never stalls the GPU queue between steps. Inference decodes DICOMs in worker processes, one process per GPU, and
-collects predictions on the device.
+collects predictions on the device. Measured on one epoch against the previous code, training time stayed within the
+variation between Kaggle GPU sessions (16.2 min against 14.6–18.7), so no speedup is claimed.
 
 ## Repository
 
@@ -109,7 +133,7 @@ kaggle kernels push -p build/train
 python fusion/score_oof.py fusion/runs_cnxs_teach1_f0/runs_convnext_small/fold0 \
     fusion/runs_kdc_f0/runs_convnext_small/fold0/avg3
 
-# build the main final with KDC on Lateral OA, and its free CPU mount test
+# build the final (our blend + KDC on Lateral OA), and its free CPU mount test
 python kaggle/build_r6r7_kernel.py $PWD <public notebook dir> build/final --main958 \
     --wheel-pins kaggle/finals_wheel_pins.json --tag main-kdc \
     --k-weights-kernel <kdc kernels> --k-weights-sha <sha256s> --k-mix "Lateral OA=0.30"
