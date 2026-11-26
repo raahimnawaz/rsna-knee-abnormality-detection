@@ -2637,3 +2637,43 @@ were first written as `~/rsna-knee-work/2026-11-25/option-b/RULES.md` at ~08:00,
   (helps at **≥ 0.946**). ~21–23 GPU-h: after the weekly reset (Fri 16:00 PST).
 - **Credit:** 2nd place MURAD (`azamat1ch/rsna-knee-2nd-place`, CC BY-NC 4.0) for the PF OA rule and the teacher
   shares, re-implemented from their `docs/labels.md`, no code copied; the reads as on 11-24 (CC BY 4.0).
+
+## 11-25 17:16 PST: S1 and S2 read — the image reads on our model: alone 0.944 (a lean), in the L3 build 0.946 (helps by the rule, at its threshold; our best private)
+
+**Submitted 11:03 PST** by the chain (`~/rsna-knee-work/2026-11-24/chain.py`, resumed by `chain_resume.py` beside it;
+the full record in `chain.log` there). Fold 0 ran 12/12 (`last.pt` `e07d2f58…`); gold soups f0 `614405da…`, f1
+`aafaad93…`, f2 `45b0b5dd…`, f3 `97e47b04…`, f4 `6be70a8d…`, each `NOT_BROKEN` PASS. The chain stopped itself at 10:35
+on its first S1 mount test: it built mount tests with `late-ours-alone`'s older `notebooks/build_finals_mounttest.py`,
+which has no de-bias check, so the three de-bias lines it requires could never print. Rebuilt with the repo's
+`kaggle/build_finals_mounttest.py` under new `-r2` slugs, the finals unchanged: 8/8 and 9/9 checks. GPU commit runs 14
+and 22 min, 10/10 and 12/12 checks, 0 tracebacks. S1 `58905549` (`raahimnawaz/rsna-knee-sub-ours-imgr1-debias` v1), S2
+`58905555` (`raahimnawaz/rsna-knee-sub-main958-kdc-imgr1-debias` v1); both scored by 17:16, ~6 h after submitting.
+
+| private / public | October soups (teacher_v1) | new soups (imgread_v1) | change | rule (903d3b4) | reading |
+|---|---|---|---|---|---|
+| ours alone + de-bias: G5 → **S1** | 0.942 / 0.953 | **0.944** / 0.956 | +0.002 / +0.003 | helps ≥ 0.945, ≤ 0.941 did not | **in between: a lean, nothing claimed** |
+| L3 build: L3 → **S2** | 0.945 / 0.961 | **0.946** / 0.962 | +0.001 / +0.001 | helps ≥ 0.946 | **helps, at the threshold** |
+
+- **S2 0.946 is our best private score** (L2 and L3 0.945; the official finals 0.943, rank 482 of 6,425, which late
+  submissions do not change; bronze needed 0.943, the gold line was 0.954). Its public 0.962 is also our best (L1, L3
+  0.961).
+- **S1 is our best score from our own model alone** (G5 0.942, O10 and OWN 0.941, the October folds before the gold
+  fine-tune 0.938). With no public model in it, it reads what L1 (the scored final + de-bias) read, 0.944, above the
+  official finals.
+- Both builds rose on both parts of the test set (public and private are disjoint). The S2 margin is the smallest a
+  three-decimal board can show: it counts by the rule written before the run, and nothing larger is claimed.
+- **The 58 pointed the other way.** Before the gold fine-tune the new folds read 0.926 vs October's 0.933 on the 58
+  (fold 0 0.922 vs 0.929); the board, on the fine-tuned soups, read +0.002. A choice made on the 58 would have dropped
+  the reads. The S1 estimate (0.947–0.955, withdrawn 11-24) was too high; the small gain fits the held-out finding that
+  the old model already predicted the reads (Spearman 0.768 vs 0.777, 11-25 08:35).
+
+**Next, by the rules (each needs the owner's go):**
+
+- **S3** (903d3b4, rule 5): S1 < 0.945, so no share change. S3 = S2 without the header de-bias cell, against S2: helps
+  at ≥ 0.947. It tests the de-bias cell, not the labels. A CPU mount test, one GPU commit run (~20 min), one submission.
+- **Option B** (02ee4a4): its thresholds are now numbers. **B1 ≥ 0.947**: the mix adds over the reads alone (S1 +
+  0.003) and helps vs G5; **0.945–0.946**: helps vs G5, ties S1; **0.942–0.944**: nothing claimed; **≤ 0.941**: no
+  help vs G5, below the reads alone. B2 compares with L3 (0.945) as written; S2 (0.946) is now the reads-only arm of
+  the same build, so a B2 at 0.946 only ties it (any added comparison is written before B runs). The PF OA fix stays as
+  drafted: dropping it would be a choice made on the 58's 21 PF OA positives, the set that pointed the wrong way today.
+  ~21–23 GPU-h, after the weekly reset (Fri 16:00 PST).
