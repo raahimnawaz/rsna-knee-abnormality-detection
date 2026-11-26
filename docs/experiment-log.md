@@ -2677,3 +2677,21 @@ and 22 min, 10/10 and 12/12 checks, 0 tracebacks. S1 `58905549` (`raahimnawaz/rs
   the same build, so a B2 at 0.946 only ties it (any added comparison is written before B runs). The PF OA fix stays as
   drafted: dropping it would be a choice made on the 58's 21 PF OA positives, the set that pointed the wrong way today.
   ~21–23 GPU-h, after the weekly reset (Fri 16:00 PST).
+
+## 11-26: what the top teams posted, checked (owner: "can't we use what they did and posted?")
+
+- **7th place posted every stage of its labels** (`songqizhou/rsna-knee-llm-labels`, CC BY-NC-SA; 4,349 studies each,
+  no blanks): `2_read_image_only`, `3_read_verification`, `6_blend_reads_1_2_3`, `7_llm_label`, `8_final_label`.
+  Measured: 6 → 7 changes only Effusion and Synovitis (mean |diff| 0.023 / 0.029); 7 → 8 moves all twelve (mean
+  |diff| 0.010–0.041, ρ 0.91–0.99), the shape of its own model's predictions mixed back in. So finished labels (fixes
+  + teacher mix) are downloadable; our 11-25 chat claim that the fixes need our own image-reading LLM pass was wrong
+  except for 2nd place's blind lateral read.
+- **2nd place's label files are private** (`azamat1ch/rsna-knee-2nd-place-labels`, `isPrivate: true`: study IDs and
+  report quotes); its prompts are public (`configs/labels/{reader,expert,expert-findings,blind-lateral}.md`) and
+  its models dataset is linked from its README.
+- **1st place posted more than its read** (`tascj0/rsna-2026-knee-agent-labels`, README): agent-drawn 3D ROI boxes
+  (one per series and finding around the anatomy, ~750 studies), its detector's 12 boxes for every training series,
+  per-slice lesion boxes (1,800 studies, 111,029 boxes), report embeddings, knee side; plus the detector and
+  box-pooling classifier notebooks. We hold only `labels_astra_trained_guide.csv` locally.
+- **README** (`325abbc`, on main): future improvements with the whys; estimate, not measured: ~0.950 for our own model
+  with finished labels + box pooling (0.947–0.954).
